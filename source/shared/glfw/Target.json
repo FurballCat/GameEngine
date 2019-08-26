@@ -1,0 +1,9 @@
+{
+  "dependecies": [
+  ],
+
+  "dependencies_osx": [
+  ],
+
+  "type": "dynamic_library"
+}

@@ -1,0 +1,22 @@
+{
+	"dependecies":
+	[
+		"core",
+        "platform",
+        "gpu",
+		"renderer",
+        "math",
+        "input",
+		"jobs",
+		"memory",
+		"import",
+		"audio"
+    ],
+    
+    "dependencies_osx":
+    [
+        "macPlatform"
+    ],
+    
+    "type": "dynamic_library"
+}

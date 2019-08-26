@@ -1,0 +1,25 @@
+{
+  "dependecies": [
+    "core",
+    "math"
+  ],
+
+  "dependencies_osx": [
+    "metal",
+    "metalkit"
+  ],
+
+  "dependencies_thirdparty": [
+    "d3dx12"
+  ],
+
+  "excluded_dirs_windows": [
+    "metal"
+  ],
+
+  "excluded_dirs_osx": [
+    "directx"
+  ],
+
+  "type": "dynamic_library"
+}

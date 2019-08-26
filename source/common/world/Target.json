@@ -1,0 +1,11 @@
+{
+	"dependecies":
+	[
+        "core",
+        "memory",
+		"gpu",
+		"math"
+    ],
+    
+    "type": "dynamic_library"
+}

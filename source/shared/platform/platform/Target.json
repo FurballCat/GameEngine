@@ -1,0 +1,14 @@
+{
+	"dependecies":
+	[
+        "core"
+    ],
+    
+    "dependencies_osx":
+    [
+        "metal",
+        "metalkit"
+    ],
+    
+    "type": "dynamic_library"
+}

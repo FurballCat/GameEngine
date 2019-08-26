@@ -1,0 +1,14 @@
+{
+	"dependecies":
+	[
+        "core",
+        "memory"
+    ],
+	
+	"dependencies_thirdparty":
+	[
+		"fmod"
+	],
+	
+    "type": "dynamic_library"
+}

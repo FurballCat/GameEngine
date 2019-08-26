@@ -1,0 +1,12 @@
+{
+	"dependecies":
+	[
+        "core",
+        "gpu",
+        "math",
+		"memory",
+		"import"
+    ],
+    
+    "type": "dynamic_library"
+}

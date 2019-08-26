@@ -1,0 +1,10 @@
+{
+	"dependecies":
+	[
+		"core",
+        "memory",
+        "unitTests"
+    ],
+    
+    "type": "console_application"
+}

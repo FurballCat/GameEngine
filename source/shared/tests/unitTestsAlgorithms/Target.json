@@ -1,0 +1,9 @@
+{
+	"dependecies":
+	[
+		"core",
+        "unitTests"
+    ],
+    
+    "type": "console_application"
+}

@@ -1,0 +1,9 @@
+{
+	"dependecies":
+	[
+        "core",
+        "memory"
+    ],
+    
+    "type": "dynamic_library"
+}
