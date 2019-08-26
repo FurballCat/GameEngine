@@ -99,6 +99,9 @@ DerivedDataCache/*
 *.a
 *.lib
 
+# Compiled shaders
+*.spv
+
 # Executables
 *.exe
 *.out
