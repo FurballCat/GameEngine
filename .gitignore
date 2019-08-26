@@ -123,6 +123,7 @@ DerivedDataCache/*
 intermediate
 binaries
 assets
+thirdparty
 __pycache__
 .*
 
