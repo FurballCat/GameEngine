@@ -204,3 +204,14 @@ void fm_mat4_mul(const fm_mat4* a, const fm_mat4* b, fm_mat4* m)
 	m->w.z = a->w.x * b->x.z + a->w.y * b->y.z + a->w.z * b->z.z + a->w.w * b->w.z;
 	m->w.w = a->w.x * b->x.w + a->w.y * b->y.w + a->w.z * b->z.w + a->w.w * b->w.w;
 }
+
+float fm_clamp(const float value, const float min, const float max)
+{
+	if(value < min)
+		return min;
+	
+	if(value > max)
+		return max;
+	
+	return value;
+}

@@ -28,7 +28,7 @@ typedef struct fm_mat4
 } fm_mat4;
 
 /***** VECTOR *****/
-	
+
 // subtract b from a and save to v
 void fm_vec4_sub(const fm_vec4* a, const fm_vec4* b, fm_vec4* v);
 
@@ -74,6 +74,9 @@ void fm_mat4_transpose(fm_mat4* m);
 
 // multiply matrix a by b and save to m
 void fm_mat4_mul(const fm_mat4* a, const fm_mat4* b, fm_mat4* m);
+
+// clamps value to range min..max
+float fm_clamp(const float value, const float min, const float max);
 	
 #ifdef __cplusplus
 }
