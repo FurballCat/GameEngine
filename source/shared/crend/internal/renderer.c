@@ -85,7 +85,7 @@ const char* fr_get_last_error(void)
 	return g_lastError;
 }
 
-void furSetLastError(const char* error)
+void fur_set_last_error(const char* error)
 {
 	g_lastError = error;
 }
@@ -162,7 +162,7 @@ enum fr_result_t fr_create_app(const struct fr_app_desc_t* pDesc,
 	
 	if(pApp->pWindow == NULL)
 	{
-		furSetLastError("Can't create window.");
+		fur_set_last_error("Can't create window.");
 		return FR_RESULT_ERROR;
 	}
 	
@@ -219,7 +219,7 @@ enum fr_result_t frLoadBinaryFileIntoBinaryBuffer(const char* path, struct FrBin
 		return FR_RESULT_OK;
 	}
 	
-	furSetLastError(path);
+	fur_set_last_error(path);
 	return FR_RESULT_ERROR;
 }
 
@@ -248,7 +248,7 @@ enum fr_result_t frCreateShaderModule(VkDevice device, const char* path, VkShade
 		
 		if (res != VK_SUCCESS)
 		{
-			furSetLastError(path);
+			fur_set_last_error(path);
 			return FR_RESULT_ERROR_SHADER_MODULE_CREATION;
 		}
 		
@@ -374,7 +374,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	struct fr_renderer_t* pRenderer = FUR_ALLOC(sizeof(struct fr_renderer_t), 8, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 	if(!pRenderer)
 	{
-		furSetLastError("Can't allocate renderer.");
+		fur_set_last_error("Can't allocate renderer.");
 		return FR_RESULT_ERROR;
 	}
 	
@@ -413,7 +413,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if(result != VK_SUCCESS)
 		{
-			furSetLastError(frInterpretVulkanResult(result));
+			fur_set_last_error(frInterpretVulkanResult(result));
 			res = FR_RESULT_ERROR;
 		}
 	}
@@ -463,7 +463,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if(!physicalDevice)
 		{
-			furSetLastError("Cannot find suitable GPU device.");
+			fur_set_last_error("Cannot find suitable GPU device.");
 			res = FR_RESULT_ERROR;
 		}
 		
@@ -477,7 +477,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if(result != VK_SUCCESS)
 		{
-			furSetLastError(frInterpretVulkanResult(result));
+			fur_set_last_error(frInterpretVulkanResult(result));
 			res = FR_RESULT_ERROR;
 		}
 	}
@@ -510,7 +510,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if(!extensionsFound)
 		{
-			furSetLastError("Cannot find required extensions");
+			fur_set_last_error("Cannot find required extensions");
 			res = FR_RESULT_ERROR;
 		}
 	}
@@ -537,7 +537,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if(idxQueueGraphics == -1)
 		{
-			furSetLastError("Cannot find graphics device with suitable queue family.");
+			fur_set_last_error("Cannot find graphics device with suitable queue family.");
 			res = FR_RESULT_ERROR;
 		}
 		
@@ -560,7 +560,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if(idxQueuePresent == -1)
 		{
-			furSetLastError("Can't find present queue for surface");
+			fur_set_last_error("Can't find present queue for surface");
 			res = FR_RESULT_ERROR;
 		}
 		
@@ -608,7 +608,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkCreateDevice(physicalDevice, &createInfo, NULL, &pRenderer->device) != VK_SUCCESS)
 		{
-			furSetLastError("Cannot create logical device");
+			fur_set_last_error("Cannot create logical device");
 			res = FR_RESULT_ERROR;
 		}
 		
@@ -666,7 +666,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if(vkCreateSwapchainKHR(pRenderer->device, &createInfo, NULL, &pRenderer->swapChain) != VK_SUCCESS)
 		{
-			furSetLastError("Cannot create swap chain");
+			fur_set_last_error("Cannot create swap chain");
 			res = FR_RESULT_ERROR;
 		}
 		
@@ -705,7 +705,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			
 			if (vkCreateImageView(pRenderer->device, &createInfo, NULL, &pRenderer->aSwapChainImagesViews[i]) != VK_SUCCESS)
 			{
-				furSetLastError("Cannot create swap chain image views");
+				fur_set_last_error("Cannot create swap chain image views");
 				res = FR_RESULT_ERROR;
 			}
 		}
@@ -768,7 +768,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkCreateDescriptorSetLayout(pRenderer->device, &layoutInfo, NULL, &pRenderer->descriptorSetLayout) != VK_SUCCESS)
 		{
-			furSetLastError("Can't create uniform buffer descriptor layout");
+			fur_set_last_error("Can't create uniform buffer descriptor layout");
 			res = FR_RESULT_ERROR_GPU;
 		}
 	}
@@ -779,7 +779,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		const uint32_t uniformBufferSize = sizeof(FrUniformBuffer);
 		for(uint32_t i=0; i<3; ++i)
 		{
-			frCreateBuffer(pRenderer->device, pRenderer->physicalDevice, uniformBufferSize,
+			fr_create_buffer(pRenderer->device, pRenderer->physicalDevice, uniformBufferSize,
 					   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 					   &pRenderer->aUniformBuffer[i], &pRenderer->aUniformBufferMemory[i], pAllocCallbacks);
 		}
@@ -914,7 +914,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkCreatePipelineLayout(pRenderer->device, &pipelineLayoutInfo, NULL, &pRenderer->pipelineLayout) != VK_SUCCESS)
 		{
-			furSetLastError("Can't create pipeline layout");
+			fur_set_last_error("Can't create pipeline layout");
 			res = FR_RESULT_ERROR_GPU;
 		}
 		
@@ -964,7 +964,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkCreateRenderPass(pRenderer->device, &renderPassInfo, NULL, &pRenderer->renderPass) != VK_SUCCESS)
 		{
-			furSetLastError("Can't create render pass");
+			fur_set_last_error("Can't create render pass");
 			res = FR_RESULT_ERROR_GPU;
 		}
 		
@@ -993,7 +993,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->graphicsPipeline) != VK_SUCCESS)
 		{
-			furSetLastError("Can't create graphics pipeline");
+			fur_set_last_error("Can't create graphics pipeline");
 			res = FR_RESULT_ERROR_GPU;
 		}
 	}
@@ -1006,13 +1006,13 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create test geometry vertex buffer
 	if(res == FR_RESULT_OK)
 	{
-		frCreateBuffer(pRenderer->device, pRenderer->physicalDevice, testVertexBufferSize,
+		fr_create_buffer(pRenderer->device, pRenderer->physicalDevice, testVertexBufferSize,
 					   FR_VERTEX_BUFFER_USAGE_FLAGS, FR_VERTEX_BUFFER_MEMORY_FLAGS,
 					   &pRenderer->vertexBuffer, &pRenderer->vertexBufferMemory, pAllocCallbacks);
 		
 		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			frCreateBuffer(pRenderer->device, pRenderer->physicalDevice, testColorVertexBufferSize,
+			fr_create_buffer(pRenderer->device, pRenderer->physicalDevice, testColorVertexBufferSize,
 						   VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 						   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 						   &pRenderer->colorVertexBuffer[i], &pRenderer->colorVertexBufferMemory[i],
@@ -1037,7 +1037,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create test geometry index buffer
 	if(res == FR_RESULT_OK)
 	{
-		frCreateBuffer(pRenderer->device, pRenderer->physicalDevice, testIndexBufferSize,
+		fr_create_buffer(pRenderer->device, pRenderer->physicalDevice, testIndexBufferSize,
 					   VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 					   &pRenderer->indexBuffer, &pRenderer->indexBufferMemory, pAllocCallbacks);
 	}
@@ -1063,7 +1063,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			
 			if (vkCreateFramebuffer(pRenderer->device, &framebufferInfo, NULL, &pRenderer->aSwapChainFrameBuffers[i]) != VK_SUCCESS)
 			{
-				furSetLastError("Can't create frame buffers");
+				fur_set_last_error("Can't create frame buffers");
 				res = FR_RESULT_ERROR_GPU;
 			}
 		}
@@ -1084,7 +1084,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkCreateDescriptorPool(pRenderer->device, &poolInfo, NULL, &pRenderer->descriptorPool) != VK_SUCCESS)
 		{
-			furSetLastError("Can't create descriptor pool for uniform buffers");
+			fur_set_last_error("Can't create descriptor pool for uniform buffers");
 			res = FR_RESULT_ERROR_GPU;
 		}
 	}
@@ -1103,7 +1103,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkAllocateDescriptorSets(pRenderer->device, &allocInfo, pRenderer->aDescriptorSets) != VK_SUCCESS)
 		{
-			furSetLastError("Can't allocate descriptor sets for uniform buffers");
+			fur_set_last_error("Can't allocate descriptor sets for uniform buffers");
 			res = FR_RESULT_ERROR_GPU;
 		}
 		
@@ -1139,7 +1139,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkCreateCommandPool(pRenderer->device, &poolInfo, NULL, &pRenderer->commandPool) != VK_SUCCESS)
 		{
-			furSetLastError("Can't create graphics command pool");
+			fur_set_last_error("Can't create graphics command pool");
 			res = FR_RESULT_ERROR_GPU;
 		}
 	}
@@ -1155,7 +1155,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkAllocateCommandBuffers(pRenderer->device, &allocInfo, pRenderer->aCommandBuffers) != VK_SUCCESS)
 		{
-			furSetLastError("Can't create command buffers");
+			fur_set_last_error("Can't create command buffers");
 			res = FR_RESULT_ERROR_GPU;
 		}
 		
@@ -1169,7 +1169,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			
 			if (vkBeginCommandBuffer(pRenderer->aCommandBuffers[i], &beginInfo) != VK_SUCCESS)
 			{
-				furSetLastError("Can't begin command buffer");
+				fur_set_last_error("Can't begin command buffer");
 				res = FR_RESULT_ERROR_GPU;
 			}
 			
@@ -1206,7 +1206,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			
 			if (vkEndCommandBuffer(pRenderer->aCommandBuffers[i]) != VK_SUCCESS)
 			{
-				furSetLastError("Can't record command buffer");
+				fur_set_last_error("Can't record command buffer");
 				res = FR_RESULT_ERROR_GPU;
 			}
 		}
@@ -1251,13 +1251,13 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		{
 			const uint32_t totalSize = testVertexBufferSize + testIndexBufferSize;
 			
-			frCreateBuffer(pRenderer->device, pRenderer->physicalDevice, totalSize,
+			fr_create_buffer(pRenderer->device, pRenderer->physicalDevice, totalSize,
 						   FR_STAGING_BUFFER_USAGE_FLAGS, FR_STAGING_BUFFER_MEMORY_FLAGS,
 						   &pRenderer->stagingBuffer, &pRenderer->stagingBufferMemory, pAllocCallbacks);
 			
 			// copy geometry data to staging buffer, later on we will copy staging buffer to vertex buffer on GPU side
-			frCopyDataToBuffer(pRenderer->device, pRenderer->stagingBufferMemory, initVertices, 0, testVertexBufferSize);
-			frCopyDataToBuffer(pRenderer->device, pRenderer->stagingBufferMemory, initIndices, testVertexBufferSize, testIndexBufferSize);
+			fr_copy_data_to_buffer(pRenderer->device, pRenderer->stagingBufferMemory, initVertices, 0, testVertexBufferSize);
+			fr_copy_data_to_buffer(pRenderer->device, pRenderer->stagingBufferMemory, initIndices, testVertexBufferSize, testIndexBufferSize);
 		}
 		
 		// release vertices and indices data
@@ -1347,7 +1347,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		if (vkCreateSemaphore(pRenderer->device, &semaphoreInfo, NULL, &pRenderer->imageAvailableSemaphore) != VK_SUCCESS ||
 			vkCreateSemaphore(pRenderer->device, &semaphoreInfo, NULL, &pRenderer->renderFinishedSemaphore) != VK_SUCCESS)
 		{
-			furSetLastError("Can't create render semaphores");
+			fur_set_last_error("Can't create render semaphores");
 			res = FR_RESULT_ERROR_GPU;
 		}
 	}
@@ -1527,8 +1527,8 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		fm_mat4_transpose(&ubo.view);
 		fm_mat4_transpose(&ubo.proj);
 		
-		frCopyDataToBuffer(pRenderer->device, pRenderer->aUniformBufferMemory[imageIndex], &ubo, 0, sizeof(ubo));
-		frCopyDataToBuffer(pRenderer->device, pRenderer->colorVertexBufferMemory[imageIndex], pRenderer->vertexColors[imageIndex], 0, sizeof(FrVector3) * g_numTestVertices);
+		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aUniformBufferMemory[imageIndex], &ubo, 0, sizeof(ubo));
+		fr_copy_data_to_buffer(pRenderer->device, pRenderer->colorVertexBufferMemory[imageIndex], pRenderer->vertexColors[imageIndex], 0, sizeof(FrVector3) * g_numTestVertices);
 	}
 	
 	// draw

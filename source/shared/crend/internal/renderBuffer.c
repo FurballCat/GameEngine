@@ -27,7 +27,7 @@ uint32_t frFindMemoryType(const VkPhysicalDevice physicalDevice, uint32_t typeFi
 	return (uint32_t)-1;
 }
 
-void frCreateBuffer(VkDevice device, VkPhysicalDevice physicalDevice,
+void fr_create_buffer(VkDevice device, VkPhysicalDevice physicalDevice,
 					VkDeviceSize size, VkBufferUsageFlags usage,
 					VkMemoryPropertyFlags properties,
 					VkBuffer* buffer, VkDeviceMemory* bufferMemory,
@@ -60,7 +60,7 @@ void frCreateBuffer(VkDevice device, VkPhysicalDevice physicalDevice,
 	vkBindBufferMemory(device, *buffer, *bufferMemory, 0);
 }
 
-void frCopyDataToBuffer(VkDevice device, VkDeviceMemory dst, const void* src, uint32_t offset, uint32_t size)
+void fr_copy_data_to_buffer(VkDevice device, VkDeviceMemory dst, const void* src, uint32_t offset, uint32_t size)
 {
 	void* data;
 	vkMapMemory(device, dst, offset, size, 0, &data);
