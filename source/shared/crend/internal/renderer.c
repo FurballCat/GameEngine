@@ -270,12 +270,12 @@ typedef struct FrVector2
 typedef struct FrVector3
 {
 	float x, y, z;
-} FrVector3;
+} fr_vec3_t;
 
 typedef struct FrVertex
 {
 	FrVector2 position;
-	FrVector3 color;
+	fr_vec3_t color;
 } fr_vertex_t;
 
 const uint32_t g_numTestVertices = 4;
@@ -362,7 +362,7 @@ struct fr_renderer_t
 	VkDescriptorSet aDescriptorSets[NUM_SWAP_CHAIN_IMAGES];
 	
 	// color buffer
-	FrVector3* vertexColors[NUM_SWAP_CHAIN_IMAGES];
+	fr_vec3_t* vertexColors[NUM_SWAP_CHAIN_IMAGES];
 	
 	float rotationAngle;
 };
@@ -1001,7 +1001,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	const uint32_t numTestVertices = g_numTestVertices;
 	
 	const VkDeviceSize testVertexBufferSize = sizeof(fr_vertex_t) * numTestVertices;
-	const VkDeviceSize testColorVertexBufferSize = sizeof(FrVector3) * numTestVertices;
+	const VkDeviceSize testColorVertexBufferSize = sizeof(fr_vec3_t) * numTestVertices;
 	
 	// create test geometry vertex buffer
 	if(res == FR_RESULT_OK)
@@ -1528,7 +1528,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		fm_mat4_transpose(&ubo.proj);
 		
 		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aUniformBufferMemory[imageIndex], &ubo, 0, sizeof(ubo));
-		fr_copy_data_to_buffer(pRenderer->device, pRenderer->colorVertexBufferMemory[imageIndex], pRenderer->vertexColors[imageIndex], 0, sizeof(FrVector3) * g_numTestVertices);
+		fr_copy_data_to_buffer(pRenderer->device, pRenderer->colorVertexBufferMemory[imageIndex], pRenderer->vertexColors[imageIndex], 0, sizeof(fr_vec3_t) * g_numTestVertices);
 	}
 	
 	// draw
