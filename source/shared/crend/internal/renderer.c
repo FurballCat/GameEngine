@@ -288,7 +288,7 @@ const fr_vertex_t g_testGeometry[g_numTestVertices] = {
 const uint32_t g_numTestIndices = 6;
 const uint16_t g_testIndices[g_numTestIndices] = {0, 1, 2, 2, 3, 0};
 
-typedef struct FrUniformBuffer
+typedef struct fr_uniform_buffer_t
 {
 	fm_mat4_t model;
 	fm_mat4_t view;
