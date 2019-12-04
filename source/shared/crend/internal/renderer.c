@@ -278,9 +278,7 @@ typedef struct FrVertex
 	FrVector3 color;
 } FrVertex;
 
-const uint32_t g_gridSize = 128;
-const float g_grid_cell_size = 3.0f;
-const uint32_t g_numTestVertices = g_gridSize * g_gridSize;
+const uint32_t g_numTestVertices = 4;
 const FrVertex g_testGeometry[g_numTestVertices] = {
 	{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
 	{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
@@ -737,8 +735,9 @@ enum FrResult frCreateRenderer(const struct FrRendererDesc* pDesc,
 		pRenderer->bindingDescription[0].stride = sizeof(FrVertex);
 		pRenderer->bindingDescription[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 		
+		// todo: this one is not used
 		pRenderer->bindingDescription[1].binding = 1;
-		pRenderer->bindingDescription[1].stride = sizeof(FrVector3);
+		pRenderer->bindingDescription[1].stride = sizeof(FrVertex);
 		pRenderer->bindingDescription[1].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 		
 		pRenderer->vertexAttributes[0].binding = 0;
@@ -746,10 +745,10 @@ enum FrResult frCreateRenderer(const struct FrRendererDesc* pDesc,
 		pRenderer->vertexAttributes[0].format = VK_FORMAT_R32G32_SFLOAT;
 		pRenderer->vertexAttributes[0].offset = offsetof(FrVertex, position);
 		
-		pRenderer->vertexAttributes[1].binding = 1;
+		pRenderer->vertexAttributes[1].binding = 0;
 		pRenderer->vertexAttributes[1].location = 1;
 		pRenderer->vertexAttributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		pRenderer->vertexAttributes[1].offset = 0; // offsetof(FrVertex, color);
+		pRenderer->vertexAttributes[1].offset = offsetof(FrVertex, color);
 	}
 	
 	// create descriptor set layout
@@ -999,7 +998,7 @@ enum FrResult frCreateRenderer(const struct FrRendererDesc* pDesc,
 		}
 	}
 	
-	const uint32_t numTestVertices = g_gridSize * g_gridSize;
+	const uint32_t numTestVertices = g_numTestVertices;
 	
 	const VkDeviceSize testVertexBufferSize = sizeof(FrVertex) * numTestVertices;
 	const VkDeviceSize testColorVertexBufferSize = sizeof(FrVector3) * numTestVertices;
@@ -1032,9 +1031,8 @@ enum FrResult frCreateRenderer(const struct FrRendererDesc* pDesc,
 		}
 	}
 	
-	const uint32_t numTrisOnSide = g_gridSize - 1;
-	const uint32_t numIndices = numTrisOnSide * numTrisOnSide * 6;
-	const VkDeviceSize testIndexBufferSize = sizeof(uint16_t) * numIndices;
+	const uint32_t numIndices = g_numTestIndices;
+	const VkDeviceSize testIndexBufferSize = g_numTestIndices;
 	
 	// create test geometry index buffer
 	if(res == FR_RESULT_OK)
@@ -1203,7 +1201,7 @@ enum FrResult frCreateRenderer(const struct FrRendererDesc* pDesc,
 									pRenderer->pipelineLayout, 0, 1, &pRenderer->aDescriptorSets[i], 0, NULL);
 			
 			//vkCmdDraw(pRenderer->aCommandBuffers[i], g_numTestVertices, 1, 0, 0);
-			vkCmdDrawIndexed(pRenderer->aCommandBuffers[i], numIndices, 1, 0, 0, 0);
+			vkCmdDrawIndexed(pRenderer->aCommandBuffers[i], g_numTestIndices, 1, 0, 0, 0);
 			vkCmdEndRenderPass(pRenderer->aCommandBuffers[i]);
 			
 			if (vkEndCommandBuffer(pRenderer->aCommandBuffers[i]) != VK_SUCCESS)
@@ -1217,72 +1215,33 @@ enum FrResult frCreateRenderer(const struct FrRendererDesc* pDesc,
 	// do staging pass - copy vertex data from staging buffer to vertex buffer
 	if(res == FR_RESULT_OK)
 	{
-		const uint32_t numVertices = g_gridSize * g_gridSize;
+		const uint32_t numVertices = g_numTestVertices;
 		const uint32_t initVerticesSize = sizeof(FrVertex) * numVertices;
 		FrVertex* initVertices = FUR_ALLOC(initVerticesSize, 16, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 		
 		// create vertices data
 		{
 			FrVertex* itVertex = initVertices;
-			for(uint32_t y=0; y<g_gridSize; ++y)
+			for(uint32_t y=0; y<g_numTestVertices; ++y)
 			{
-				const float ratio_y = (float)y / (float)g_gridSize;
-				
-				for(uint32_t x=0; x<g_gridSize; ++x)
-				{
-					FUR_ASSERT(y * g_gridSize + x < numVertices);
-					
-					const float ratio_x = (float)x / (float)g_gridSize;
-					
-					itVertex->position.x = ratio_x * g_grid_cell_size - g_grid_cell_size / 2.0f;
-					itVertex->position.y = ratio_y * g_grid_cell_size - g_grid_cell_size / 2.0f;
-					
-					itVertex->color.x = 1.0f;
-					itVertex->color.y = 0.0f;
-					itVertex->color.z = 0.0f;
-					
-					++itVertex;
-				}
+				*itVertex = g_testGeometry[y];
+				itVertex++;
 			}
 			
 			FUR_ASSERT(itVertex == initVertices + numVertices);
 		}
 		
-		const uint32_t numIndices = numTrisOnSide * numTrisOnSide * 6;
-		const uint32_t initIndicesSize = sizeof(uint16_t) * numIndices;
+		const uint32_t initIndicesSize = sizeof(uint16_t) * g_numTestIndices;
 		uint16_t* initIndices = FUR_ALLOC(initIndicesSize, 8, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 		
 		// create indices data
 		{
 			uint16_t* itIndices = initIndices;
 			
-			// i, i+1, s+i | i+1, s+i+1, s+i
-			for(uint32_t y=0; y<numTrisOnSide; ++y)
+			for(uint32_t y=0; y<g_numTestIndices; ++y)
 			{
-				for(uint32_t x=0; x<numTrisOnSide; ++x)
-				{
-					FUR_ASSERT(itIndices < initIndices + numIndices);
-					
-					const uint32_t s = (y + 1) * g_gridSize;
-					const uint32_t i = y * g_gridSize + x;
-					
-					itIndices[0] = i;
-					itIndices[1] = i+1;
-					itIndices[2] = s+x;
-					
-					itIndices[3] = i+1;
-					itIndices[4] = s+x+1;
-					itIndices[5] = s+x;
-					
-					FUR_ASSERT(itIndices[0] < numVertices);
-					FUR_ASSERT(itIndices[1] < numVertices);
-					FUR_ASSERT(itIndices[2] < numVertices);
-					FUR_ASSERT(itIndices[3] < numVertices);
-					FUR_ASSERT(itIndices[4] < numVertices);
-					FUR_ASSERT(itIndices[5] < numVertices);
-					
-					itIndices += 6;
-				}
+				*itIndices = g_testIndices[y];
+				itIndices++;
 			}
 			
 			FUR_ASSERT(itIndices == initIndices + numIndices);
@@ -1495,107 +1454,23 @@ void frWaitForDevice(struct FrRenderer* pRenderer)
 	vkDeviceWaitIdle(pRenderer->device);
 }
 
-const float g_rotationSpeed = FM_DEG_TO_RAD(0);
-const fm_vec4 g_eye = {0, 0, 4, 0};
+const float g_rotationSpeed = FM_DEG_TO_RAD(5);
+const fm_vec4 g_eye = {0, -8, 4, 0};
 const fm_vec4 g_at = {0, 0, 0, 0};
-const fm_vec4 g_up = {0, 1, 0, 0};
-
-typedef struct
-{
-	double energy;
-	double field_a_energy;
-	FrVector2 field_a;
-	
-	uint64_t mass;
-	uint64_t charge;
-	uint64_t spin;
-} FrQuixel;
-
-const uint32_t g_numQuixels = g_gridSize * g_gridSize;
-FrQuixel g_quixels[3][g_numQuixels];
-bool g_quixelsInitialized = false;
+const fm_vec4 g_up = {0, 0, 1, 0};
 
 double g_timeDelta = 0.0f;
 double g_time = 0.0f;
-double g_totalEnergyConst = 0.0f;
 
 void frUpdateRenderer(struct FrRenderer* pRenderer, const struct FrUpdateContext* ctx)
 {
-	if(g_quixelsInitialized == false)
-	{
-		memset(g_quixels[0], 0, sizeof(FrQuixel) * g_numQuixels);
-		memset(g_quixels[1], 0, sizeof(FrQuixel) * g_numQuixels);
-		memset(g_quixels[2], 0, sizeof(FrQuixel) * g_numQuixels);
-		
-		for(uint32_t y=0; y<g_gridSize; ++y)
-		{
-			for(uint32_t x=0; x<g_gridSize; ++x)
-			{
-				const int percentage = rand() % 100;
-				if(percentage > 98)
-				{
-					const uint32_t i_c = y * g_gridSize + x;
-					g_quixels[0][i_c].energy = 5.0;
-				}
-				else if(percentage > 97)
-				{
-					const uint32_t i_c = y * g_gridSize + x;
-					g_quixels[0][i_c].energy = 2.0;
-				}
-			}
-		}
-		
-		for(int32_t i=0; i<g_numQuixels; ++i)
-		{
-			g_totalEnergyConst += g_quixels[0][i].energy;
-		}
-		
-		g_quixelsInitialized = true;
-	}
-	
 	pRenderer->rotationAngle += g_rotationSpeed * ctx->dt;
 	
 	g_timeDelta = ctx->dt;
 	g_time += g_timeDelta;
 };
 
-bool frDiceRoll(double probability)
-{
-	const uint32_t chance = rand() % 10000000;
-	const uint32_t checkChance = 10000000 * probability;
-	
-	return chance < checkChance;
-}
-
 uint32_t g_prevImageIndex = 0;
-
-uint32_t frSafeCoordToIndex(int32_t x, int32_t y, int32_t gridSize)
-{
-	while(x < 0)
-	{
-		x += gridSize;
-	}
-	
-	while(x >= gridSize)
-	{
-		x -= gridSize;
-	}
-	
-	while(y < 0)
-	{
-		y += gridSize;
-	}
-	
-	while(y >= gridSize)
-	{
-		y -= gridSize;
-	}
-	
-	FUR_ASSERT(0 <= y && y < gridSize);
-	FUR_ASSERT(0 <= x && x < gridSize);
-	
-	return y * gridSize + x;
-}
 
 void frDrawFrame(struct FrRenderer* pRenderer)
 {
@@ -1607,262 +1482,6 @@ void frDrawFrame(struct FrRenderer* pRenderer)
 	{
 		const uint32_t prevImageIndex = g_prevImageIndex;
 		g_prevImageIndex = imageIndex;
-		
-		FrQuixel* prevQuixels = g_quixels[prevImageIndex];
-		FrQuixel* quixels = g_quixels[imageIndex];
-		
-		for(uint32_t y=0; y<g_gridSize; ++y)
-		{
-			for(uint32_t x=0; x<g_gridSize; ++x)
-			{
-				const uint32_t i_c = y * g_gridSize + x;
-				quixels[i_c] = prevQuixels[i_c];
-			}
-		}
-		
-		static FrVector2 s_vu = {0.0f, 1.0f};
-		static FrVector2 s_vd = {0.0f, -1.0f};
-		static FrVector2 s_vl = {-1.0f, 0.0f};
-		static FrVector2 s_vr = {1.0f, 0.0f};
-		
-		static FrVector2 s_vul = {-0.7071f, 0.7071f};
-		static FrVector2 s_vur = {0.7071f, 0.7071f};
-		static FrVector2 s_vdl = {-0.7071f, -0.7071f};
-		static FrVector2 s_vdr = {0.7071f, -0.7071f};
-		
-		for(int32_t y=0; y<g_gridSize; ++y)
-		{
-			for(int32_t x=0; x<g_gridSize; ++x)
-			{
-				const int32_t i_c = y * g_gridSize + x;
-				
-				const uint32_t i_l = frSafeCoordToIndex(x-1, y, g_gridSize);
-				const uint32_t i_r = frSafeCoordToIndex(x+1, y, g_gridSize);
-				const uint32_t i_u = frSafeCoordToIndex(x, y-1, g_gridSize);
-				const uint32_t i_d = frSafeCoordToIndex(x, y+1, g_gridSize);
-				const uint32_t i_ul = frSafeCoordToIndex(x-1, y-1, g_gridSize);
-				const uint32_t i_ur = frSafeCoordToIndex(x+1, y-1, g_gridSize);
-				const uint32_t i_dl = frSafeCoordToIndex(x-1, y+1, g_gridSize);
-				const uint32_t i_dr = frSafeCoordToIndex(x+1, y+1, g_gridSize);
-				
-				const double v_l = prevQuixels[i_l].field_a_energy;
-				const double v_r = prevQuixels[i_r].field_a_energy;
-				const double v_u = prevQuixels[i_u].field_a_energy;
-				const double v_d = prevQuixels[i_d].field_a_energy;
-				const double v_ul = prevQuixels[i_ul].field_a_energy;
-				const double v_ur = prevQuixels[i_ur].field_a_energy;
-				const double v_dl = prevQuixels[i_dl].field_a_energy;
-				const double v_dr = prevQuixels[i_dr].field_a_energy;
-				
-				FrVector2 field_a = {0.0f, 0.0f};
-				field_a.x = s_vu.x * v_u + s_vd.x * v_d +  s_vl.x * v_l +  s_vr.x * v_r +
-							s_vul.x * v_ul +  s_vur.x * v_ur +  s_vdl.x * v_dl + s_vdr.x * v_dr;
-				
-				field_a.y = s_vu.y * v_u + s_vd.y * v_d +  s_vl.y * v_l +  s_vr.y * v_r +
-							s_vul.y * v_ul +  s_vur.y * v_ur +  s_vdl.y * v_dl + s_vdr.y * v_dr;
-				
-				quixels[i_c].field_a = field_a;
-			}
-		}
-		
-		for(int32_t y=0; y<g_gridSize; ++y)
-		{
-			for(int32_t x=0; x<g_gridSize; ++x)
-			{
-				const int32_t i_c = y * g_gridSize + x;
-				
-				const uint32_t i_l = frSafeCoordToIndex(x-1, y, g_gridSize);
-				const uint32_t i_r = frSafeCoordToIndex(x+1, y, g_gridSize);
-				const uint32_t i_u = frSafeCoordToIndex(x, y-1, g_gridSize);
-				const uint32_t i_d = frSafeCoordToIndex(x, y+1, g_gridSize);
-				const uint32_t i_ul = frSafeCoordToIndex(x-1, y-1, g_gridSize);
-				const uint32_t i_ur = frSafeCoordToIndex(x+1, y-1, g_gridSize);
-				const uint32_t i_dl = frSafeCoordToIndex(x-1, y+1, g_gridSize);
-				const uint32_t i_dr = frSafeCoordToIndex(x+1, y+1, g_gridSize);
-				
-				const double v_c = prevQuixels[i_c].energy;
-				const double v_l = prevQuixels[i_l].energy;
-				const double v_r = prevQuixels[i_r].energy;
-				const double v_u = prevQuixels[i_u].energy;
-				const double v_d = prevQuixels[i_d].energy;
-				const double v_ul = prevQuixels[i_ul].energy;
-				const double v_ur = prevQuixels[i_ur].energy;
-				const double v_dl = prevQuixels[i_dl].energy;
-				const double v_dr = prevQuixels[i_dr].energy;
-				
-				const double fa_l = prevQuixels[i_l].field_a_energy;
-				const double fa_r = prevQuixels[i_r].field_a_energy;
-				const double fa_u = prevQuixels[i_u].field_a_energy;
-				const double fa_d = prevQuixels[i_d].field_a_energy;
-				const double fa_ul = prevQuixels[i_ul].field_a_energy;
-				const double fa_ur = prevQuixels[i_ur].field_a_energy;
-				const double fa_dl = prevQuixels[i_dl].field_a_energy;
-				const double fa_dr = prevQuixels[i_dr].field_a_energy;
-				
-				const double sum_fa = fa_l + fa_r + fa_u + fa_d + fa_ul + fa_ur + fa_dl + fa_dr;
-				quixels[i_c].field_a_energy = ((sum_fa / 2.0) - prevQuixels[i_c].field_a_energy * 0.7) * 0.3;
-				//quixels[i_c].field_a_energy = fm_clamp(quixels[i_c].field_a_energy, 0.0f, 1.0f);
-				
-				const float n_sum = v_l + v_r + v_u + v_d + v_ul + v_ur + v_dl + v_dr;
-				const float c_sum = v_c + n_sum;
-
-				double out_energy_transfer = 0.0;
-				
-				// always
-				{
-					{
-						const double chance = 0.8;
-						const double v_mul_transfer = 0.01;
-						
-						if(frDiceRoll(chance))
-						{
-							quixels[i_l].energy -= v_l * v_mul_transfer;
-							quixels[i_c].energy += v_l * v_mul_transfer;
-						}
-						
-						if(frDiceRoll(chance))
-						{
-							quixels[i_r].energy -= v_r * v_mul_transfer;
-							quixels[i_c].energy += v_r * v_mul_transfer;
-						}
-						
-						if(frDiceRoll(chance))
-						{
-							quixels[i_u].energy -= v_u * v_mul_transfer;
-							quixels[i_c].energy += v_u * v_mul_transfer;
-						}
-						
-						if(frDiceRoll(chance))
-						{
-							quixels[i_d].energy -= v_d * v_mul_transfer;
-							quixels[i_c].energy += v_d * v_mul_transfer;
-						}
-						
-						if(frDiceRoll(chance))
-						{
-							quixels[i_ul].energy -= v_ul * v_mul_transfer;
-							quixels[i_c].energy += v_ul * v_mul_transfer;
-						}
-						
-						if(frDiceRoll(chance))
-						{
-							quixels[i_ur].energy -= v_ur * v_mul_transfer;
-							quixels[i_c].energy += v_ur * v_mul_transfer;
-						}
-						
-						if(frDiceRoll(chance))
-						{
-							quixels[i_dl].energy -= v_dl * v_mul_transfer;
-							quixels[i_c].energy += v_dl * v_mul_transfer;
-						}
-						
-						if(frDiceRoll(chance))
-						{
-							quixels[i_dr].energy -= v_dr * v_mul_transfer;
-							quixels[i_c].energy += v_dr * v_mul_transfer;
-						}
-					}
-				}
-				
-				//if(v_c > 0.0)
-				{
-					//if(frDiceRoll(0.8))
-					{
-						const double v_c_transfer = v_c / 3.0;
-						const double chance = 0.8;
-						
-						const double field_a_th = 0.001;
-						FrVector2 field_a = quixels[i_c].field_a;
-						
-						if(frDiceRoll(chance) && field_a.x < -field_a_th)
-						{
-							quixels[i_l].energy += v_c_transfer;
-							quixels[i_c].energy -= v_c_transfer;
-							out_energy_transfer += v_c_transfer;
-						}
-						
-						if(frDiceRoll(chance) && field_a.x > field_a_th)
-						{
-							quixels[i_r].energy += v_c_transfer;
-							quixels[i_c].energy -= v_c_transfer;
-							out_energy_transfer += v_c_transfer;
-						}
-						
-						if(frDiceRoll(chance) && field_a.y > field_a_th)
-						{
-							quixels[i_u].energy += v_c_transfer;
-							quixels[i_c].energy -= v_c_transfer;
-							out_energy_transfer += v_c_transfer;
-						}
-						
-						if(frDiceRoll(chance) && field_a.y < -field_a_th)
-						{
-							quixels[i_d].energy += v_c_transfer;
-							quixels[i_c].energy -= v_c_transfer;
-							out_energy_transfer += v_c_transfer;
-						}
-						
-						if(frDiceRoll(chance) && field_a.x < -field_a_th && field_a.y > field_a_th)
-						{
-							quixels[i_ul].energy += v_c_transfer;
-							quixels[i_c].energy -= v_c_transfer;
-							out_energy_transfer += v_c_transfer;
-						}
-						
-						if(frDiceRoll(chance) && field_a.x > field_a_th && field_a.y > field_a_th)
-						{
-							quixels[i_ur].energy += v_c_transfer;
-							quixels[i_c].energy -= v_c_transfer;
-							out_energy_transfer += v_c_transfer;
-						}
-						
-						if(frDiceRoll(chance) && field_a.x < -field_a_th && field_a.y < -field_a_th)
-						{
-							quixels[i_dl].energy += v_c_transfer;
-							quixels[i_c].energy -= v_c_transfer;
-							out_energy_transfer += v_c_transfer;
-						}
-						
-						if(frDiceRoll(chance) && field_a.x > field_a_th && field_a.y < -field_a_th)
-						{
-							quixels[i_dr].energy += v_c_transfer;
-							quixels[i_c].energy -= v_c_transfer;
-							out_energy_transfer += v_c_transfer;
-						}
-					}
-				}
-				
-				if(v_c > n_sum / 2.0)
-				{
-					const double frequency = 20.0;
-					quixels[i_c].field_a_energy = sin(g_time * frequency) * c_sum;
-				}
-				
-				if(frDiceRoll(0.001))
-				{
-					const double fluctuation = 0.2;
-					quixels[i_l].energy -= fluctuation / 8.0;
-					quixels[i_r].energy -= fluctuation / 8.0;
-					quixels[i_u].energy -= fluctuation / 8.0;
-					quixels[i_d].energy -= fluctuation / 8.0;
-					quixels[i_ul].energy -= fluctuation / 8.0;
-					quixels[i_ur].energy -= fluctuation / 8.0;
-					quixels[i_dl].energy -= fluctuation / 8.0;
-					quixels[i_dr].energy -= fluctuation / 8.0;
-					quixels[i_c].energy += fluctuation;
-				}
-			}
-		}
-
-		double total_energy = 0.0;
-		for(int32_t i=0; i<g_numQuixels; ++i)
-		{
-			total_energy += quixels[i].energy;
-		}
-		
-		const double energy_diff = total_energy - g_totalEnergyConst;
-		const double energy_tollerance = 0.01;
-		FUR_ASSERT(-energy_tollerance < energy_diff && energy_diff < energy_tollerance);
 	}
 	
 	FUR_ASSERT(imageIndex < NUM_SWAP_CHAIN_IMAGES);
@@ -1882,22 +1501,7 @@ void frDrawFrame(struct FrRenderer* pRenderer)
 	VkSemaphore signalSemaphores[] = {pRenderer->renderFinishedSemaphore};
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
-	
-	FrVector3* colors = pRenderer->vertexColors[imageIndex];
-	const uint32_t numColors = g_gridSize * g_gridSize;
-	
-	for(uint32_t i=0; i<numColors; ++i)
-	{
-		const float energy = g_quixels[imageIndex][i].energy;
-		const float field_a_x = fm_clamp(g_quixels[imageIndex][i].field_a.x, -0.5f, 0.5f);
-		const float field_a_y = fm_clamp(g_quixels[imageIndex][i].field_a.y, -0.5f, 0.5f);
-		const float fa_energy = fm_clamp(g_quixels[imageIndex][i].field_a_energy, 0.0f, 1.0f);
-		
-		colors[i].x = fm_clamp(energy, 0.0f, 1.0f); //0.1f * (0.5f - field_a_x);
-		colors[i].y = fm_clamp(energy - 1.0, 0.0f, 1.0f); // 0.1f * (0.5f - field_a_y);
-		colors[i].z = fa_energy; // fm_clamp(energy - 2.0, 0.0f, 1.0f);
-	}
-	
+
 	// update uniform buffer
 	{
 		const float aspectRatio = pRenderer->swapChainExtent.width / (float)pRenderer->swapChainExtent.height;
