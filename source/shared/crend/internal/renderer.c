@@ -262,19 +262,19 @@ enum fr_result_t fr_create_shader_module(VkDevice device, const char* path, VkSh
 
 /*************************************************************/
 
-typedef struct FrVector2
+typedef struct fr_vec2_t
 {
 	float x, y;
-} FrVector2;
+} fr_vec2_t;
 
-typedef struct FrVector3
+typedef struct fr_vec3_t
 {
 	float x, y, z;
 } fr_vec3_t;
 
-typedef struct FrVertex
+typedef struct fr_vertex_t
 {
-	FrVector2 position;
+	fr_vec2_t position;
 	fr_vec3_t color;
 } fr_vertex_t;
 
