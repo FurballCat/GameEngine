@@ -290,9 +290,9 @@ const uint16_t g_testIndices[g_numTestIndices] = {0, 1, 2, 2, 3, 0};
 
 typedef struct FrUniformBuffer
 {
-	fm_mat4 model;
-	fm_mat4 view;
-	fm_mat4 proj;
+	fm_mat4_t model;
+	fm_mat4_t view;
+	fm_mat4_t proj;
 } FrUniformBuffer;
 
 /*************************************************************/
@@ -1506,14 +1506,14 @@ void frDrawFrame(struct FrRenderer* pRenderer)
 	{
 		const float aspectRatio = pRenderer->swapChainExtent.width / (float)pRenderer->swapChainExtent.height;
 		
-		fm_mat4 tempView;
+		fm_mat4_t tempView;
 		
 		FrUniformBuffer ubo = {};
 		fm_mat4_rot_z(pRenderer->rotationAngle, &ubo.model);
 		fm_mat4_lookat(&g_eye, &g_at, &g_up, &tempView);
 		fm_mat4_projection_fov(45.0f, aspectRatio, 0.1f, 1000.0f, &ubo.proj);
 		
-		fm_mat4 rot_x_vulkan_correction;
+		fm_mat4_t rot_x_vulkan_correction;
 		fm_mat4_rot_x(FM_DEG_TO_RAD(-90), &rot_x_vulkan_correction);
 		fm_mat4_mul(&rot_x_vulkan_correction, &tempView, &ubo.view);
 		

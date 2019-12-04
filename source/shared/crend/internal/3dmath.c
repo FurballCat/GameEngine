@@ -39,7 +39,7 @@ void fm_vec4_cross(const fm_vec4* a, const fm_vec4* b, fm_vec4* v)
 	v->w = 0.0f;
 }
 
-void fm_mat4_identity(fm_mat4* m)
+void fm_mat4_identity(fm_mat4_t* m)
 {
 	m->x.x = 1.0f;
 	m->x.y = 0.0f;
@@ -62,7 +62,7 @@ void fm_mat4_identity(fm_mat4* m)
 	m->w.w = 1.0f;
 }
 
-void fm_mat4_rot_x(const float phi, fm_mat4* m)
+void fm_mat4_rot_x(const float phi, fm_mat4_t* m)
 {
 	m->x.x = 1; m->x.y = 0; m->x.z = 0; m->x.w = 0;
 	m->y.x = 0; m->y.y = cos(phi); m->y.z = -sin(phi); m->y.w = 0;
@@ -70,7 +70,7 @@ void fm_mat4_rot_x(const float phi, fm_mat4* m)
 	m->w.x = 0; m->w.y = 0; m->w.z = 0; m->w.w = 1;
 }
 
-void fm_mat4_rot_y(const float phi, fm_mat4* m)
+void fm_mat4_rot_y(const float phi, fm_mat4_t* m)
 {
 	m->x.x = cos(phi); m->x.y = 0; m->x.z = sin(phi); m->x.w = 0;
 	m->y.x = 0; m->y.y = 1; m->y.z = 0; m->y.w = 0;
@@ -78,7 +78,7 @@ void fm_mat4_rot_y(const float phi, fm_mat4* m)
 	m->w.x = 0; m->w.y = 0; m->w.z = 0; m->w.w = 1;
 }
 
-void fm_mat4_rot_z(const float phi, fm_mat4* m)
+void fm_mat4_rot_z(const float phi, fm_mat4_t* m)
 {
 	m->x.x = cos(phi); m->x.y = -sin(phi); m->x.z = 0; m->x.w = 0;
 	m->y.x = sin(phi); m->y.y = cos(phi); m->y.z = 0; m->y.w = 0;
@@ -86,7 +86,7 @@ void fm_mat4_rot_z(const float phi, fm_mat4* m)
 	m->w.x = 0; m->w.y = 0; m->w.z = 0; m->w.w = 1;
 }
 
-void fm_mat4_lookat(const fm_vec4* eye, const fm_vec4* at, const fm_vec4* up, fm_mat4* m)
+void fm_mat4_lookat(const fm_vec4* eye, const fm_vec4* at, const fm_vec4* up, fm_mat4_t* m)
 {
 	fm_vec4 axis_y;
 	fm_vec4_sub(at, eye, &axis_y);
@@ -122,7 +122,7 @@ void fm_mat4_lookat(const fm_vec4* eye, const fm_vec4* at, const fm_vec4* up, fm
 
 // projection matrix, b - bottom, t - top, l - left, r - right, n - near, f - far
 void fm_mat4_projection(const float b, const float t, const float l, const float r,
-						const float n, const float f, fm_mat4* m)
+						const float n, const float f, fm_mat4_t* m)
 {
 	/*
 	 return {{2 * n / (r - l), 0, (r + l) / (r - l), 0},
@@ -154,7 +154,7 @@ void fm_mat4_projection(const float b, const float t, const float l, const float
 
 // projection matrix based on fov and aspect ratio
 void fm_mat4_projection_fov(const float fov, const float aspectRatio,
-							const float near, const float far, fm_mat4* m)
+							const float near, const float far, fm_mat4_t* m)
 {
 	const float scale = tan(FM_DEG_TO_RAD(fov * 0.5f)) * near;
 	const float top = scale;
@@ -172,7 +172,7 @@ static inline void fm_swapf(float* a, float* b)
 	*b = c;
 }
 
-void fm_mat4_transpose(fm_mat4* m)
+void fm_mat4_transpose(fm_mat4_t* m)
 {
 	fm_swapf(&m->x.y, &m->y.x);
 	fm_swapf(&m->x.z, &m->z.x);
@@ -182,7 +182,7 @@ void fm_mat4_transpose(fm_mat4* m)
 	fm_swapf(&m->z.w, &m->w.z);
 }
 
-void fm_mat4_mul(const fm_mat4* a, const fm_mat4* b, fm_mat4* m)
+void fm_mat4_mul(const fm_mat4_t* a, const fm_mat4_t* b, fm_mat4_t* m)
 {
 	m->x.x = a->x.x * b->x.x + a->x.y * b->y.x + a->x.z * b->z.x + a->x.w * b->w.x;
 	m->x.y = a->x.x * b->x.y + a->x.y * b->y.y + a->x.z * b->z.y + a->x.w * b->w.y;

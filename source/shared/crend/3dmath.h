@@ -25,7 +25,7 @@ typedef struct fm_vec4
 typedef struct fm_mat4
 {
 	fm_vec4 x, y, z, w;
-} fm_mat4;
+} fm_mat4_t;
 
 /***** VECTOR *****/
 
@@ -47,33 +47,33 @@ void fm_vec4_normalize(fm_vec4* v);
 /***** MATRIX *****/
 	
 // identity matrix
-void fm_mat4_identity(fm_mat4* m);
+void fm_mat4_identity(fm_mat4_t* m);
 	
 // rotation matrix around axis x
-void fm_mat4_rot_x(const float phi, fm_mat4* m);
+void fm_mat4_rot_x(const float phi, fm_mat4_t* m);
 
 // rotation matrix around axis y
-void fm_mat4_rot_y(const float phi, fm_mat4* m);
+void fm_mat4_rot_y(const float phi, fm_mat4_t* m);
 	
 // rotation matrix around axis Z
-void fm_mat4_rot_z(const float phi, fm_mat4* m);
+void fm_mat4_rot_z(const float phi, fm_mat4_t* m);
 	
 // look at matrix for graphics (view)
-void fm_mat4_lookat(const fm_vec4* eye, const fm_vec4* at, const fm_vec4* up, fm_mat4* m);
+void fm_mat4_lookat(const fm_vec4* eye, const fm_vec4* at, const fm_vec4* up, fm_mat4_t* m);
 	
 // projection matrix, b - bottom, t - top, l - left, r - right, n - near, f - far
 void fm_mat4_projection(const float b, const float t, const float l, const float r,
-						const float n, const float f, fm_mat4* m);
+						const float n, const float f, fm_mat4_t* m);
 
 // projection matrix based on fov and aspect ratio
 void fm_mat4_projection_fov(const float fov, const float aspectRatio,
-							const float near, const float far, fm_mat4* m);
+							const float near, const float far, fm_mat4_t* m);
 
 // transpose matrix
-void fm_mat4_transpose(fm_mat4* m);
+void fm_mat4_transpose(fm_mat4_t* m);
 
 // multiply matrix a by b and save to m
-void fm_mat4_mul(const fm_mat4* a, const fm_mat4* b, fm_mat4* m);
+void fm_mat4_mul(const fm_mat4_t* a, const fm_mat4_t* b, fm_mat4_t* m);
 
 // clamps value to range min..max
 float fm_clamp(const float value, const float min, const float max);
