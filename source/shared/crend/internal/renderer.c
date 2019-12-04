@@ -230,7 +230,7 @@ void frReleaseBinaryBuffer(struct FrBinaryBuffer* pBuffer, struct fr_allocation_
 
 /*************************************************************/
 
-enum fr_result_t frCreateShaderModule(VkDevice device, const char* path, VkShaderModule* pShader, struct fr_allocation_callbacks_t* pAllocCallbacks)
+enum fr_result_t fr_create_shader_module(VkDevice device, const char* path, VkShaderModule* pShader, struct fr_allocation_callbacks_t* pAllocCallbacks)
 {
 	struct FrBinaryBuffer buffer;
 	memset(&buffer, 0, sizeof(struct FrBinaryBuffer));
@@ -720,12 +720,12 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = frCreateShaderModule(pRenderer->device, basicVertexShaderPath, &pRenderer->vertexShaderModule, pAllocCallbacks);
+		res = fr_create_shader_module(pRenderer->device, basicVertexShaderPath, &pRenderer->vertexShaderModule, pAllocCallbacks);
 	}
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = frCreateShaderModule(pRenderer->device, basicFragmentShaderPath, &pRenderer->fragmentShaderModule, pAllocCallbacks);
+		res = fr_create_shader_module(pRenderer->device, basicFragmentShaderPath, &pRenderer->fragmentShaderModule, pAllocCallbacks);
 	}
 	
 	// test geometry
