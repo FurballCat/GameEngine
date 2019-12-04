@@ -1455,7 +1455,7 @@ void fr_wait_for_device(struct fr_renderer_t* pRenderer)
 }
 
 const float g_rotationSpeed = FM_DEG_TO_RAD(5);
-const fm_vec4 g_eye = {0, -8, 4, 0};
+const fm_vec4 g_eye = {0, -4, 2, 0};
 const fm_vec4 g_at = {0, 0, 0, 0};
 const fm_vec4 g_up = {0, 0, 1, 0};
 
@@ -1556,27 +1556,27 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 
 // serialization
 
-typedef void (*FrSerializeReadFunc)(void* pSerializerData, size_t size, void* pData);
-typedef void (*FrSerializeWriteFunc)(void* pSerializerData, size_t size, const void* pData);
+typedef void (*fr_serialize_read_func_t)(void* pSerializerData, size_t size, void* pData);
+typedef void (*fr_serialize_write_func_t)(void* pSerializerData, size_t size, const void* pData);
 
-typedef struct FrSerializer
+typedef struct fr_serializer_t
 {
 	void* serializerData;
 	
-	FrSerializeReadFunc pfnRead;
-	FrSerializeWriteFunc pfnWrite;
+	fr_serialize_read_func_t pfnRead;
+	fr_serialize_write_func_t pfnWrite;
 	
 	bool isReader;
 	int32_t version;
-} FrSerializer;
+} fr_serializer_t;
 
 // fundamental types serialization
-#define frSerialize(_serializer, _type) _Generic((_type), \
-	int32_t*: frSerialize_int32, \
-	uint32_t*: frSerialize_uint32 \
+#define fr_serialize(_serializer, _type) _Generic((_type), \
+	int32_t*: fr_serialize_int32, \
+	uint32_t*: fr_serialize_uint32 \
 	)(_serializer, _type)
 
-void frSerialize_int32(FrSerializer* ser, int32_t* data)
+void fr_serialize_int32(fr_serializer_t* ser, int32_t* data)
 {
 	if(ser->isReader)
 	{
@@ -1588,7 +1588,7 @@ void frSerialize_int32(FrSerializer* ser, int32_t* data)
 	}
 }
 
-void frSerialize_uint32(FrSerializer* ser, uint32_t* data)
+void fr_serialize_uint32(fr_serializer_t* ser, uint32_t* data)
 {
 	if(ser->isReader)
 	{
@@ -1604,51 +1604,51 @@ void frSerialize_uint32(FrSerializer* ser, uint32_t* data)
 #define FR_ADD_FIELD(_version, _field) \
 	if(ser->version >= _version)	\
 	{	\
-		frSerialize(ser, &data->_field);	\
+		fr_serialize(ser, &data->_field);	\
 	}
 
 #define FR_REM_FIELD(_versionAdded, _versionRemoved, _type, _field, _defaultValue) \
 	_type _field = _defaultValue;	\
 	if(ser->version >= _versionAdded && ser->version < _versionRemoved)	\
 	{	\
-		frSerialize(ser, &_field);	\
+		fr_serialize(ser, &_field);	\
 	}
 
 // data size reader
-typedef struct FrDataSizeReaderSerializer
+typedef struct fr_data_size_reader_serializer_t
 {
 	uint32_t size;
-} FrDataSizeReaderSerializer;
+} fr_data_size_reader_serializer_t;
 
-void frDataSizeReaderSerializerWriteFunc(void* pSerData, size_t size, const void* data)
+void fr_data_size_reader_serializer_write_func(void* pSerData, size_t size, const void* data)
 {
-	FrDataSizeReaderSerializer* pSer = (FrDataSizeReaderSerializer*)(pSerData);
+	fr_data_size_reader_serializer_t* pSer = (fr_data_size_reader_serializer_t*)(pSerData);
 	pSer->size += size;
 }
 
-void frInitDataSizeReaderSerializer(FrSerializer* ser, FrDataSizeReaderSerializer* serData)
+void fr_init_data_size_reader_serializer(fr_serializer_t* ser, fr_data_size_reader_serializer_t* serData)
 {
 	ser->isReader = false;
 	ser->pfnRead = NULL;
-	ser->pfnWrite = &frDataSizeReaderSerializerWriteFunc;
+	ser->pfnWrite = &fr_data_size_reader_serializer_write_func;
 	ser->version = 0;
 	ser->serializerData = serData;
 }
 
 // example serialization
 
-typedef struct FrExampleStruct
+typedef struct fr_example_struct_t
 {
 	int32_t fieldA;
-} FrExampleStruct;
+} fr_example_struct_t;
 
-enum FrExampleStructVersion
+enum fr_example_struct_version_t
 {
 	FR_VER_INITIAL = 1,
 	FR_VER_LASTEST_PLUS_ONE
 };
 
-void frSerialize_example(FrSerializer* ser, FrExampleStruct* data)
+void frSerialize_example(fr_serializer_t* ser, fr_example_struct_t* data)
 {
 	FR_ADD_FIELD(FR_VER_INITIAL, fieldA);
 }
