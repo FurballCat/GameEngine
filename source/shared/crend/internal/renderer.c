@@ -293,7 +293,7 @@ typedef struct fr_uniform_buffer_t
 	fm_mat4_t model;
 	fm_mat4_t view;
 	fm_mat4_t proj;
-} FrUniformBuffer;
+} fr_uniform_buffer_t;
 
 /*************************************************************/
 
@@ -776,7 +776,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create uniform buffer
 	if(res == FR_RESULT_OK)
 	{
-		const uint32_t uniformBufferSize = sizeof(FrUniformBuffer);
+		const uint32_t uniformBufferSize = sizeof(fr_uniform_buffer_t);
 		for(uint32_t i=0; i<3; ++i)
 		{
 			fr_create_buffer(pRenderer->device, pRenderer->physicalDevice, uniformBufferSize,
@@ -1112,7 +1112,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			VkDescriptorBufferInfo bufferInfo = {};
 			bufferInfo.buffer = pRenderer->aUniformBuffer[i];
 			bufferInfo.offset = 0;
-			bufferInfo.range = sizeof(FrUniformBuffer);
+			bufferInfo.range = sizeof(fr_uniform_buffer_t);
 			
 			VkWriteDescriptorSet descriptorWrite = {};
 			descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1508,7 +1508,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		
 		fm_mat4_t tempView;
 		
-		FrUniformBuffer ubo = {};
+		fr_uniform_buffer_t ubo = {};
 		fm_mat4_rot_z(pRenderer->rotationAngle, &ubo.model);
 		fm_mat4_lookat(&g_eye, &g_at, &g_up, &tempView);
 		fm_mat4_projection_fov(45.0f, aspectRatio, 0.1f, 1000.0f, &ubo.proj);
