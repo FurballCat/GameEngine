@@ -195,13 +195,13 @@ uint32_t fr_update_app(struct fr_app_t* pApp)
 
 /*************************************************************/
 
-struct FrBinaryBuffer
+struct fr_binary_buffer_t
 {
 	void* pData;
 	size_t size;
 };
 
-enum fr_result_t frLoadBinaryFileIntoBinaryBuffer(const char* path, struct FrBinaryBuffer* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks)
+enum fr_result_t fr_load_binary_file_into_binary_buffer(const char* path, struct fr_binary_buffer_t* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks)
 {
 	FILE* pFile = fopen(path, "rb");
 	if(pFile && pBuffer)
@@ -223,7 +223,7 @@ enum fr_result_t frLoadBinaryFileIntoBinaryBuffer(const char* path, struct FrBin
 	return FR_RESULT_ERROR;
 }
 
-void frReleaseBinaryBuffer(struct FrBinaryBuffer* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks)
+void fr_release_binary_buffer(struct fr_binary_buffer_t* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks)
 {
 	FUR_FREE(pBuffer->pData, pAllocCallbacks);
 }
@@ -232,10 +232,10 @@ void frReleaseBinaryBuffer(struct FrBinaryBuffer* pBuffer, struct fr_allocation_
 
 enum fr_result_t fr_create_shader_module(VkDevice device, const char* path, VkShaderModule* pShader, struct fr_allocation_callbacks_t* pAllocCallbacks)
 {
-	struct FrBinaryBuffer buffer;
-	memset(&buffer, 0, sizeof(struct FrBinaryBuffer));
+	struct fr_binary_buffer_t buffer;
+	memset(&buffer, 0, sizeof(struct fr_binary_buffer_t));
 	
-	enum fr_result_t res = frLoadBinaryFileIntoBinaryBuffer(path, &buffer, pAllocCallbacks);
+	enum fr_result_t res = fr_load_binary_file_into_binary_buffer(path, &buffer, pAllocCallbacks);
 	if(res == FR_RESULT_OK)
 	{
 		VkShaderModuleCreateInfo createInfo = {};
@@ -244,7 +244,7 @@ enum fr_result_t fr_create_shader_module(VkDevice device, const char* path, VkSh
 		createInfo.pCode = buffer.pData;
 		
 		VkResult res = vkCreateShaderModule(device, &createInfo, NULL, pShader);
-		frReleaseBinaryBuffer(&buffer, pAllocCallbacks);
+		fr_release_binary_buffer(&buffer, pAllocCallbacks);
 		
 		if (res != VK_SUCCESS)
 		{
@@ -805,7 +805,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInputInfo.vertexBindingDescriptionCount = 2;
+		vertexInputInfo.vertexBindingDescriptionCount = 1;
 		vertexInputInfo.vertexAttributeDescriptionCount = 2;
 		vertexInputInfo.pVertexBindingDescriptions = pRenderer->bindingDescription;
 		vertexInputInfo.pVertexAttributeDescriptions = pRenderer->vertexAttributes;
@@ -1191,9 +1191,9 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			vkCmdBindPipeline(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->graphicsPipeline);
 			
 			// bind vertex and index buffers
-			VkBuffer vertexBuffers[] = {pRenderer->vertexBuffer, pRenderer->colorVertexBuffer[i]};
-			VkDeviceSize offsets[] = {0, 1};
-			vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 2, vertexBuffers, offsets);
+			VkBuffer vertexBuffers[] = {pRenderer->vertexBuffer};
+			VkDeviceSize offsets[] = {0};
+			vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 1, vertexBuffers, offsets);
 			vkCmdBindIndexBuffer(pRenderer->aCommandBuffers[i], pRenderer->indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 			
 			// bind uniform buffer
