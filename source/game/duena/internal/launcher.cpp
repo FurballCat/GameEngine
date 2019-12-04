@@ -762,8 +762,8 @@ const char* furGetResultDescription(FurResult res)
 
 struct FurGameEngine
 {
-	struct FrApp* pApp;
-	struct FrRenderer* pRenderer;
+	struct fr_app_t* pApp;
+	struct fr_renderer_t* pRenderer;
 };
 
 // Furball Cat - Platform
@@ -771,19 +771,19 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine)
 {
 	FurGameEngine* pEngine = (FurGameEngine*)malloc(sizeof(FurGameEngine));
 	
-	FrAppDesc appDesc;
+	fr_app_desc_t appDesc;
 	appDesc.appTitle = desc.m_mainApp.m_title;
 	appDesc.viewportWidth = desc.m_mainApp.m_width;
 	appDesc.viewportHeight = desc.m_mainApp.m_height;
 	
-	FrResult res = frCreateApp(&appDesc, &pEngine->pApp, NULL);
+	fr_result_t res = fr_create_app(&appDesc, &pEngine->pApp, NULL);
 	
 	if(res == FR_RESULT_OK)
 	{
-		FrRendererDesc rendererDesc;
+		fr_renderer_desc_t rendererDesc;
 		rendererDesc.pApp = pEngine->pApp;
 		
-		res = frCreateRenderer(&rendererDesc, &pEngine->pRenderer, NULL);
+		res = fr_create_renderer(&rendererDesc, &pEngine->pRenderer, NULL);
 	}
 	
 	if(res == FR_RESULT_OK)
@@ -792,7 +792,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine)
 	}
 	else
 	{
-		furSetLastError(frGetLastError());
+		furSetLastError(fr_get_last_error());
 		free(pEngine);
 		return false;
 	}
@@ -802,15 +802,15 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine)
 
 void furMainEngineLoop(FurGameEngine* pEngine)
 {
-	while(frUpdateApp(pEngine->pApp))
+	while(fr_update_app(pEngine->pApp))
 	{
-		FrUpdateContext ctx;
+		fr_update_context_t ctx;
 		ctx.dt = 0.016f;
-		frUpdateRenderer(pEngine->pRenderer, &ctx);
-		frDrawFrame(pEngine->pRenderer);
+		fr_update_renderer(pEngine->pRenderer, &ctx);
+		fr_draw_frame(pEngine->pRenderer);
 	}
 	
-	frWaitForDevice(pEngine->pRenderer);
+	fr_wait_for_device(pEngine->pRenderer);
 }
 
 bool furMainEngineTerminate(FurGameEngine* pEngine)
@@ -818,8 +818,8 @@ bool furMainEngineTerminate(FurGameEngine* pEngine)
 	// check for memory leaks
 	//FUR_ASSERT(furValidateAllocatorGeneral(&pEngine->m_memory._defaultInternals));
 	
-	frReleaseRenderer(pEngine->pRenderer, NULL);
-	frReleaseApp(pEngine->pApp, NULL);
+	fr_release_renderer(pEngine->pRenderer, NULL);
+	fr_release_app(pEngine->pApp, NULL);
 	
 	free(pEngine);	// rest of the deallocations should happen through allocators
 	

@@ -30,7 +30,7 @@
 	_a < _b ? _a : _b; })
 
 void* furAlloc(size_t size, size_t alignment,
-				 enum FrMemoryScope scope, const char* info)
+				 enum fr_memory_scope_t scope, const char* info)
 {
 	return malloc(size);
 }
@@ -40,8 +40,8 @@ void furDealloc(void* pMemory, const char* info)
 	free(pMemory);
 }
 
-void* furAllocateWithFallback(struct FrAllocationCallbacks* pAllocCallbacks, size_t size, size_t alignment,
-						 enum FrMemoryScope scope, const char* info)
+void* furAllocateWithFallback(struct fr_allocation_callbacks_t* pAllocCallbacks, size_t size, size_t alignment,
+						 enum fr_memory_scope_t scope, const char* info)
 {
 #if FUR_RENDER_MEMORY_DEBUG == 0
 	if(pAllocCallbacks)
@@ -51,7 +51,7 @@ void* furAllocateWithFallback(struct FrAllocationCallbacks* pAllocCallbacks, siz
 	return furAlloc(size, alignment, scope, info);
 }
 
-void furDeallocWithFallback(struct FrAllocationCallbacks* pAllocCallbacks, void* pMemory, const char* info)
+void furDeallocWithFallback(struct fr_allocation_callbacks_t* pAllocCallbacks, void* pMemory, const char* info)
 {
 #if FUR_RENDER_MEMORY_DEBUG == 0
 	if(pAllocCallbacks)
@@ -80,7 +80,7 @@ void furDeallocWithFallback(struct FrAllocationCallbacks* pAllocCallbacks, void*
 
 const char* g_lastError = "";
 
-const char* frGetLastError(void)
+const char* fr_get_last_error(void)
 {
 	return g_lastError;
 }
@@ -136,7 +136,7 @@ const char* frInterpretVulkanResult(VkResult result)
 
 /*************************************************************/
 
-struct FrApp
+struct fr_app_t
 {
 	const char* title;
 	uint32_t viewportWidth;
@@ -145,11 +145,11 @@ struct FrApp
 	GLFWwindow* pWindow;
 };
 
-enum FrResult frCreateApp(const struct FrAppDesc* pDesc,
-									struct FrApp** ppApp,
-									struct FrAllocationCallbacks* pAllocCallbacks)
+enum fr_result_t fr_create_app(const struct fr_app_desc_t* pDesc,
+									struct fr_app_t** ppApp,
+									struct fr_allocation_callbacks_t* pAllocCallbacks)
 {
-	struct FrApp* pApp = FUR_ALLOC(sizeof(struct FrApp), 8, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+	struct fr_app_t* pApp = FUR_ALLOC(sizeof(struct fr_app_t), 8, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 	
 	pApp->title = pDesc->appTitle;
 	pApp->viewportWidth = pDesc->viewportWidth;
@@ -171,8 +171,8 @@ enum FrResult frCreateApp(const struct FrAppDesc* pDesc,
 	return FR_RESULT_OK;
 }
 
-enum FrResult frReleaseApp(struct FrApp* pApp,
-									 struct FrAllocationCallbacks* pAllocCallbacks)
+enum fr_result_t fr_release_app(struct fr_app_t* pApp,
+									 struct fr_allocation_callbacks_t* pAllocCallbacks)
 {
 	glfwDestroyWindow(pApp->pWindow);
 	glfwTerminate();
@@ -182,7 +182,7 @@ enum FrResult frReleaseApp(struct FrApp* pApp,
 	return FR_RESULT_OK;
 }
 
-uint32_t frUpdateApp(struct FrApp* pApp)
+uint32_t fr_update_app(struct fr_app_t* pApp)
 {
 	if(!glfwWindowShouldClose(pApp->pWindow))
 	{
@@ -201,7 +201,7 @@ struct FrBinaryBuffer
 	size_t size;
 };
 
-enum FrResult frLoadBinaryFileIntoBinaryBuffer(const char* path, struct FrBinaryBuffer* pBuffer, struct FrAllocationCallbacks* pAllocCallbacks)
+enum fr_result_t frLoadBinaryFileIntoBinaryBuffer(const char* path, struct FrBinaryBuffer* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks)
 {
 	FILE* pFile = fopen(path, "rb");
 	if(pFile && pBuffer)
@@ -223,19 +223,19 @@ enum FrResult frLoadBinaryFileIntoBinaryBuffer(const char* path, struct FrBinary
 	return FR_RESULT_ERROR;
 }
 
-void frReleaseBinaryBuffer(struct FrBinaryBuffer* pBuffer, struct FrAllocationCallbacks* pAllocCallbacks)
+void frReleaseBinaryBuffer(struct FrBinaryBuffer* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks)
 {
 	FUR_FREE(pBuffer->pData, pAllocCallbacks);
 }
 
 /*************************************************************/
 
-enum FrResult frCreateShaderModule(VkDevice device, const char* path, VkShaderModule* pShader, struct FrAllocationCallbacks* pAllocCallbacks)
+enum fr_result_t frCreateShaderModule(VkDevice device, const char* path, VkShaderModule* pShader, struct fr_allocation_callbacks_t* pAllocCallbacks)
 {
 	struct FrBinaryBuffer buffer;
 	memset(&buffer, 0, sizeof(struct FrBinaryBuffer));
 	
-	enum FrResult res = frLoadBinaryFileIntoBinaryBuffer(path, &buffer, pAllocCallbacks);
+	enum fr_result_t res = frLoadBinaryFileIntoBinaryBuffer(path, &buffer, pAllocCallbacks);
 	if(res == FR_RESULT_OK)
 	{
 		VkShaderModuleCreateInfo createInfo = {};
@@ -276,10 +276,10 @@ typedef struct FrVertex
 {
 	FrVector2 position;
 	FrVector3 color;
-} FrVertex;
+} fr_vertex_t;
 
 const uint32_t g_numTestVertices = 4;
-const FrVertex g_testGeometry[g_numTestVertices] = {
+const fr_vertex_t g_testGeometry[g_numTestVertices] = {
 	{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
 	{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
 	{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
@@ -299,7 +299,7 @@ typedef struct FrUniformBuffer
 
 #define NUM_SWAP_CHAIN_IMAGES 3
 
-struct FrRenderer
+struct fr_renderer_t
 {
 	VkInstance vkInstance;
 	VkPhysicalDevice physicalDevice;
@@ -311,7 +311,7 @@ struct FrRenderer
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
 	
-	struct FrApp* pApp;
+	struct fr_app_t* pApp;
 	VkSurfaceKHR surface;
 	VkSwapchainKHR swapChain;
 	VkFormat swapChainSurfaceFormat;
@@ -367,20 +367,20 @@ struct FrRenderer
 	float rotationAngle;
 };
 
-enum FrResult frCreateRenderer(const struct FrRendererDesc* pDesc,
-					   struct FrRenderer** ppRenderer,
-					   struct FrAllocationCallbacks*	pAllocCallbacks)
+enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
+					   struct fr_renderer_t** ppRenderer,
+					   struct fr_allocation_callbacks_t*	pAllocCallbacks)
 {
-	struct FrRenderer* pRenderer = FUR_ALLOC(sizeof(struct FrRenderer), 8, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+	struct fr_renderer_t* pRenderer = FUR_ALLOC(sizeof(struct fr_renderer_t), 8, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 	if(!pRenderer)
 	{
 		furSetLastError("Can't allocate renderer.");
 		return FR_RESULT_ERROR;
 	}
 	
-	memset(pRenderer, 0, sizeof(struct FrRenderer));
+	memset(pRenderer, 0, sizeof(struct fr_renderer_t));
 	
-	enum FrResult res = FR_RESULT_OK;
+	enum fr_result_t res = FR_RESULT_OK;
 	
 	// create vulkan instance
 	if(res == FR_RESULT_OK)
@@ -732,23 +732,23 @@ enum FrResult frCreateRenderer(const struct FrRendererDesc* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		pRenderer->bindingDescription[0].binding = 0;
-		pRenderer->bindingDescription[0].stride = sizeof(FrVertex);
+		pRenderer->bindingDescription[0].stride = sizeof(fr_vertex_t);
 		pRenderer->bindingDescription[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 		
 		// todo: this one is not used
 		pRenderer->bindingDescription[1].binding = 1;
-		pRenderer->bindingDescription[1].stride = sizeof(FrVertex);
+		pRenderer->bindingDescription[1].stride = sizeof(fr_vertex_t);
 		pRenderer->bindingDescription[1].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 		
 		pRenderer->vertexAttributes[0].binding = 0;
 		pRenderer->vertexAttributes[0].location = 0;
 		pRenderer->vertexAttributes[0].format = VK_FORMAT_R32G32_SFLOAT;
-		pRenderer->vertexAttributes[0].offset = offsetof(FrVertex, position);
+		pRenderer->vertexAttributes[0].offset = offsetof(fr_vertex_t, position);
 		
 		pRenderer->vertexAttributes[1].binding = 0;
 		pRenderer->vertexAttributes[1].location = 1;
 		pRenderer->vertexAttributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		pRenderer->vertexAttributes[1].offset = offsetof(FrVertex, color);
+		pRenderer->vertexAttributes[1].offset = offsetof(fr_vertex_t, color);
 	}
 	
 	// create descriptor set layout
@@ -1000,7 +1000,7 @@ enum FrResult frCreateRenderer(const struct FrRendererDesc* pDesc,
 	
 	const uint32_t numTestVertices = g_numTestVertices;
 	
-	const VkDeviceSize testVertexBufferSize = sizeof(FrVertex) * numTestVertices;
+	const VkDeviceSize testVertexBufferSize = sizeof(fr_vertex_t) * numTestVertices;
 	const VkDeviceSize testColorVertexBufferSize = sizeof(FrVector3) * numTestVertices;
 	
 	// create test geometry vertex buffer
@@ -1216,12 +1216,12 @@ enum FrResult frCreateRenderer(const struct FrRendererDesc* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		const uint32_t numVertices = g_numTestVertices;
-		const uint32_t initVerticesSize = sizeof(FrVertex) * numVertices;
-		FrVertex* initVertices = FUR_ALLOC(initVerticesSize, 16, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+		const uint32_t initVerticesSize = sizeof(fr_vertex_t) * numVertices;
+		fr_vertex_t* initVertices = FUR_ALLOC(initVerticesSize, 16, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 		
 		// create vertices data
 		{
-			FrVertex* itVertex = initVertices;
+			fr_vertex_t* itVertex = initVertices;
 			for(uint32_t y=0; y<g_numTestVertices; ++y)
 			{
 				*itVertex = g_testGeometry[y];
@@ -1366,8 +1366,8 @@ enum FrResult frCreateRenderer(const struct FrRendererDesc* pDesc,
 	return res;
 }
 
-enum FrResult frReleaseRenderer(struct FrRenderer* pRenderer,
-					   struct FrAllocationCallbacks*	pAllocCallbacks)
+enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
+					   struct fr_allocation_callbacks_t*	pAllocCallbacks)
 {
 	// this should be in clean-up swap chain
 	{
@@ -1449,7 +1449,7 @@ enum FrResult frReleaseRenderer(struct FrRenderer* pRenderer,
 	return FR_RESULT_OK;
 }
 
-void frWaitForDevice(struct FrRenderer* pRenderer)
+void fr_wait_for_device(struct fr_renderer_t* pRenderer)
 {
 	vkDeviceWaitIdle(pRenderer->device);
 }
@@ -1462,7 +1462,7 @@ const fm_vec4 g_up = {0, 0, 1, 0};
 double g_timeDelta = 0.0f;
 double g_time = 0.0f;
 
-void frUpdateRenderer(struct FrRenderer* pRenderer, const struct FrUpdateContext* ctx)
+void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_context_t* ctx)
 {
 	pRenderer->rotationAngle += g_rotationSpeed * ctx->dt;
 	
@@ -1472,7 +1472,7 @@ void frUpdateRenderer(struct FrRenderer* pRenderer, const struct FrUpdateContext
 
 uint32_t g_prevImageIndex = 0;
 
-void frDrawFrame(struct FrRenderer* pRenderer)
+void fr_draw_frame(struct fr_renderer_t* pRenderer)
 {
 	uint32_t imageIndex;
 	vkAcquireNextImageKHR(pRenderer->device, pRenderer->swapChain, (uint64_t)-1,

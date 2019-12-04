@@ -11,50 +11,50 @@ extern "C"
 #include "api.h"
 	
 // Render memory interface
-enum FrMemoryType
+enum fr_memory_type_t
 {
 	FR_MEMORY_TYPE_DEFAULT = 0
 };
 
-enum FrMemoryScope
+enum fr_memory_scope_t
 {
 	FR_MEMORY_SCOPE_DEFAULT = 0
 };
 
-typedef void* (*FrMemoryAllocateFunction)(void* 							pUserData,
+typedef void* (*fr_memory_allocate_function_t)(void* 							pUserData,
 												 size_t							size,
 												 size_t							alignment,
-												 enum FrMemoryScope		scope);
+												 enum fr_memory_scope_t		scope);
 
-typedef void* (*FrMemoryReallocateFunction)(void*						pUserData,
+typedef void* (*fr_memory_reallocate_function_t)(void*						pUserData,
 												   void*						pOriginalMemory,
 												   size_t						size,
 												   size_t						alignment,
-												   enum FrMemoryScope	scope);
+												   enum fr_memory_scope_t	scope);
 
-typedef void (*FrMemoryFreeFunction)(void*	pUserData,
+typedef void (*fr_memory_free_function_t)(void*	pUserData,
 											void*	pMemory);
 
-typedef void (*FrMemoryInternalAllocationNotification)(void*						pUserData,
+typedef void (*fr_memory_internal_allocation_notification_t)(void*						pUserData,
 															  size_t					size,
-															  enum FrMemoryType	type,
-															  enum FrMemoryScope	scope);
+															  enum fr_memory_type_t	type,
+															  enum fr_memory_scope_t	scope);
 
-typedef void (*FrMemoryInternalFreeNotification)(void*	pUserData,
+typedef void (*fr_memory_internal_free_notification_t)(void*	pUserData,
 														size_t	size);
 
-struct FrAllocationCallbacks
+struct fr_allocation_callbacks_t
 {
 	void* 									pUserData;
-	FrMemoryAllocateFunction 				pfnAllocate;
-	FrMemoryReallocateFunction				pfnReallocate;
-	FrMemoryFreeFunction					pfnFree;
-	FrMemoryInternalAllocationNotification 	pfnInternalAllocate;
-	FrMemoryInternalFreeNotification 		pfnInternalFree;
+	fr_memory_allocate_function_t 				pfnAllocate;
+	fr_memory_reallocate_function_t				pfnReallocate;
+	fr_memory_free_function_t					pfnFree;
+	fr_memory_internal_allocation_notification_t 	pfnInternalAllocate;
+	fr_memory_internal_free_notification_t 		pfnInternalFree;
 };
 
 // Render result code
-enum FrResult
+enum fr_result_t
 {
 	FR_RESULT_OK = 0,
 	FR_RESULT_ERROR,
@@ -63,67 +63,67 @@ enum FrResult
 };
 	
 // If render result code is not OK then this function returns additional info
-CREND_API const char* frGetLastError(void);
+CREND_API const char* fr_get_last_error(void);
 
-struct FrApp;
+struct fr_app_t;
 
-struct FrAppDesc
+struct fr_app_desc_t
 {
 	uint32_t viewportWidth;
 	uint32_t viewportHeight;
 	const char* appTitle;
 };
 	
-CREND_API enum FrResult frCreateApp(const struct FrAppDesc* pDesc,
-									struct FrApp** ppApp,
-									struct FrAllocationCallbacks* pAllocCallbacks);
+CREND_API enum fr_result_t fr_create_app(const struct fr_app_desc_t* pDesc,
+									struct fr_app_t** ppApp,
+									struct fr_allocation_callbacks_t* pAllocCallbacks);
 	
-CREND_API enum FrResult frReleaseApp(struct FrApp* pApp,
-									 struct FrAllocationCallbacks* pAllocCallbacks);
+CREND_API enum fr_result_t fr_release_app(struct fr_app_t* pApp,
+									 struct fr_allocation_callbacks_t* pAllocCallbacks);
 
 // Returns 0 on exit
-CREND_API uint32_t frUpdateApp(struct FrApp* pApp);
+CREND_API uint32_t fr_update_app(struct fr_app_t* pApp);
 	
 // Renderer structure
-struct FrRenderer;
+struct fr_renderer_t;
 
 // Renderer creation description
-struct FrRendererDesc
+struct fr_renderer_desc_t
 {
-	struct FrApp* pApp;
+	struct fr_app_t* pApp;
 };
 
-CREND_API enum FrResult frCreateRenderer(const struct FrRendererDesc*	pDesc,
-					   struct FrRenderer**						ppRenderer,
-					   struct FrAllocationCallbacks*		pAllocCallbacks);
+CREND_API enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t*	pDesc,
+					   struct fr_renderer_t**						ppRenderer,
+					   struct fr_allocation_callbacks_t*		pAllocCallbacks);
 
-CREND_API enum FrResult frReleaseRenderer(struct FrRenderer* 			pRenderer,
-						struct FrAllocationCallbacks*	pAllocCallbacks);
+CREND_API enum fr_result_t fr_release_renderer(struct fr_renderer_t* 			pRenderer,
+						struct fr_allocation_callbacks_t*	pAllocCallbacks);
 
-CREND_API void frWaitForDevice(struct FrRenderer* pRenderer);
+CREND_API void fr_wait_for_device(struct fr_renderer_t* pRenderer);
 	
-struct FrScene;
+struct fr_scene_t;
 	
 // Render proxy
-struct FrRenderProxy_Mesh;
+struct fr_render_proxy_mesh_t;
 
 struct FrRenderProxyDesc_Mesh;
 	
-CREND_API enum FrResult frCreateRenderProxy_Mesh(struct FrScene* pRenderScene,
+CREND_API enum fr_result_t fr_create_render_proxy_mesh(struct fr_scene_t* pRenderScene,
 										 const struct FrRenderProxyDesc_Mesh* pDesc,
-										 struct FrRenderProxy_Mesh** ppProxy);
+										 struct fr_render_proxy_mesh_t** ppProxy);
 
-CREND_API enum FrResult frReleaseRenderProxy_Mesh(struct FrScene* pRenderScene,
-										  struct FrRenderProxy_Mesh* pProxy);
+CREND_API enum fr_result_t fr_release_render_proxy_mesh(struct fr_scene_t* pRenderScene,
+										  struct fr_render_proxy_mesh_t* pProxy);
 
-struct FrUpdateContext
+struct fr_update_context_t
 {
 	float dt;
 };
 	
-CREND_API void frUpdateRenderer(struct FrRenderer* pRenderer, const struct FrUpdateContext* ctx);
+CREND_API void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_context_t* ctx);
 	
-CREND_API void frDrawFrame(struct FrRenderer* pRenderer);
+CREND_API void fr_draw_frame(struct fr_renderer_t* pRenderer);
 	
 #ifdef __cplusplus
 }

@@ -4,7 +4,7 @@
 
 #include <inttypes.h>
 
-struct FrAllocationCallbacks;
+struct fr_allocation_callbacks_t;
 
 uint32_t frFindMemoryType(const VkPhysicalDevice physicalDevice,
 						  uint32_t typeFilter, VkMemoryPropertyFlags propertyFlags);
@@ -13,7 +13,7 @@ void frCreateBuffer(VkDevice device, VkPhysicalDevice physicalDevice,
 					VkDeviceSize size, VkBufferUsageFlags usage,
 					VkMemoryPropertyFlags properties,
 					VkBuffer* buffer, VkDeviceMemory* bufferMemory,
-					struct FrAllocationCallbacks* pAllocCallbacks);
+					struct fr_allocation_callbacks_t* pAllocCallbacks);
 
 void frCopyDataToBuffer(VkDevice device, VkDeviceMemory dst, const void* src, uint32_t offset, uint32_t size);
 
