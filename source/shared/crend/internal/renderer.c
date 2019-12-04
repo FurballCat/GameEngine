@@ -1032,7 +1032,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	}
 	
 	const uint32_t numIndices = g_numTestIndices;
-	const VkDeviceSize testIndexBufferSize = g_numTestIndices;
+	const VkDeviceSize testIndexBufferSize = sizeof(uint16_t) * g_numTestIndices;
 	
 	// create test geometry index buffer
 	if(res == FR_RESULT_OK)
