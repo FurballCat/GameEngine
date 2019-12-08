@@ -15,7 +15,7 @@ void fr_staging_init(fr_staging_buffer_builder_t* builder)
 	memset(builder, 0, sizeof(fr_staging_buffer_builder_t));
 }
 
-void fr_staging_add(fr_staging_buffer_builder_t* builder, const void* pData, uint32_t size,
+void fr_staging_add(fr_staging_buffer_builder_t* builder, void* pData, uint32_t size,
 					void* pUserData, fr_staging_free_data_func_t fnFree)
 {
 	FUR_ASSERT(builder);
@@ -82,6 +82,8 @@ void fr_staging_record_copy_commands(fr_staging_buffer_builder_t* builder, VkCom
 	for(uint32_t i=0; i<numBuffers; ++i)
 	{
 		const uint32_t srcIndex = aSrcRegionIndex[i];
+		FUR_ASSERT(srcIndex < builder->count);
+		
 		const fr_staging_buffer_entry_t* entry = &builder->entries[srcIndex];
 		
 		VkBufferCopy copyRegion = {};

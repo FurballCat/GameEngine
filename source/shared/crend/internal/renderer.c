@@ -1263,8 +1263,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	{
 		// add vertices & indices data to staging buffer
 		{
-			fr_staging_add(&stagingBuilder, g_testGeometry, sizeof(fr_vertex_t) * g_numTestVertices, NULL, NULL);
-			fr_staging_add(&stagingBuilder, g_testIndices, sizeof(uint16_t) * g_numTestIndices, NULL, NULL);
+			fr_staging_add(&stagingBuilder, (void*)g_testGeometry, sizeof(fr_vertex_t) * g_numTestVertices, NULL, NULL);
+			fr_staging_add(&stagingBuilder, (void*)g_testIndices, sizeof(uint16_t) * g_numTestIndices, NULL, NULL);
 		}
 		
 		// create staging buffer & release memory of source data

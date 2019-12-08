@@ -11,7 +11,7 @@ typedef void (*fr_staging_free_data_func_t)(void* 		pData,
 // one entry of staging buffer builder represents one buffer (vertex buffer, index buffer, texture buffer, ubo etc.)
 typedef struct fr_staging_buffer_entry_t
 {
-	const void* pData;
+	void* pData;
 	uint32_t size;
 	uint32_t offset;
 	
@@ -36,7 +36,7 @@ typedef struct fr_staging_buffer_builder_t
 void fr_staging_init(fr_staging_buffer_builder_t* builder);
 
 // add entry + optionally how to release its memory, pass NULL to fnFree if no need for release callback
-void fr_staging_add(fr_staging_buffer_builder_t* builder, const void* pData, uint32_t size,
+void fr_staging_add(fr_staging_buffer_builder_t* builder, void* pData, uint32_t size,
 					void* pUserData, fr_staging_free_data_func_t fnFree);
 
 // build staging buffer and copy data into
