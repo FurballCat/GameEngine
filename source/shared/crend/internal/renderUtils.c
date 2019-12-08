@@ -94,3 +94,50 @@ void fr_staging_record_copy_commands(fr_staging_buffer_builder_t* builder, VkCom
 		vkCmdCopyBuffer(commandBuffer, stagingBuffer, aDstBuffer[i], 1, &copyRegion);
 	}
 }
+
+// --------------------
+
+VkCommandBuffer fr_begin_simple_commands(VkDevice device, VkCommandPool commandPool, struct fr_allocation_callbacks_t* pAllocCallbacks)
+{
+	VkCommandBufferAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfo.commandPool = commandPool;
+	allocInfo.commandBufferCount = 1;
+	
+	VkCommandBuffer commandBuffer;
+	if(vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer) != VK_SUCCESS)
+	{
+		FUR_ASSERT(false);
+	}
+	
+	VkCommandBufferBeginInfo beginInfo = {};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	beginInfo.pInheritanceInfo = NULL; // Optional
+	
+	if(vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
+	{
+		FUR_ASSERT(false);
+	}
+	
+	return commandBuffer;
+}
+
+void fr_end_simple_commands(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool, struct fr_allocation_callbacks_t* pAllocCallbacks)
+{
+	if(vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
+	{
+		FUR_ASSERT(false);
+	}
+	
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+	
+	vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	vkQueueWaitIdle(graphicsQueue);
+	
+	vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+}

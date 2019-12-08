@@ -1303,48 +1303,17 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		// record and execute staging command buffer
 		{
-			VkCommandBufferAllocateInfo allocInfo = {};
-			allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-			allocInfo.commandPool = pRenderer->stagingCommandPool;
-			allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-			allocInfo.commandBufferCount = NUM_SWAP_CHAIN_IMAGES;
-			
-			if (vkAllocateCommandBuffers(pRenderer->device, &allocInfo, &pRenderer->stagingCommandBuffer) != VK_SUCCESS)
-			{
-				FUR_ASSERT(false);
-			}
-			
-			// record commands into staging command buffer
-			VkCommandBufferBeginInfo beginInfo = {};
-			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-			beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;	// notice that, this is for optimization
-			beginInfo.pInheritanceInfo = NULL; // Optional
-			
-			if (vkBeginCommandBuffer(pRenderer->stagingCommandBuffer, &beginInfo) != VK_SUCCESS)
-			{
-				FUR_ASSERT(false);
-			}
+			VkCommandBuffer commandBuffer = fr_begin_simple_commands(pRenderer->device, pRenderer->stagingCommandPool, pAllocCallbacks);
 			
 			// copy vertex buffer region
 			{
 				uint32_t srcStagingIndices[2] = {1, 2};
 				VkBuffer dstBuffers[2] = {pRenderer->vertexBuffer, pRenderer->indexBuffer};
 				
-				fr_staging_record_copy_commands(&stagingBuilder, pRenderer->stagingCommandBuffer, pRenderer->stagingBuffer, srcStagingIndices, dstBuffers, 2);
+				fr_staging_record_copy_commands(&stagingBuilder, commandBuffer, pRenderer->stagingBuffer, srcStagingIndices, dstBuffers, 2);
 			}
 			
-			if (vkEndCommandBuffer(pRenderer->stagingCommandBuffer) != VK_SUCCESS)
-			{
-				FUR_ASSERT(false);
-			}
-			
-			VkSubmitInfo submitInfo = {};
-			submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-			submitInfo.commandBufferCount = 1;
-			submitInfo.pCommandBuffers = &pRenderer->stagingCommandBuffer;
-			
-			vkQueueSubmit(pRenderer->graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-			vkQueueWaitIdle(pRenderer->graphicsQueue);
+			fr_end_simple_commands(pRenderer->device, pRenderer->graphicsQueue, commandBuffer, pRenderer->stagingCommandPool, pAllocCallbacks);
 			
 			vkDestroyBuffer(pRenderer->device, pRenderer->stagingBuffer, NULL);
 			vkFreeMemory(pRenderer->device, pRenderer->stagingBufferMemory, NULL);

@@ -4,6 +4,9 @@
 
 struct fr_allocation_callbacks_t;
 
+// --------------------
+// STAGING BUFFER UTILS
+
 typedef void (*fr_staging_free_data_func_t)(void* 		pData,
 											 size_t 	size,
 											 void* 		pUserData);
@@ -51,3 +54,12 @@ void fr_staging_release_builder(fr_staging_buffer_builder_t* builder);
 // copy region 'srcRegionIndex' from staging buffer to dstBuffer (from staging to vertex buffer for example), supports arrays of buffers
 void fr_staging_record_copy_commands(fr_staging_buffer_builder_t* builder, VkCommandBuffer commandBuffer, VkBuffer stagingBuffer,
 									 uint32_t* aSrcRegionIndex, VkBuffer* aDstBuffer, uint32_t numBuffers);
+
+// -------------
+// COMMAND UTILS
+
+// allocate and begin one time command buffer
+VkCommandBuffer fr_begin_simple_commands(VkDevice device, VkCommandPool commandPool, struct fr_allocation_callbacks_t* pAllocCallbacks);
+
+// end, submit, and free one time command buffer
+void fr_end_simple_commands(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool, struct fr_allocation_callbacks_t* pAllocCallbacks);
