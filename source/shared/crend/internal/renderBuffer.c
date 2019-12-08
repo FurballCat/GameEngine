@@ -60,6 +60,50 @@ void fr_create_buffer(VkDevice device, VkPhysicalDevice physicalDevice,
 	vkBindBufferMemory(device, *buffer, *bufferMemory, 0);
 }
 
+void fr_create_image(VkDevice device, VkPhysicalDevice physicalDevice,
+					  VkDeviceSize size, VkBufferUsageFlags usage,
+					  VkMemoryPropertyFlags properties, uint32_t width, uint32_t height,
+					  VkImage* textureImage, VkDeviceMemory* textureImageMemory,
+					  struct fr_allocation_callbacks_t* pAllocCallbacks)
+{
+	VkImageCreateInfo imageInfo = {};
+	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageInfo.extent.width = width;
+	imageInfo.extent.height = height;
+	imageInfo.extent.depth = 1;
+	imageInfo.mipLevels = 1;
+	imageInfo.arrayLayers = 1;
+	
+	imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageInfo.flags = 0; // Optional
+	
+	if (vkCreateImage(device, &imageInfo, NULL, textureImage) != VK_SUCCESS)
+	{
+		FUR_ASSERT(false);
+	}
+	
+	VkMemoryRequirements memRequirements;
+	vkGetImageMemoryRequirements(device, *textureImage, &memRequirements);
+	
+	VkMemoryAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	allocInfo.allocationSize = memRequirements.size;
+	allocInfo.memoryTypeIndex = frFindMemoryType(physicalDevice, memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	
+	if (vkAllocateMemory(device, &allocInfo, NULL, textureImageMemory) != VK_SUCCESS)
+	{
+		FUR_ASSERT(false);
+	}
+	
+	vkBindImageMemory(device, *textureImage, *textureImageMemory, 0);
+}
+
 void fr_copy_data_to_buffer(VkDevice device, VkDeviceMemory dst, const void* src, uint32_t offset, uint32_t size)
 {
 	void* data;

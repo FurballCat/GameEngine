@@ -308,6 +308,8 @@ typedef struct fr_uniform_buffer_t
 } fr_uniform_buffer_t;
 
 const char* g_texturePath = "../../../../../assets/test_texture.png";
+const uint32_t g_textureWidth = 1024;
+const uint32_t g_textureHeight = 1024;
 
 /*************************************************************/
 
@@ -365,6 +367,9 @@ struct fr_renderer_t
 	
 	VkBuffer indexBuffer;
 	VkDeviceMemory indexBufferMemory;
+	
+	VkImage textureImage;
+	VkDeviceMemory textureImageMemory;
 	
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
@@ -1173,11 +1178,13 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	fr_staging_buffer_builder_t stagingBuilder;
 	fr_staging_init(&stagingBuilder);
 	
+	VkDeviceSize imageSize = 0;
+	
 	// load texture
 	{
 		int texWidth, texHeight, texChannels;
 		stbi_uc* pixels = stbi_load(g_texturePath, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-		VkDeviceSize imageSize = texWidth * texHeight * 4;
+		imageSize = texWidth * texHeight * 4;
 		
 		if(!pixels)
 		{
@@ -1188,6 +1195,14 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		{
 			fr_staging_add(&stagingBuilder, pixels, (uint32_t)imageSize, NULL, fr_pixels_free_func);
 		}
+	}
+	
+	// create texture image
+	{
+		fr_create_image(pRenderer->device, pRenderer->physicalDevice, imageSize,
+						VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+						g_textureWidth, g_textureHeight,
+						&pRenderer->textureImage, &pRenderer->textureImageMemory, pAllocCallbacks);
 	}
 	
 	// record commands
