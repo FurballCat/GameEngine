@@ -11,6 +11,18 @@
 #include "glfw/glfw3.h"
 
 #include "renderBuffer.h"
+#include "renderUtils.h"
+
+// stb library
+#ifdef __clang__
+#define STBIDEF static inline
+#endif
+
+#define STB_IMAGE_STATIC
+#define STB_IMAGE_IMPLEMENTATION
+
+#include "stb_image.h"
+//-----
 
 #include <math.h>
 #include "3dmath.h"
@@ -295,6 +307,8 @@ typedef struct fr_uniform_buffer_t
 	fm_mat4_t proj;
 } fr_uniform_buffer_t;
 
+const char* g_texturePath = "../../../../../assets/test_texture.png";
+
 /*************************************************************/
 
 #define NUM_SWAP_CHAIN_IMAGES 3
@@ -366,6 +380,19 @@ struct fr_renderer_t
 	
 	float rotationAngle;
 };
+
+void fr_pixels_free_func(void* pData, size_t size, void* pUserData)
+{
+	stbi_uc* pixels = (stbi_uc*)pData;
+	stbi_image_free(pixels);
+}
+
+void fr_generic_buffer_free_func(void* pData, size_t size, void* pUserData)
+{
+	struct fr_allocation_callbacks_t* pAllocCallbacks = (struct fr_allocation_callbacks_t*)pUserData;
+	
+	FUR_FREE(pData, pAllocCallbacks);
+}
 
 enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 					   struct fr_renderer_t** ppRenderer,
@@ -1031,7 +1058,6 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 	}
 	
-	const uint32_t numIndices = g_numTestIndices;
 	const VkDeviceSize testIndexBufferSize = sizeof(uint16_t) * g_numTestIndices;
 	
 	// create test geometry index buffer
@@ -1144,6 +1170,26 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 	}
 	
+	fr_staging_buffer_builder_t stagingBuilder;
+	fr_staging_init(&stagingBuilder);
+	
+	// load texture
+	{
+		int texWidth, texHeight, texChannels;
+		stbi_uc* pixels = stbi_load(g_texturePath, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		VkDeviceSize imageSize = texWidth * texHeight * 4;
+		
+		if(!pixels)
+		{
+			fur_set_last_error("Can't load texture");
+			res = FR_RESULT_ERROR_GPU;
+		}
+		else
+		{
+			fr_staging_add(&stagingBuilder, pixels, (uint32_t)imageSize, NULL, fr_pixels_free_func);
+		}
+	}
+	
 	// record commands
 	if(res == FR_RESULT_OK)
 	{
@@ -1215,54 +1261,17 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// do staging pass - copy vertex data from staging buffer to vertex buffer
 	if(res == FR_RESULT_OK)
 	{
-		const uint32_t numVertices = g_numTestVertices;
-		const uint32_t initVerticesSize = sizeof(fr_vertex_t) * numVertices;
-		fr_vertex_t* initVertices = FUR_ALLOC(initVerticesSize, 16, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
-		
-		// create vertices data
+		// add vertices & indices data to staging buffer
 		{
-			fr_vertex_t* itVertex = initVertices;
-			for(uint32_t y=0; y<g_numTestVertices; ++y)
-			{
-				*itVertex = g_testGeometry[y];
-				itVertex++;
-			}
-			
-			FUR_ASSERT(itVertex == initVertices + numVertices);
+			fr_staging_add(&stagingBuilder, g_testGeometry, sizeof(fr_vertex_t) * g_numTestVertices, NULL, NULL);
+			fr_staging_add(&stagingBuilder, g_testIndices, sizeof(uint16_t) * g_numTestIndices, NULL, NULL);
 		}
 		
-		const uint32_t initIndicesSize = sizeof(uint16_t) * g_numTestIndices;
-		uint16_t* initIndices = FUR_ALLOC(initIndicesSize, 8, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
-		
-		// create indices data
+		// create staging buffer & release memory of source data
 		{
-			uint16_t* itIndices = initIndices;
-			
-			for(uint32_t y=0; y<g_numTestIndices; ++y)
-			{
-				*itIndices = g_testIndices[y];
-				itIndices++;
-			}
-			
-			FUR_ASSERT(itIndices == initIndices + numIndices);
+			fr_staging_build(&stagingBuilder, pRenderer->device, pRenderer->physicalDevice, &pRenderer->stagingBuffer, &pRenderer->stagingBufferMemory, pAllocCallbacks);
+			fr_staging_release_builder(&stagingBuilder);
 		}
-		
-		// create staging buffer
-		{
-			const uint32_t totalSize = testVertexBufferSize + testIndexBufferSize;
-			
-			fr_create_buffer(pRenderer->device, pRenderer->physicalDevice, totalSize,
-						   FR_STAGING_BUFFER_USAGE_FLAGS, FR_STAGING_BUFFER_MEMORY_FLAGS,
-						   &pRenderer->stagingBuffer, &pRenderer->stagingBufferMemory, pAllocCallbacks);
-			
-			// copy geometry data to staging buffer, later on we will copy staging buffer to vertex buffer on GPU side
-			fr_copy_data_to_buffer(pRenderer->device, pRenderer->stagingBufferMemory, initVertices, 0, testVertexBufferSize);
-			fr_copy_data_to_buffer(pRenderer->device, pRenderer->stagingBufferMemory, initIndices, testVertexBufferSize, testIndexBufferSize);
-		}
-		
-		// release vertices and indices data
-		FUR_FREE(initIndices, pAllocCallbacks);
-		FUR_FREE(initVertices, pAllocCallbacks);
 		
 		// create staging command pool
 		{
@@ -1303,20 +1312,10 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			
 			// copy vertex buffer region
 			{
-				VkBufferCopy copyRegion = {};
-				copyRegion.srcOffset = 0; // Optional
-				copyRegion.dstOffset = 0; // Optional
-				copyRegion.size = testVertexBufferSize;
-				vkCmdCopyBuffer(pRenderer->stagingCommandBuffer, pRenderer->stagingBuffer, pRenderer->vertexBuffer, 1, &copyRegion);
-			}
-			
-			// copy index buffer region
-			{
-				VkBufferCopy copyRegion = {};
-				copyRegion.srcOffset = testVertexBufferSize; // Optional
-				copyRegion.dstOffset = 0; // Optional
-				copyRegion.size = testIndexBufferSize;
-				vkCmdCopyBuffer(pRenderer->stagingCommandBuffer, pRenderer->stagingBuffer, pRenderer->indexBuffer, 1, &copyRegion);
+				uint32_t srcStagingIndices[2] = {1, 2};
+				VkBuffer dstBuffers[2] = {pRenderer->vertexBuffer, pRenderer->indexBuffer};
+				
+				fr_staging_record_copy_commands(&stagingBuilder, pRenderer->stagingCommandBuffer, pRenderer->stagingBuffer, srcStagingIndices, dstBuffers, 2);
 			}
 			
 			if (vkEndCommandBuffer(pRenderer->stagingCommandBuffer) != VK_SUCCESS)
