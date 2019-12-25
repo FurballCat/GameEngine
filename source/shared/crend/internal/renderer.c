@@ -1179,6 +1179,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	fr_staging_init(&stagingBuilder);
 	
 	VkDeviceSize imageSize = 0;
+	VkDeviceSize imageOffsetInBuffer = 0;
 	
 	// load texture
 	{
@@ -1193,6 +1194,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 		else
 		{
+			imageOffsetInBuffer = stagingBuilder.totalSize;
 			fr_staging_add(&stagingBuilder, pixels, (uint32_t)imageSize, NULL, fr_pixels_free_func);
 		}
 	}
@@ -1314,7 +1316,18 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			}
 			
 			fr_end_simple_commands(pRenderer->device, pRenderer->graphicsQueue, commandBuffer, pRenderer->stagingCommandPool, pAllocCallbacks);
+		}
+		
+		// image layout transitions
+		{
+			fr_transition_image_layout(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool,
+									   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pRenderer->textureImage, pAllocCallbacks);
+			fr_copy_buffer_to_image(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, pRenderer->stagingBuffer, imageOffsetInBuffer, pRenderer->textureImage, g_textureWidth, g_textureHeight, pAllocCallbacks);
 			
+		}
+		
+		// release staging buffer
+		{
 			vkDestroyBuffer(pRenderer->device, pRenderer->stagingBuffer, NULL);
 			vkFreeMemory(pRenderer->device, pRenderer->stagingBufferMemory, NULL);
 		}
@@ -1376,6 +1389,10 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 		vkDestroyBuffer(pRenderer->device, pRenderer->colorVertexBuffer[i], NULL);
 		vkFreeMemory(pRenderer->device, pRenderer->colorVertexBufferMemory[i], NULL);
 	}
+	
+	// destroy image
+	vkDestroyImage(pRenderer->device, pRenderer->textureImage, NULL);
+	vkFreeMemory(pRenderer->device, pRenderer->textureImageMemory, NULL);
 	
 	// destroy vertex buffer
 	vkDestroyBuffer(pRenderer->device, pRenderer->vertexBuffer, NULL);
