@@ -144,7 +144,12 @@ void fr_end_simple_commands(VkDevice device, VkQueue graphicsQueue, VkCommandBuf
 
 // --------------------
 
-void fr_transition_image_layout(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, struct fr_allocation_callbacks_t* pAllocCallbacks)
+bool fr_has_stencil_component(VkFormat format)
+{
+	return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
+void fr_transition_image_layout(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, struct fr_allocation_callbacks_t* pAllocCallbacks)
 {
 	VkCommandBuffer commandBuffer = fr_begin_simple_commands(device, commandPool, pAllocCallbacks);
 	
@@ -166,6 +171,20 @@ void fr_transition_image_layout(VkDevice device, VkQueue graphicsQueue, VkComman
 	barrier.srcAccessMask = 0; // TODO
 	barrier.dstAccessMask = 0; // TODO
 	
+	if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+	{
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		
+		if (fr_has_stencil_component(format))
+		{
+			barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+	}
+	else
+	{
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	}
+	
 	VkPipelineStageFlags sourceStage;
 	VkPipelineStageFlags destinationStage;
 	
@@ -184,6 +203,14 @@ void fr_transition_image_layout(VkDevice device, VkQueue graphicsQueue, VkComman
 		
 		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
+	else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+	{
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		
+		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 	}
 	else
 	{

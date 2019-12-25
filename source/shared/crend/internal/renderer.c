@@ -286,20 +286,25 @@ typedef struct fr_vec3_t
 
 typedef struct fr_vertex_t
 {
-	fr_vec2_t position;
+	fr_vec3_t position;
 	fr_vec3_t color;
 	fr_vec2_t texCoord;
 } fr_vertex_t;
 
-const uint32_t g_numTestVertices = 4;
+const uint32_t g_numTestVertices = 8;
 const fr_vertex_t g_testGeometry[g_numTestVertices] = {
-	{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f,}},
-	{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-	{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-	{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}};
+	{{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f,}},
+	{{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+	{{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+	{{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+	{{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+	{{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+	{{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+	{{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
+};
 
-const uint32_t g_numTestIndices = 6;
-const uint16_t g_testIndices[g_numTestIndices] = {0, 1, 2, 2, 3, 0};
+const uint32_t g_numTestIndices = 12;
+const uint16_t g_testIndices[g_numTestIndices] = {0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4};
 
 typedef struct fr_uniform_buffer_t
 {
@@ -336,6 +341,10 @@ struct fr_renderer_t
 	
 	VkImage aSwapChainImages[NUM_SWAP_CHAIN_IMAGES];
 	VkImageView aSwapChainImagesViews[NUM_SWAP_CHAIN_IMAGES];
+	
+	VkImage depthImage;
+	VkDeviceMemory depthImageMemory;
+	VkImageView depthImageView;
 	
 	VkShaderModule vertexShaderModule;
 	VkShaderModule fragmentShaderModule;
@@ -777,7 +786,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		pRenderer->vertexAttributes[0].binding = 0;
 		pRenderer->vertexAttributes[0].location = 0;
-		pRenderer->vertexAttributes[0].format = VK_FORMAT_R32G32_SFLOAT;
+		pRenderer->vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
 		pRenderer->vertexAttributes[0].offset = offsetof(fr_vertex_t, position);
 		
 		pRenderer->vertexAttributes[1].binding = 0;
@@ -836,6 +845,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 					   &pRenderer->aUniformBuffer[i], &pRenderer->aUniformBufferMemory[i], pAllocCallbacks);
 		}
 	}
+	
+	const VkFormat depthFormat = VK_FORMAT_D24_UNORM_S8_UINT;
 	
 	// create render stages
 	if(res == FR_RESULT_OK)
@@ -985,12 +996,26 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		colorAttachmentRef.attachment = 0;
 		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		
+		VkAttachmentDescription depthAttachment = {};
+		depthAttachment.format = depthFormat;
+		depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		
+		VkAttachmentReference depthAttachmentRef = {};
+		depthAttachmentRef.attachment = 1;
+		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		
 		// subpass
 		VkSubpassDescription subpass = {};
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		
 		subpass.colorAttachmentCount = 1;
 		subpass.pColorAttachments = &colorAttachmentRef;
+		subpass.pDepthStencilAttachment = &depthAttachmentRef;
 		
 		// subpass dependency
 		VkSubpassDependency dependency = {};
@@ -1003,11 +1028,14 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		
+		const uint32_t numAttachments = 2;
+		VkAttachmentDescription attachments[numAttachments] = {colorAttachment, depthAttachment};
+		
 		// create render pass
 		VkRenderPassCreateInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		renderPassInfo.attachmentCount = 1;
-		renderPassInfo.pAttachments = &colorAttachment;
+		renderPassInfo.attachmentCount = numAttachments;
+		renderPassInfo.pAttachments = attachments;
 		renderPassInfo.subpassCount = 1;
 		renderPassInfo.pSubpasses = &subpass;
 		
@@ -1020,6 +1048,18 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			res = FR_RESULT_ERROR_GPU;
 		}
 		
+		VkPipelineDepthStencilStateCreateInfo depthStencil = {};
+		depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+		depthStencil.depthTestEnable = VK_TRUE;
+		depthStencil.depthWriteEnable = VK_TRUE;
+		depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+		depthStencil.depthBoundsTestEnable = VK_FALSE;
+		depthStencil.minDepthBounds = 0.0f; // Optional
+		depthStencil.maxDepthBounds = 1.0f; // Optional
+		depthStencil.stencilTestEnable = VK_FALSE;
+		// depthStencil.front = {}; // Optional - cleared at the beginning by depthStencil = {}
+		// depthStencil.back = {}; // Optional
+		
 		// create graphics pipeline
 		VkGraphicsPipelineCreateInfo pipelineInfo = {};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -1031,7 +1071,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		pipelineInfo.pViewportState = &viewportState;
 		pipelineInfo.pRasterizationState = &rasterizer;
 		pipelineInfo.pMultisampleState = &multisampling;
-		pipelineInfo.pDepthStencilState = NULL; // Optional
+		pipelineInfo.pDepthStencilState = &depthStencil;
 		pipelineInfo.pColorBlendState = &colorBlending;
 		pipelineInfo.pDynamicState = NULL; // Optional
 		
@@ -1050,6 +1090,36 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 	}
 	
+	// create depth buffer
+	if(res == FR_RESULT_OK)
+	{
+		VkDeviceSize depthImageSize = 4 * pRenderer->swapChainExtent.width * pRenderer->swapChainExtent.height;
+		fr_create_image(pRenderer->device, pRenderer->physicalDevice, depthImageSize, depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+						pRenderer->swapChainExtent.width, pRenderer->swapChainExtent.height, &pRenderer->depthImage, &pRenderer->depthImageMemory, pAllocCallbacks);
+	}
+	
+	// create depth image view
+	if(res == FR_RESULT_OK)
+	{
+		VkImageViewCreateInfo viewInfo = {};
+		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewInfo.image = pRenderer->depthImage;
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewInfo.format = depthFormat;
+		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		viewInfo.subresourceRange.baseMipLevel = 0;
+		viewInfo.subresourceRange.levelCount = 1;
+		viewInfo.subresourceRange.baseArrayLayer = 0;
+		viewInfo.subresourceRange.layerCount = 1;
+		
+		if(vkCreateImageView(pRenderer->device, &viewInfo, NULL, &pRenderer->depthImageView) != VK_SUCCESS)
+		{
+			fur_set_last_error("Can't create depth image view");
+			res = FR_RESULT_ERROR_GPU;
+		}
+	}
+	
+	// vertices
 	const uint32_t numTestVertices = g_numTestVertices;
 	
 	const VkDeviceSize testVertexBufferSize = sizeof(fr_vertex_t) * numTestVertices;
@@ -1098,15 +1168,17 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	{
 		for (size_t i = 0; i < NUM_SWAP_CHAIN_IMAGES; i++)
 		{
-			VkImageView attachments[] =
+			const uint32_t numAttachments = 2;
+			VkImageView attachments[numAttachments] =
 			{
-				pRenderer->aSwapChainImagesViews[i]
+				pRenderer->aSwapChainImagesViews[i],
+				pRenderer->depthImageView
 			};
 			
 			VkFramebufferCreateInfo framebufferInfo = {};
 			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 			framebufferInfo.renderPass = pRenderer->renderPass;
-			framebufferInfo.attachmentCount = 1;
+			framebufferInfo.attachmentCount = numAttachments;
 			framebufferInfo.pAttachments = attachments;
 			framebufferInfo.width = pRenderer->swapChainExtent.width;
 			framebufferInfo.height = pRenderer->swapChainExtent.height;
@@ -1168,9 +1240,11 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 	}
 	
+	const VkFormat textureImageFormat = VK_FORMAT_R8G8B8A8_UNORM;
+	
 	// create texture image
 	{
-		fr_create_image(pRenderer->device, pRenderer->physicalDevice, imageSize,
+		fr_create_image(pRenderer->device, pRenderer->physicalDevice, imageSize, textureImageFormat,
 						VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 						g_textureWidth, g_textureHeight,
 						&pRenderer->textureImage, &pRenderer->textureImageMemory, pAllocCallbacks);
@@ -1183,7 +1257,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		viewInfo.image = pRenderer->textureImage;
 		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+		viewInfo.format = textureImageFormat;
 		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		viewInfo.subresourceRange.baseMipLevel = 0;
 		viewInfo.subresourceRange.levelCount = 1;
@@ -1333,9 +1407,18 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			renderPassInfo.renderArea.offset.y = 0;
 			renderPassInfo.renderArea.extent = pRenderer->swapChainExtent;
 			
-			VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
-			renderPassInfo.clearValueCount = 1;
-			renderPassInfo.pClearValues = &clearColor;
+			const uint32_t numClearValues = 2;
+			VkClearValue clearColor[numClearValues] = {};
+			clearColor[0].color.float32[0] = 0.0f;
+			clearColor[0].color.float32[1] = 0.0f;
+			clearColor[0].color.float32[2] = 0.0f;
+			clearColor[0].color.float32[3] = 1.0f;
+			
+			clearColor[1].depthStencil.depth = 1.0f;
+			clearColor[1].depthStencil.stencil = 0;
+			
+			renderPassInfo.clearValueCount = numClearValues;
+			renderPassInfo.pClearValues = clearColor;
 			
 			vkCmdBeginRenderPass(pRenderer->aCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 			
@@ -1406,9 +1489,15 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			fr_end_simple_commands(pRenderer->device, pRenderer->graphicsQueue, commandBuffer, pRenderer->stagingCommandPool, pAllocCallbacks);
 		}
 		
+		// depth layout transitions
+		{
+			fr_transition_image_layout(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, depthFormat,
+									   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, pRenderer->depthImage, pAllocCallbacks);
+		}
+		
 		// image layout transitions
 		{
-			fr_transition_image_layout(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool,
+			fr_transition_image_layout(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, textureImageFormat,
 									   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pRenderer->textureImage, pAllocCallbacks);
 			fr_copy_buffer_to_image(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, pRenderer->stagingBuffer, imageOffsetInBuffer, pRenderer->textureImage, g_textureWidth, g_textureHeight, pAllocCallbacks);
 			

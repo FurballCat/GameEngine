@@ -16,7 +16,7 @@ void fr_create_buffer(VkDevice device, VkPhysicalDevice physicalDevice,
 					struct fr_allocation_callbacks_t* pAllocCallbacks);
 
 void fr_create_image(VkDevice device, VkPhysicalDevice physicalDevice,
-					 VkDeviceSize size, VkBufferUsageFlags usage,
+					 VkDeviceSize size, VkFormat format, VkBufferUsageFlags usage,
 					 VkMemoryPropertyFlags properties, uint32_t width, uint32_t height,
 					 VkImage* textureImage, VkDeviceMemory* textureImageMemory,
 					 struct fr_allocation_callbacks_t* pAllocCallbacks);

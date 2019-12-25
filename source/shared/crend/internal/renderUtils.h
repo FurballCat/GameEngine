@@ -65,7 +65,7 @@ VkCommandBuffer fr_begin_simple_commands(VkDevice device, VkCommandPool commandP
 void fr_end_simple_commands(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool, struct fr_allocation_callbacks_t* pAllocCallbacks);
 
 // transition image layout
-void fr_transition_image_layout(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, struct fr_allocation_callbacks_t* pAllocCallbacks);
+void fr_transition_image_layout(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, struct fr_allocation_callbacks_t* pAllocCallbacks);
 
 // copy buffer to image
 void fr_copy_buffer_to_image(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkBuffer buffer, VkDeviceSize bufferOffset, VkImage image, uint32_t width, uint32_t height, struct fr_allocation_callbacks_t* pAllocCallbacks);
