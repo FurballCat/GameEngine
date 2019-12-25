@@ -1567,6 +1567,11 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 		vkFreeMemory(pRenderer->device, pRenderer->colorVertexBufferMemory[i], NULL);
 	}
 	
+	// destroy depth image
+	vkDestroyImageView(pRenderer->device, pRenderer->depthImageView, NULL);
+	vkDestroyImage(pRenderer->device, pRenderer->depthImage, NULL);
+	vkFreeMemory(pRenderer->device, pRenderer->depthImageMemory, NULL);
+	
 	// destroy image
 	vkDestroyImageView(pRenderer->device, pRenderer->textureImageView, NULL);
 	vkDestroyImage(pRenderer->device, pRenderer->textureImage, NULL);
