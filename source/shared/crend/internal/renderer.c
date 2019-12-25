@@ -288,14 +288,15 @@ typedef struct fr_vertex_t
 {
 	fr_vec2_t position;
 	fr_vec3_t color;
+	fr_vec2_t texCoord;
 } fr_vertex_t;
 
 const uint32_t g_numTestVertices = 4;
 const fr_vertex_t g_testGeometry[g_numTestVertices] = {
-	{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-	{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-	{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-	{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}};
+	{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f,}},
+	{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+	{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+	{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}};
 
 const uint32_t g_numTestIndices = 6;
 const uint16_t g_testIndices[g_numTestIndices] = {0, 1, 2, 2, 3, 0};
@@ -357,7 +358,7 @@ struct fr_renderer_t
 	
 	// test geometry
 	VkVertexInputBindingDescription bindingDescription[2];
-	VkVertexInputAttributeDescription vertexAttributes[2];
+	VkVertexInputAttributeDescription vertexAttributes[3];
 	
 	VkBuffer vertexBuffer;
 	VkDeviceMemory vertexBufferMemory;
@@ -370,6 +371,8 @@ struct fr_renderer_t
 	
 	VkImage textureImage;
 	VkDeviceMemory textureImageMemory;
+	VkImageView textureImageView;
+	VkSampler textureSampler;
 	
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
@@ -781,11 +784,17 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		pRenderer->vertexAttributes[1].location = 1;
 		pRenderer->vertexAttributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
 		pRenderer->vertexAttributes[1].offset = offsetof(fr_vertex_t, color);
+		
+		pRenderer->vertexAttributes[2].binding = 0;
+		pRenderer->vertexAttributes[2].location = 2;
+		pRenderer->vertexAttributes[2].format = VK_FORMAT_R32G32_SFLOAT;
+		pRenderer->vertexAttributes[2].offset = offsetof(fr_vertex_t, texCoord);
 	}
 	
 	// create descriptor set layout
 	if(res == FR_RESULT_OK)
 	{
+		// uniform buffer (UBO)
 		VkDescriptorSetLayoutBinding uboLayoutBinding = {};
 		uboLayoutBinding.binding = 0;
 		uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -793,10 +802,21 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 		uboLayoutBinding.pImmutableSamplers = NULL;
 		
+		// sampler
+		VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
+		samplerLayoutBinding.binding = 1;
+		samplerLayoutBinding.descriptorCount = 1;
+		samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		samplerLayoutBinding.pImmutableSamplers = NULL;
+		samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		
+		const uint32_t numBindings = 2;
+		VkDescriptorSetLayoutBinding bindings[numBindings] = { uboLayoutBinding, samplerLayoutBinding };
+		
 		VkDescriptorSetLayoutCreateInfo layoutInfo = {};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layoutInfo.bindingCount = 1;
-		layoutInfo.pBindings = &uboLayoutBinding;
+		layoutInfo.bindingCount = numBindings;
+		layoutInfo.pBindings = bindings;
 		
 		if (vkCreateDescriptorSetLayout(pRenderer->device, &layoutInfo, NULL, &pRenderer->descriptorSetLayout) != VK_SUCCESS)
 		{
@@ -838,7 +858,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 		vertexInputInfo.vertexBindingDescriptionCount = 1;
-		vertexInputInfo.vertexAttributeDescriptionCount = 2;
+		vertexInputInfo.vertexAttributeDescriptionCount = 3;
 		vertexInputInfo.pVertexBindingDescriptions = pRenderer->bindingDescription;
 		vertexInputInfo.pVertexAttributeDescriptions = pRenderer->vertexAttributes;
 		
@@ -1100,77 +1120,26 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 	}
 	
-	// create descriptor pool (for uniform buffer)
+	// create descriptor pool (for uniform buffer & sampler)
 	if(res == FR_RESULT_OK)
 	{
-		VkDescriptorPoolSize poolSize = {};
-		poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSize.descriptorCount = NUM_SWAP_CHAIN_IMAGES;
+		uint32_t numBindings = 2;
+		VkDescriptorPoolSize poolSizes[numBindings];
+		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		poolSizes[0].descriptorCount = NUM_SWAP_CHAIN_IMAGES;
+		
+		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		poolSizes[1].descriptorCount = NUM_SWAP_CHAIN_IMAGES;
 		
 		VkDescriptorPoolCreateInfo poolInfo = {};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		poolInfo.poolSizeCount = 1;
-		poolInfo.pPoolSizes = &poolSize;
+		poolInfo.poolSizeCount = numBindings;
+		poolInfo.pPoolSizes = poolSizes;
 		poolInfo.maxSets = NUM_SWAP_CHAIN_IMAGES;
 		
 		if (vkCreateDescriptorPool(pRenderer->device, &poolInfo, NULL, &pRenderer->descriptorPool) != VK_SUCCESS)
 		{
 			fur_set_last_error("Can't create descriptor pool for uniform buffers");
-			res = FR_RESULT_ERROR_GPU;
-		}
-	}
-	
-	// create descriptor sets
-	if(res == FR_RESULT_OK)
-	{
-		VkDescriptorSetLayout layouts[NUM_SWAP_CHAIN_IMAGES] = {pRenderer->descriptorSetLayout,
-			pRenderer->descriptorSetLayout, pRenderer->descriptorSetLayout};
-		
-		VkDescriptorSetAllocateInfo allocInfo = {};
-		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		allocInfo.descriptorPool = pRenderer->descriptorPool;
-		allocInfo.descriptorSetCount = NUM_SWAP_CHAIN_IMAGES;
-		allocInfo.pSetLayouts = layouts;
-		
-		if (vkAllocateDescriptorSets(pRenderer->device, &allocInfo, pRenderer->aDescriptorSets) != VK_SUCCESS)
-		{
-			fur_set_last_error("Can't allocate descriptor sets for uniform buffers");
-			res = FR_RESULT_ERROR_GPU;
-		}
-		
-		for (size_t i = 0; i < NUM_SWAP_CHAIN_IMAGES; ++i)
-		{
-			VkDescriptorBufferInfo bufferInfo = {};
-			bufferInfo.buffer = pRenderer->aUniformBuffer[i];
-			bufferInfo.offset = 0;
-			bufferInfo.range = sizeof(fr_uniform_buffer_t);
-			
-			VkWriteDescriptorSet descriptorWrite = {};
-			descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrite.dstSet = pRenderer->aDescriptorSets[i];
-			descriptorWrite.dstBinding = 0;
-			descriptorWrite.dstArrayElement = 0;
-			descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			descriptorWrite.descriptorCount = 1;
-			descriptorWrite.pBufferInfo = &bufferInfo;
-			descriptorWrite.pImageInfo = NULL; // Optional
-			descriptorWrite.pTexelBufferView = NULL; // Optional
-			
-			vkUpdateDescriptorSets(pRenderer->device, 1, &descriptorWrite, 0, NULL);
-		}
-	}
-	
-	// create command pool
-	if(res == FR_RESULT_OK)
-	{
-		VkCommandPoolCreateInfo poolInfo = {};
-		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		poolInfo.queueFamilyIndex = pRenderer->idxQueueGraphics;
-		poolInfo.flags = 0; // Optional
-		
-		if (vkCreateCommandPool(pRenderer->device, &poolInfo, NULL, &pRenderer->commandPool) != VK_SUCCESS)
-		{
-			fur_set_last_error("Can't create graphics command pool");
 			res = FR_RESULT_ERROR_GPU;
 		}
 	}
@@ -1205,6 +1174,125 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 						VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 						g_textureWidth, g_textureHeight,
 						&pRenderer->textureImage, &pRenderer->textureImageMemory, pAllocCallbacks);
+	}
+	
+	// create texture image view
+	if(res == FR_RESULT_OK)
+	{
+		VkImageViewCreateInfo viewInfo = {};
+		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewInfo.image = pRenderer->textureImage;
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		viewInfo.subresourceRange.baseMipLevel = 0;
+		viewInfo.subresourceRange.levelCount = 1;
+		viewInfo.subresourceRange.baseArrayLayer = 0;
+		viewInfo.subresourceRange.layerCount = 1;
+		
+		if(vkCreateImageView(pRenderer->device, &viewInfo, NULL, &pRenderer->textureImageView) != VK_SUCCESS)
+		{
+			fur_set_last_error("Can't create texture image view");
+			res = FR_RESULT_ERROR_GPU;
+		}
+	}
+	
+	// create texture sampler
+	if(res == FR_RESULT_OK)
+	{
+		VkSamplerCreateInfo samplerInfo = {};
+		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		samplerInfo.magFilter = VK_FILTER_LINEAR;
+		samplerInfo.minFilter = VK_FILTER_LINEAR;
+		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerInfo.anisotropyEnable = VK_TRUE;
+		samplerInfo.maxAnisotropy = 16;
+		samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+		samplerInfo.unnormalizedCoordinates = VK_FALSE;
+		samplerInfo.compareEnable = VK_FALSE;
+		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		samplerInfo.mipLodBias = 0.0f;
+		samplerInfo.minLod = 0.0f;
+		samplerInfo.maxLod = 0.0f;
+		
+		if (vkCreateSampler(pRenderer->device, &samplerInfo, NULL, &pRenderer->textureSampler) != VK_SUCCESS)
+		{
+			fur_set_last_error("Can't create texture sampler");
+			res = FR_RESULT_ERROR_GPU;
+		}
+	}
+	
+	// create descriptor sets
+	if(res == FR_RESULT_OK)
+	{
+		VkDescriptorSetLayout layouts[NUM_SWAP_CHAIN_IMAGES] = {pRenderer->descriptorSetLayout,
+			pRenderer->descriptorSetLayout, pRenderer->descriptorSetLayout};
+		
+		VkDescriptorSetAllocateInfo allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		allocInfo.descriptorPool = pRenderer->descriptorPool;
+		allocInfo.descriptorSetCount = NUM_SWAP_CHAIN_IMAGES;
+		allocInfo.pSetLayouts = layouts;
+		
+		if (vkAllocateDescriptorSets(pRenderer->device, &allocInfo, pRenderer->aDescriptorSets) != VK_SUCCESS)
+		{
+			fur_set_last_error("Can't allocate descriptor sets for uniform buffers");
+			res = FR_RESULT_ERROR_GPU;
+		}
+		
+		for (size_t i = 0; i < NUM_SWAP_CHAIN_IMAGES; ++i)
+		{
+			VkDescriptorBufferInfo bufferInfo = {};
+			bufferInfo.buffer = pRenderer->aUniformBuffer[i];
+			bufferInfo.offset = 0;
+			bufferInfo.range = sizeof(fr_uniform_buffer_t);
+			
+			VkDescriptorImageInfo imageInfo = {};
+			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imageInfo.imageView = pRenderer->textureImageView;
+			imageInfo.sampler = pRenderer->textureSampler;
+			
+			const uint32_t numBindings = 2;
+			VkWriteDescriptorSet descriptorWrites[numBindings] = {};
+			
+			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[0].dstSet = pRenderer->aDescriptorSets[i];
+			descriptorWrites[0].dstBinding = 0;
+			descriptorWrites[0].dstArrayElement = 0;
+			descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			descriptorWrites[0].descriptorCount = 1;
+			descriptorWrites[0].pBufferInfo = &bufferInfo;
+			descriptorWrites[0].pImageInfo = NULL; // Optional
+			descriptorWrites[0].pTexelBufferView = NULL; // Optional
+			
+			descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[1].dstSet = pRenderer->aDescriptorSets[i];
+			descriptorWrites[1].dstBinding = 1;
+			descriptorWrites[1].dstArrayElement = 0;
+			descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			descriptorWrites[1].descriptorCount = 1;
+			descriptorWrites[1].pImageInfo = &imageInfo;
+
+			vkUpdateDescriptorSets(pRenderer->device, numBindings, descriptorWrites, 0, NULL);
+		}
+	}
+	
+	// create command pool
+	if(res == FR_RESULT_OK)
+	{
+		VkCommandPoolCreateInfo poolInfo = {};
+		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		poolInfo.queueFamilyIndex = pRenderer->idxQueueGraphics;
+		poolInfo.flags = 0; // Optional
+		
+		if (vkCreateCommandPool(pRenderer->device, &poolInfo, NULL, &pRenderer->commandPool) != VK_SUCCESS)
+		{
+			fur_set_last_error("Can't create graphics command pool");
+			res = FR_RESULT_ERROR_GPU;
+		}
 	}
 	
 	// record commands
@@ -1391,8 +1479,10 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	}
 	
 	// destroy image
+	vkDestroyImageView(pRenderer->device, pRenderer->textureImageView, NULL);
 	vkDestroyImage(pRenderer->device, pRenderer->textureImage, NULL);
 	vkFreeMemory(pRenderer->device, pRenderer->textureImageMemory, NULL);
+	vkDestroySampler(pRenderer->device, pRenderer->textureSampler, NULL);
 	
 	// destroy vertex buffer
 	vkDestroyBuffer(pRenderer->device, pRenderer->vertexBuffer, NULL);
