@@ -6,26 +6,9 @@
 #include <string.h>
 
 #include "renderBuffer.h"
+#include "renderUtils.h"
 
 #define FUR_ASSERT(x) assert(x)
-
-uint32_t fr_find_memory_type(const VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags propertyFlags)
-{
-	VkPhysicalDeviceMemoryProperties memProperties;
-	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-	
-	for (uint32_t i = 0; i < memProperties.memoryTypeCount; ++i)
-	{
-		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & propertyFlags) == propertyFlags)
-		{
-			return i;
-		}
-	}
-	
-	FUR_ASSERT(false);
-	
-	return (uint32_t)-1;
-}
 
 void fr_buffer_create(VkDevice device, VkPhysicalDevice physicalDevice, const fr_buffer_desc_t* pDesc,
 					  fr_buffer_t* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks)

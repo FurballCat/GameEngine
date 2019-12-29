@@ -254,3 +254,21 @@ void fr_copy_buffer_to_image(VkDevice device, VkQueue graphicsQueue, VkCommandPo
 	
 	fr_end_simple_commands(device, graphicsQueue, commandBuffer, commandPool, pAllocCallbacks);
 }
+
+uint32_t fr_find_memory_type(const VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags propertyFlags)
+{
+	VkPhysicalDeviceMemoryProperties memProperties;
+	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+	
+	for (uint32_t i = 0; i < memProperties.memoryTypeCount; ++i)
+	{
+		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & propertyFlags) == propertyFlags)
+		{
+			return i;
+		}
+	}
+	
+	FUR_ASSERT(false);
+	
+	return (uint32_t)-1;
+}

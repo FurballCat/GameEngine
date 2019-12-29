@@ -11,6 +11,7 @@
 #include "glfw/glfw3.h"
 
 #include "renderBuffer.h"
+#include "image.h"
 #include "renderUtils.h"
 
 // stb library
@@ -342,9 +343,7 @@ struct fr_renderer_t
 	VkImage aSwapChainImages[NUM_SWAP_CHAIN_IMAGES];
 	VkImageView aSwapChainImagesViews[NUM_SWAP_CHAIN_IMAGES];
 	
-	VkImage depthImage;
-	VkDeviceMemory depthImageMemory;
-	VkImageView depthImageView;
+	fr_image_t depthImage;
 	
 	VkShaderModule vertexShaderModule;
 	VkShaderModule fragmentShaderModule;
@@ -372,9 +371,7 @@ struct fr_renderer_t
 	fr_buffer_t vertexBuffer;
 	fr_buffer_t indexBuffer;
 	
-	VkImage textureImage;
-	VkDeviceMemory textureImageMemory;
-	VkImageView textureImageView;
+	fr_image_t textureImage;
 	VkSampler textureSampler;
 	
 	fr_buffer_t stagingBuffer;
@@ -1079,30 +1076,17 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create depth buffer
 	if(res == FR_RESULT_OK)
 	{
-		VkDeviceSize depthImageSize = 4 * pRenderer->swapChainExtent.width * pRenderer->swapChainExtent.height;
-		fr_create_image(pRenderer->device, pRenderer->physicalDevice, depthImageSize, depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-						pRenderer->swapChainExtent.width, pRenderer->swapChainExtent.height, &pRenderer->depthImage, &pRenderer->depthImageMemory, pAllocCallbacks);
-	}
-	
-	// create depth image view
-	if(res == FR_RESULT_OK)
-	{
-		VkImageViewCreateInfo viewInfo = {};
-		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		viewInfo.image = pRenderer->depthImage;
-		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewInfo.format = depthFormat;
-		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-		viewInfo.subresourceRange.baseMipLevel = 0;
-		viewInfo.subresourceRange.levelCount = 1;
-		viewInfo.subresourceRange.baseArrayLayer = 0;
-		viewInfo.subresourceRange.layerCount = 1;
+		const VkDeviceSize depthImageSize = 4 * pRenderer->swapChainExtent.width * pRenderer->swapChainExtent.height;
 		
-		if(vkCreateImageView(pRenderer->device, &viewInfo, NULL, &pRenderer->depthImageView) != VK_SUCCESS)
-		{
-			fur_set_last_error("Can't create depth image view");
-			res = FR_RESULT_ERROR_GPU;
-		}
+		fr_image_desc_t desc = {};
+		desc.size = depthImageSize;
+		desc.width = pRenderer->swapChainExtent.width;
+		desc.height = pRenderer->swapChainExtent.height;
+		desc.format = depthFormat;
+		desc.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		desc.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		
+		fr_image_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->depthImage, pAllocCallbacks);
 	}
 	
 	// vertices
@@ -1143,7 +1127,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			VkImageView attachments[numAttachments] =
 			{
 				pRenderer->aSwapChainImagesViews[i],
-				pRenderer->depthImageView
+				pRenderer->depthImage.view
 			};
 			
 			VkFramebufferCreateInfo framebufferInfo = {};
@@ -1215,31 +1199,15 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	
 	// create texture image
 	{
-		fr_create_image(pRenderer->device, pRenderer->physicalDevice, imageSize, textureImageFormat,
-						VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-						g_textureWidth, g_textureHeight,
-						&pRenderer->textureImage, &pRenderer->textureImageMemory, pAllocCallbacks);
-	}
-	
-	// create texture image view
-	if(res == FR_RESULT_OK)
-	{
-		VkImageViewCreateInfo viewInfo = {};
-		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		viewInfo.image = pRenderer->textureImage;
-		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewInfo.format = textureImageFormat;
-		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		viewInfo.subresourceRange.baseMipLevel = 0;
-		viewInfo.subresourceRange.levelCount = 1;
-		viewInfo.subresourceRange.baseArrayLayer = 0;
-		viewInfo.subresourceRange.layerCount = 1;
+		fr_image_desc_t desc = {};
+		desc.size = imageSize;
+		desc.width = g_textureWidth;
+		desc.height = g_textureHeight;
+		desc.format = textureImageFormat;
+		desc.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		desc.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		
-		if(vkCreateImageView(pRenderer->device, &viewInfo, NULL, &pRenderer->textureImageView) != VK_SUCCESS)
-		{
-			fur_set_last_error("Can't create texture image view");
-			res = FR_RESULT_ERROR_GPU;
-		}
+		fr_image_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->textureImage, pAllocCallbacks);
 	}
 	
 	// create texture sampler
@@ -1297,7 +1265,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			
 			VkDescriptorImageInfo imageInfo = {};
 			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			imageInfo.imageView = pRenderer->textureImageView;
+			imageInfo.imageView = pRenderer->textureImage.view;
 			imageInfo.sampler = pRenderer->textureSampler;
 			
 			const uint32_t numBindings = 2;
@@ -1464,14 +1432,15 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		// depth layout transitions
 		{
 			fr_transition_image_layout(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, depthFormat,
-									   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, pRenderer->depthImage, pAllocCallbacks);
+									   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, pRenderer->depthImage.image, pAllocCallbacks);
 		}
 		
 		// image layout transitions
 		{
 			fr_transition_image_layout(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, textureImageFormat,
-									   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pRenderer->textureImage, pAllocCallbacks);
-			fr_copy_buffer_to_image(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, pRenderer->stagingBuffer.buffer, imageOffsetInBuffer, pRenderer->textureImage, g_textureWidth, g_textureHeight, pAllocCallbacks);
+									   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pRenderer->textureImage.image, pAllocCallbacks);
+			fr_copy_buffer_to_image(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, pRenderer->stagingBuffer.buffer,
+									imageOffsetInBuffer, pRenderer->textureImage.image, g_textureWidth, g_textureHeight, pAllocCallbacks);
 			
 		}
 		
@@ -1525,14 +1494,10 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	}
 	
 	// destroy depth image
-	vkDestroyImageView(pRenderer->device, pRenderer->depthImageView, NULL);
-	vkDestroyImage(pRenderer->device, pRenderer->depthImage, NULL);
-	vkFreeMemory(pRenderer->device, pRenderer->depthImageMemory, NULL);
+	fr_image_release(pRenderer->device, &pRenderer->depthImage, pAllocCallbacks);
 	
 	// destroy image
-	vkDestroyImageView(pRenderer->device, pRenderer->textureImageView, NULL);
-	vkDestroyImage(pRenderer->device, pRenderer->textureImage, NULL);
-	vkFreeMemory(pRenderer->device, pRenderer->textureImageMemory, NULL);
+	fr_image_release(pRenderer->device, &pRenderer->textureImage, pAllocCallbacks);
 	vkDestroySampler(pRenderer->device, pRenderer->textureSampler, NULL);
 	
 	// destroy vertex buffer

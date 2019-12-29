@@ -69,3 +69,7 @@ void fr_transition_image_layout(VkDevice device, VkQueue graphicsQueue, VkComman
 
 // copy buffer to image
 void fr_copy_buffer_to_image(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkBuffer buffer, VkDeviceSize bufferOffset, VkImage image, uint32_t width, uint32_t height, struct fr_allocation_callbacks_t* pAllocCallbacks);
+
+// -------------
+// MEMORY UTILS
+uint32_t fr_find_memory_type(const VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags propertyFlags);
