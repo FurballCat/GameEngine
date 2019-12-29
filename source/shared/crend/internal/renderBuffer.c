@@ -31,6 +31,7 @@ void fr_buffer_create(VkDevice device, VkPhysicalDevice physicalDevice, const fr
 					  fr_buffer_t* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks)
 {
 	fr_create_buffer(device, physicalDevice, pDesc->size, pDesc->usage, pDesc->properties, &pBuffer->buffer, &pBuffer->memory, pAllocCallbacks);
+	pBuffer->size = pDesc->size;
 }
 
 void fr_buffer_release(VkDevice device, fr_buffer_t* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks)
