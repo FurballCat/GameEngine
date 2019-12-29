@@ -366,33 +366,22 @@ struct fr_renderer_t
 	VkSemaphore renderFinishedSemaphore;
 	
 	// test geometry
-	VkVertexInputBindingDescription bindingDescription[2];
+	VkVertexInputBindingDescription bindingDescription;
 	VkVertexInputAttributeDescription vertexAttributes[3];
 	
 	fr_buffer_t vertexBuffer;
-	
-	VkBuffer colorVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
-	VkDeviceMemory colorVertexBufferMemory[NUM_SWAP_CHAIN_IMAGES];
-	
-	VkBuffer indexBuffer;
-	VkDeviceMemory indexBufferMemory;
+	fr_buffer_t indexBuffer;
 	
 	VkImage textureImage;
 	VkDeviceMemory textureImageMemory;
 	VkImageView textureImageView;
 	VkSampler textureSampler;
 	
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	
-	VkBuffer aUniformBuffer[NUM_SWAP_CHAIN_IMAGES];
-	VkDeviceMemory aUniformBufferMemory[NUM_SWAP_CHAIN_IMAGES];
+	fr_buffer_t stagingBuffer;
+	fr_buffer_t aUniformBuffer[NUM_SWAP_CHAIN_IMAGES];
 	
 	VkDescriptorPool descriptorPool;
 	VkDescriptorSet aDescriptorSets[NUM_SWAP_CHAIN_IMAGES];
-	
-	// color buffer
-	fr_vec3_t* vertexColors[NUM_SWAP_CHAIN_IMAGES];
 	
 	float rotationAngle;
 };
@@ -774,14 +763,9 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// test geometry
 	if(res == FR_RESULT_OK)
 	{
-		pRenderer->bindingDescription[0].binding = 0;
-		pRenderer->bindingDescription[0].stride = sizeof(fr_vertex_t);
-		pRenderer->bindingDescription[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-		
-		// todo: this one is not used
-		pRenderer->bindingDescription[1].binding = 1;
-		pRenderer->bindingDescription[1].stride = sizeof(fr_vertex_t);
-		pRenderer->bindingDescription[1].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		pRenderer->bindingDescription.binding = 0;
+		pRenderer->bindingDescription.stride = sizeof(fr_vertex_t);
+		pRenderer->bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 		
 		pRenderer->vertexAttributes[0].binding = 0;
 		pRenderer->vertexAttributes[0].location = 0;
@@ -839,9 +823,12 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		const uint32_t uniformBufferSize = sizeof(fr_uniform_buffer_t);
 		for(uint32_t i=0; i<3; ++i)
 		{
-			fr_create_buffer(pRenderer->device, pRenderer->physicalDevice, uniformBufferSize,
-					   VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-					   &pRenderer->aUniformBuffer[i], &pRenderer->aUniformBufferMemory[i], pAllocCallbacks);
+			fr_buffer_desc_t desc;
+			desc.size = uniformBufferSize;
+			desc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+			desc.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+			
+			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->aUniformBuffer[i], pAllocCallbacks);
 		}
 	}
 	
@@ -869,7 +856,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 		vertexInputInfo.vertexBindingDescriptionCount = 1;
 		vertexInputInfo.vertexAttributeDescriptionCount = 3;
-		vertexInputInfo.pVertexBindingDescriptions = pRenderer->bindingDescription;
+		vertexInputInfo.pVertexBindingDescriptions = &pRenderer->bindingDescription;
 		vertexInputInfo.pVertexAttributeDescriptions = pRenderer->vertexAttributes;
 		
 		// create input assembly state
@@ -1122,7 +1109,6 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	const uint32_t numTestVertices = g_numTestVertices;
 	
 	const VkDeviceSize testVertexBufferSize = sizeof(fr_vertex_t) * numTestVertices;
-	const VkDeviceSize testColorVertexBufferSize = sizeof(fr_vec3_t) * numTestVertices;
 	
 	// create test geometry vertex buffer
 	if(res == FR_RESULT_OK)
@@ -1133,26 +1119,6 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		desc.properties = FR_VERTEX_BUFFER_MEMORY_FLAGS;
 		
 		fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->vertexBuffer, pAllocCallbacks);
-		
-		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
-		{
-			fr_create_buffer(pRenderer->device, pRenderer->physicalDevice, testColorVertexBufferSize,
-						   VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-						   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-						   &pRenderer->colorVertexBuffer[i], &pRenderer->colorVertexBufferMemory[i],
-						   pAllocCallbacks);
-		}
-	}
-	
-	// allocate vertex colors on CPU side
-	if(res == FR_RESULT_OK)
-	{
-		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
-		{
-			pRenderer->vertexColors[i] = FUR_ALLOC(testColorVertexBufferSize, 8, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
-			
-			memset(pRenderer->vertexColors[i], 0, testColorVertexBufferSize);
-		}
 	}
 	
 	const VkDeviceSize testIndexBufferSize = sizeof(uint16_t) * g_numTestIndices;
@@ -1160,9 +1126,12 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create test geometry index buffer
 	if(res == FR_RESULT_OK)
 	{
-		fr_create_buffer(pRenderer->device, pRenderer->physicalDevice, testIndexBufferSize,
-					   VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-					   &pRenderer->indexBuffer, &pRenderer->indexBufferMemory, pAllocCallbacks);
+		fr_buffer_desc_t desc;
+		desc.size = testIndexBufferSize;
+		desc.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+		desc.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		
+		fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->indexBuffer, pAllocCallbacks);
 	}
 	
 	// create frame buffers
@@ -1322,7 +1291,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		for (size_t i = 0; i < NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			VkDescriptorBufferInfo bufferInfo = {};
-			bufferInfo.buffer = pRenderer->aUniformBuffer[i];
+			bufferInfo.buffer = pRenderer->aUniformBuffer[i].buffer;
 			bufferInfo.offset = 0;
 			bufferInfo.range = sizeof(fr_uniform_buffer_t);
 			
@@ -1430,7 +1399,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			VkBuffer vertexBuffers[] = {pRenderer->vertexBuffer.buffer};
 			VkDeviceSize offsets[] = {0};
 			vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 1, vertexBuffers, offsets);
-			vkCmdBindIndexBuffer(pRenderer->aCommandBuffers[i], pRenderer->indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+			vkCmdBindIndexBuffer(pRenderer->aCommandBuffers[i], pRenderer->indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT16);
 			
 			// bind uniform buffer
 			vkCmdBindDescriptorSets(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -1459,7 +1428,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		// create staging buffer & release memory of source data
 		{
-			fr_staging_build(&stagingBuilder, pRenderer->device, pRenderer->physicalDevice, &pRenderer->stagingBuffer, &pRenderer->stagingBufferMemory, pAllocCallbacks);
+			pRenderer->stagingBuffer.size = stagingBuilder.totalSize;
+			fr_staging_build(&stagingBuilder, pRenderer->device, pRenderer->physicalDevice, &pRenderer->stagingBuffer.buffer, &pRenderer->stagingBuffer.memory, pAllocCallbacks);
 			fr_staging_release_builder(&stagingBuilder);
 		}
 		
@@ -1483,9 +1453,9 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			// copy vertex buffer region
 			{
 				uint32_t srcStagingIndices[2] = {1, 2};
-				VkBuffer dstBuffers[2] = {pRenderer->vertexBuffer.buffer, pRenderer->indexBuffer};
+				VkBuffer dstBuffers[2] = {pRenderer->vertexBuffer.buffer, pRenderer->indexBuffer.buffer};
 				
-				fr_staging_record_copy_commands(&stagingBuilder, commandBuffer, pRenderer->stagingBuffer, srcStagingIndices, dstBuffers, 2);
+				fr_staging_record_copy_commands(&stagingBuilder, commandBuffer, pRenderer->stagingBuffer.buffer, srcStagingIndices, dstBuffers, 2);
 			}
 			
 			fr_end_simple_commands(pRenderer->device, pRenderer->graphicsQueue, commandBuffer, pRenderer->stagingCommandPool, pAllocCallbacks);
@@ -1501,14 +1471,13 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		{
 			fr_transition_image_layout(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, textureImageFormat,
 									   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pRenderer->textureImage, pAllocCallbacks);
-			fr_copy_buffer_to_image(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, pRenderer->stagingBuffer, imageOffsetInBuffer, pRenderer->textureImage, g_textureWidth, g_textureHeight, pAllocCallbacks);
+			fr_copy_buffer_to_image(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, pRenderer->stagingBuffer.buffer, imageOffsetInBuffer, pRenderer->textureImage, g_textureWidth, g_textureHeight, pAllocCallbacks);
 			
 		}
 		
 		// release staging buffer
 		{
-			vkDestroyBuffer(pRenderer->device, pRenderer->stagingBuffer, NULL);
-			vkFreeMemory(pRenderer->device, pRenderer->stagingBufferMemory, NULL);
+			fr_buffer_release(pRenderer->device, &pRenderer->stagingBuffer, pAllocCallbacks);
 		}
 	}
 	
@@ -1549,24 +1518,10 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 		// destroy uniform buffer
 		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			vkDestroyBuffer(pRenderer->device, pRenderer->aUniformBuffer[i], NULL);
-			vkFreeMemory(pRenderer->device, pRenderer->aUniformBufferMemory[i], NULL);
+			fr_buffer_release(pRenderer->device, &pRenderer->aUniformBuffer[i], pAllocCallbacks);
 		}
 		
 		vkDestroyDescriptorPool(pRenderer->device, pRenderer->descriptorPool, NULL);
-	}
-	
-	// dealloc vertex colors
-	for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
-	{
-		if(pRenderer->vertexColors[i])
-		{
-			FUR_FREE(pRenderer->vertexColors[i], pAllocCallbacks);
-		}
-		
-		// destroy color vertex buffer
-		vkDestroyBuffer(pRenderer->device, pRenderer->colorVertexBuffer[i], NULL);
-		vkFreeMemory(pRenderer->device, pRenderer->colorVertexBufferMemory[i], NULL);
 	}
 	
 	// destroy depth image
@@ -1584,8 +1539,7 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	fr_buffer_release(pRenderer->device, &pRenderer->vertexBuffer, pAllocCallbacks);
 	
 	// destroy index buffer
-	vkDestroyBuffer(pRenderer->device, pRenderer->indexBuffer, NULL);
-	vkFreeMemory(pRenderer->device, pRenderer->indexBufferMemory, NULL);
+	fr_buffer_release(pRenderer->device, &pRenderer->indexBuffer, pAllocCallbacks);
 	
 	// destroy descriptor set layout
 	vkDestroyDescriptorSetLayout(pRenderer->device, pRenderer->descriptorSetLayout, NULL);
@@ -1712,8 +1666,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		fm_mat4_transpose(&ubo.view);
 		fm_mat4_transpose(&ubo.proj);
 		
-		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aUniformBufferMemory[imageIndex], &ubo, 0, sizeof(ubo));
-		fr_copy_data_to_buffer(pRenderer->device, pRenderer->colorVertexBufferMemory[imageIndex], pRenderer->vertexColors[imageIndex], 0, sizeof(fr_vec3_t) * g_numTestVertices);
+		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(ubo));
 	}
 	
 	// draw
