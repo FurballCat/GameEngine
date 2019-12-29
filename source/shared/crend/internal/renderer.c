@@ -1585,7 +1585,6 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 	
 	if(imageIndex != g_prevImageIndex)
 	{
-		const uint32_t prevImageIndex = g_prevImageIndex;
 		g_prevImageIndex = imageIndex;
 	}
 	
