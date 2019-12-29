@@ -27,6 +27,19 @@ uint32_t frFindMemoryType(const VkPhysicalDevice physicalDevice, uint32_t typeFi
 	return (uint32_t)-1;
 }
 
+void fr_buffer_create(VkDevice device, VkPhysicalDevice physicalDevice, const fr_buffer_desc_t* pDesc,
+					  fr_buffer_t* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks)
+{
+	fr_create_buffer(device, physicalDevice, pDesc->size, pDesc->usage, pDesc->properties, &pBuffer->buffer, &pBuffer->memory, pAllocCallbacks);
+}
+
+void fr_buffer_release(VkDevice device, fr_buffer_t* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks)
+{
+	vkDestroyBuffer(device, pBuffer->buffer, NULL);
+	vkFreeMemory(device, pBuffer->memory, NULL);
+	memset(pBuffer, 0, sizeof(fr_buffer_t));
+}
+
 void fr_create_buffer(VkDevice device, VkPhysicalDevice physicalDevice,
 					VkDeviceSize size, VkBufferUsageFlags usage,
 					VkMemoryPropertyFlags properties,

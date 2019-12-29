@@ -6,6 +6,29 @@
 
 struct fr_allocation_callbacks_t;
 
+// desc for buffer creation
+typedef struct fr_buffer_desc_t
+{
+	VkDeviceSize size;
+	VkBufferUsageFlags usage;
+	VkMemoryPropertyFlags properties;
+} fr_buffer_desc_t;
+
+// buffer compact handle and data
+typedef struct fr_buffer_t
+{
+	VkBuffer buffer;
+	VkDeviceMemory memory;
+	VkDeviceSize size;
+} fr_buffer_t;
+
+// buffer creation, allocates memory
+void fr_buffer_create(VkDevice device, VkPhysicalDevice physicalDevice, const fr_buffer_desc_t* pDesc,
+					  fr_buffer_t* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks);
+
+// buffer release, deallocates memory
+void fr_buffer_release(VkDevice device, fr_buffer_t* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks);
+
 uint32_t frFindMemoryType(const VkPhysicalDevice physicalDevice,
 						  uint32_t typeFilter, VkMemoryPropertyFlags propertyFlags);
 
