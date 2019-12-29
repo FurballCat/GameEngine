@@ -1198,6 +1198,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	const VkFormat textureImageFormat = VK_FORMAT_R8G8B8A8_UNORM;
 	
 	// create texture image
+	if(res == FR_RESULT_OK)
 	{
 		fr_image_desc_t desc = {};
 		desc.size = imageSize;
