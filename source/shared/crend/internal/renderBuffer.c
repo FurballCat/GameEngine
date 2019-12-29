@@ -9,7 +9,7 @@
 
 #define FUR_ASSERT(x) assert(x)
 
-uint32_t frFindMemoryType(const VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags propertyFlags)
+uint32_t fr_find_memory_type(const VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags propertyFlags)
 {
 	VkPhysicalDeviceMemoryProperties memProperties;
 	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
@@ -64,7 +64,7 @@ void fr_create_buffer(VkDevice device, VkPhysicalDevice physicalDevice,
 	VkMemoryAllocateInfo allocInfo = {};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = frFindMemoryType(physicalDevice, memRequirements.memoryTypeBits, properties);
+	allocInfo.memoryTypeIndex = fr_find_memory_type(physicalDevice, memRequirements.memoryTypeBits, properties);
 	
 	if (vkAllocateMemory(device, &allocInfo, NULL, bufferMemory) != VK_SUCCESS)
 	{
@@ -108,7 +108,7 @@ void fr_create_image(VkDevice device, VkPhysicalDevice physicalDevice,
 	VkMemoryAllocateInfo allocInfo = {};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = frFindMemoryType(physicalDevice, memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	allocInfo.memoryTypeIndex = fr_find_memory_type(physicalDevice, memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	
 	if (vkAllocateMemory(device, &allocInfo, NULL, textureImageMemory) != VK_SUCCESS)
 	{

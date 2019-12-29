@@ -29,9 +29,6 @@ void fr_buffer_create(VkDevice device, VkPhysicalDevice physicalDevice, const fr
 // buffer release, deallocates memory
 void fr_buffer_release(VkDevice device, fr_buffer_t* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks);
 
-uint32_t frFindMemoryType(const VkPhysicalDevice physicalDevice,
-						  uint32_t typeFilter, VkMemoryPropertyFlags propertyFlags);
-
 void fr_create_buffer(VkDevice device, VkPhysicalDevice physicalDevice,
 					VkDeviceSize size, VkBufferUsageFlags usage,
 					VkMemoryPropertyFlags properties,
