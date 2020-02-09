@@ -2,7 +2,7 @@
 
 #pragma once
 
-struct fr_allocation_callbacks_t;
+struct fc_alloc_callbacks_t;
 
 // --------------------
 // STAGING BUFFER UTILS
@@ -46,7 +46,7 @@ void fr_staging_add(fr_staging_buffer_builder_t* builder, void* pData, uint32_t 
 void fr_staging_build(fr_staging_buffer_builder_t* builder,
 					  VkDevice device, VkPhysicalDevice physicalDevice,
 					  VkBuffer* buffer, VkDeviceMemory* bufferMemory,
-					  struct fr_allocation_callbacks_t* pAllocCallbacks);
+					  struct fc_alloc_callbacks_t* pAllocCallbacks);
 
 // release every entry memory
 void fr_staging_release_builder(fr_staging_buffer_builder_t* builder);
@@ -59,16 +59,16 @@ void fr_staging_record_copy_commands(fr_staging_buffer_builder_t* builder, VkCom
 // COMMAND UTILS
 
 // allocate and begin one time command buffer
-VkCommandBuffer fr_begin_simple_commands(VkDevice device, VkCommandPool commandPool, struct fr_allocation_callbacks_t* pAllocCallbacks);
+VkCommandBuffer fr_begin_simple_commands(VkDevice device, VkCommandPool commandPool, struct fc_alloc_callbacks_t* pAllocCallbacks);
 
 // end, submit, and free one time command buffer
-void fr_end_simple_commands(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool, struct fr_allocation_callbacks_t* pAllocCallbacks);
+void fr_end_simple_commands(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool, struct fc_alloc_callbacks_t* pAllocCallbacks);
 
 // transition image layout
-void fr_transition_image_layout(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, struct fr_allocation_callbacks_t* pAllocCallbacks);
+void fr_transition_image_layout(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, struct fc_alloc_callbacks_t* pAllocCallbacks);
 
 // copy buffer to image
-void fr_copy_buffer_to_image(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkBuffer buffer, VkDeviceSize bufferOffset, VkImage image, uint32_t width, uint32_t height, struct fr_allocation_callbacks_t* pAllocCallbacks);
+void fr_copy_buffer_to_image(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkBuffer buffer, VkDeviceSize bufferOffset, VkImage image, uint32_t width, uint32_t height, struct fc_alloc_callbacks_t* pAllocCallbacks);
 
 // -------------
 // MEMORY UTILS

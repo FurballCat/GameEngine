@@ -41,7 +41,7 @@ void fr_staging_add(fr_staging_buffer_builder_t* builder, void* pData, uint32_t 
 void fr_staging_build(fr_staging_buffer_builder_t* builder,
 					  VkDevice device, VkPhysicalDevice physicalDevice,
 					  VkBuffer* buffer, VkDeviceMemory* bufferMemory,
-					  struct fr_allocation_callbacks_t* pAllocCallbacks)
+					  struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	fr_create_buffer(device, physicalDevice, builder->totalSize,
 					 FR_STAGING_BUFFER_USAGE_FLAGS, FR_STAGING_BUFFER_MEMORY_FLAGS,
@@ -97,7 +97,7 @@ void fr_staging_record_copy_commands(fr_staging_buffer_builder_t* builder, VkCom
 
 // --------------------
 
-VkCommandBuffer fr_begin_simple_commands(VkDevice device, VkCommandPool commandPool, struct fr_allocation_callbacks_t* pAllocCallbacks)
+VkCommandBuffer fr_begin_simple_commands(VkDevice device, VkCommandPool commandPool, struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	VkCommandBufferAllocateInfo allocInfo = {};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -124,7 +124,7 @@ VkCommandBuffer fr_begin_simple_commands(VkDevice device, VkCommandPool commandP
 	return commandBuffer;
 }
 
-void fr_end_simple_commands(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool, struct fr_allocation_callbacks_t* pAllocCallbacks)
+void fr_end_simple_commands(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool, struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	if(vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
 	{
@@ -149,7 +149,7 @@ bool fr_has_stencil_component(VkFormat format)
 	return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 
-void fr_transition_image_layout(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, struct fr_allocation_callbacks_t* pAllocCallbacks)
+void fr_transition_image_layout(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	VkCommandBuffer commandBuffer = fr_begin_simple_commands(device, commandPool, pAllocCallbacks);
 	
@@ -229,7 +229,7 @@ void fr_transition_image_layout(VkDevice device, VkQueue graphicsQueue, VkComman
 	fr_end_simple_commands(device, graphicsQueue, commandBuffer, commandPool, pAllocCallbacks);
 }
 
-void fr_copy_buffer_to_image(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkBuffer buffer, VkDeviceSize bufferOffset, VkImage image, uint32_t width, uint32_t height, struct fr_allocation_callbacks_t* pAllocCallbacks)
+void fr_copy_buffer_to_image(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkBuffer buffer, VkDeviceSize bufferOffset, VkImage image, uint32_t width, uint32_t height, struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	VkCommandBuffer commandBuffer = fr_begin_simple_commands(device, commandPool, pAllocCallbacks);
 	

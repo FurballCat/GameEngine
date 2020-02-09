@@ -4,7 +4,7 @@
 
 #include <inttypes.h>
 
-struct fr_allocation_callbacks_t;
+struct fc_alloc_callbacks_t;
 
 // desc for buffer creation
 typedef struct fr_buffer_desc_t
@@ -24,22 +24,22 @@ typedef struct fr_buffer_t
 
 // buffer creation, allocates memory
 void fr_buffer_create(VkDevice device, VkPhysicalDevice physicalDevice, const fr_buffer_desc_t* pDesc,
-					  fr_buffer_t* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks);
+					  fr_buffer_t* pBuffer, struct fc_alloc_callbacks_t* pAllocCallbacks);
 
 // buffer release, deallocates memory
-void fr_buffer_release(VkDevice device, fr_buffer_t* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks);
+void fr_buffer_release(VkDevice device, fr_buffer_t* pBuffer, struct fc_alloc_callbacks_t* pAllocCallbacks);
 
 void fr_create_buffer(VkDevice device, VkPhysicalDevice physicalDevice,
 					VkDeviceSize size, VkBufferUsageFlags usage,
 					VkMemoryPropertyFlags properties,
 					VkBuffer* buffer, VkDeviceMemory* bufferMemory,
-					struct fr_allocation_callbacks_t* pAllocCallbacks);
+					struct fc_alloc_callbacks_t* pAllocCallbacks);
 
 void fr_create_image(VkDevice device, VkPhysicalDevice physicalDevice,
 					 VkDeviceSize size, VkFormat format, VkBufferUsageFlags usage,
 					 VkMemoryPropertyFlags properties, uint32_t width, uint32_t height,
 					 VkImage* textureImage, VkDeviceMemory* textureImageMemory,
-					 struct fr_allocation_callbacks_t* pAllocCallbacks);
+					 struct fc_alloc_callbacks_t* pAllocCallbacks);
 
 void fr_copy_data_to_buffer(VkDevice device, VkDeviceMemory dst, const void* src, uint32_t offset, uint32_t size);
 

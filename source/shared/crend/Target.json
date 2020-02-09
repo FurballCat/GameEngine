@@ -1,6 +1,7 @@
 {
 	"dependecies":
 	[
+		"ccore",
         "glfw"
     ],
     

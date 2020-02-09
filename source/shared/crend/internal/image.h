@@ -4,7 +4,7 @@
 
 #include <inttypes.h>
 
-struct fr_allocation_callbacks_t;
+struct fc_alloc_callbacks_t;
 
 // desc for image creation
 typedef struct fr_image_desc_t
@@ -28,7 +28,7 @@ typedef struct fr_image_t
 
 // image creation, allocates memory
 void fr_image_create(VkDevice device, VkPhysicalDevice physicalDevice, const fr_image_desc_t* pDesc,
-					  fr_image_t* pImage, struct fr_allocation_callbacks_t* pAllocCallbacks);
+					  fr_image_t* pImage, struct fc_alloc_callbacks_t* pAllocCallbacks);
 
 // image release, deallocates memory
-void fr_image_release(VkDevice device, fr_image_t* pImage, struct fr_allocation_callbacks_t* pAllocCallbacks);
+void fr_image_release(VkDevice device, fr_image_t* pImage, struct fc_alloc_callbacks_t* pAllocCallbacks);

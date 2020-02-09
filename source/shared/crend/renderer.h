@@ -9,50 +9,9 @@ extern "C"
 
 #include <inttypes.h>
 #include "api.h"
+
+typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 	
-// Render memory interface
-enum fr_memory_type_t
-{
-	FR_MEMORY_TYPE_DEFAULT = 0
-};
-
-enum fr_memory_scope_t
-{
-	FR_MEMORY_SCOPE_DEFAULT = 0
-};
-
-typedef void* (*fr_memory_allocate_function_t)(void* 							pUserData,
-												 size_t							size,
-												 size_t							alignment,
-												 enum fr_memory_scope_t		scope);
-
-typedef void* (*fr_memory_reallocate_function_t)(void*						pUserData,
-												   void*						pOriginalMemory,
-												   size_t						size,
-												   size_t						alignment,
-												   enum fr_memory_scope_t	scope);
-
-typedef void (*fr_memory_free_function_t)(void*	pUserData,
-											void*	pMemory);
-
-typedef void (*fr_memory_internal_allocation_notification_t)(void*						pUserData,
-															  size_t					size,
-															  enum fr_memory_type_t	type,
-															  enum fr_memory_scope_t	scope);
-
-typedef void (*fr_memory_internal_free_notification_t)(void*	pUserData,
-														size_t	size);
-
-struct fr_allocation_callbacks_t
-{
-	void* 									pUserData;
-	fr_memory_allocate_function_t 				pfnAllocate;
-	fr_memory_reallocate_function_t				pfnReallocate;
-	fr_memory_free_function_t					pfnFree;
-	fr_memory_internal_allocation_notification_t 	pfnInternalAllocate;
-	fr_memory_internal_free_notification_t 		pfnInternalFree;
-};
-
 // Render result code
 enum fr_result_t
 {
@@ -76,10 +35,10 @@ struct fr_app_desc_t
 	
 CREND_API enum fr_result_t fr_create_app(const struct fr_app_desc_t* pDesc,
 									struct fr_app_t** ppApp,
-									struct fr_allocation_callbacks_t* pAllocCallbacks);
+									struct fc_alloc_callbacks_t* pAllocCallbacks);
 	
 CREND_API enum fr_result_t fr_release_app(struct fr_app_t* pApp,
-									 struct fr_allocation_callbacks_t* pAllocCallbacks);
+									 struct fc_alloc_callbacks_t* pAllocCallbacks);
 
 // Returns 0 on exit
 CREND_API uint32_t fr_update_app(struct fr_app_t* pApp);
@@ -95,10 +54,10 @@ struct fr_renderer_desc_t
 
 CREND_API enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t*	pDesc,
 					   struct fr_renderer_t**						ppRenderer,
-					   struct fr_allocation_callbacks_t*		pAllocCallbacks);
+					   struct fc_alloc_callbacks_t*		pAllocCallbacks);
 
 CREND_API enum fr_result_t fr_release_renderer(struct fr_renderer_t* 			pRenderer,
-						struct fr_allocation_callbacks_t*	pAllocCallbacks);
+						struct fc_alloc_callbacks_t*	pAllocCallbacks);
 
 CREND_API void fr_wait_for_device(struct fr_renderer_t* pRenderer);
 	
