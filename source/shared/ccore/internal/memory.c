@@ -39,6 +39,10 @@ void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t
 	debugPtr->line = info;
 	debugPtr->size = originalSize;
 	
+	if(g_rootDebugMemInfo.next && g_rootDebugMemInfo.next->prev)
+	{
+		g_rootDebugMemInfo.next->prev = debugPtr;
+	}
 	g_rootDebugMemInfo.next = debugPtr;
 	
 	// move pointer by 8 bytes, so it skips the info part
@@ -56,6 +60,8 @@ void fc_dealloc(struct fc_alloc_callbacks_t* pAllocCallbacks, void* pMemory, con
 	pMemory = ((uint8_t*)pMemory) - sizeof(fc_mem_debug_info_t);
 	
 	fc_mem_debug_info_t* debugPtr = (fc_mem_debug_info_t*)pMemory;
+	if(debugPtr->next)
+		debugPtr->next->prev = debugPtr->prev;
 	debugPtr->prev->next = debugPtr->next;
 	
 #endif
@@ -75,6 +81,7 @@ bool fc_validate_memory(void)
 		while(debugInfo != NULL)
 		{
 			printf("Memory leak: size=%lu, line=%s\n", debugInfo->size, debugInfo->line);
+			debugInfo = debugInfo->next;
 		}
 		
 		return false;
