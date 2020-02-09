@@ -11,13 +11,13 @@
 #define FUR_ASSERT(x) assert(x)
 
 void fr_buffer_create(VkDevice device, VkPhysicalDevice physicalDevice, const fr_buffer_desc_t* pDesc,
-					  fr_buffer_t* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks)
+					  fr_buffer_t* pBuffer, struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	fr_create_buffer(device, physicalDevice, pDesc->size, pDesc->usage, pDesc->properties, &pBuffer->buffer, &pBuffer->memory, pAllocCallbacks);
 	pBuffer->size = pDesc->size;
 }
 
-void fr_buffer_release(VkDevice device, fr_buffer_t* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks)
+void fr_buffer_release(VkDevice device, fr_buffer_t* pBuffer, struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	vkDestroyBuffer(device, pBuffer->buffer, NULL);
 	vkFreeMemory(device, pBuffer->memory, NULL);
@@ -28,7 +28,7 @@ void fr_create_buffer(VkDevice device, VkPhysicalDevice physicalDevice,
 					VkDeviceSize size, VkBufferUsageFlags usage,
 					VkMemoryPropertyFlags properties,
 					VkBuffer* buffer, VkDeviceMemory* bufferMemory,
-					struct fr_allocation_callbacks_t* pAllocCallbacks)
+					struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	VkBufferCreateInfo bufferInfo = {};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -61,7 +61,7 @@ void fr_create_image(VkDevice device, VkPhysicalDevice physicalDevice,
 					  VkDeviceSize size, VkFormat format, VkBufferUsageFlags usage,
 					  VkMemoryPropertyFlags properties, uint32_t width, uint32_t height,
 					  VkImage* textureImage, VkDeviceMemory* textureImageMemory,
-					  struct fr_allocation_callbacks_t* pAllocCallbacks)
+					  struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	VkImageCreateInfo imageInfo = {};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;

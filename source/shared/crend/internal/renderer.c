@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "ccore/public.h"
+
 #include "renderer.h"
 #include "vulkansdk/macOS/include/vulkan/vulkan.h"
 #include "glfw/glfw3.h"
@@ -28,10 +30,6 @@
 #include <math.h>
 #include "3dmath.h"
 
-#define FUR_ASSERT(x) assert(x)
-
-#define FUR_RENDER_MEMORY_DEBUG 0
-
 #define MAX(a,b) \
 	({ __typeof__ (a) _a = (a); \
 	__typeof__ (b) _b = (b); \
@@ -42,52 +40,8 @@
 	__typeof__ (b) _b = (b); \
 	_a < _b ? _a : _b; })
 
-void* furAlloc(size_t size, size_t alignment,
-				 enum fr_memory_scope_t scope, const char* info)
-{
-	return malloc(size);
-}
-
-void furDealloc(void* pMemory, const char* info)
-{
-	free(pMemory);
-}
-
-void* furAllocateWithFallback(struct fr_allocation_callbacks_t* pAllocCallbacks, size_t size, size_t alignment,
-						 enum fr_memory_scope_t scope, const char* info)
-{
-#if FUR_RENDER_MEMORY_DEBUG == 0
-	if(pAllocCallbacks)
-		return pAllocCallbacks->pfnAllocate(pAllocCallbacks->pUserData, size, alignment, scope);
-#endif
-	
-	return furAlloc(size, alignment, scope, info);
-}
-
-void furDeallocWithFallback(struct fr_allocation_callbacks_t* pAllocCallbacks, void* pMemory, const char* info)
-{
-#if FUR_RENDER_MEMORY_DEBUG == 0
-	if(pAllocCallbacks)
-		return pAllocCallbacks->pfnFree(pAllocCallbacks->pUserData, pMemory);
-#endif
-	
-	furDealloc(pMemory, info);
-}
-
 #define S1(x) #x
 #define S2(x) S1(x)
-
-#if FUR_RENDER_MEMORY_DEBUG == 0
-	#define FUR_ALLOC(_size, _alignment, _scope, _pAllocCallbacks)	\
-		furAllocateWithFallback(_pAllocCallbacks, _size, _alignment, _scope, "")
-	#define FUR_FREE(_pMemory, _pAllocCallbacks)	\
-		furDeallocWithFallback(_pAllocCallbacks, _pMemory, "")
-#else
-	#define FUR_ALLOC(_size, _alignment, _scope, _pAllocCallbacks)	\
-		furAllocateWithFallback(_pAllocCallbacks, _size, _alignment, _scope, __FILE__ ":" S2(__LINE__))
-	#define FUR_FREE(_pMemory, _pAllocCallbacks)	\
-		furDeallocWithFallback(_pAllocCallbacks, _pMemory, __FILE__ ":" S2(__LINE__))
-#endif
 
 /*************************************************************/
 
@@ -160,7 +114,7 @@ struct fr_app_t
 
 enum fr_result_t fr_create_app(const struct fr_app_desc_t* pDesc,
 									struct fr_app_t** ppApp,
-									struct fr_allocation_callbacks_t* pAllocCallbacks)
+									struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	struct fr_app_t* pApp = FUR_ALLOC(sizeof(struct fr_app_t), 8, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 	
@@ -185,7 +139,7 @@ enum fr_result_t fr_create_app(const struct fr_app_desc_t* pDesc,
 }
 
 enum fr_result_t fr_release_app(struct fr_app_t* pApp,
-									 struct fr_allocation_callbacks_t* pAllocCallbacks)
+									 struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	glfwDestroyWindow(pApp->pWindow);
 	glfwTerminate();
@@ -214,7 +168,7 @@ struct fr_binary_buffer_t
 	size_t size;
 };
 
-enum fr_result_t fr_load_binary_file_into_binary_buffer(const char* path, struct fr_binary_buffer_t* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks)
+enum fr_result_t fr_load_binary_file_into_binary_buffer(const char* path, struct fr_binary_buffer_t* pBuffer, struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	FILE* pFile = fopen(path, "rb");
 	if(pFile && pBuffer)
@@ -236,14 +190,14 @@ enum fr_result_t fr_load_binary_file_into_binary_buffer(const char* path, struct
 	return FR_RESULT_ERROR;
 }
 
-void fr_release_binary_buffer(struct fr_binary_buffer_t* pBuffer, struct fr_allocation_callbacks_t* pAllocCallbacks)
+void fr_release_binary_buffer(struct fr_binary_buffer_t* pBuffer, struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	FUR_FREE(pBuffer->pData, pAllocCallbacks);
 }
 
 /*************************************************************/
 
-enum fr_result_t fr_create_shader_module(VkDevice device, const char* path, VkShaderModule* pShader, struct fr_allocation_callbacks_t* pAllocCallbacks)
+enum fr_result_t fr_create_shader_module(VkDevice device, const char* path, VkShaderModule* pShader, struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	struct fr_binary_buffer_t buffer;
 	memset(&buffer, 0, sizeof(struct fr_binary_buffer_t));
@@ -391,14 +345,14 @@ void fr_pixels_free_func(void* pData, size_t size, void* pUserData)
 
 void fr_generic_buffer_free_func(void* pData, size_t size, void* pUserData)
 {
-	struct fr_allocation_callbacks_t* pAllocCallbacks = (struct fr_allocation_callbacks_t*)pUserData;
+	struct fc_alloc_callbacks_t* pAllocCallbacks = (struct fc_alloc_callbacks_t*)pUserData;
 	
 	FUR_FREE(pData, pAllocCallbacks);
 }
 
 enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 					   struct fr_renderer_t** ppRenderer,
-					   struct fr_allocation_callbacks_t*	pAllocCallbacks)
+					   struct fc_alloc_callbacks_t*	pAllocCallbacks)
 {
 	struct fr_renderer_t* pRenderer = FUR_ALLOC(sizeof(struct fr_renderer_t), 8, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 	if(!pRenderer)
@@ -1481,7 +1435,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 }
 
 enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
-					   struct fr_allocation_callbacks_t*	pAllocCallbacks)
+					   struct fc_alloc_callbacks_t*	pAllocCallbacks)
 {
 	// this should be in clean-up swap chain
 	{
