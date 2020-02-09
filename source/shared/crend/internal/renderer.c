@@ -116,7 +116,7 @@ enum fr_result_t fr_create_app(const struct fr_app_desc_t* pDesc,
 									struct fr_app_t** ppApp,
 									struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	struct fr_app_t* pApp = FUR_ALLOC(sizeof(struct fr_app_t), 8, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+	struct fr_app_t* pApp = FUR_ALLOC(sizeof(struct fr_app_t), 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 	
 	pApp->title = pDesc->appTitle;
 	pApp->viewportWidth = pDesc->viewportWidth;
@@ -179,7 +179,7 @@ enum fr_result_t fr_load_binary_file_into_binary_buffer(const char* path, struct
 		size_t size = ftell(pFile);
 		fseek(pFile, 0, SEEK_SET);
 		
-		pBuffer->pData = FUR_ALLOC(size, 8, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+		pBuffer->pData = FUR_ALLOC(size, 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 		pBuffer->size = size;
 		
 		fread(pBuffer->pData, size, 1, pFile);
@@ -356,7 +356,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 					   struct fr_renderer_t** ppRenderer,
 					   struct fc_alloc_callbacks_t*	pAllocCallbacks)
 {
-	struct fr_renderer_t* pRenderer = FUR_ALLOC(sizeof(struct fr_renderer_t), 8, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+	struct fr_renderer_t* pRenderer = FUR_ALLOC(sizeof(struct fr_renderer_t), 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 	if(!pRenderer)
 	{
 		fur_set_last_error("Can't allocate renderer.");
@@ -422,7 +422,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		uint32_t numDevices = 0;
 		vkEnumeratePhysicalDevices(pRenderer->vkInstance, &numDevices, NULL);
 		
-		VkPhysicalDevice* devices = FUR_ALLOC(numDevices * sizeof(VkPhysicalDevice), 8, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+		VkPhysicalDevice* devices = FUR_ALLOC(numDevices * sizeof(VkPhysicalDevice), 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 		
 		vkEnumeratePhysicalDevices(pRenderer->vkInstance, &numDevices, devices);
 		
@@ -477,7 +477,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		uint32_t numExtensions = 0;
 		vkEnumerateDeviceExtensionProperties(physicalDevice, NULL, &numExtensions, NULL);
 		
-		VkExtensionProperties* extensions = FUR_ALLOC(numExtensions * sizeof(struct VkExtensionProperties), 8, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+		VkExtensionProperties* extensions = FUR_ALLOC(numExtensions * sizeof(struct VkExtensionProperties), 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 		
 		vkEnumerateDeviceExtensionProperties(physicalDevice, NULL, &numExtensions, extensions);
 		
@@ -506,7 +506,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		uint32_t numQueueFamilies = 0;
 		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &numQueueFamilies, NULL);
 		
-		VkQueueFamilyProperties* queueFamilies = FUR_ALLOC(numQueueFamilies * sizeof(struct VkQueueFamilyProperties), 8, FR_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+		VkQueueFamilyProperties* queueFamilies = FUR_ALLOC(numQueueFamilies * sizeof(struct VkQueueFamilyProperties), 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 		
 		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &numQueueFamilies, queueFamilies);
 		

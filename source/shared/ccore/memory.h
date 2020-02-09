@@ -19,12 +19,12 @@ extern "C"
 // Memory interface
 typedef enum fc_memory_type_t
 {
-	FR_MEMORY_TYPE_DEFAULT = 0
+	FC_MEMORY_TYPE_DEFAULT = 0
 } fc_memory_type_t;
 
 typedef enum fc_memory_scope_t
 {
-	FR_MEMORY_SCOPE_DEFAULT = 0
+	FC_MEMORY_SCOPE_DEFAULT = 0
 } fc_memory_scope_t;
 
 typedef void* (*fc_mem_alloc_fn_t)(	void* 						pUserData,
