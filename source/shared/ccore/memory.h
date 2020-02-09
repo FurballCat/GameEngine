@@ -8,9 +8,10 @@ extern "C"
 #endif // __cplusplus
 	
 #include <inttypes.h>
+#include <stdbool.h>
 #include "api.h"
 	
-#define FUR_MEMORY_DEBUG 0
+#define FUR_MEMORY_DEBUG 1
 
 // Use FUR_ALLOC and FUR_DEALLOC macros for memory management
 // Pass allocation callbacks to every function that allocates anything
@@ -59,6 +60,9 @@ typedef struct fc_alloc_callbacks_t
 	fc_mem_internal_free_notify_fn_t 	pfnInternalFree;
 } fc_alloc_callbacks_t;
 
+#define S1(x) #x
+#define S2(x) S1(x)
+
 #if FUR_MEMORY_DEBUG == 0
 	#define FUR_ALLOC(_size, _alignment, _scope, _pAllocCallbacks)	\
 		fc_alloc(_pAllocCallbacks, _size, _alignment, _scope, "")
@@ -75,6 +79,8 @@ CCORE_API void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t si
 							 enum fc_memory_scope_t scope, const char* info);
 
 CCORE_API void fc_dealloc(struct fc_alloc_callbacks_t* pAllocCallbacks, void* pMemory, const char* info);
+	
+CCORE_API bool fc_validate_memory(void);
 
 #ifdef __cplusplus
 }

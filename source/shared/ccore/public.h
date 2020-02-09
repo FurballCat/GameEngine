@@ -3,5 +3,5 @@
 #pragma once
 
 #include "api.h"
-#include "assert.h"
+#include "furAssert.h"
 #include "memory.h"

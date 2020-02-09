@@ -146,6 +146,8 @@ enum fr_result_t fr_release_app(struct fr_app_t* pApp,
 	
 	FUR_FREE(pApp, pAllocCallbacks);
 	
+	FUR_ASSERT(fc_validate_memory());
+	
 	return FR_RESULT_OK;
 }
 

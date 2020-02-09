@@ -7,6 +7,8 @@ extern "C"
 {
 #endif // __cplusplus
 	
+#include <assert.h>
+	
 #define FUR_ASSERT(x) assert(x)
 	
 #ifdef __cplusplus
