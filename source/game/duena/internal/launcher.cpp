@@ -764,6 +764,7 @@ struct FurGameEngine
 {
 	struct fr_app_t* pApp;
 	struct fr_renderer_t* pRenderer;
+	std::chrono::system_clock::time_point prevTimePoint;
 };
 
 // Furball Cat - Platform
@@ -802,10 +803,16 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine)
 
 void furMainEngineLoop(FurGameEngine* pEngine)
 {
+	pEngine->prevTimePoint = std::chrono::system_clock::now();
+	
 	while(fr_update_app(pEngine->pApp))
 	{
+		std::chrono::system_clock::time_point timeNow = std::chrono::system_clock::now();
+		std::chrono::duration<float> dt = timeNow - pEngine->prevTimePoint;
+		pEngine->prevTimePoint = timeNow;
+		
 		fr_update_context_t ctx;
-		ctx.dt = 0.016f;
+		ctx.dt = dt.count();
 		fr_update_renderer(pEngine->pRenderer, &ctx);
 		fr_draw_frame(pEngine->pRenderer);
 	}
