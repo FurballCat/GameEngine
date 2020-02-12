@@ -230,3 +230,23 @@ VkResult fr_render_pass_create_color_depth(VkDevice device, VkFormat colorFormat
 	
 	return vkCreateRenderPass(device, &renderPassInfo, NULL, renderPass);
 }
+
+void fr_pso_init_shader_stages_simple(VkShaderModule vertexShader, const char* vsFuncName,
+									  VkShaderModule fragmentShader, const char* fsFuncName,
+									  VkPipelineShaderStageCreateInfo outInfo[2])
+{
+	VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
+	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+	vertShaderStageInfo.module = vertexShader;
+	vertShaderStageInfo.pName = vsFuncName;
+	
+	VkPipelineShaderStageCreateInfo fragShaderStageInfo = {};
+	fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	fragShaderStageInfo.module = fragmentShader;
+	fragShaderStageInfo.pName = fsFuncName;
+	
+	outInfo[0] = vertShaderStageInfo;
+	outInfo[1] = fragShaderStageInfo;
+}

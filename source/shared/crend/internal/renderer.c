@@ -322,6 +322,9 @@ struct fr_renderer_t
 	VkSemaphore renderFinishedSemaphore;
 	
 	// debug draw
+	VkShaderModule debugVertexShaderModule;
+	VkShaderModule debugFragmentShaderModule;
+	
 	VkVertexInputBindingDescription debugLinesVertexBindingDescription;
 	VkVertexInputAttributeDescription debugLinesVertexAttributes[2];
 	
@@ -707,8 +710,10 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	
 	// todo: remove that, paths should be passed or something
 	// note: paths for mac when using fopen requires additional "../../../" because of bundle
-	const char* basicVertexShaderPath = "../../../../../shaders/vert.spv";
-	const char* basicFragmentShaderPath = "../../../../../shaders/frag.spv";
+	const char* basicVertexShaderPath = "../../../../../shaders/compiled/basic_vs.spv";
+	const char* basicFragmentShaderPath = "../../../../../shaders/compiled/basic_fs.spv";
+	const char* debugVertexShaderPath = "../../../../../shaders/compiled/debug_vs.spv";
+	const char* debugFragmentShaderPath = "../../../../../shaders/compiled/debug_fs.spv";
 	
 	if(res == FR_RESULT_OK)
 	{
@@ -718,6 +723,16 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		res = fr_create_shader_module(pRenderer->device, basicFragmentShaderPath, &pRenderer->fragmentShaderModule, pAllocCallbacks);
+	}
+	
+	if(res == FR_RESULT_OK)
+	{
+		res = fr_create_shader_module(pRenderer->device, debugVertexShaderPath, &pRenderer->debugVertexShaderModule, pAllocCallbacks);
+	}
+	
+	if(res == FR_RESULT_OK)
+	{
+		res = fr_create_shader_module(pRenderer->device, debugFragmentShaderPath, &pRenderer->debugFragmentShaderModule, pAllocCallbacks);
 	}
 	
 	// debug draw bindings
@@ -815,20 +830,10 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create render stages
 	if(res == FR_RESULT_OK)
 	{
-		// create shader stages
-		VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
-		vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-		vertShaderStageInfo.module = pRenderer->vertexShaderModule;
-		vertShaderStageInfo.pName = "main";
+		VkPipelineShaderStageCreateInfo shaderStages[] = {};
 		
-		VkPipelineShaderStageCreateInfo fragShaderStageInfo = {};
-		fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-		fragShaderStageInfo.module = pRenderer->fragmentShaderModule;
-		fragShaderStageInfo.pName = "main";
-		
-		VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+		fr_pso_init_shader_stages_simple(pRenderer->vertexShaderModule, "main", pRenderer->fragmentShaderModule, "main",
+										 shaderStages);
 		
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -1393,6 +1398,9 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	// destroy shaders
 	vkDestroyShaderModule(pRenderer->device, pRenderer->vertexShaderModule, NULL);
 	vkDestroyShaderModule(pRenderer->device, pRenderer->fragmentShaderModule, NULL);
+	
+	vkDestroyShaderModule(pRenderer->device, pRenderer->debugVertexShaderModule, NULL);
+	vkDestroyShaderModule(pRenderer->device, pRenderer->debugFragmentShaderModule, NULL);
 	
 	// destroy window surface and swap chain
 	for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)

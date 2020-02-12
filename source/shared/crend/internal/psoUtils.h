@@ -43,3 +43,7 @@ void fr_subpass_init_color_depth(VkAttachmentReference* colorAttachmentRef, VkAt
 
 VkResult fr_render_pass_create_color_depth(VkDevice device, VkFormat colorFormat, VkFormat depthFormat,
 										   VkRenderPass* renderPass, fc_alloc_callbacks_t* pAllocCallbacks);
+
+void fr_pso_init_shader_stages_simple(VkShaderModule vertexShader, const char* vsFuncName,
+									  VkShaderModule fragmentShader, const char* fsFuncName,
+									  VkPipelineShaderStageCreateInfo outInfo[2]);
