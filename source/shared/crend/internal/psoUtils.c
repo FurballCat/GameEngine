@@ -14,6 +14,13 @@ void fr_pso_init_input_assembly_state_triangle_list(VkPipelineInputAssemblyState
 	info->primitiveRestartEnable = VK_FALSE;
 }
 
+void fr_pso_init_input_assembly_state_line_list(VkPipelineInputAssemblyStateCreateInfo* info)
+{
+	info->sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	info->topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+	info->primitiveRestartEnable = VK_FALSE;
+}
+
 void fr_pso_init_viewport(float width, float height, VkViewport* viewport)
 {
 	viewport->x = 0.0f;
@@ -56,14 +63,14 @@ void fr_pso_init_rasterization_state_polygon_fill(VkPipelineRasterizationStateCr
 	rasterizer->depthBiasSlopeFactor = 0.0f; // Optional
 }
 
-void fr_pso_init_rasterization_state_polygon_line(VkPipelineRasterizationStateCreateInfo* rasterizer)
+void fr_pso_init_rasterization_state_wireframe_no_cull(VkPipelineRasterizationStateCreateInfo* rasterizer)
 {
 	rasterizer->sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rasterizer->depthClampEnable = VK_FALSE;
 	rasterizer->rasterizerDiscardEnable = VK_FALSE;
 	rasterizer->polygonMode = VK_POLYGON_MODE_LINE;
 	rasterizer->lineWidth = 1.0f;
-	rasterizer->cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterizer->cullMode = VK_CULL_MODE_NONE;
 	rasterizer->frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterizer->depthBiasEnable = VK_FALSE;
 	rasterizer->depthBiasConstantFactor = 0.0f; // Optional

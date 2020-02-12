@@ -5,6 +5,7 @@
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 
 void fr_pso_init_input_assembly_state_triangle_list(VkPipelineInputAssemblyStateCreateInfo* info);
+void fr_pso_init_input_assembly_state_line_list(VkPipelineInputAssemblyStateCreateInfo* info);
 
 void fr_pso_init_viewport(float width, float height, VkViewport* viewport);
 
@@ -14,7 +15,7 @@ void fr_pso_init_viewport_state(VkViewport* viewport, VkRect2D* scissor,
 								VkPipelineViewportStateCreateInfo* viewportState);
 
 void fr_pso_init_rasterization_state_polygon_fill(VkPipelineRasterizationStateCreateInfo* rasterizer);
-void fr_pso_init_rasterization_state_polygon_line(VkPipelineRasterizationStateCreateInfo* rasterizer);
+void fr_pso_init_rasterization_state_wireframe_no_cull(VkPipelineRasterizationStateCreateInfo* rasterizer);
 
 void fr_pso_init_multisampling_state(VkPipelineMultisampleStateCreateInfo* multisampling);
 

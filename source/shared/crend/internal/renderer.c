@@ -861,6 +861,10 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		vertexInputInfo.pVertexBindingDescriptions = &pRenderer->bindingDescription;
 		vertexInputInfo.pVertexAttributeDescriptions = pRenderer->vertexAttributes;
 		
+		// create rasterizer state
+		VkPipelineRasterizationStateCreateInfo rasterizer = {};
+		fr_pso_init_rasterization_state_wireframe_no_cull(&rasterizer);
+		
 		// create input assembly state
 		VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
 		fr_pso_init_input_assembly_state_triangle_list(&inputAssembly);
@@ -876,10 +880,6 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		VkPipelineViewportStateCreateInfo viewportState = {};
 		fr_pso_init_viewport_state(&viewport, &scissor, &viewportState);
-		
-		// create rasterizer state
-		VkPipelineRasterizationStateCreateInfo rasterizer = {};
-		fr_pso_init_rasterization_state_polygon_fill(&rasterizer);
 		
 		// create multi sampling state
 		VkPipelineMultisampleStateCreateInfo multisampling = {};
