@@ -830,9 +830,28 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create render stages
 	if(res == FR_RESULT_OK)
 	{
+		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
+		fr_pso_init_layout(&pRenderer->descriptorSetLayout, &pipelineLayoutInfo);
+		
+		if (vkCreatePipelineLayout(pRenderer->device, &pipelineLayoutInfo, NULL, &pRenderer->pipelineLayout) != VK_SUCCESS)
+		{
+			fur_set_last_error("Can't create pipeline layout");
+			res = FR_RESULT_ERROR_GPU;
+		}
+		
+		// create render pass
+		if (fr_render_pass_create_color_depth(pRenderer->device, pRenderer->swapChainSurfaceFormat,
+											  depthFormat, &pRenderer->renderPass, pAllocCallbacks) != VK_SUCCESS)
+		{
+			fur_set_last_error("Can't create render pass");
+			res = FR_RESULT_ERROR_GPU;
+		}
+		
+		// create pipeline state object (PSO)
 		VkPipelineShaderStageCreateInfo shaderStages[] = {};
 		
-		fr_pso_init_shader_stages_simple(pRenderer->vertexShaderModule, "main", pRenderer->fragmentShaderModule, "main",
+		fr_pso_init_shader_stages_simple(pRenderer->vertexShaderModule, "main",
+										 pRenderer->fragmentShaderModule, "main",
 										 shaderStages);
 		
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
@@ -874,23 +893,6 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		VkPipelineColorBlendStateCreateInfo colorBlending = {};
 		fr_pso_init_color_blend_state(&colorBlendAttachment, &colorBlending);
-		
-		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
-		fr_pso_init_layout(&pRenderer->descriptorSetLayout, &pipelineLayoutInfo);
-		
-		if (vkCreatePipelineLayout(pRenderer->device, &pipelineLayoutInfo, NULL, &pRenderer->pipelineLayout) != VK_SUCCESS)
-		{
-			fur_set_last_error("Can't create pipeline layout");
-			res = FR_RESULT_ERROR_GPU;
-		}
-		
-		// create render pass
-		if (fr_render_pass_create_color_depth(pRenderer->device, pRenderer->swapChainSurfaceFormat,
-											  depthFormat, &pRenderer->renderPass, pAllocCallbacks) != VK_SUCCESS)
-		{
-			fur_set_last_error("Can't create render pass");
-			res = FR_RESULT_ERROR_GPU;
-		}
 		
 		VkPipelineDepthStencilStateCreateInfo depthStencil = {};
 		fr_pso_init_depth_stencil_state(&depthStencil);
