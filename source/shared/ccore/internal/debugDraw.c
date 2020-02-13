@@ -23,7 +23,7 @@ void fc_dbg_init(fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	memset(&g_debugFragments, 0, sizeof(fc_debug_fragments_t));
 	
-	g_debugFragments.linesData = FUR_ALLOC(sizeof(float) * 2 * FC_DEBUG_VERTEX_NUM_FLOATS * FC_DEBUG_FRAGMENTS_LINES_CAPACITY, 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
+	g_debugFragments.linesData = FUR_ALLOC(fc_dbg_line_buffer_size(), 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
 	g_debugFragments.numLines = 0;
 }
 
@@ -61,4 +61,9 @@ void fc_dbg_line(float start[3], float end[3], float color[4])
 	g_debugFragments.numLines += 1;
 	
 	FUR_ASSERT(idx == g_debugFragments.numLines * 2 * FC_DEBUG_VERTEX_NUM_FLOATS);
+}
+
+uint32_t fc_dbg_line_buffer_size(void)
+{
+	return sizeof(float) * 2 * FC_DEBUG_VERTEX_NUM_FLOATS * FC_DEBUG_FRAGMENTS_LINES_CAPACITY;
 }

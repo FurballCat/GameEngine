@@ -25,6 +25,7 @@ CCORE_API void fc_dbg_release(fc_alloc_callbacks_t* pAllocCallbacks);
 #define FUR_COLOR_YELLOW 	{1.0f, 1.0f, 0.0f, 1.0f}
 	
 CCORE_API void fc_dbg_line(float start[3], float end[3], float color[4]);
+CCORE_API uint32_t fc_dbg_line_buffer_size(void);
 	
 #ifdef __cplusplus
 }

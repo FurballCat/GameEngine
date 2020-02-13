@@ -322,13 +322,15 @@ struct fr_renderer_t
 	VkSemaphore renderFinishedSemaphore;
 	
 	// debug draw
+	VkPipeline debugPSO;
+	
 	VkShaderModule debugVertexShaderModule;
 	VkShaderModule debugFragmentShaderModule;
 	
 	VkVertexInputBindingDescription debugLinesVertexBindingDescription;
 	VkVertexInputAttributeDescription debugLinesVertexAttributes[2];
 	
-	fr_buffer_t debugLinesVertexBuffer;
+	fr_buffer_t debugLinesVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
 	
 	// test geometry
 	VkVertexInputBindingDescription bindingDescription;
@@ -739,18 +741,18 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		pRenderer->debugLinesVertexBindingDescription.binding = 0;
-		pRenderer->debugLinesVertexBindingDescription.stride = sizeof(7 * sizeof(float));	// todo: take it from debug draw somehow instead of hardcoding
+		pRenderer->debugLinesVertexBindingDescription.stride = 7 * sizeof(float);	// todo: take it from debug draw somehow instead of hardcoding
 		pRenderer->debugLinesVertexBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 		
 		pRenderer->debugLinesVertexAttributes[0].binding = 0;
 		pRenderer->debugLinesVertexAttributes[0].location = 0;
 		pRenderer->debugLinesVertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		pRenderer->debugLinesVertexAttributes[0].offset = offsetof(fr_vertex_t, position);
+		pRenderer->debugLinesVertexAttributes[0].offset = 0;
 		
 		pRenderer->debugLinesVertexAttributes[1].binding = 0;
 		pRenderer->debugLinesVertexAttributes[1].location = 1;
 		pRenderer->debugLinesVertexAttributes[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		pRenderer->debugLinesVertexAttributes[1].offset = offsetof(fr_vertex_t, color);
+		pRenderer->debugLinesVertexAttributes[1].offset = 3 * sizeof(float);
 	}
 	
 	// test geometry
@@ -863,7 +865,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		// create rasterizer state
 		VkPipelineRasterizationStateCreateInfo rasterizer = {};
-		fr_pso_init_rasterization_state_wireframe_no_cull(&rasterizer);
+		fr_pso_init_rasterization_state_polygon_fill(&rasterizer);
 		
 		// create input assembly state
 		VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
@@ -939,6 +941,101 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 	}
 	
+	// create debug draw PSO
+	if(res == FR_RESULT_OK)
+	{
+		// create pipeline state object (PSO)
+		VkPipelineShaderStageCreateInfo shaderStages[] = {};
+		
+		fr_pso_init_shader_stages_simple(pRenderer->debugVertexShaderModule, "main",
+										 pRenderer->debugFragmentShaderModule, "main",
+										 shaderStages);
+		
+		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
+		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		vertexInputInfo.vertexBindingDescriptionCount = 1;
+		vertexInputInfo.vertexAttributeDescriptionCount = 2;
+		vertexInputInfo.pVertexBindingDescriptions = &pRenderer->debugLinesVertexBindingDescription;
+		vertexInputInfo.pVertexAttributeDescriptions = pRenderer->debugLinesVertexAttributes;
+		
+		// create rasterizer state
+		VkPipelineRasterizationStateCreateInfo rasterizer = {};
+		fr_pso_init_rasterization_state_wireframe_no_cull(&rasterizer);
+		
+		// create input assembly state
+		VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
+		fr_pso_init_input_assembly_state_line_list(&inputAssembly);
+		
+		// create viewport
+		VkViewport viewport = {};
+		fr_pso_init_viewport((float)pRenderer->swapChainExtent.width,
+							 (float)pRenderer->swapChainExtent.height,
+							 &viewport);
+		
+		VkRect2D scissor = {};
+		fr_pso_init_scissor(pRenderer->swapChainExtent, &scissor);
+		
+		VkPipelineViewportStateCreateInfo viewportState = {};
+		fr_pso_init_viewport_state(&viewport, &scissor, &viewportState);
+		
+		// create multi sampling state
+		VkPipelineMultisampleStateCreateInfo multisampling = {};
+		fr_pso_init_multisampling_state(&multisampling);
+		
+		// depth and stencil state
+		VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
+		fr_pso_init_color_blend_attachment_state(&colorBlendAttachment);
+		
+		// for blending use fr_pso_init_color_blend_attachment_state_blending
+		
+		VkPipelineColorBlendStateCreateInfo colorBlending = {};
+		fr_pso_init_color_blend_state(&colorBlendAttachment, &colorBlending);
+		
+		VkPipelineDepthStencilStateCreateInfo depthStencil = {};
+		fr_pso_init_depth_stencil_state(&depthStencil);
+		
+		// create graphics pipeline
+		VkGraphicsPipelineCreateInfo pipelineInfo = {};
+		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+		pipelineInfo.stageCount = 2;
+		pipelineInfo.pStages = shaderStages;
+		
+		pipelineInfo.pVertexInputState = &vertexInputInfo;
+		pipelineInfo.pInputAssemblyState = &inputAssembly;
+		pipelineInfo.pViewportState = &viewportState;
+		pipelineInfo.pRasterizationState = &rasterizer;
+		pipelineInfo.pMultisampleState = &multisampling;
+		pipelineInfo.pDepthStencilState = &depthStencil;
+		pipelineInfo.pColorBlendState = &colorBlending;
+		
+		/* // dynamic state for dynamic changes to pipeline state
+		 VkDynamicState dynamicStates[] = {
+		 VK_DYNAMIC_STATE_VIEWPORT,
+		 VK_DYNAMIC_STATE_LINE_WIDTH
+		 };
+		 
+		 VkPipelineDynamicStateCreateInfo dynamicState = {};
+		 dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+		 dynamicState.dynamicStateCount = 2;
+		 dynamicState.pDynamicStates = dynamicStates;
+		 */
+		pipelineInfo.pDynamicState = NULL; // Optional
+		
+		pipelineInfo.layout = pRenderer->pipelineLayout;
+		
+		pipelineInfo.renderPass = pRenderer->renderPass;
+		pipelineInfo.subpass = 0;
+		
+		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
+		pipelineInfo.basePipelineIndex = 0; // Optional
+		
+		if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->debugPSO) != VK_SUCCESS)
+		{
+			fur_set_last_error("Can't create debug PSO");
+			res = FR_RESULT_ERROR_GPU;
+		}
+	}
+	
 	// create depth buffer
 	if(res == FR_RESULT_OK)
 	{
@@ -976,12 +1073,28 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create test geometry index buffer
 	if(res == FR_RESULT_OK)
 	{
-		fr_buffer_desc_t desc;
+		fr_buffer_desc_t desc = {};
 		desc.size = testIndexBufferSize;
 		desc.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 		desc.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		
 		fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->indexBuffer, pAllocCallbacks);
+	}
+	
+	const VkDeviceSize debugLinesVertexBufferSize = fc_dbg_line_buffer_size();
+	
+	// create debug lines vertex buffer
+	if(res == FR_RESULT_OK)
+	{
+		fr_buffer_desc_t desc = {};
+		desc.size = debugLinesVertexBufferSize;
+		desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
+		desc.properties = FR_STAGING_BUFFER_MEMORY_FLAGS;	// use vertex buffer usage, but staging buffer properties
+		
+		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		{
+			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->debugLinesVertexBuffer[i], pAllocCallbacks);
+		}
 	}
 	
 	// create frame buffers
@@ -1242,6 +1355,12 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			
 			//vkCmdDraw(pRenderer->aCommandBuffers[i], g_numTestVertices, 1, 0, 0);
 			vkCmdDrawIndexed(pRenderer->aCommandBuffers[i], g_numTestIndices, 1, 0, 0, 0);
+			
+			// debug draw
+			vkCmdBindPipeline(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugPSO);
+			
+			//vkCmdDrawIndexed(pRenderer->aCommandBuffers[i], g_numTestIndices, 1, 0, 0, 0);
+			
 			vkCmdEndRenderPass(pRenderer->aCommandBuffers[i]);
 			
 			if (vkEndCommandBuffer(pRenderer->aCommandBuffers[i]) != VK_SUCCESS)
@@ -1373,6 +1492,12 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	// destroy index buffer
 	fr_buffer_release(pRenderer->device, &pRenderer->indexBuffer, pAllocCallbacks);
 	
+	// destroy debug lines vertex buffer
+	for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+	{
+		fr_buffer_release(pRenderer->device, &pRenderer->debugLinesVertexBuffer[i], pAllocCallbacks);
+	}
+	
 	// destroy descriptor set layout
 	vkDestroyDescriptorSetLayout(pRenderer->device, pRenderer->descriptorSetLayout, NULL);
 	
@@ -1396,6 +1521,9 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	vkDestroyPipeline(pRenderer->device, pRenderer->graphicsPipeline, NULL);
 	vkDestroyPipelineLayout(pRenderer->device, pRenderer->pipelineLayout, NULL);
 	vkDestroyRenderPass(pRenderer->device, pRenderer->renderPass, NULL);
+	
+	// destroy debug PSO
+	vkDestroyPipeline(pRenderer->device, pRenderer->debugPSO, NULL);
 	
 	// destroy shaders
 	vkDestroyShaderModule(pRenderer->device, pRenderer->vertexShaderModule, NULL);
