@@ -42,6 +42,7 @@ void fr_create_image(VkDevice device, VkPhysicalDevice physicalDevice,
 					 struct fc_alloc_callbacks_t* pAllocCallbacks);
 
 void fr_copy_data_to_buffer(VkDevice device, VkDeviceMemory dst, const void* src, uint32_t offset, uint32_t size);
+void fr_clear_data_in_buffer(VkDevice device, VkDeviceMemory dst, uint32_t offset, uint32_t size);
 
 #define FR_STAGING_BUFFER_USAGE_FLAGS VK_BUFFER_USAGE_TRANSFER_SRC_BIT
 #define FR_STAGING_BUFFER_MEMORY_FLAGS VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT

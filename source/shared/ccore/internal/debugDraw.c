@@ -34,7 +34,7 @@ void fc_dbg_release(fc_alloc_callbacks_t* pAllocCallbacks)
 	memset(&g_debugFragments, 0, sizeof(fc_debug_fragments_t));
 }
 
-void fc_dbg_line(float start[3], float end[3], float color[4])
+void fc_dbg_line(const float start[3], const float end[3], const float color[4])
 {
 	FUR_ASSERT(g_debugFragments.numLines < FC_DEBUG_FRAGMENTS_LINES_CAPACITY);
 	
@@ -63,7 +63,47 @@ void fc_dbg_line(float start[3], float end[3], float color[4])
 	FUR_ASSERT(idx == g_debugFragments.numLines * 2 * FC_DEBUG_VERTEX_NUM_FLOATS);
 }
 
+uint32_t fc_dbg_line_buffer_size_by_num_lines(uint32_t numLines)
+{
+	return sizeof(float) * FC_DEBUG_VERTEX_NUM_FLOATS * 2 * numLines;
+}
+
+uint32_t fc_dbg_line_num_total_vertices(void)
+{
+	return 2 * FC_DEBUG_FRAGMENTS_LINES_CAPACITY;
+}
+
 uint32_t fc_dbg_line_buffer_size(void)
 {
-	return sizeof(float) * 2 * FC_DEBUG_VERTEX_NUM_FLOATS * FC_DEBUG_FRAGMENTS_LINES_CAPACITY;
+	return fc_dbg_line_buffer_size_by_num_lines(FC_DEBUG_FRAGMENTS_LINES_CAPACITY);
+}
+
+void fc_dbg_line_lock(void)
+{
+	// todo: implement when multithreading comes in
+}
+
+const float* fc_dbg_line_get_data(void)
+{
+	return g_debugFragments.linesData;
+}
+
+uint32_t fc_dbg_line_current_num_lines(void)
+{
+	return g_debugFragments.numLines;
+}
+
+uint32_t fc_dbg_line_current_lines_size(void)
+{
+	return fc_dbg_line_buffer_size_by_num_lines(fc_dbg_line_current_num_lines());
+}
+
+void fc_dbg_line_clear()
+{
+	g_debugFragments.numLines = 0;
+}
+
+void fc_dbg_line_unlock(void)
+{
+	// todo: implement when multithreading comes in
 }

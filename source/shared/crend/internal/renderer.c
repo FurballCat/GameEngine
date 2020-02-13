@@ -136,6 +136,9 @@ enum fr_result_t fr_create_app(const struct fr_app_desc_t* pDesc,
 	
 	*ppApp = pApp;
 	
+	// init debug fragments - since now you can use debug lines
+	fc_dbg_init(pAllocCallbacks);
+	
 	return FR_RESULT_OK;
 }
 
@@ -147,6 +150,11 @@ enum fr_result_t fr_release_app(struct fr_app_t* pApp,
 	
 	FUR_FREE(pApp, pAllocCallbacks);
 	
+	// release debug fragments - since now you cannot use debug lines
+	fc_dbg_release(pAllocCallbacks);
+	
+	// validate memory - after this line there should be no fur_alloc/fur_free functions called
+	// all memory deallocations should be already done at this point
 	FUR_ASSERT(fc_validate_memory());
 	
 	return FR_RESULT_OK;
@@ -1359,6 +1367,9 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			// debug draw
 			vkCmdBindPipeline(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugPSO);
 			
+			vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 1, &pRenderer->debugLinesVertexBuffer[i].buffer, offsets);
+			
+			vkCmdDraw(pRenderer->aCommandBuffers[i], fc_dbg_line_num_total_vertices(), 0, 0, 0);
 			//vkCmdDrawIndexed(pRenderer->aCommandBuffers[i], g_numTestIndices, 1, 0, 0, 0);
 			
 			vkCmdEndRenderPass(pRenderer->aCommandBuffers[i]);
@@ -1448,6 +1459,14 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		{
 			fur_set_last_error("Can't create render semaphores");
 			res = FR_RESULT_ERROR_GPU;
+		}
+	}
+	
+	// clear debug lines buffer with zeros
+	{
+		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		{
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[i].memory, 0, fc_dbg_line_buffer_size());
 		}
 	}
 	
@@ -1629,6 +1648,36 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		fm_mat4_transpose(&ubo.proj);
 		
 		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(ubo));
+	}
+	
+	const float begin[3] = {0.0f, 0.0f, 0.0f};
+	const float axisX[3] = {1.0f, 0.0f, 0.0f};
+	const float axisY[3] = {0.0f, 1.0f, 0.0f};
+	const float axisZ[3] = {0.0f, 0.0f, 1.0f};
+	const float colorRed[4] = FUR_COLOR_RED;
+	const float colorGreen[4] = FUR_COLOR_GREEN;
+	const float colorBlue[4] = FUR_COLOR_BLUE;
+	fc_dbg_line(begin, axisX, colorRed);
+	fc_dbg_line(begin, axisY, colorGreen);
+	fc_dbg_line(begin, axisZ, colorBlue);
+	
+	// update debug lines buffer
+	{
+		fc_dbg_line_lock();	// lock so no-one adds lines while retriving the buffer
+		
+		// copy debug lines buffer into vertex buffer
+		const float* lineData = fc_dbg_line_get_data();
+		const uint32_t linesDataSize = fc_dbg_line_current_lines_size();
+		//const uint32_t numLines = fc_dbg_line_current_num_lines();
+		if(linesDataSize > 0)
+		{
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[imageIndex].memory, 0, linesDataSize);
+			fr_copy_data_to_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[imageIndex].memory, lineData, 0, linesDataSize);
+		}
+		
+		fc_dbg_line_clear();	// clear the buffer for next frame
+		
+		fc_dbg_line_unlock();	// release lock, so now on everyone can use debug lines again
 	}
 	
 	// draw

@@ -108,3 +108,11 @@ void fr_copy_data_to_buffer(VkDevice device, VkDeviceMemory dst, const void* src
 	memcpy(data, src, size);
 	vkUnmapMemory(device, dst);
 }
+
+void fr_clear_data_in_buffer(VkDevice device, VkDeviceMemory dst, uint32_t offset, uint32_t size)
+{
+	void* data;
+	vkMapMemory(device, dst, offset, size, 0, &data);
+	memset(data, 0, size);
+	vkUnmapMemory(device, dst);
+}
