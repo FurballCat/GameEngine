@@ -2,6 +2,14 @@
 #include "math.h"
 #include "3dmath.h"
 
+void fm_vec4_add(const fm_vec4* a, const fm_vec4* b, fm_vec4* v)
+{
+	v->x = a->x + b->x;
+	v->y = a->y + b->y;
+	v->z = a->z + b->z;
+	v->w = a->w + b->w;
+}
+
 void fm_vec4_sub(const fm_vec4* a, const fm_vec4* b, fm_vec4* v)
 {
 	v->x = a->x - b->x;
@@ -15,17 +23,6 @@ float fm_vec4_mag(const fm_vec4* v)
 	return sqrtf(v->x * v->x + v->y * v->y + v->z * v->z + v->w * v->w);
 }
 
-void fm_vec4_normalize(fm_vec4* v)
-{
-	const float magnitude = fm_vec4_mag(v);
-	const float magnitudeInv = 1.0f / magnitude;
-	
-	v->x *= magnitudeInv;
-	v->y *= magnitudeInv;
-	v->z *= magnitudeInv;
-	v->w *= magnitudeInv;
-}
-
 float fm_vec4_dot(const fm_vec4* a, const fm_vec4* b)
 {
 	return a->x * b->x + a->y * b->y + a->z * b->z + a->w * b->w;
@@ -37,6 +34,26 @@ void fm_vec4_cross(const fm_vec4* a, const fm_vec4* b, fm_vec4* v)
 	v->y = a->z * b->x - a->x * b->z;
 	v->z = a->x * b->y - a->y * b->x;
 	v->w = 0.0f;
+}
+
+void fm_vec4_normalize(fm_vec4* v)
+{
+	const float magnitude = fm_vec4_mag(v);
+	const float magnitudeInv = 1.0f / magnitude;
+	
+	v->x *= magnitudeInv;
+	v->y *= magnitudeInv;
+	v->z *= magnitudeInv;
+	v->w *= magnitudeInv;
+}
+
+void fm_vec4_lerp(const fm_vec4* a, const fm_vec4* b, float alpha, fm_vec4* c)
+{
+	const float invAlpha = 1.0f - alpha;
+	c->x = a->x * alpha + b->x * invAlpha;
+	c->y = a->y * alpha + b->y * invAlpha;
+	c->z = a->z * alpha + b->z * invAlpha;
+	c->w = a->w * alpha + b->w * invAlpha;
 }
 
 void fm_mat4_identity(fm_mat4_t* m)
@@ -214,4 +231,44 @@ float fm_clamp(const float value, const float min, const float max)
 		return max;
 	
 	return value;
+}
+
+void fm_quat_mul(const fm_quat* a, const fm_quat* b, fm_quat* c)
+{
+	
+}
+
+void fm_quat_rot(const fm_quat* a, const fm_vec4* b, fm_vec4* c)
+{
+	
+}
+
+void fm_quat_slerp(const fm_quat* a, const fm_quat* b, float alpha, fm_quat* c)
+{
+	
+}
+
+void fm_quat_lerp(const fm_quat* a, const fm_quat* b, float alpha, fm_quat* c)
+{
+	
+}
+
+void fm_xform_mul(const fm_xform* a, const fm_xform* b, fm_xform* c)
+{
+	fm_vec4 rotatedB;
+	fm_quat_rot(&a->rot, &b->pos, &rotatedB);
+	fm_vec4_add(&a->pos, &rotatedB, &c->pos);
+	fm_quat_mul(&a->rot, &b->rot, &c->rot);
+}
+
+void fm_xform_lerp(const fm_xform* a, const fm_xform* b, float alpha, fm_xform* c)
+{
+	fm_vec4_lerp(&a->pos, &b->pos, alpha, &c->pos);
+	fm_quat_lerp(&a->rot, &b->rot, alpha, &c->rot);
+}
+
+void fm_xform_slerp(const fm_xform* a, const fm_xform* b, float alpha, fm_xform* c)
+{
+	fm_vec4_lerp(&a->pos, &b->pos, alpha, &c->pos);
+	fm_quat_slerp(&a->rot, &b->rot, alpha, &c->rot);
 }
