@@ -243,6 +243,17 @@ void fm_quat_rot(const fm_quat* a, const fm_vec4* b, fm_vec4* c)
 	
 }
 
+void fm_quat_norm(fm_quat* q)
+{
+	const float magnitude = sqrtf(q->i * q->i + q->j * q->j + q->k * q->k + q->r * q->r);
+	const float magnitudeInv = 1.0f / magnitude;
+	
+	q->i *= magnitudeInv;
+	q->j *= magnitudeInv;
+	q->k *= magnitudeInv;
+	q->r *= magnitudeInv;
+}
+
 void fm_quat_slerp(const fm_quat* a, const fm_quat* b, float alpha, fm_quat* c)
 {
 	

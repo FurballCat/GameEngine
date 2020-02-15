@@ -103,6 +103,9 @@ void fm_quat_mul(const fm_quat* a, const fm_quat* b, fm_quat* c);
 // rotate vector b by quaternion a, output vector to c
 void fm_quat_rot(const fm_quat* a, const fm_vec4* b, fm_vec4* c);
 	
+// normalize quaternion
+void fm_quat_norm(fm_quat* q);
+	
 // spherical interpolation between a (0.0f) and b (1.0f), output to c
 void fm_quat_slerp(const fm_quat* a, const fm_quat* b, float alpha, fm_quat* c);
 	
