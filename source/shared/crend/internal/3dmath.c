@@ -59,6 +59,14 @@ float fm_vec4_dot(const fm_vec4* a, const fm_vec4* b)
 	return a->x * b->x + a->y * b->y + a->z * b->z + a->w * b->w;
 }
 
+void fm_vec4_mulf(const fm_vec4* v, const float t, fm_vec4* output)
+{
+	output->x = v->x * t;
+	output->y = v->y * t;
+	output->z = v->z * t;
+	output->w = v->w * t;
+}
+
 void fm_vec4_cross(const fm_vec4* a, const fm_vec4* b, fm_vec4* v)
 {
 	v->x = a->y * b->z - a->z * b->y;
@@ -350,4 +358,53 @@ void fm_xform_slerp(const fm_xform* a, const fm_xform* b, float alpha, fm_xform*
 {
 	fm_vec4_lerp(&a->pos, &b->pos, alpha, &c->pos);
 	fm_quat_slerp(&a->rot, &b->rot, alpha, &c->rot);
+}
+
+#define FM_CATMULL_ROM_ALPHA 0.5f
+
+static inline float fm_catmull_rom_get_t_value(const float t, const fm_vec4* p0, const  fm_vec4* p1)
+{
+	const float a = powf(p1->x - p0->x, 2.0f) + powf(p1->y - p0->y, 2.0f) + powf(p1->z - p0->z, 2.0f) + powf(p1->w - p0->w, 2.0f);
+	const float b = powf(a, 0.5f);
+	const float c = powf(b, FM_CATMULL_ROM_ALPHA);
+	return c + t;
+}
+
+void fm_spline_catmull_rom(const fm_vec4* p0, const fm_vec4* p1, const fm_vec4* p2, const fm_vec4* p3, const float t, fm_vec4* output )
+{
+	const float t0 = 0.0f;
+	const float t1 = fm_catmull_rom_get_t_value(t0, p0, p1);
+	const float t2 = fm_catmull_rom_get_t_value(t1, p1, p2);
+	const float t3 = fm_catmull_rom_get_t_value(t2, p2, p3);
+	
+	fm_vec4 tmp1;
+	
+	fm_vec4 a1;
+	fm_vec4_mulf(p0, (t1-t)/(t1-t0), &a1);
+	fm_vec4_mulf(p1, (t-t0)/(t1-t0), &tmp1);
+	fm_vec4_add(&a1, &tmp1, &a1);
+	
+	fm_vec4 a2;
+	fm_vec4_mulf(p0, (t2-t)/(t2-t1), &a2);
+	fm_vec4_mulf(p1, (t-t1)/(t2-t1), &tmp1);
+	fm_vec4_add(&a2, &tmp1, &a2);
+	
+	fm_vec4 a3;
+	fm_vec4_mulf(p0, (t3-t)/(t3-t2), &a3);
+	fm_vec4_mulf(p1, (t-t2)/(t3-t2), &tmp1);
+	fm_vec4_add(&a3, &tmp1, &a3);
+
+	fm_vec4 b1;
+	fm_vec4_mulf(&a1, (t2-t)/(t2-t0), &b1);
+	fm_vec4_mulf(&a2, (t-t0)/(t2-t0), &tmp1);
+	fm_vec4_add(&b1, &tmp1, &b1);
+	
+	fm_vec4 b2;
+	fm_vec4_mulf(&a2, (t3-t)/(t3-t1), &b2);
+	fm_vec4_mulf(&a3, (t-t1)/(t3-t1), &tmp1);
+	fm_vec4_add(&b2, &tmp1, &b2);
+	
+	fm_vec4_mulf(&b1, (t2-t)/(t2-t1), output);
+	fm_vec4_mulf(&b2, (t-t1)/(t2-t1), &tmp1);
+	fm_vec4_add(output, &tmp1, output);
 }

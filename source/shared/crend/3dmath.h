@@ -88,6 +88,9 @@ float fm_vec4_mag(const fm_vec4* v);
 
 // dot product between a and b saved to v
 float fm_vec4_dot(const fm_vec4* a, const fm_vec4* b);
+
+// multiply vector v by scalar t and save to output
+void fm_vec4_mulf(const fm_vec4* v, const float t, fm_vec4* output);
 	
 // cross product between a and b saved to v
 void fm_vec4_cross(const fm_vec4* a, const fm_vec4* b, fm_vec4* v);
@@ -168,6 +171,12 @@ void fm_xform_lerp(const fm_xform* a, const fm_xform* b, float alpha, fm_xform* 
 	
 // spherical interpolation for rotation and linear for position between a (0.0f) and b (1.0f), output to c
 void fm_xform_slerp(const fm_xform* a, const fm_xform* b, float alpha, fm_xform* c);
+	
+	
+/***** SPLINES *****/
+
+// Catmull-Rom spline - interpolation is done only between P1 and P2
+void fm_spline_catmull_rom(const fm_vec4* p0, const fm_vec4* p1, const fm_vec4* p2, const fm_vec4* p3, const float t, fm_vec4* output );
 	
 #ifdef __cplusplus
 }
