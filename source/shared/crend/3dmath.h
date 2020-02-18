@@ -14,6 +14,8 @@ extern "C"
 {
 #endif // __cplusplus
 
+#include <immintrin.h>
+	
 #define FM_PI 3.14159265358979323846264338327950288
 #define FM_DEG_TO_RAD(_x) _x * FM_PI / 180.0
 	
@@ -37,6 +39,41 @@ typedef struct fm_xform
 	fm_vec4 pos;
 	fm_quat rot;
 } fm_xform;
+	
+// vector math version (intrin)
+typedef __m128 xm_float4_v;
+	
+typedef struct xm_vec3
+{
+	xm_float4_v vec128;
+} xm_vec3;
+	
+typedef struct xm_vec4
+{
+	xm_float4_v vec128;
+} xm_vec4;
+
+typedef struct xm_mat3
+{
+	xm_vec3 c0;
+	xm_vec3 c1;
+	xm_vec3 c2;
+	xm_vec3 c3;
+} xm_mat3;
+	
+typedef struct xm_mat4
+{
+	xm_vec4 c0;
+	xm_vec4 c1;
+	xm_vec4 c2;
+	xm_vec4 c3;
+} xm_mat4;
+	
+void xm_vec4_add(const xm_vec4 v1, const xm_vec4 v2, xm_vec4* result);
+void xm_vec4_sub(const xm_vec4 v1, const xm_vec4 v2, xm_vec4* result);
+void xm_vec4_mul(const xm_vec4 v1, const xm_vec4 v2, xm_vec4* result);
+void xm_vec4_div(const xm_vec4 v1, const xm_vec4 v2, xm_vec4* result);
+float xm_vec4_dot(const xm_vec4 v1, const xm_vec4 v2);
 	
 /***** VECTOR *****/
 
@@ -96,6 +133,15 @@ void fm_mat4_mul(const fm_mat4_t* a, const fm_mat4_t* b, fm_mat4_t* m);
 float fm_clamp(const float value, const float min, const float max);
 	
 /***** QUATERNION *****/
+	
+// quaternion identity
+void fm_quat_identity(fm_quat* q);
+
+// dot of ijk, but not r
+float fm_quat_dot3(const fm_quat* a, const fm_quat* b);
+	
+// cross quaternions ijk
+void fm_quat_cross3(const fm_quat* a, const fm_quat* b, fm_vec4* v);
 	
 // multiply a by b, output to c
 void fm_quat_mul(const fm_quat* a, const fm_quat* b, fm_quat* c);

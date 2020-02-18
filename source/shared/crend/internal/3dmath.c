@@ -2,6 +2,37 @@
 #include "math.h"
 #include "3dmath.h"
 
+void xm_vec4_add(const xm_vec4 v1, const xm_vec4 v2, xm_vec4* result)
+{
+	result->vec128 = _mm_add_ps(v1.vec128, v2.vec128);
+}
+
+void xm_vec4_sub(const xm_vec4 v1, const xm_vec4 v2, xm_vec4* result)
+{
+	result->vec128 = _mm_sub_ps(v1.vec128, v2.vec128);
+}
+
+void xm_vec4_mul(const xm_vec4 v1, const xm_vec4 v2, xm_vec4* result)
+{
+	result->vec128 = _mm_mul_ps(v1.vec128, v2.vec128);
+}
+
+void xm_vec4_div(const xm_vec4 v1, const xm_vec4 v2, xm_vec4* result)
+{
+	result->vec128 = _mm_div_ps(v1.vec128, v2.vec128);
+}
+
+float xm_vec4_dot(const xm_vec4 v1, const xm_vec4 v2)
+{
+	//xm_float4_v result;
+	//result = _mm_fmadd_ps(v1.vec128, v2.vec128, (xm_float4_v){0.0f, 0.0f, 0.0f, 0.0f});
+	// todo: finish implementation
+	
+	return 0.0f;
+}
+
+///////////////////////
+
 void fm_vec4_add(const fm_vec4* a, const fm_vec4* b, fm_vec4* v)
 {
 	v->x = a->x + b->x;
@@ -233,9 +264,33 @@ float fm_clamp(const float value, const float min, const float max)
 	return value;
 }
 
+void fm_quat_identity(fm_quat* q)
+{
+	q->i = 0.0f;
+	q->j = 0.0f;
+	q->k = 0.0f;
+	q->r = 1.0f;
+}
+
+float fm_quat_dot3(const fm_quat* a, const fm_quat* b)
+{
+	return a->i * b->i + a->j * b->j + a->k * b->k;
+}
+
+void fm_quat_cross3(const fm_quat* a, const fm_quat* b, fm_vec4* v)
+{
+	v->x = a->j * b->k - a->k * b->j;
+	v->y = a->k * b->i - a->i * b->k;
+	v->z = a->i * b->j - a->j * b->i;
+	v->w = 0.0f;
+}
+
 void fm_quat_mul(const fm_quat* a, const fm_quat* b, fm_quat* c)
 {
-	
+	c->i = a->r * b->r - a->i * b->i - a->j * b->j - a->k * b->k;
+	c->j = a->r * b->i - a->i * b->r - a->j * b->k - a->k * b->j;
+	c->k = a->r * b->j - a->i * b->k - a->j * b->r - a->k * b->i;
+	c->r = a->r * b->k - a->i * b->j - a->j * b->i - a->k * b->r;
 }
 
 void fm_quat_rot(const fm_quat* a, const fm_vec4* b, fm_vec4* c)
@@ -245,23 +300,36 @@ void fm_quat_rot(const fm_quat* a, const fm_vec4* b, fm_vec4* c)
 
 void fm_quat_norm(fm_quat* q)
 {
-	const float magnitude = sqrtf(q->i * q->i + q->j * q->j + q->k * q->k + q->r * q->r);
-	const float magnitudeInv = 1.0f / magnitude;
+	const float n = sqrtf(q->i * q->i + q->j * q->j + q->k * q->k + q->r * q->r);
+	const float n_inv = 1.0f / n;
 	
-	q->i *= magnitudeInv;
-	q->j *= magnitudeInv;
-	q->k *= magnitudeInv;
-	q->r *= magnitudeInv;
+	q->i *= n_inv;
+	q->j *= n_inv;
+	q->k *= n_inv;
+	q->r *= n_inv;
 }
 
 void fm_quat_slerp(const fm_quat* a, const fm_quat* b, float alpha, fm_quat* c)
 {
+	const float t = 1.0f - alpha;
+	const float theta = acosf(a->i * b->i + a->j * b->j + a->k * b->k + a->r * b->r);
+	const float sn = sinf(theta);
+	const float w_a = sinf(t * theta) / sn;
+	const float w_b = sinf(alpha * theta) / sn;
 	
+	c->i = w_a * a->i + w_b * b->i;
+	c->j = w_a * a->j + w_b * b->j;
+	c->k = w_a * a->k + w_b * b->k;
+	c->r = w_a * a->r + w_b * b->r;
 }
 
 void fm_quat_lerp(const fm_quat* a, const fm_quat* b, float alpha, fm_quat* c)
 {
-	
+	const float alpha_inv = 1.0f - alpha;
+	c->i = a->i * alpha_inv + b->i * alpha;
+	c->j = a->j * alpha_inv + b->j * alpha;
+	c->k = a->k * alpha_inv + b->k * alpha;
+	c->r = a->r * alpha_inv + b->r * alpha;
 }
 
 void fm_xform_mul(const fm_xform* a, const fm_xform* b, fm_xform* c)
