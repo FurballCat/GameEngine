@@ -340,6 +340,38 @@ void fm_quat_lerp(const fm_quat* a, const fm_quat* b, float alpha, fm_quat* c)
 	c->r = a->r * alpha_inv + b->r * alpha;
 }
 
+void fm_quat_to_mat4(const fm_quat* q, fm_mat4_t* m)
+{
+	m->x.x = 1.0f - 2.0f * q->j * q->j - 2.0f * q->k * q->k;
+	m->x.y = 2.0f * q->i * q->j - 2.0f * q->k * q->r;
+	m->x.z = 2.0f * q->i * q->k + 2.0f * q->j * q->r;
+	m->x.w = 0.0f;
+	
+	m->y.x = 2.0f * q->i * q->j + 2.0f * q->k * q->r;
+	m->y.y = 1.0f - 2.0f * q->i * q->i - 2.0f * q->k * q->k;
+	m->y.z = 2.0f * q->j * q->k - 2.0f * q->i * q->r;
+	m->y.w = 0.0f;
+	
+	m->z.x = 2.0f * q->i * q->k - 2.0f * q->j * q->r;
+	m->z.y = 2.0f * q->j * q->k + 2.0f * q->i * q->r;
+	m->z.z = 1.0f - 2.0f * q->i * q->i - 2.0f * q->j * q->j;
+	m->z.w = 0.0f;
+	
+	m->w.x = 0.0f;
+	m->w.y = 0.0f;
+	m->w.z = 0.0f;
+	m->w.w = 1.0f;
+}
+
+void fm_quat_rot_axis_angle(const fm_vec4* axis, const float angle, fm_quat* q)
+{
+	const float scale = sinf(angle / 2) / fm_vec4_mag(axis);
+	q->i = scale * axis->x;
+	q->j = scale * axis->y;
+	q->k = scale * axis->z;
+	q->r = cosf(angle / 2.0f);
+}
+
 void fm_xform_mul(const fm_xform* a, const fm_xform* b, fm_xform* c)
 {
 	fm_vec4 rotatedB;

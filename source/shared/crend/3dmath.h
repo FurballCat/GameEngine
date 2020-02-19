@@ -77,6 +77,10 @@ float xm_vec4_dot(const xm_vec4 v1, const xm_vec4 v2);
 	
 /***** VECTOR *****/
 
+#define FM_VEC4_AXIS_X {1.0f, 0.0f, 0.0f, 0.0f}
+#define FM_VEC4_AXIS_Y {0.0f, 1.0f, 0.0f, 0.0f}
+#define FM_VEC4_AXIS_Z {0.0f, 0.0f, 1.0f, 0.0f}
+	
 // add b to a and save to v
 void fm_vec4_add(const fm_vec4* a, const fm_vec4* b, fm_vec4* v);
 	
@@ -160,7 +164,13 @@ void fm_quat_slerp(const fm_quat* a, const fm_quat* b, float alpha, fm_quat* c);
 	
 // linear interpolation between a (0.0f) and b (1.0f), output to c
 void fm_quat_lerp(const fm_quat* a, const fm_quat* b, float alpha, fm_quat* c);
-	
+
+// convert quaternion to rotation matrix
+void fm_quat_to_mat4(const fm_quat* q, fm_mat4_t* m);
+
+// make quaternion from axis and angle
+void fm_quat_rot_axis_angle(const fm_vec4* axis, const float angle, fm_quat* q);
+
 /***** TRANSFORM *****/
 	
 // multiply transforms a and, output to c
