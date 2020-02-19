@@ -1593,6 +1593,22 @@ void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_
 
 uint32_t g_prevImageIndex = 0;
 
+void fr_dbg_draw_mat4(const fm_mat4_t* m)
+{
+	const float pos[3] = {-m->x.w, -m->y.w, -m->z.w};
+	const float axisX[3] = {pos[0] + m->x.x, pos[1] + m->x.y, pos[2] + m->x.z};
+	const float axisY[3] = {pos[0] + m->y.x, pos[1] + m->y.y, pos[2] + m->y.z};
+	const float axisZ[3] = {pos[0] + m->z.x, pos[1] + m->z.y, pos[2] + m->z.z};
+	
+	const float red[4] = FUR_COLOR_RED;
+	const float green[4] = FUR_COLOR_GREEN;
+	const float blue[4] = FUR_COLOR_BLUE;
+	
+	fc_dbg_line(pos, axisX, red);
+	fc_dbg_line(pos, axisY, green);
+	fc_dbg_line(pos, axisZ, blue);
+}
+
 void fr_draw_frame(struct fr_renderer_t* pRenderer)
 {
 	uint32_t imageIndex;
