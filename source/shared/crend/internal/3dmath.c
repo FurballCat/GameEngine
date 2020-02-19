@@ -399,17 +399,17 @@ void fm_xform_to_mat4(const fm_xform* x, fm_mat4_t* m)
 	m->x.x = 1.0f - 2.0f * q->j * q->j - 2.0f * q->k * q->k;
 	m->x.y = 2.0f * q->i * q->j - 2.0f * q->k * q->r;
 	m->x.z = 2.0f * q->i * q->k + 2.0f * q->j * q->r;
-	m->x.w = x->pos.x;
+	m->x.w = -x->pos.x;
 	
 	m->y.x = 2.0f * q->i * q->j + 2.0f * q->k * q->r;
 	m->y.y = 1.0f - 2.0f * q->i * q->i - 2.0f * q->k * q->k;
 	m->y.z = 2.0f * q->j * q->k - 2.0f * q->i * q->r;
-	m->y.w = x->pos.y;
+	m->y.w = -x->pos.y;
 	
 	m->z.x = 2.0f * q->i * q->k - 2.0f * q->j * q->r;
 	m->z.y = 2.0f * q->j * q->k + 2.0f * q->i * q->r;
 	m->z.z = 1.0f - 2.0f * q->i * q->i - 2.0f * q->j * q->j;
-	m->z.w = x->pos.z;
+	m->z.w = -x->pos.z;
 	
 	m->w.x = 0.0f;
 	m->w.y = 0.0f;
