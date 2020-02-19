@@ -181,7 +181,9 @@ void fm_xform_lerp(const fm_xform* a, const fm_xform* b, float alpha, fm_xform* 
 	
 // spherical interpolation for rotation and linear for position between a (0.0f) and b (1.0f), output to c
 void fm_xform_slerp(const fm_xform* a, const fm_xform* b, float alpha, fm_xform* c);
-	
+
+// convert transform to matrix
+void fm_xform_to_mat4(const fm_xform* x, fm_mat4_t* m);
 	
 /***** SPLINES *****/
 
