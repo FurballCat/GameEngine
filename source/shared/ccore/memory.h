@@ -67,16 +67,23 @@ typedef struct fc_alloc_callbacks_t
 #if FUR_MEMORY_DEBUG == 0
 	#define FUR_ALLOC(_size, _alignment, _scope, _pAllocCallbacks)	\
 		fc_alloc(_pAllocCallbacks, _size, _alignment, _scope, "")
+	#define FUR_ALLOC_AND_ZERO(_size, _alignment, _scope, _pAllocCallbacks)	\
+		fc_alloc_and_zero(_pAllocCallbacks, _size, _alignment, _scope, "")
 	#define FUR_FREE(_pMemory, _pAllocCallbacks)	\
 		fc_dealloc(_pAllocCallbacks, _pMemory, "")
 #else
 	#define FUR_ALLOC(_size, _alignment, _scope, _pAllocCallbacks)	\
 		fc_alloc(_pAllocCallbacks, _size, _alignment, _scope, __FILE__ ":" S2(__LINE__))
+	#define FUR_ALLOC_AND_ZERO(_size, _alignment, _scope, _pAllocCallbacks)	\
+		fc_alloc_and_zero(_pAllocCallbacks, _size, _alignment, _scope, __FILE__ ":" S2(__LINE__))
 	#define FUR_FREE(_pMemory, _pAllocCallbacks)	\
 		fc_dealloc(_pAllocCallbacks, _pMemory, __FILE__ ":" S2(__LINE__))
 #endif
 
 CCORE_API void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t alignment,
+							 enum fc_memory_scope_t scope, const char* info);
+	
+CCORE_API void* fc_alloc_and_zero(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t alignment,
 							 enum fc_memory_scope_t scope, const char* info);
 
 CCORE_API void fc_dealloc(struct fc_alloc_callbacks_t* pAllocCallbacks, void* pMemory, const char* info);

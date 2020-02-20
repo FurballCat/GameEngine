@@ -4,6 +4,7 @@
 #include "furAssert.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 typedef struct fc_mem_debug_info_t
 {
@@ -53,6 +54,14 @@ void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t
 	return ptr;
 }
 
+void* fc_alloc_and_zero(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t alignment,
+								  enum fc_memory_scope_t scope, const char* info)
+{
+	void* ptr = fc_alloc(pAllocCallbacks, size, alignment, scope, info);
+	memset(ptr, 0, size);
+	return ptr;
+}
+
 void fc_dealloc(struct fc_alloc_callbacks_t* pAllocCallbacks, void* pMemory, const char* info)
 {
 #if FUR_MEMORY_DEBUG == 1
@@ -63,6 +72,11 @@ void fc_dealloc(struct fc_alloc_callbacks_t* pAllocCallbacks, void* pMemory, con
 	if(debugPtr->next)
 		debugPtr->next->prev = debugPtr->prev;
 	debugPtr->prev->next = debugPtr->next;
+	
+	size_t fullSize = debugPtr->size + sizeof(fc_mem_debug_info_t);
+	
+	// debug pattern for dealloc
+	memset(pMemory, 0xFE, fullSize);
 	
 #endif
 	
