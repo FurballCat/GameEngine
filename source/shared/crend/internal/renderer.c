@@ -17,6 +17,8 @@
 #include "renderUtils.h"
 #include "psoUtils.h"
 
+#include "cimport/public.h"
+
 // stb library
 #ifdef __clang__
 #define STBIDEF static inline
@@ -257,21 +259,6 @@ typedef struct fr_vertex_t
 	fr_vec2_t texCoord;
 } fr_vertex_t;
 
-const uint32_t g_numTestVertices = 8;
-const fr_vertex_t g_testGeometry[g_numTestVertices] = {
-	{{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f,}},
-	{{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-	{{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-	{{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-	{{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-	{{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-	{{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-	{{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
-};
-
-const uint32_t g_numTestIndices = 12;
-const uint16_t g_testIndices[g_numTestIndices] = {0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4};
-
 typedef struct fr_uniform_buffer_t
 {
 	fm_mat4_t model;
@@ -355,6 +342,8 @@ struct fr_renderer_t
 	
 	VkDescriptorPool descriptorPool;
 	VkDescriptorSet aDescriptorSets[NUM_SWAP_CHAIN_IMAGES];
+	
+	fr_resource_mesh_t* pMesh;
 	
 	float rotationAngle;
 };
@@ -1060,8 +1049,23 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		fr_image_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->depthImage, pAllocCallbacks);
 	}
 	
+	// load character mesh
+	const char* depotPath = "../../../../../";
+	const char* characterMeshPath = "assets/characters/zelda/mesh/zelda_mesh.fbx";
+	
+	if(res == FR_RESULT_OK)
+	{
+		fi_depot_t depot;
+		depot.path = depotPath;
+		
+		fi_import_mesh_ctx_t ctx;
+		ctx.path = characterMeshPath;
+		
+		fi_import_mesh(&depot, &ctx, &pRenderer->pMesh, pAllocCallbacks);
+	}
+	
 	// vertices
-	const uint32_t numTestVertices = g_numTestVertices;
+	const uint32_t numTestVertices = pRenderer->pMesh->chunks[0].numVertices;
 	
 	const VkDeviceSize testVertexBufferSize = sizeof(fr_vertex_t) * numTestVertices;
 	
@@ -1076,7 +1080,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->vertexBuffer, pAllocCallbacks);
 	}
 	
-	const VkDeviceSize testIndexBufferSize = sizeof(uint16_t) * g_numTestIndices;
+	const VkDeviceSize testIndexBufferSize = sizeof(uint16_t) * pRenderer->pMesh->chunks[0].numIndices;
 	
 	// create test geometry index buffer
 	if(res == FR_RESULT_OK)
@@ -1362,7 +1366,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 									pRenderer->pipelineLayout, 0, 1, &pRenderer->aDescriptorSets[i], 0, NULL);
 			
 			//vkCmdDraw(pRenderer->aCommandBuffers[i], g_numTestVertices, 1, 0, 0);
-			vkCmdDrawIndexed(pRenderer->aCommandBuffers[i], g_numTestIndices, 1, 0, 0, 0);
+			vkCmdDrawIndexed(pRenderer->aCommandBuffers[i], pRenderer->pMesh->chunks[0].numIndices, 1, 0, 0, 0);
 			
 			// debug draw
 			vkCmdBindPipeline(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugPSO);
@@ -1387,8 +1391,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	{
 		// add vertices & indices data to staging buffer
 		{
-			fr_staging_add(&stagingBuilder, (void*)g_testGeometry, sizeof(fr_vertex_t) * g_numTestVertices, NULL, NULL);
-			fr_staging_add(&stagingBuilder, (void*)g_testIndices, sizeof(uint16_t) * g_numTestIndices, NULL, NULL);
+			fr_staging_add(&stagingBuilder, (void*)pRenderer->pMesh->chunks[0].dataVertices, sizeof(fr_vertex_t) * pRenderer->pMesh->chunks[0].numVertices, NULL, NULL);
+			fr_staging_add(&stagingBuilder, (void*)pRenderer->pMesh->chunks[0].dataIndices, sizeof(uint16_t) * pRenderer->pMesh->chunks[0].numIndices, NULL, NULL);
 		}
 		
 		// create staging buffer & release memory of source data
@@ -1487,6 +1491,12 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 					   struct fc_alloc_callbacks_t*	pAllocCallbacks)
 {
+	// release character mesh
+	if(pRenderer->pMesh)
+	{
+		fr_release_mesh(&pRenderer->pMesh, pAllocCallbacks);
+	}
+	
 	// this should be in clean-up swap chain
 	{
 		// destroy uniform buffer

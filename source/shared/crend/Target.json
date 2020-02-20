@@ -2,6 +2,7 @@
 	"dependecies":
 	[
 		"ccore",
+		"cimport",
         "glfw"
     ],
     
