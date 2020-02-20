@@ -9,7 +9,9 @@ extern "C"
 	
 #include <assert.h>
 	
+#ifndef FUR_ASSERT
 #define FUR_ASSERT(x) assert(x)
+#endif
 	
 #ifdef __cplusplus
 }
