@@ -78,10 +78,10 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 			chunk->vertexStride = strideFloats;
 			
 			chunk->numIndices = numVertices;
-			chunk->dataIndices = (uint16_t*)FUR_ALLOC(sizeof(uint16_t) * numVertices, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+			chunk->dataIndices = (uint32_t*)FUR_ALLOC(sizeof(uint32_t) * numVertices, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 			
 			float* itVertex = chunk->dataVertices;
-			uint16_t* itIndex = chunk->dataIndices;
+			uint32_t* itIndex = chunk->dataIndices;
 			
 			for(int32 iv=0; iv<numVertices; ++iv)
 			{
@@ -89,9 +89,9 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 				float* normal = itVertex + 3;
 				float* uv = itVertex + 3 + 3;
 				
-				position[0] = vertices[iv].x;
-				position[1] = vertices[iv].y;
-				position[2] = vertices[iv].z;
+				position[0] = vertices[iv].x * 0.01f;
+				position[1] = vertices[iv].y * 0.01f;
+				position[2] = vertices[iv].z * 0.01f;
 				
 				//printf("vertex[%u] = {%1.2f, %1.2f, %1.2f}\n", iv, position[0], position[1], position[2]);
 				
@@ -99,12 +99,20 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 				normal[1] = normals[iv].y;
 				normal[2] = normals[iv].z;
 				
-				uv[0] = uvs[iv].x;
-				uv[1] = uvs[iv].y;
+				if(uvs)
+				{
+					uv[0] = uvs[iv].x;
+					uv[1] = 1.0f - uvs[iv].y;
+				}
+				else
+				{
+					uv[0] = 0.0f;
+					uv[1] = 0.0f;
+				}
 				
 				//printf("uv[%u] = {%1.2f, %1.2f}\n", iv, uv[0], uv[1]);
 				
-				*itIndex = (uint16_t)iv;
+				*itIndex = (uint32_t)iv;
 				
 				itVertex += strideFloats;
 				itIndex += 1;

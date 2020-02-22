@@ -266,9 +266,7 @@ typedef struct fr_uniform_buffer_t
 	fm_mat4_t proj;
 } fr_uniform_buffer_t;
 
-const char* g_texturePath = "../../../../../assets/test_texture.png";
-const uint32_t g_textureWidth = 1024;
-const uint32_t g_textureHeight = 1024;
+const char* g_texturePath = "../../../../../assets/characters/zelda/mesh/textures/zelda_diff.png";
 
 /*************************************************************/
 
@@ -1080,7 +1078,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->vertexBuffer, pAllocCallbacks);
 	}
 	
-	const VkDeviceSize testIndexBufferSize = sizeof(uint16_t) * pRenderer->pMesh->chunks[0].numIndices;
+	const VkDeviceSize testIndexBufferSize = sizeof(uint32_t) * pRenderer->pMesh->chunks[0].numIndices;
 	
 	// create test geometry index buffer
 	if(res == FR_RESULT_OK)
@@ -1168,9 +1166,12 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	VkDeviceSize imageSize = 0;
 	VkDeviceSize imageOffsetInBuffer = 0;
 	
+	int texWidth = 0;
+	int texHeight = 0;
+	
 	// load texture
 	{
-		int texWidth, texHeight, texChannels;
+		int texChannels;
 		stbi_uc* pixels = stbi_load(g_texturePath, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 		imageSize = texWidth * texHeight * 4;
 		
@@ -1193,8 +1194,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	{
 		fr_image_desc_t desc = {};
 		desc.size = imageSize;
-		desc.width = g_textureWidth;
-		desc.height = g_textureHeight;
+		desc.width = texWidth;
+		desc.height = texHeight;
 		desc.format = textureImageFormat;
 		desc.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		desc.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -1359,7 +1360,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			VkBuffer vertexBuffers[] = {pRenderer->vertexBuffer.buffer};
 			VkDeviceSize offsets[] = {0};
 			vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 1, vertexBuffers, offsets);
-			vkCmdBindIndexBuffer(pRenderer->aCommandBuffers[i], pRenderer->indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT16);
+			vkCmdBindIndexBuffer(pRenderer->aCommandBuffers[i], pRenderer->indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 			
 			// bind uniform buffer
 			vkCmdBindDescriptorSets(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -1441,7 +1442,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			fr_transition_image_layout(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, textureImageFormat,
 									   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pRenderer->textureImage.image, pAllocCallbacks);
 			fr_copy_buffer_to_image(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, pRenderer->stagingBuffer.buffer,
-									imageOffsetInBuffer, pRenderer->textureImage.image, g_textureWidth, g_textureHeight, pAllocCallbacks);
+									imageOffsetInBuffer, pRenderer->textureImage.image, texWidth, texHeight, pAllocCallbacks);
 			
 		}
 		
@@ -1586,7 +1587,7 @@ void fr_wait_for_device(struct fr_renderer_t* pRenderer)
 }
 
 const float g_rotationSpeed = FM_DEG_TO_RAD(5);
-const fm_vec4 g_eye = {0, -4, 2, 0};
+const fm_vec4 g_eye = {0, -2, 1, 0};
 const fm_vec4 g_at = {0, 0, 0, 0};
 const fm_vec4 g_up = {0, 0, 1, 0};
 

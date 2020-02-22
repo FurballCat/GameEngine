@@ -42,7 +42,7 @@ typedef struct fr_resource_mesh_chunk_t
 	float* dataVertices;
 	uint32_t numVertices;
 	
-	uint16_t* dataIndices;
+	uint32_t* dataIndices;
 	uint32_t numIndices;
 	
 	uint32_t vertexStride;
