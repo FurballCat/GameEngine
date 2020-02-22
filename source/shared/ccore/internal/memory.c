@@ -69,6 +69,9 @@ void fc_dealloc(struct fc_alloc_callbacks_t* pAllocCallbacks, void* pMemory, con
 	pMemory = ((uint8_t*)pMemory) - sizeof(fc_mem_debug_info_t);
 	
 	fc_mem_debug_info_t* debugPtr = (fc_mem_debug_info_t*)pMemory;
+	
+	FUR_ASSERT((uint64_t)debugPtr->next != 0xfefefefefefefefe);	// either double-free or memory stomp (someone else freed this memory before you)
+	
 	if(debugPtr->next)
 		debugPtr->next->prev = debugPtr->prev;
 	debugPtr->prev->next = debugPtr->next;

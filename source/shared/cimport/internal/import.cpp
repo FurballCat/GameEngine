@@ -137,8 +137,8 @@ void fr_release_mesh(fr_resource_mesh_t** ppMesh, fc_alloc_callbacks_t* pAllocCa
 	
 	for(uint32_t i=0; i<numChunks; ++i)
 	{
-		FUR_FREE(chunks->dataIndices, pAllocCallbacks);
-		FUR_FREE(chunks->dataVertices, pAllocCallbacks);
+		FUR_FREE(chunks[i].dataIndices, pAllocCallbacks);
+		FUR_FREE(chunks[i].dataVertices, pAllocCallbacks);
 	}
 	
 	FUR_FREE((*ppMesh)->chunks, pAllocCallbacks);
