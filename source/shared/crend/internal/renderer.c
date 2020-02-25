@@ -271,6 +271,7 @@ typedef struct fr_mesh_chunk_t
 	fr_buffer_t vertices;
 	fr_buffer_t indices;
 	uint32_t numIndices;
+	int32_t textureIndex;
 } fr_mesh_chunk_t;
 
 typedef struct fr_mesh_t
@@ -279,7 +280,10 @@ typedef struct fr_mesh_t
 	uint32_t numChunks;
 } fr_mesh_t;
 
-const char* g_texturePath = "../../../../../assets/characters/zelda/mesh/textures/zelda_diff.png";
+const char* g_texturePathZeldaDiff = "../../../../../assets/characters/zelda/mesh/textures/zelda_diff.png";
+const char* g_texturePathHairDiff = "../../../../../assets/characters/zelda/mesh/textures/hair_diff.png";
+
+#define NUM_TEXTURES_IN_ARRAY 2
 
 /*************************************************************/
 
@@ -344,7 +348,9 @@ struct fr_renderer_t
 	
 	fr_mesh_t mesh;
 	
-	fr_image_t textureImage;
+	fr_image_t textureZeldaDiff;
+	fr_image_t textureHairDiff;
+	
 	VkSampler textureSampler;
 	
 	fr_buffer_t stagingBuffer;
@@ -799,7 +805,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		// sampler
 		VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
 		samplerLayoutBinding.binding = 1;
-		samplerLayoutBinding.descriptorCount = 1;
+		samplerLayoutBinding.descriptorCount = NUM_TEXTURES_IN_ARRAY;
 		samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		samplerLayoutBinding.pImmutableSamplers = NULL;
 		samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -1084,6 +1090,10 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		mesh->chunks = (fr_mesh_chunk_t*)FUR_ALLOC_AND_ZERO(sizeof(fr_mesh_chunk_t) * numChunks, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 		mesh->numChunks = numChunks;
 		
+		const uint32_t numTextureIndices = 5;
+		FUR_ASSERT(numChunks == numTextureIndices);
+		int32_t textureIndices[numTextureIndices] = {0, 0, 0, 0, 1};
+		
 		for(uint32_t i=0; i<numChunks; ++i)
 		{
 			const fr_resource_mesh_chunk_t* meshChunkResource = &meshResource->chunks[i];
@@ -1092,6 +1102,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			
 			fr_mesh_chunk_t* meshChunk = &mesh->chunks[i];
 			meshChunk->numIndices = numVertices;
+			meshChunk->textureIndex = textureIndices[i];
 			
 			// vertices
 			{
@@ -1190,46 +1201,88 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	fr_staging_buffer_builder_t stagingBuilder;
 	fr_staging_init(&stagingBuilder);
 	
-	VkDeviceSize imageSize = 0;
-	VkDeviceSize imageOffsetInBuffer = 0;
-	
-	int texWidth = 0;
-	int texHeight = 0;
-	
-	// load texture
-	{
-		int texChannels;
-		stbi_uc* pixels = stbi_load(g_texturePath, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-		imageSize = texWidth * texHeight * 4;
-		
-		if(!pixels)
-		{
-			fur_set_last_error("Can't load texture");
-			res = FR_RESULT_ERROR_GPU;
-		}
-		else
-		{
-			imageOffsetInBuffer = stagingBuilder.totalSize;
-			fr_staging_add(&stagingBuilder, pixels, (uint32_t)imageSize, NULL, fr_pixels_free_func);
-		}
-	}
-	
 	const VkFormat textureImageFormat = VK_FORMAT_R8G8B8A8_UNORM;
 	
-	// create texture image
-	if(res == FR_RESULT_OK)
+	VkDeviceSize imageOffsetInBufferZeldaDiff = 0;
+	int texZeldaDiffWidth = 0;
+	int texZeldaDiffHeight = 0;
+	
 	{
-		fr_image_desc_t desc = {};
-		desc.size = imageSize;
-		desc.width = texWidth;
-		desc.height = texHeight;
-		desc.format = textureImageFormat;
-		desc.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		desc.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		VkDeviceSize imageSize = 0;
 		
-		fr_image_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->textureImage, pAllocCallbacks);
+		// load texture
+		{
+			int texChannels;
+			stbi_uc* pixels = stbi_load(g_texturePathZeldaDiff, &texZeldaDiffWidth, &texZeldaDiffHeight, &texChannels, STBI_rgb_alpha);
+			imageSize = texZeldaDiffWidth * texZeldaDiffHeight * 4;
+			
+			if(!pixels)
+			{
+				fur_set_last_error("Can't load texture");
+				res = FR_RESULT_ERROR_GPU;
+			}
+			else
+			{
+				imageOffsetInBufferZeldaDiff = stagingBuilder.totalSize;
+				fr_staging_add(&stagingBuilder, pixels, (uint32_t)imageSize, NULL, fr_pixels_free_func);
+			}
+		}
+
+		// create texture image
+		if(res == FR_RESULT_OK)
+		{
+			fr_image_desc_t desc = {};
+			desc.size = imageSize;
+			desc.width = texZeldaDiffWidth;
+			desc.height = texZeldaDiffHeight;
+			desc.format = textureImageFormat;
+			desc.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+			desc.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+			
+			fr_image_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->textureZeldaDiff, pAllocCallbacks);
+		}
 	}
 	
+	VkDeviceSize imageOffsetInBufferHairDiff = 0;
+	int texHairDiffWidth = 0;
+	int texHairDiffHeight = 0;
+	
+	{
+		VkDeviceSize imageSize = 0;
+		
+		// load texture
+		{
+			int texChannels;
+			stbi_uc* pixels = stbi_load(g_texturePathHairDiff, &texHairDiffWidth, &texHairDiffHeight, &texChannels, STBI_rgb_alpha);
+			imageSize = texHairDiffWidth * texHairDiffHeight * 4;
+			
+			if(!pixels)
+			{
+				fur_set_last_error("Can't load texture");
+				res = FR_RESULT_ERROR_GPU;
+			}
+			else
+			{
+				imageOffsetInBufferHairDiff = stagingBuilder.totalSize;
+				fr_staging_add(&stagingBuilder, pixels, (uint32_t)imageSize, NULL, fr_pixels_free_func);
+			}
+		}
+		
+		// create texture image
+		if(res == FR_RESULT_OK)
+		{
+			fr_image_desc_t desc = {};
+			desc.size = imageSize;
+			desc.width = texHairDiffWidth;
+			desc.height = texHairDiffHeight;
+			desc.format = textureImageFormat;
+			desc.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+			desc.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+			
+			fr_image_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->textureHairDiff, pAllocCallbacks);
+		}
+	}
+		
 	// create texture sampler
 	if(res == FR_RESULT_OK)
 	{
@@ -1283,10 +1336,14 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			bufferInfo.offset = 0;
 			bufferInfo.range = sizeof(fr_uniform_buffer_t);
 			
-			VkDescriptorImageInfo imageInfo = {};
-			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			imageInfo.imageView = pRenderer->textureImage.view;
-			imageInfo.sampler = pRenderer->textureSampler;
+			VkDescriptorImageInfo imageInfo[2] = {};
+			imageInfo[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imageInfo[0].imageView = pRenderer->textureZeldaDiff.view;
+			imageInfo[0].sampler = pRenderer->textureSampler;
+			
+			imageInfo[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imageInfo[1].imageView = pRenderer->textureHairDiff.view;
+			imageInfo[1].sampler = pRenderer->textureSampler;
 			
 			const uint32_t numBindings = 2;
 			VkWriteDescriptorSet descriptorWrites[numBindings] = {};
@@ -1306,8 +1363,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			descriptorWrites[1].dstBinding = 1;
 			descriptorWrites[1].dstArrayElement = 0;
 			descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			descriptorWrites[1].descriptorCount = 1;
-			descriptorWrites[1].pImageInfo = &imageInfo;
+			descriptorWrites[1].descriptorCount = NUM_TEXTURES_IN_ARRAY;	// number of textures in array goes here
+			descriptorWrites[1].pImageInfo = imageInfo;
 
 			vkUpdateDescriptorSets(pRenderer->device, numBindings, descriptorWrites, 0, NULL);
 		}
@@ -1400,6 +1457,9 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 				vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 1, vertexBuffers, offsets);
 				vkCmdBindIndexBuffer(pRenderer->aCommandBuffers[i], meshChunk->indices.buffer, 0, VK_INDEX_TYPE_UINT32);
 				
+				vkCmdPushConstants(pRenderer->aCommandBuffers[i], pRenderer->pipelineLayout,
+								   VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(int32_t), &meshChunk->textureIndex);
+				
 				// draw the mesh chunk
 				vkCmdDrawIndexed(pRenderer->aCommandBuffers[i], meshChunk->numIndices, 1, 0, 0, 0);
 			}
@@ -1463,7 +1523,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			{
 				fr_mesh_chunk_t* meshChunk = &pRenderer->mesh.chunks[i];
 				
-				uint32_t srcStagingIndices[2] = {1+i*2, 2+i*2};
+				uint32_t srcStagingIndices[2] = {2+i*2, 3+i*2};
 				VkBuffer dstBuffers[2] = {meshChunk->vertices.buffer, meshChunk->indices.buffer};
 				
 				fr_staging_record_copy_commands(&stagingBuilder, commandBuffer, pRenderer->stagingBuffer.buffer, srcStagingIndices, dstBuffers, 2);
@@ -1480,11 +1540,17 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		// image layout transitions
 		{
+			// zelda_diff
 			fr_transition_image_layout(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, textureImageFormat,
-									   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pRenderer->textureImage.image, pAllocCallbacks);
+									   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pRenderer->textureZeldaDiff.image, pAllocCallbacks);
 			fr_copy_buffer_to_image(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, pRenderer->stagingBuffer.buffer,
-									imageOffsetInBuffer, pRenderer->textureImage.image, texWidth, texHeight, pAllocCallbacks);
-			
+									imageOffsetInBufferZeldaDiff, pRenderer->textureZeldaDiff.image, texZeldaDiffWidth, texZeldaDiffHeight, pAllocCallbacks);
+			 
+			// hair_diff
+			fr_transition_image_layout(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, textureImageFormat,
+									   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pRenderer->textureHairDiff.image, pAllocCallbacks);
+			fr_copy_buffer_to_image(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, pRenderer->stagingBuffer.buffer,
+									imageOffsetInBufferHairDiff, pRenderer->textureHairDiff.image, texHairDiffWidth, texHairDiffHeight, pAllocCallbacks);
 		}
 		
 		// release staging buffer
@@ -1554,8 +1620,10 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	fr_image_release(pRenderer->device, &pRenderer->depthImage, pAllocCallbacks);
 	
 	// destroy image
-	fr_image_release(pRenderer->device, &pRenderer->textureImage, pAllocCallbacks);
+	fr_image_release(pRenderer->device, &pRenderer->textureZeldaDiff, pAllocCallbacks);
 	vkDestroySampler(pRenderer->device, pRenderer->textureSampler, NULL);
+	
+	fr_image_release(pRenderer->device, &pRenderer->textureHairDiff, pAllocCallbacks);
 	
 	// destroy mesh
 	for(uint32_t i=0; i<pRenderer->mesh.numChunks; ++i)

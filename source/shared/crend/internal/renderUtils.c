@@ -229,7 +229,8 @@ void fr_transition_image_layout(VkDevice device, VkQueue graphicsQueue, VkComman
 	fr_end_simple_commands(device, graphicsQueue, commandBuffer, commandPool, pAllocCallbacks);
 }
 
-void fr_copy_buffer_to_image(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkBuffer buffer, VkDeviceSize bufferOffset, VkImage image, uint32_t width, uint32_t height, struct fc_alloc_callbacks_t* pAllocCallbacks)
+void fr_copy_buffer_to_image(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkBuffer buffer,
+							 VkDeviceSize bufferOffset, VkImage image, uint32_t width, uint32_t height, struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	VkCommandBuffer commandBuffer = fr_begin_simple_commands(device, commandPool, pAllocCallbacks);
 	
