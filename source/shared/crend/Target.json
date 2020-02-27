@@ -2,6 +2,8 @@
 	"dependecies":
 	[
 		"ccore",
+		"cmath",
+		"canim",
 		"cimport",
         "glfw"
     ],

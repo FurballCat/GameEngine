@@ -31,7 +31,7 @@
 //-----
 
 #include <math.h>
-#include "3dmath.h"
+#include "cmath/public.h"
 
 #define MAX(a,b) \
 	({ __typeof__ (a) _a = (a); \
