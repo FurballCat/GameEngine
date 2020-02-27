@@ -39,6 +39,25 @@ ofbx::IScene* OpenScene_FBX(const char* path)
 	return scene;
 }
 
+fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ctx,
+									  fa_rig_t** ppRig, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	std::string absolutePath = depot->path;
+	absolutePath += ctx->path;
+	
+	// todo: validate absolute path
+	
+	if(IsFileExtensionEqualTo(absolutePath.c_str(), ".fbx"))
+	{
+		ofbx::IScene* scene = OpenScene_FBX(absolutePath.c_str());
+		FUR_ASSERT(scene);
+		
+		return FI_RESULT_OK;
+	}
+	
+	return FI_RESULT_UNKNOWN_FILE_FORMAT_IMPORT_ERROR;
+}
+
 fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* ctx, fr_resource_mesh_t** ppMesh, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	std::string absolutePath = depot->path;
