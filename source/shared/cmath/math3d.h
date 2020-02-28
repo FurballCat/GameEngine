@@ -81,6 +81,9 @@ extern "C"
 #define FM_VEC4_AXIS_Y {0.0f, 1.0f, 0.0f, 0.0f}
 #define FM_VEC4_AXIS_Z {0.0f, 0.0f, 1.0f, 0.0f}
 	
+	// set all vector components to zeros
+	static inline void fm_vec4_zeros(fm_vec4* v);
+	
 	// add b to a and save to v
 	static inline void fm_vec4_add(const fm_vec4* a, const fm_vec4* b, fm_vec4* v);
 	
@@ -172,6 +175,9 @@ extern "C"
 	static inline void fm_quat_rot_axis_angle(const fm_vec4* axis, const float angle, fm_quat* q);
 	
 	/***** TRANSFORM *****/
+	
+	// set x to identity (pos 0,0,0,0 rot 0,0,0,1)
+	static inline void fm_xform_identity(fm_xform* x);
 	
 	// multiply transforms a and, output to c
 	static inline void fm_xform_mul(const fm_xform* a, const fm_xform* b, fm_xform* c);

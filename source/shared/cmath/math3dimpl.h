@@ -41,6 +41,14 @@ static inline float xm_vec4_dot(const xm_vec4 v1, const xm_vec4 v2)
 
 ///////////////////////
 
+static inline void fm_vec4_zeros(fm_vec4* v)
+{
+	v->x = 0.0f;
+	v->y = 0.0f;
+	v->z = 0.0f;
+	v->w = 0.0f;
+}
+	
 static inline void fm_vec4_add(const fm_vec4* a, const fm_vec4* b, fm_vec4* v)
 {
 	v->x = a->x + b->x;
@@ -380,6 +388,12 @@ static inline void fm_quat_rot_axis_angle(const fm_vec4* axis, const float angle
 	q->r = cosf(angle / 2.0f);
 }
 
+static inline void fm_xform_identity(fm_xform* x)
+{
+	fm_vec4_zeros(&x->pos);
+	fm_quat_identity(&x->rot);
+}
+	
 static inline void fm_xform_mul(const fm_xform* a, const fm_xform* b, fm_xform* c)
 {
 	fm_vec4 rotatedB;
