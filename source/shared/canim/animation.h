@@ -62,6 +62,20 @@ CANIM_API void fa_pose_stack_get(const fa_pose_stack_t* stack, uint32_t depth, f
 	
 CANIM_API void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose);
 	
+// -----
+	
+typedef struct fa_command_buffer_t fa_command_buffer_t;
+	
+CANIM_API void fa_cmd_begin(fa_command_buffer_t* buffer);
+CANIM_API void fa_cmd_end(fa_command_buffer_t* buffer);
+
+CANIM_API void fa_cmd_ref_pose(fa_command_buffer_t* buffer);
+CANIM_API void fa_cmd_identity(fa_command_buffer_t* buffer);
+CANIM_API void fa_cmd_anim_sample(fa_command_buffer_t* buffer, float time, uint16_t animClipId);
+CANIM_API void fa_cmd_blend2(fa_command_buffer_t* buffer, float alpha);
+CANIM_API void fa_cmd_blend_override(fa_command_buffer_t* buffer, float alpha, uint16_t maskId);
+CANIM_API void fa_cmd_blend_additive(fa_command_buffer_t* buffer, float alpha);
+	
 #ifdef __cplusplus
 }
 #endif // __cplusplus

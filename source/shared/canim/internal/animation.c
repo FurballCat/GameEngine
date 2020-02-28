@@ -95,3 +95,8 @@ static inline uint16_t fa_anim_clip_key_get_channel(const fa_anim_clip_key_t* ke
 {
 	return (key->idxBoneAndChannel & 0xc000) >> 14;
 }
+
+void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose)
+{
+	
+}
