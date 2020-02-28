@@ -33,6 +33,24 @@ typedef struct fa_anim_clip_t
 	uint32_t numKeys;
 } fa_anim_clip_t;
 
+typedef struct fm_xform fm_xform;
+	
+typedef struct fa_pose_t
+{
+	fm_xform* xforms;
+	float* tracks;
+	
+	uint16_t numXforms;
+	uint16_t numTracks;
+} fa_pose_t;
+	
+typedef struct fa_pose_stack_t fa_pose_stack_t;	// implementation hidden
+	
+CANIM_API void fa_pose_stack_push(fa_pose_stack_t* stack, uint32_t count);
+CANIM_API void fa_pose_stack_pop(fa_pose_stack_t* stack, uint32_t count);
+	
+CANIM_API void fa_pose_stack_get(const fa_pose_stack_t* stack, uint32_t depth, fa_pose_t* pose);
+	
 static inline uint16_t fa_anim_clip_key_get_bone_index(const fa_anim_clip_key_t* key)
 {
 	return key->idxBoneAndChannel & 0x3fff;
