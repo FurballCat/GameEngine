@@ -3,3 +3,4 @@
 #pragma once
 
 #include "api.h"
+#include "animation.h"

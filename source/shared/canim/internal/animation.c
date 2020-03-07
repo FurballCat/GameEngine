@@ -5,6 +5,8 @@
 #include "cmath/public.h"
 #include <string.h>
 
+#define MIN(x, y) x < y ? x : y
+
 // -----
 
 void fa_pose_set_identity(fa_pose_t* pose)
@@ -99,4 +101,36 @@ static inline uint16_t fa_anim_clip_key_get_channel(const fa_anim_clip_key_t* ke
 void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose)
 {
 	
+}
+
+// -----
+
+void fa_pose_local_to_model(const fa_pose_t* localPose, const int16_t* parentIndices, fa_pose_t* modelPose)
+{
+	const fm_xform* localXforms = localPose->xforms;
+	fm_xform* modelXforms = modelPose->xforms;
+	
+	uint32_t numBones = MIN(modelPose->numXforms, localPose->numXforms);
+	
+	// iterate non-root bones
+	for(uint16_t i = 0; i < numBones; ++i)
+	{
+		const int16_t idxParent = parentIndices[i];
+		if(idxParent >= 0)
+		{
+			//fm_xform_mul(&localXforms[i], &modelXforms[idxParent], &modelXforms[i]);
+			fm_xform_mul(&modelXforms[idxParent], &localXforms[i], &modelXforms[i]);
+		}
+		else
+		{
+			modelXforms[i] = localXforms[i];
+		}
+	}
+	
+	// copy tracks
+	uint32_t numTracks = MIN(modelPose->numTracks, localPose->numTracks);
+	if(numTracks > 0)
+	{
+		memcpy(modelPose->tracks, localPose->tracks, sizeof(float) * numTracks);
+	}
 }

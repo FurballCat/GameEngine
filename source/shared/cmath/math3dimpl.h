@@ -311,15 +311,29 @@ static inline void fm_quat_cross3(const fm_quat* a, const fm_quat* b, fm_vec4* v
 
 static inline void fm_quat_mul(const fm_quat* a, const fm_quat* b, fm_quat* c)
 {
-	c->i = a->r * b->r - a->i * b->i - a->j * b->j - a->k * b->k;
-	c->j = a->r * b->i - a->i * b->r - a->j * b->k - a->k * b->j;
-	c->k = a->r * b->j - a->i * b->k - a->j * b->r - a->k * b->i;
-	c->r = a->r * b->k - a->i * b->j - a->j * b->i - a->k * b->r;
+	c->i = a->r * b->i + a->k * b->j - a->j * b->k + a->i * b->r;
+	c->j = -a->k * b->i + a->r * b->j + a->i * b->k + a->j * b->r;
+	c->k = a->j * b->i - a->i * b->j + a->r * b->k + a->k * b->r;
+	c->r = -a->i * b->i - a->j * b->j - a->k * b->k + a->r * b->r;
 }
 
-static inline void fm_quat_rot(const fm_quat* a, const fm_vec4* b, fm_vec4* c)
+static inline void fm_quat_rot(const fm_quat* q, const fm_vec4* v, fm_vec4* c)
 {
+	const float dot_qv = v->x * q->i + v->y * q->j + v->z * q->k;
+	const float mag_qv = q->i * q->i + q->j * q->j + q->k * q->k;
 	
+	const float s1 = 2.0f * dot_qv;
+	const float s2 = q->r * q->r - mag_qv;
+	const float s3 = 2.0f * q->r;
+	
+	const fm_vec4 qv = {q->i, q->j, q->k, 0.0f};
+	fm_vec4 cross_qv;
+	fm_vec4_cross(v, &qv, &cross_qv);
+	
+	c->x = s1 * qv.x + s2 * v->x + s3 * cross_qv.x;
+	c->y = s1 * qv.y + s2 * v->y + s3 * cross_qv.y;
+	c->z = s1 * qv.z + s2 * v->z + s3 * cross_qv.z;
+	c->w = 0.0f;
 }
 
 static inline void fm_quat_norm(fm_quat* q)
@@ -386,6 +400,57 @@ static inline void fm_quat_rot_axis_angle(const fm_vec4* axis, const float angle
 	q->j = scale * axis->y;
 	q->k = scale * axis->z;
 	q->r = cosf(angle / 2.0f);
+}
+	
+static inline void fm_quat_make_from_axis_angle(float x, float y, float z, const float angle, fm_quat* q)
+{
+	const float scale = sinf(angle / 2) / sqrt(x*x + y*y + z*z);
+	q->i = scale * x;
+	q->j = scale * y;
+	q->k = scale * z;
+	q->r = cosf(angle / 2.0f);
+}
+	
+static inline void fm_quat_make_from_euler_angles_yzpxry(const fm_euler_angles* angles, fm_quat* quat)
+{
+	fm_quat p;
+	fm_quat_make_from_axis_angle(1.0f, 0.0f, 0.0f, angles->pitch, &p);
+	fm_quat r;
+	fm_quat_make_from_axis_angle(0.0f, 1.0f, 0.0f, angles->roll, &r);
+	fm_quat y;
+	fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, angles->yaw, &y);
+	
+	fm_quat tmp;
+	fm_quat_mul(&y, &p, &tmp);
+	fm_quat_mul(&tmp, &r, quat);
+}
+	
+static inline void fm_quat_make_from_euler_angles_pyyzrx(const fm_euler_angles* angles, fm_quat* quat)
+{
+	fm_quat p;
+	fm_quat_make_from_axis_angle(0.0f, 1.0f, 0.0f, angles->pitch, &p);
+	fm_quat r;
+	fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, angles->roll, &r);
+	fm_quat y;
+	fm_quat_make_from_axis_angle(1.0f, 0.0f, 0.0f, angles->yaw, &y);
+	
+	fm_quat tmp;
+	fm_quat_mul(&p, &y, &tmp);
+	fm_quat_mul(&tmp, &r, quat);
+}
+	
+static inline void fm_quat_make_from_euler_angles_pxryyz(const fm_euler_angles* angles, fm_quat* quat)
+{
+	fm_quat p;
+	fm_quat_make_from_axis_angle(0.0f, 1.0f, 0.0f, angles->pitch, &p);
+	fm_quat r;
+	fm_quat_make_from_axis_angle(1.0f, 0.0f, 0.0f, angles->roll, &r);
+	fm_quat y;
+	fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, angles->yaw, &y);
+	
+	fm_quat tmp;
+	fm_quat_mul(&r, &p, &tmp);
+	fm_quat_mul(&tmp, &y, quat);
 }
 
 static inline void fm_xform_identity(fm_xform* x)

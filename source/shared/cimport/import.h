@@ -12,6 +12,8 @@ extern "C"
 	
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 	
+typedef struct fm_xform fm_xform;
+	
 typedef enum fi_result_t
 {
 	FI_RESULT_OK = 0,
@@ -28,7 +30,7 @@ typedef struct fi_depot_t
 // -----
 	
 typedef struct fa_rig_t fa_rig_t;
-	
+
 typedef struct fi_import_rig_ctx_t
 {
 	const char* path;

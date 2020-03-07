@@ -62,6 +62,8 @@ CANIM_API void fa_pose_stack_get(const fa_pose_stack_t* stack, uint32_t depth, f
 	
 CANIM_API void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose);
 	
+CANIM_API void fa_pose_local_to_model(const fa_pose_t* localPose, const int16_t* parentIndices, fa_pose_t* modelPose);
+	
 // -----
 	
 typedef struct fa_command_buffer_t fa_command_buffer_t;

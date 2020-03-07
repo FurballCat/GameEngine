@@ -32,6 +32,7 @@
 
 #include <math.h>
 #include "cmath/public.h"
+#include "canim/public.h"
 
 #define MAX(a,b) \
 	({ __typeof__ (a) _a = (a); \
@@ -360,6 +361,8 @@ struct fr_renderer_t
 	VkDescriptorSet aDescriptorSets[NUM_SWAP_CHAIN_IMAGES];
 	
 	fr_resource_mesh_t* pMesh;
+	
+	fa_rig_t* pRig;
 	
 	float rotationAngle;
 };
@@ -1065,19 +1068,29 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		fr_image_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->depthImage, pAllocCallbacks);
 	}
 	
-	// load character mesh
+	// load character mesh and rig
 	const char* depotPath = "../../../../../";
 	const char* characterMeshPath = "assets/characters/zelda/mesh/zelda_mesh.fbx";
+	const char* characterRigPath = "assets/characters/zelda/mesh/zelda_rig.fbx";
 	
 	if(res == FR_RESULT_OK)
 	{
 		fi_depot_t depot;
 		depot.path = depotPath;
 		
-		fi_import_mesh_ctx_t ctx;
-		ctx.path = characterMeshPath;
-		
-		fi_import_mesh(&depot, &ctx, &pRenderer->pMesh, pAllocCallbacks);
+		{
+			fi_import_mesh_ctx_t ctx;
+			ctx.path = characterMeshPath;
+			
+			fi_import_mesh(&depot, &ctx, &pRenderer->pMesh, pAllocCallbacks);
+		}
+
+		{
+			fi_import_rig_ctx_t ctx;
+			ctx.path = characterRigPath;
+			
+			fi_import_rig(&depot, &ctx, &pRenderer->pRig, pAllocCallbacks);
+		}
 	}
 	
 	// create mesh and its chunks
@@ -1092,7 +1105,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		const uint32_t numTextureIndices = 5;
 		FUR_ASSERT(numChunks == numTextureIndices);
-		int32_t textureIndices[numTextureIndices] = {0, 0, 0, 0, 1};
+		int32_t textureIndices[numTextureIndices] = {1, 0, 0, 0, 0};
 		
 		for(uint32_t i=0; i<numChunks; ++i)
 		{
@@ -1448,6 +1461,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			
 			// bind and draw mesh chunks
 			const fr_mesh_t* mesh = &pRenderer->mesh;
+			/*
 			for(uint32_t idxChunk=0; idxChunk<mesh->numChunks; ++idxChunk)
 			{
 				const fr_mesh_chunk_t* meshChunk = &mesh->chunks[idxChunk];
@@ -1463,7 +1477,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 				// draw the mesh chunk
 				vkCmdDrawIndexed(pRenderer->aCommandBuffers[i], meshChunk->numIndices, 1, 0, 0, 0);
 			}
-			
+			*/
+			 
 			// debug draw
 			vkCmdBindPipeline(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugPSO);
 			
@@ -1711,22 +1726,13 @@ const fm_vec4 g_up = {0, 0, 1, 0};
 double g_timeDelta = 0.0f;
 double g_time = 0.0f;
 
-void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_context_t* ctx)
-{
-	pRenderer->rotationAngle += g_rotationSpeed * ctx->dt;
-	
-	g_timeDelta = ctx->dt;
-	g_time += g_timeDelta;
-};
-
-uint32_t g_prevImageIndex = 0;
-
 void fr_dbg_draw_mat4(const fm_mat4_t* m)
 {
 	const float pos[3] = {-m->x.w, -m->y.w, -m->z.w};
-	const float axisX[3] = {pos[0] + m->x.x, pos[1] + m->x.y, pos[2] + m->x.z};
-	const float axisY[3] = {pos[0] + m->y.x, pos[1] + m->y.y, pos[2] + m->y.z};
-	const float axisZ[3] = {pos[0] + m->z.x, pos[1] + m->z.y, pos[2] + m->z.z};
+	const float scale = 0.01f;
+	const float axisX[3] = {pos[0] + m->x.x * scale, pos[1] + m->x.y * scale, pos[2] + m->x.z * scale};
+	const float axisY[3] = {pos[0] + m->y.x * scale, pos[1] + m->y.y * scale, pos[2] + m->y.z * scale};
+	const float axisZ[3] = {pos[0] + m->z.x * scale, pos[1] + m->z.y * scale, pos[2] + m->z.z * scale};
 	
 	const float red[4] = FUR_COLOR_RED;
 	const float green[4] = FUR_COLOR_GREEN;
@@ -1737,8 +1743,99 @@ void fr_dbg_draw_mat4(const fm_mat4_t* m)
 	fc_dbg_line(pos, axisZ, blue);
 }
 
+void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_context_t* ctx)
+{
+	pRenderer->rotationAngle += g_rotationSpeed * ctx->dt;
+	
+	g_timeDelta = ctx->dt;
+	g_time += g_timeDelta;
+};
+
+uint32_t g_prevImageIndex = 0;
+
 void fr_draw_frame(struct fr_renderer_t* pRenderer)
 {
+	if(pRenderer->pRig)
+	{
+		const uint32_t numBones = pRenderer->pRig->numBones;
+		const int16_t* parentIndices = pRenderer->pRig->parents;
+		
+		fa_pose_t refPose;
+		refPose.numTracks = 0;
+		refPose.numXforms = pRenderer->pRig->numBones;
+		refPose.xforms = pRenderer->pRig->refPose;
+		refPose.tracks = NULL;
+		
+		fm_mat4_t mat;
+		
+		fm_xform modelPoseXforms[400] = {};
+		
+		fa_pose_t modelPose;
+		modelPose.numTracks = 0;
+		modelPose.numXforms = 400;
+		modelPose.xforms = modelPoseXforms;
+		modelPose.tracks = NULL;
+		
+		fa_pose_local_to_model(&refPose, parentIndices, &modelPose);
+		
+		float color[4] = FUR_COLOR_CYAN;
+		
+		for(uint32_t i=0; i<numBones; ++i)
+		{
+			fm_xform_to_mat4(&modelPose.xforms[i], &mat);
+			fr_dbg_draw_mat4(&mat);
+			
+			int16_t idxParent = parentIndices[i];
+			if(idxParent >= 0)
+			{
+				fc_dbg_line(&modelPose.xforms[i].pos.x, &modelPose.xforms[idxParent].pos.x, color);
+			}
+		}
+		
+		fm_quat g_rotX;
+		fm_vec4 g_vx;
+		
+		fm_euler_angles angles;
+		angles.yaw = FM_DEG_TO_RAD(45);
+		angles.pitch = FM_DEG_TO_RAD(0);
+		angles.roll = FM_DEG_TO_RAD(0);
+		fm_quat_make_from_euler_angles_yzpxry(&angles, &g_rotX);
+		g_vx.x = 0.0f;
+		g_vx.y = 1.0f;
+		g_vx.z = 0.0f;
+		g_vx.w = 0.0f;
+		
+		fm_vec4 v;
+		fm_quat_rot(&g_rotX, &g_vx, &v);
+		
+		fm_vec4 vzero;
+		fm_vec4_zeros(&vzero);
+		
+		float color2[4] = FUR_COLOR_YELLOW;
+		
+		fm_xform root;
+		fm_xform_identity(&root);
+		root.pos.x = 1.0f;
+		
+		fm_quat_make_from_euler_angles_yzpxry(&angles, &root.rot);
+		
+		fm_xform hips;
+		fm_xform_identity(&hips);
+		
+		fm_xform hips_model;
+		fm_xform hips_model2;
+		
+		fm_xform_mul(&root, &hips, &hips_model);
+		fm_xform_mul(&root, &hips_model, &hips_model2);
+		
+		fm_xform_to_mat4(&hips_model, &mat);
+		//fr_dbg_draw_mat4(&mat);
+		fm_xform_to_mat4(&hips_model2, &mat);
+		//fr_dbg_draw_mat4(&mat);
+		//fc_dbg_line(&vzero.x, &g_vx.x, color2);
+		//fc_dbg_line(&vzero.x, &v.x, color);
+	}
+	
 	uint32_t imageIndex;
 	vkAcquireNextImageKHR(pRenderer->device, pRenderer->swapChain, (uint64_t)-1,
 						  pRenderer->imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);

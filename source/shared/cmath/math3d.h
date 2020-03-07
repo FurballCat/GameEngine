@@ -40,6 +40,11 @@ extern "C"
 		fm_quat rot;
 	} fm_xform;
 	
+	typedef struct fm_euler_angles
+	{
+		float yaw, pitch, roll;
+	} fm_euler_angles;
+	
 	// vector math version (intrin)
 	typedef __m128 xm_float4_v;
 	
@@ -157,7 +162,7 @@ extern "C"
 	static inline void fm_quat_mul(const fm_quat* a, const fm_quat* b, fm_quat* c);
 	
 	// rotate vector b by quaternion a, output vector to c
-	static inline void fm_quat_rot(const fm_quat* a, const fm_vec4* b, fm_vec4* c);
+	static inline void fm_quat_rot(const fm_quat* q, const fm_vec4* v, fm_vec4* c);
 	
 	// normalize quaternion
 	static inline void fm_quat_norm(fm_quat* q);
@@ -173,6 +178,15 @@ extern "C"
 	
 	// make quaternion from axis and angle
 	static inline void fm_quat_rot_axis_angle(const fm_vec4* axis, const float angle, fm_quat* q);
+	
+	// make quaternion from axis and angle
+	static inline void fm_quat_make_from_axis_angle(float x, float y, float z, const float angle, fm_quat* q);
+	
+	// make quaternion from euler angles (yaw - z, pitch - x, roll - y)
+	static inline void fm_quat_make_from_euler_angles_yzpxry(const fm_euler_angles* angles, fm_quat* quat);
+	
+	// make quaternion from euler angles (pitch - y, yaw - z, roll - x)
+	static inline void fm_quat_make_from_euler_angles_pyyzrx(const fm_euler_angles* angles, fm_quat* quat);
 	
 	/***** TRANSFORM *****/
 	
