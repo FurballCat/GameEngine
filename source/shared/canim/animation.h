@@ -20,18 +20,27 @@ typedef struct fa_rig_t
 	uint32_t numBones;
 } fa_rig_t;
 
-typedef struct fa_anim_clip_key_t
+typedef struct fa_anim_curve_key_t
 {
 	uint16_t keyTime;
-	uint16_t idxBoneAndChannel;	// 2 bits for channel
 	uint16_t keyData[3];
-} fa_anim_clip_key_t;
+} fa_anim_curve_key_t;
 
+typedef struct fa_anim_curve_t
+{
+	uint16_t index;
+	uint16_t numKeys;
+	fa_anim_curve_key_t* keys;
+} fa_anim_curve_t;
+	
 typedef struct fa_anim_clip_t
 {
-	fa_anim_clip_key_t* keys;
-	uint32_t duration;
-	uint32_t numKeys;
+	float duration;
+	uint16_t numCurves;
+	fa_anim_curve_t* curves;
+	
+	uint32_t numDataKeys;
+	fa_anim_curve_key_t* dataKeys;	// all keys in the animation
 } fa_anim_clip_t;
 	
 typedef struct fa_pose_t

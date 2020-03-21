@@ -88,14 +88,14 @@ void fa_pose_stack_get(const fa_pose_stack_t* stack, uint32_t depth, fa_pose_t* 
 
 // -----
 
-static inline uint16_t fa_anim_clip_key_get_bone_index(const fa_anim_clip_key_t* key)
+static inline uint16_t fa_anim_clip_key_get_bone_index(const fa_anim_curve_t* curve)
 {
-	return key->idxBoneAndChannel & 0x3fff;
+	return curve->index & 0x3fff;
 }
 
-static inline uint16_t fa_anim_clip_key_get_channel(const fa_anim_clip_key_t* key)
+static inline uint16_t fa_anim_clip_key_get_channel(const fa_anim_curve_t* curve)
 {
-	return (key->idxBoneAndChannel & 0xc000) >> 14;
+	return (curve->index & 0xc000) >> 14;
 }
 
 void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose)

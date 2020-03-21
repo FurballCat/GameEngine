@@ -363,6 +363,7 @@ struct fr_renderer_t
 	fr_resource_mesh_t* pMesh;
 	
 	fa_rig_t* pRig;
+	fa_anim_clip_t* pAnimClip;
 	
 	float rotationAngle;
 };
@@ -1071,7 +1072,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// load character mesh and rig
 	const char* depotPath = "../../../../../";
 	const char* characterMeshPath = "assets/characters/zelda/mesh/zelda_mesh.fbx";
-	const char* characterRigPath = "assets/characters/zelda/mesh/zelda_rig.fbx";
+	const char* characterRigPath = "assets/characters/zelda/mesh/test_rig.fbx";
 	
 	if(res == FR_RESULT_OK)
 	{
@@ -1090,6 +1091,13 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			ctx.path = characterRigPath;
 			
 			fi_import_rig(&depot, &ctx, &pRenderer->pRig, pAllocCallbacks);
+		}
+		
+		{
+			fi_import_anim_clip_ctx_t ctx;
+			ctx.path = characterRigPath;
+			
+			fi_import_anim_clip(&depot, &ctx, &pRenderer->pAnimClip, pAllocCallbacks);
 		}
 	}
 	
@@ -1729,7 +1737,7 @@ double g_time = 0.0f;
 void fr_dbg_draw_mat4(const fm_mat4_t* m)
 {
 	const float pos[3] = {-m->x.w, -m->y.w, -m->z.w};
-	const float scale = 0.01f;
+	const float scale = 0.1f;
 	const float axisX[3] = {pos[0] + m->x.x * scale, pos[1] + m->x.y * scale, pos[2] + m->x.z * scale};
 	const float axisY[3] = {pos[0] + m->y.x * scale, pos[1] + m->y.y * scale, pos[2] + m->y.z * scale};
 	const float axisZ[3] = {pos[0] + m->z.x * scale, pos[1] + m->z.y * scale, pos[2] + m->z.z * scale};
