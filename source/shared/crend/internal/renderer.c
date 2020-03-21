@@ -1777,14 +1777,30 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		fm_mat4_t mat;
 		
 		fm_xform modelPoseXforms[400] = {};
+		fm_xform xforms2[400] = {};
+		FUR_ASSERT(refPose.numXforms < 400);
 		
 		fa_pose_t modelPose;
 		modelPose.numTracks = 0;
-		modelPose.numXforms = 400;
+		modelPose.numXforms = refPose.numXforms;
 		modelPose.xforms = modelPoseXforms;
 		modelPose.tracks = NULL;
 		
-		fa_pose_local_to_model(&refPose, parentIndices, &modelPose);
+		fa_pose_t pose2;
+		pose2.numTracks = 0;
+		pose2.numXforms = refPose.numXforms;
+		pose2.xforms = xforms2;
+		pose2.tracks = NULL;
+		
+		const float animTime = fmodf(g_time, pRenderer->pAnimClip->duration);
+		
+		fa_pose_copy(&refPose, &modelPose);
+		
+		fa_anim_clip_sample(pRenderer->pAnimClip, animTime, &modelPose);
+		
+		fa_pose_copy(&modelPose, &pose2);
+		
+		fa_pose_local_to_model(&pose2, parentIndices, &modelPose);
 		
 		float color[4] = FUR_COLOR_CYAN;
 		

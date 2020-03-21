@@ -565,7 +565,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 			animClip->dataKeys = (fa_anim_curve_key_t*)FUR_ALLOC(sizeof(fa_anim_curve_key_t) * numAllKeys, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 			
 			animClip->numDataKeys = numAllKeys;
-			animClip->numCurves = tempClip.curves.size();
+			animClip->numCurves = (uint16_t)tempClip.curves.size();
 			animClip->duration = duration;
 			
 			fa_anim_curve_key_t* curKey = animClip->dataKeys;

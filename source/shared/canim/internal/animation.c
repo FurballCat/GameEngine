@@ -98,12 +98,100 @@ static inline uint16_t fa_anim_clip_key_get_channel(const fa_anim_curve_t* curve
 	return (curve->index & 0xc000) >> 14;
 }
 
+float fa_decompress_float_minus_one_plus_one(uint16_t value)
+{
+	return (((float)value) / 65535.0f) * 2.0f - 1.0f;
+}
+
+void fa_decompress_rotation_key(const fa_anim_curve_key_t* key, fm_quat* rot)
+{
+	const uint16_t* keyData = key->keyData;
+	bool isLastComponentMinus = key->keyTime & 0x4000;
+	
+	rot->i = fa_decompress_float_minus_one_plus_one(keyData[0]);
+	rot->j = fa_decompress_float_minus_one_plus_one(keyData[1]);
+	rot->k = fa_decompress_float_minus_one_plus_one(keyData[2]);
+	
+	float r = 1.0f - rot->i * rot->i + rot->j * rot->j + rot->k * rot->k;
+	r = sqrtf(r);
+	if(isLastComponentMinus)
+	{
+		r = -r;
+	}
+	
+	rot->r = r;
+}
+
+float fa_decompress_key_time(const uint16_t time)
+{
+	return ((float)time) / 30.0f;
+}
+
 void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose)
 {
+	const uint32_t numCurves = clip->numCurves;
 	
+	const uint16_t qTime = (uint32_t)(time * 30.0f);
+	//const float fraction = time * 30.0f - qTime;
+	
+	for(uint32_t i_c=0; i_c<numCurves; ++i_c)
+	{
+		const fa_anim_curve_t* curve = &clip->curves[i_c];
+		const uint16_t numKeys = curve->numKeys;
+	
+		uint16_t idx = 0;
+		
+		// todo: make it a binary search (or a binary-guess search, check weekly links)
+		while(idx < numKeys && (curve->keys[idx].keyTime & 0x3FFF) < qTime)
+		{
+			++idx;
+		}
+		
+		const uint16_t upperIdx = MIN(idx + 1, numKeys-1);
+		
+		fm_quat rot;
+		
+		if(idx == upperIdx)
+		{
+			fa_decompress_rotation_key(&curve->keys[idx], &rot);
+		}
+		else
+		{
+			fm_quat rot1;
+			fa_decompress_rotation_key(&curve->keys[idx], &rot1);
+			
+			fm_quat rot2;
+			fa_decompress_rotation_key(&curve->keys[upperIdx], &rot2);
+			
+			const float time1 = fa_decompress_key_time(curve->keys[idx].keyTime);
+			const float time2 = fa_decompress_key_time(curve->keys[upperIdx].keyTime);
+			
+			float alpha = (time - time1) / (time2 - time1);
+			fm_quat_lerp(&rot1, &rot2, alpha, &rot);
+			fm_quat_norm(&rot);
+		}
+		
+		uint16_t idxXform = curve->index;
+		pose->xforms[idxXform].rot = rot;
+	}
 }
 
 // -----
+
+void fa_pose_copy(const fa_pose_t* src, fa_pose_t* dest)
+{
+	const uint32_t numXforms = MIN(src->numXforms, dest->numXforms);
+	if(numXforms > 0)
+	{
+		memcpy(dest->xforms, src->xforms, sizeof(fm_xform) * numXforms);
+	}
+	
+	const uint32_t numTracks = MIN(src->numTracks, dest->numTracks);
+	if(numTracks > 0)
+	{
+		memcpy(dest->tracks, src->tracks, sizeof(float) * numTracks);
+	}
+}
 
 void fa_pose_local_to_model(const fa_pose_t* localPose, const int16_t* parentIndices, fa_pose_t* modelPose)
 {

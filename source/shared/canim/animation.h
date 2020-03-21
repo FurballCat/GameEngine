@@ -36,10 +36,9 @@ typedef struct fa_anim_curve_t
 typedef struct fa_anim_clip_t
 {
 	float duration;
-	uint16_t numCurves;
-	fa_anim_curve_t* curves;
-	
+	uint32_t numCurves;
 	uint32_t numDataKeys;
+	fa_anim_curve_t* curves;
 	fa_anim_curve_key_t* dataKeys;	// all keys in the animation
 } fa_anim_clip_t;
 	
@@ -70,7 +69,8 @@ CANIM_API void fa_pose_stack_get(const fa_pose_stack_t* stack, uint32_t depth, f
 // -----
 	
 CANIM_API void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose);
-	
+
+CANIM_API void fa_pose_copy(const fa_pose_t* src, fa_pose_t* dest);
 CANIM_API void fa_pose_local_to_model(const fa_pose_t* localPose, const int16_t* parentIndices, fa_pose_t* modelPose);
 	
 // -----
