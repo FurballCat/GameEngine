@@ -245,22 +245,30 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 					
 					fm_euler_angles rotation = {0.0f, 0.0f, 0.0f};
 					
+					float yaw = 0.0f;
+					float pitch = 0.0f;
+					float roll = 0.0f;
+					
 					const FBXAnimCurve* rotationCurves = sortedRigBones[i]->m_rotation;
 					if(!rotationCurves[0].m_values.empty())
 					{
-						rotation.yaw = FM_DEG_TO_RAD(-rotationCurves[1].m_values[0]);
+						yaw = -rotationCurves[1].m_values[0];
 					}
 					if(!rotationCurves[1].m_values.empty())
 					{
-						rotation.pitch = FM_DEG_TO_RAD(-rotationCurves[0].m_values[0]);
+						pitch = -rotationCurves[0].m_values[0];
 					}
 					if(!rotationCurves[2].m_values.empty())
 					{
-						rotation.roll = FM_DEG_TO_RAD(-rotationCurves[2].m_values[0]);
+						roll = -rotationCurves[2].m_values[0];
 					}
 					
+					rotation.yaw = FM_DEG_TO_RAD(yaw);
+					rotation.pitch = FM_DEG_TO_RAD(pitch);
+					rotation.roll = FM_DEG_TO_RAD(roll);
+					
 					rig.m_referencePose[i].pos = position;
-					fm_quat_make_from_euler_angles_yzpxry(&rotation, &rig.m_referencePose[i].rot);
+					fm_quat_make_from_euler_angles_xyz(&rotation, &rig.m_referencePose[i].rot);
 				}
 				
 				for(int32 i=0; i<sortedRigBones.size(); ++i)
@@ -294,88 +302,6 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 					}
 					 */
 				}
-				
-				// animation
-#if 0
-				{
-					const uint32 numJoints = (uint32)rigBones.size();
-					
-					animation.m_jointNames.resize(numJoints);
-					animation.m_translationOffsets.resize(numJoints);
-					animation.m_translationLengths.resize(numJoints);
-					animation.m_rotationOffsets.resize(numJoints);
-					animation.m_rotationLengths.resize(numJoints);
-					
-					uint32 offset = 0;
-					
-					DynArray<uint32> tempTimes;
-					
-					for(uint32 i=0; i<numJoints; ++i)
-					{
-						animation.m_jointNames[i] = rigBones[i]->m_name;
-						
-						// translations
-						{
-							// collect frames to sample
-							FBXAnimCurve_CollectFramesToSample(rigBones[i]->m_translation[0], tempTimes);
-							FBXAnimCurve_CollectFramesToSample(rigBones[i]->m_translation[1], tempTimes);
-							FBXAnimCurve_CollectFramesToSample(rigBones[i]->m_translation[2], tempTimes);
-							
-							// sort times
-							std::sort(tempTimes.begin(), tempTimes.end(), [](uint32 a, uint32 b) { return a < b; } );
-							
-							// fill offsets and lengths
-							animation.m_translationOffsets[i] = offset;
-							animation.m_translationLengths[i] = (uint32)tempTimes.size();
-							
-							offset += (uint32)tempTimes.size();
-							
-							// sample
-							for(uint32 f=0; f<tempTimes.size(); ++f)
-							{
-								const uint32 frame = tempTimes[f];
-								float value[3];
-								FBXAnimCurve_SampleAtFrame(rigBones[i]->m_translation, 3, value, frame);
-								
-								animation.m_translations.push_back({value[0], value[1], value[2]});
-								animation.m_translationTimes.push_back(frame);
-							}
-							
-							tempTimes.clear();
-						}
-						
-						// rotations
-						{
-							// collect frames to sample
-							FBXAnimCurve_CollectFramesToSample(rigBones[i]->m_rotation[0], tempTimes);
-							FBXAnimCurve_CollectFramesToSample(rigBones[i]->m_rotation[1], tempTimes);
-							FBXAnimCurve_CollectFramesToSample(rigBones[i]->m_rotation[2], tempTimes);
-							
-							// sort times
-							std::sort(tempTimes.begin(), tempTimes.end(), [](uint32 a, uint32 b) { return a < b; } );
-							
-							// fill offsets and lengths
-							animation.m_rotationOffsets[i] = offset;
-							animation.m_rotationLengths[i] = (uint32)tempTimes.size();
-							
-							offset += (uint32)tempTimes.size();
-							
-							// sample
-							for(uint32 f=0; f<tempTimes.size(); ++f)
-							{
-								const uint32 frame = tempTimes[f];
-								float value[3];
-								FBXAnimCurve_SampleAtFrame(rigBones[i]->m_rotation, 3, value, frame);
-								
-								animation.m_rotations.push_back({value[0], value[1], value[2]});
-								animation.m_rotationTimes.push_back(frame);
-							}
-							
-							tempTimes.clear();
-						}
-					}
-				}
-#endif
 			}
 			
 			// copy to output rig
@@ -434,31 +360,101 @@ void fi_sample_fbx_anim_curve(const FBXAnimCurve* curve, uint32 size, float* res
 		const uint32 timesSize = (uint32)curve[i].m_times.size();
 		
 		uint32 idx = 0;
-		while(curve[i].m_times[idx] < time && idx < timesSize)
+		while(idx < timesSize-1 && curve[i].m_times[idx] < time)
 		{
 			++idx;
 		}
 		
-		const uint32 upperIdx = MIN(idx + 1, timesSize);
+		const uint32 upperIdx = idx;
+		const uint32 lowerIdx = idx == 0 ? idx : idx - 1;
 		
-		if(idx == upperIdx)
+		if(lowerIdx == upperIdx)
 		{
 			const float value = curve[i].m_values[idx];
 			result[i] = value;
 		}
 		else
 		{
-			const float lowerTime = curve[i].m_times[idx];
+			const float lowerTime = curve[i].m_times[lowerIdx];
 			const float upperTime = curve[i].m_times[upperIdx];
 			
 			const float alpha = (time - lowerTime) / (upperTime - lowerTime);
 			
-			const float lowerValue = curve[i].m_values[idx];
+			const float lowerValue = curve[i].m_values[lowerIdx];
 			const float upperValue = curve[i].m_values[upperIdx];
 			const float value = lowerValue * (1.0f - alpha) + upperValue * alpha;
 			result[i] = value;
 		}
 	}
+}
+
+const float Km  = 4.0*(0.4142135679721832275390625); // 4(sqrt(2)-1)
+const float Khf = 2.414213657379150390625;           // sqrt(2)+1 = 1/(sqrt(2)-1)
+const float Khi = 0.17157287895679473876953125;      // 3-2sqrt(2)
+
+float fa_decompress_float_minus_one_plus_one(uint16_t value)
+{
+	return (((float)value) / 65535.0f) * 2.0f - 1.0f;
+}
+
+uint16_t fa_compress_float_minus_one_plus_on(float value)
+{
+	return (uint16_t)(((value + 1.0f) / 2.0f) * 65535.0f);
+}
+
+void fm_vec3_to_16bit(const fm_vec3* v, uint16_t* b)
+{
+	b[0] = fa_compress_float_minus_one_plus_on(v->x);
+	b[1] = fa_compress_float_minus_one_plus_on(v->y);
+	b[2] = fa_compress_float_minus_one_plus_on(v->z);
+}
+
+void fm_16bit_to_vec3(const uint16_t* b, fm_vec3* v)
+{
+	v->x = fa_decompress_float_minus_one_plus_one(b[0]);
+	v->y = fa_decompress_float_minus_one_plus_one(b[1]);
+	v->z = fa_decompress_float_minus_one_plus_one(b[2]);
+}
+
+void quat_fhm(fm_quat q, fm_vec3* v)
+{
+	float s = Khf / (1.0 + q.r + sqrt(2.0 + 2.0 * q.r));
+	
+	v->x = q.i * s;
+	v->y = q.j * s;
+	v->z = q.k * s;
+}
+
+fm_quat quat_ihm(const fm_vec3* v)
+{
+	float d = Khi * fm_vec3_dot(v, v);
+	float a = (1.0+d);
+	float b = (1.0-d)*Km;
+	float c = 1.0/(a*a);
+	fm_quat q;
+	
+	float bc = b * c;
+	
+	q.i = v->x * bc;
+	q.j = v->y * bc;
+	q.k = v->z * bc;
+	q.r = (1.0 + d * (d - 6.0)) * c;
+	
+	return q;
+}
+
+void quat_fhm_16bit(fm_quat q, uint16_t* v)
+{
+	fm_vec3 vec;
+	quat_fhm(q, &vec);
+	fm_vec3_to_16bit(&vec, v);
+}
+
+fm_quat quat_ihm_16bit(const uint16_t* b)
+{
+	fm_vec3 vec;
+	fm_16bit_to_vec3(b, &vec);
+	return quat_ihm(&vec);
 }
 
 fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_clip_ctx_t* ctx, fa_anim_clip_t** ppAnimClip, fc_alloc_callbacks_t* pAllocCallbacks)
@@ -539,8 +535,9 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 					
 					float value[3] = {0.0f};
 					fi_sample_fbx_anim_curve(bone->m_rotation, 3, value, time);
+					//printf("bone[%u].rot[%1.2f] = {%1.2f, %1.2f, %1.2f}\n", i_b, time, value[0], value[1], value[2]);
 					
-					tempCurve.keys[i].keyTime = (uint16_t)(time * 30.0f);
+					tempCurve.keys[i].keyTime = (uint16_t)(time * 24.0f);
 					
 					fm_euler_angles angles;
 					
@@ -548,13 +545,16 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 					angles.pitch = FM_DEG_TO_RAD(-value[0]);
 					angles.roll = FM_DEG_TO_RAD(-value[2]);
 					
+					//printf("b=%u   t=%1.3f   qt=%u   {%1.3f, %1.3f, %1.3f}\n", i_b, time, tempCurve.keys[i].keyTime, angles.yaw, angles.pitch, angles.roll);
+					
 					fm_quat quat;
-					fm_quat_make_from_euler_angles_yzpxry(&angles, &quat);
+					fm_quat_make_from_euler_angles_xyz(&angles, &quat);
 					
 					uint16_t* key = tempCurve.keys[i].keyValues;
-					key[0] = (uint16_t)(((quat.i + 1.0f) / 2.0f) * 65535);
-					key[1] = (uint16_t)(((quat.j + 1.0f) / 2.0f) * 65535);
-					key[2] = (uint16_t)(((quat.k + 1.0f) / 2.0f) * 65535);
+					//key[0] = (uint16_t)(((quat.i + 1.0f) / 2.0f) * 65535);
+					//key[1] = (uint16_t)(((quat.j + 1.0f) / 2.0f) * 65535);
+					//key[2] = (uint16_t)(((quat.k + 1.0f) / 2.0f) * 65535);
+					quat_fhm_16bit(quat, key);
 					
 					tempCurve.keys[i].isLastCompMinus = quat.r < 0.0f;
 				}

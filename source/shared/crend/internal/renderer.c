@@ -1727,8 +1727,8 @@ void fr_wait_for_device(struct fr_renderer_t* pRenderer)
 }
 
 const float g_rotationSpeed = FM_DEG_TO_RAD(10);
-const fm_vec4 g_eye = {0, -3, 1, 0};
-const fm_vec4 g_at = {0, 0, 0, 0};
+const fm_vec4 g_eye = {0, -4, 3, 0};
+const fm_vec4 g_at = {0, 0, 1, 0};
 const fm_vec4 g_up = {0, 0, 1, 0};
 
 double g_timeDelta = 0.0f;
@@ -1737,7 +1737,7 @@ double g_time = 0.0f;
 void fr_dbg_draw_mat4(const fm_mat4_t* m)
 {
 	const float pos[3] = {-m->x.w, -m->y.w, -m->z.w};
-	const float scale = 0.1f;
+	const float scale = 0.2f;
 	const float axisX[3] = {pos[0] + m->x.x * scale, pos[1] + m->x.y * scale, pos[2] + m->x.z * scale};
 	const float axisY[3] = {pos[0] + m->y.x * scale, pos[1] + m->y.y * scale, pos[2] + m->y.z * scale};
 	const float axisZ[3] = {pos[0] + m->z.x * scale, pos[1] + m->z.y * scale, pos[2] + m->z.z * scale};
@@ -1792,10 +1792,9 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		pose2.xforms = xforms2;
 		pose2.tracks = NULL;
 		
-		const float animTime = fmodf(g_time, pRenderer->pAnimClip->duration);
-		
 		fa_pose_copy(&refPose, &modelPose);
 		
+		const float animTime = fmodf(g_time, pRenderer->pAnimClip->duration);
 		fa_anim_clip_sample(pRenderer->pAnimClip, animTime, &modelPose);
 		
 		fa_pose_copy(&modelPose, &pose2);

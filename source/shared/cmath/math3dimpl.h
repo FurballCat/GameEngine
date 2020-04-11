@@ -41,6 +41,11 @@ static inline float xm_vec4_dot(const xm_vec4 v1, const xm_vec4 v2)
 
 ///////////////////////
 
+static inline float fm_vec3_dot(const fm_vec3* a, const fm_vec3* b)
+{
+	return a->x * b->x + a->y * b->y + a->z * b->z;
+}
+	
 static inline void fm_vec4_zeros(fm_vec4* v)
 {
 	v->x = 0.0f;
@@ -421,8 +426,22 @@ static inline void fm_quat_make_from_euler_angles_yzpxry(const fm_euler_angles* 
 	fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, angles->yaw, &y);
 	
 	fm_quat tmp;
-	fm_quat_mul(&y, &p, &tmp);
+	fm_quat_mul(&p, &y, &tmp);
 	fm_quat_mul(&tmp, &r, quat);
+}
+	
+static inline void fm_quat_make_from_euler_angles_xyz(const fm_euler_angles* angles, fm_quat* quat)
+{
+	fm_quat x;
+	fm_quat_make_from_axis_angle(1.0f, 0.0f, 0.0f, angles->pitch, &x);
+	fm_quat y;
+	fm_quat_make_from_axis_angle(0.0f, 1.0f, 0.0f, angles->yaw, &y);
+	fm_quat z;
+	fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, angles->roll, &z);
+	
+	fm_quat tmp;
+	fm_quat_mul(&z, &x, &tmp);
+	fm_quat_mul(&tmp, &y, quat);
 }
 	
 static inline void fm_quat_make_from_euler_angles_pyyzrx(const fm_euler_angles* angles, fm_quat* quat)
@@ -435,7 +454,7 @@ static inline void fm_quat_make_from_euler_angles_pyyzrx(const fm_euler_angles* 
 	fm_quat_make_from_axis_angle(1.0f, 0.0f, 0.0f, angles->yaw, &y);
 	
 	fm_quat tmp;
-	fm_quat_mul(&p, &y, &tmp);
+	fm_quat_mul(&y, &p, &tmp);
 	fm_quat_mul(&tmp, &r, quat);
 }
 	

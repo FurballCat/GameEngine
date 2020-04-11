@@ -19,6 +19,11 @@ extern "C"
 #define FM_PI 3.14159265358979323846264338327950288
 #define FM_DEG_TO_RAD(_x) _x * FM_PI / 180.0
 	
+	typedef struct fm_vec3
+	{
+		float x, y, z;
+	} fm_vec3;
+	
 	typedef struct fm_vec4
 	{
 		float x, y, z, w;
@@ -85,6 +90,9 @@ extern "C"
 #define FM_VEC4_AXIS_X {1.0f, 0.0f, 0.0f, 0.0f}
 #define FM_VEC4_AXIS_Y {0.0f, 1.0f, 0.0f, 0.0f}
 #define FM_VEC4_AXIS_Z {0.0f, 0.0f, 1.0f, 0.0f}
+	
+	// dot product between a and b saved to v
+	static inline float fm_vec3_dot(const fm_vec3* a, const fm_vec3* b);
 	
 	// set all vector components to zeros
 	static inline void fm_vec4_zeros(fm_vec4* v);
@@ -181,6 +189,9 @@ extern "C"
 	
 	// make quaternion from axis and angle
 	static inline void fm_quat_make_from_axis_angle(float x, float y, float z, const float angle, fm_quat* q);
+	
+	// make quaternion from euler angles (yaw - x, pitch - y, roll - z)
+	static inline void fm_quat_make_from_euler_angles_xyz(const fm_euler_angles* angles, fm_quat* quat);
 	
 	// make quaternion from euler angles (yaw - z, pitch - x, roll - y)
 	static inline void fm_quat_make_from_euler_angles_yzpxry(const fm_euler_angles* angles, fm_quat* quat);
