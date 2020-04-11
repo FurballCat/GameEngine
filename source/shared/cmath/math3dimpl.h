@@ -440,8 +440,8 @@ static inline void fm_quat_make_from_euler_angles_xyz(const fm_euler_angles* ang
 	fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, angles->roll, &z);
 	
 	fm_quat tmp;
-	fm_quat_mul(&z, &x, &tmp);
-	fm_quat_mul(&tmp, &y, quat);
+	fm_quat_mul(&y, &x, &tmp);
+	fm_quat_mul(&z, &tmp, quat);
 }
 	
 static inline void fm_quat_make_from_euler_angles_pyyzrx(const fm_euler_angles* angles, fm_quat* quat)
