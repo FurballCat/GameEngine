@@ -6,3 +6,4 @@
 #include "furAssert.h"
 #include "memory.h"
 #include "debugDraw.h"
+#include "stringHash.h"
