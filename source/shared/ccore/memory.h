@@ -79,6 +79,11 @@ typedef struct fc_alloc_callbacks_t
 	#define FUR_FREE(_pMemory, _pAllocCallbacks)	\
 		fc_dealloc(_pAllocCallbacks, _pMemory, __FILE__ ":" S2(__LINE__))
 #endif
+	
+#define FUR_ALLOC_ARRAY(_type, _count, _alignment, _scope, _pAllocCallbacks)	\
+	(_type*)FUR_ALLOC(sizeof(_type) * _count, _alignment, _scope, _pAllocCallbacks)
+#define FUR_ALLOC_ARRAY_AND_ZERO(_type, _count, _alignment, _scope, _pAllocCallbacks)	\
+	(_type*)FUR_ALLOC_AND_ZERO(sizeof(_type) * _count, _alignment, _scope, _pAllocCallbacks)
 
 CCORE_API void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t alignment,
 							 enum fc_memory_scope_t scope, const char* info);
