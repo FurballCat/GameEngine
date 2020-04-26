@@ -13,6 +13,9 @@ extern "C"
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 	
 typedef struct fm_xform fm_xform;
+typedef struct fm_mat4 fm_mat4;
+	
+typedef uint32_t fc_string_hash_t;
 	
 typedef enum fi_result_t
 {
@@ -54,11 +57,15 @@ typedef struct fi_import_mesh_ctx_t
 	const char* path;
 } fi_import_mesh_ctx_t;
 
+#define FUR_MAX_SKIN_INDICES_PER_VERTEX 8
+	
 typedef enum fr_vertex_attribute_t
 	{
 		FR_VertexAttribute_Position3,
 		FR_VertexAttribute_Color3,
 		FR_VertexAttribute_TexCoord2,
+		FR_VertexAttribute_SkinIndices4,
+		FR_VertexAttribute_SkinWeights4,
 	} fr_vertex_attribute_t;
 	
 typedef struct fr_resource_mesh_chunk_t
@@ -73,6 +80,17 @@ typedef struct fr_resource_mesh_chunk_t
 	
 	fr_vertex_attribute_t* vertexAttributes;
 	uint32_t numVertexAttributes;
+	
+	// skinning indices and weights
+	uint32_t numSkinIndices;	// numVertices * 8
+	int16_t* skinIndices;	// 8 indices per vertex
+	float* skinWeights;	// 8 weights per vertex
+	
+	// bind pose
+	fc_string_hash_t* boneNameHashes;
+	fm_mat4* bindPose;
+	uint32_t numBones;
+	
 } fr_resource_mesh_chunk_t;
 	
 typedef struct fr_resource_mesh_t

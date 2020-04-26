@@ -97,7 +97,7 @@ void fi_gather_anim_curves(ofbx::IScene* scene, std::map<String, FBXBoneInfo*>& 
 			const ofbx::Object* bone = curveNode->getBone();
 			if(bone)
 			{
-				if(!(strcmp(bone->name, "Armature") == 0))		// Blender adds 'Armature' as root bone
+				if(!(strcmp(bone->name, "rootTransform") == 0) && !(strcmp(bone->name, "Armature") == 0))		// Blender adds 'Armature' as root bone
 				{
 					if(bones.count(bone->name) == 0)
 					{
@@ -171,7 +171,18 @@ void fi_import_sort_bones(std::map<String, FBXBoneInfo*>& bones, DynArray<const 
 		DynArray<String> parents;
 		parents.reserve(bones.size());
 		
-		parents.push_back("Armature");
+		std::string parentName = "Armature";
+		
+		for(uint32 i=0; i<rigBones.size(); ++i)
+		{
+			if(rigBones[i]->m_parentName == "rootTransform")
+			{
+				parentName = "rootTransform";
+				break;
+			}
+		}
+		
+		parents.push_back(parentName);
 		while(!parents.empty())
 		{
 			const String& parent = parents.front();
@@ -603,6 +614,29 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 	return FI_RESULT_OK;
 }
 
+void fi_ofbx_matrix_to_fm_mat4(const ofbx::Matrix& src, fm_mat4& dst)
+{
+	dst.x.x = src.m[0];
+	dst.x.y = src.m[1];
+	dst.x.z = src.m[2];
+	dst.x.w = src.m[3];
+	
+	dst.y.x = src.m[4];
+	dst.y.y = src.m[5];
+	dst.y.z = src.m[6];
+	dst.y.w = src.m[7];
+	
+	dst.z.x = src.m[8];
+	dst.z.y = src.m[9];
+	dst.z.z = src.m[10];
+	dst.z.w = src.m[11];
+	
+	dst.w.x = src.m[12];
+	dst.w.y = src.m[13];
+	dst.w.z = src.m[14];
+	dst.w.w = src.m[15];
+}
+
 fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* ctx, fr_resource_mesh_t** ppMesh, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	std::string absolutePath = depot->path;
@@ -642,8 +676,9 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 			chunk->vertexStride = strideFloats;
 			
 			chunk->numIndices = numVertices;
-			chunk->dataIndices = (uint32_t*)FUR_ALLOC(sizeof(uint32_t) * numVertices, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+			chunk->dataIndices = FUR_ALLOC_ARRAY(uint32_t, numVertices, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 			
+			// create vertex stream
 			float* itVertex = chunk->dataVertices;
 			uint32_t* itIndex = chunk->dataIndices;
 			
@@ -653,9 +688,9 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 				float* normal = itVertex + 3;
 				float* uv = itVertex + 3 + 3;
 				
-				position[0] = vertices[iv].x * 0.01f;
-				position[1] = vertices[iv].y * 0.01f;
-				position[2] = vertices[iv].z * 0.01f;
+				position[0] = vertices[iv].x;
+				position[1] = vertices[iv].y;
+				position[2] = vertices[iv].z;
 				
 				//printf("vertex[%u] = {%1.2f, %1.2f, %1.2f}\n", iv, position[0], position[1], position[2]);
 				
@@ -684,6 +719,71 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 			
 			FUR_ASSERT(itVertex == chunk->dataVertices + strideFloats * numVertices);
 			FUR_ASSERT(itIndex == chunk->dataIndices + numVertices);
+			
+			// create skinning stream
+			const ofbx::Skin* skin = geometry->getSkin();
+			
+			if(skin)
+			{
+				chunk->numSkinIndices = numVertices * FUR_MAX_SKIN_INDICES_PER_VERTEX;
+				chunk->numBones = skin->getClusterCount();
+				chunk->bindPose = FUR_ALLOC_ARRAY_AND_ZERO(fm_mat4, chunk->numBones, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+				chunk->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(fc_string_hash_t, chunk->numBones, 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+				chunk->skinIndices = FUR_ALLOC_ARRAY(int16_t, FUR_MAX_SKIN_INDICES_PER_VERTEX, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+				chunk->skinWeights = FUR_ALLOC_ARRAY_AND_ZERO(float, FUR_MAX_SKIN_INDICES_PER_VERTEX, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+				
+				// init all skin indices to -1
+				const uint32_t numAllSkinIndices = chunk->numSkinIndices;
+				for(int32 iv=0; iv<numAllSkinIndices; ++iv)
+				{
+					chunk->skinIndices[iv] = -1;
+				}
+				
+				// go through skin clusters (one cluster = one bone)
+				const uint32_t numClusters = skin->getClusterCount();
+				for(uint32 ic=0; ic<numClusters; ++ic)
+				{
+					const uint32_t idxBone = ic;
+					
+					const ofbx::Cluster* cluster = skin->getCluster(ic);
+					
+					// fill in bone info
+					ofbx::Matrix bindMatrix = cluster->getTransformMatrix();
+					fm_mat4 bindMat4;
+					fi_ofbx_matrix_to_fm_mat4(bindMatrix, bindMat4);
+					const ofbx::Object* link = cluster->getLink();
+					fc_string_hash_t boneName = fc_make_string_hash(link->name);
+					chunk->boneNameHashes[ic] = boneName;
+					chunk->bindPose[ic] = bindMat4;
+					
+					// fill in skin indices and weights for vertices coming from this cluster
+					const uint32_t numSkinIndices = cluster->getIndicesCount();
+					const int32_t* vertexIndices =  cluster->getIndices();
+					const double* skinWeights =  cluster->getWeights();
+					
+					for(uint32_t iv=0; iv<numSkinIndices; ++iv)
+					{
+						const int32_t idxVertex = vertexIndices[iv];
+						const float skinWeight = skinWeights[iv];
+						
+						const uint32_t offsetSkinIndices = idxVertex * FUR_MAX_SKIN_INDICES_PER_VERTEX;
+						FUR_ASSERT(offsetSkinIndices + FUR_MAX_SKIN_INDICES_PER_VERTEX <= numAllSkinIndices);	// vertex index out of range
+						
+						uint32_t slotSkinIndices = 0;
+						
+						// find first free slot for index (in case this vertex is skinned to many bones)
+						while(chunk->skinIndices[offsetSkinIndices + slotSkinIndices] != -1 && slotSkinIndices < FUR_MAX_SKIN_INDICES_PER_VERTEX)
+						{
+							slotSkinIndices += 1;
+						}
+						
+						FUR_ASSERT(slotSkinIndices < FUR_MAX_SKIN_INDICES_PER_VERTEX);	// too many bones per vertex, max is FUR_MAX_SKIN_INDICES_PER_VERTEX
+						
+						chunk->skinIndices[offsetSkinIndices + slotSkinIndices] = (int16_t)idxBone;
+						chunk->skinWeights[offsetSkinIndices + slotSkinIndices] = skinWeight;
+					}
+				}
+			}
 		}
 		
 		*ppMesh = mesh;
@@ -703,6 +803,15 @@ void fr_release_mesh(fr_resource_mesh_t** ppMesh, fc_alloc_callbacks_t* pAllocCa
 	{
 		FUR_FREE(chunks[i].dataIndices, pAllocCallbacks);
 		FUR_FREE(chunks[i].dataVertices, pAllocCallbacks);
+		
+		if(chunks[i].bindPose)
+			FUR_FREE(chunks[i].bindPose, pAllocCallbacks);
+		
+		if(chunks[i].skinIndices)
+			FUR_FREE(chunks[i].bindPose, pAllocCallbacks);
+		
+		if(chunks[i].skinWeights)
+			FUR_FREE(chunks[i].bindPose, pAllocCallbacks);
 	}
 	
 	FUR_FREE((*ppMesh)->chunks, pAllocCallbacks);
