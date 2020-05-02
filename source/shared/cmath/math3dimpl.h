@@ -281,6 +281,14 @@ static inline void fm_mat4_mul(const fm_mat4_t* a, const fm_mat4_t* b, fm_mat4_t
 	m->w.z = a->w.x * b->x.z + a->w.y * b->y.z + a->w.z * b->z.z + a->w.w * b->w.z;
 	m->w.w = a->w.x * b->x.w + a->w.y * b->y.w + a->w.z * b->z.w + a->w.w * b->w.w;
 }
+	
+static inline void fm_mat4_transform(const fm_mat4_t* m, const fm_vec4* a, fm_vec4* b)
+{
+	b->x = fm_vec4_dot(a, &m->x);
+	b->y = fm_vec4_dot(a, &m->y);
+	b->z = fm_vec4_dot(a, &m->z);
+	b->w = fm_vec4_dot(a, &m->w);
+}
 
 static inline float fm_clamp(const float value, const float min, const float max)
 {
@@ -505,21 +513,21 @@ static inline void fm_xform_to_mat4(const fm_xform* x, fm_mat4_t* m)
 	m->x.x = 1.0f - 2.0f * q->j * q->j - 2.0f * q->k * q->k;
 	m->x.y = 2.0f * q->i * q->j - 2.0f * q->k * q->r;
 	m->x.z = 2.0f * q->i * q->k + 2.0f * q->j * q->r;
-	m->x.w = -x->pos.x;
+	m->x.w = 0.0f;
 	
 	m->y.x = 2.0f * q->i * q->j + 2.0f * q->k * q->r;
 	m->y.y = 1.0f - 2.0f * q->i * q->i - 2.0f * q->k * q->k;
 	m->y.z = 2.0f * q->j * q->k - 2.0f * q->i * q->r;
-	m->y.w = -x->pos.y;
+	m->y.w = 0.0f;
 	
 	m->z.x = 2.0f * q->i * q->k - 2.0f * q->j * q->r;
 	m->z.y = 2.0f * q->j * q->k + 2.0f * q->i * q->r;
 	m->z.z = 1.0f - 2.0f * q->i * q->i - 2.0f * q->j * q->j;
-	m->z.w = -x->pos.z;
+	m->z.w = 0.0f;
 	
-	m->w.x = 0.0f;
-	m->w.y = 0.0f;
-	m->w.z = 0.0f;
+	m->w.x = x->pos.x;
+	m->w.y = x->pos.y;
+	m->w.z = x->pos.z;
 	m->w.w = 1.0f;
 }
 

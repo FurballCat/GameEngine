@@ -152,6 +152,9 @@ extern "C"
 	// multiply matrix a by b and save to m
 	static inline void fm_mat4_mul(const fm_mat4_t* a, const fm_mat4_t* b, fm_mat4_t* m);
 	
+	// transform vector or position by matrix
+	static inline void fm_mat4_transform(const fm_mat4_t* m, const fm_vec4* a, fm_vec4* b);
+	
 	// clamps value to range min..max
 	static inline float fm_clamp(const float value, const float min, const float max);
 	
