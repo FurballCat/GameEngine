@@ -728,14 +728,14 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 				chunk->numBones = skin->getClusterCount();
 				chunk->bindPose = FUR_ALLOC_ARRAY_AND_ZERO(fm_mat4, chunk->numBones, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 				chunk->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(fc_string_hash_t, chunk->numBones, 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
-				chunk->vertexSkin = FUR_ALLOC_ARRAY_AND_ZERO(fr_resource_mesh_chunk_skin_t, numVertices, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+				chunk->dataSkinning = FUR_ALLOC_ARRAY_AND_ZERO(fr_resource_mesh_chunk_skin_t, numVertices, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 				
 				// init all skin indices to -1
 				for(uint32_t iv=0; iv<chunk->numVertices; ++iv)
 				{
 					for(uint32_t idxSkin=0; idxSkin<FUR_MAX_SKIN_INDICES_PER_VERTEX; ++idxSkin)
 					{
-						chunk->vertexSkin[iv].indices[idxSkin] = -1;
+						chunk->dataSkinning[iv].indices[idxSkin] = -1;
 					}
 				}
 				
@@ -766,7 +766,7 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 						const int32_t idxVertex = vertexIndices[iv];
 						const float skinWeight = skinWeights[iv];
 						
-						fr_resource_mesh_chunk_skin_t* skin = &chunk->vertexSkin[idxVertex];
+						fr_resource_mesh_chunk_skin_t* skin = &chunk->dataSkinning[idxVertex];
 						
 						uint32_t slotSkinIndices = 0;
 						
@@ -781,6 +781,60 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 						skin->indices[slotSkinIndices] = (int16_t)idxBone;
 						skin->weights[slotSkinIndices] = skinWeight;
 					}
+				}
+				
+				// transform vertices by inverse bind pose
+				{
+					float* itVertex = chunk->dataVertices;
+					
+					for(int32 iv=0; iv<numVertices; ++iv)
+					{
+						float* position = itVertex;
+						float* normal = itVertex + 3;
+						const fr_resource_mesh_chunk_skin_t* skin = &chunk->dataSkinning[iv];
+						
+						fm_vec4 pos = {position[0], position[1], position[2], 1.0f};
+						fm_vec4 n = {normal[0], normal[1], normal[2], 0.0f};
+						
+						fm_vec4 posTransformed;
+						fm_vec4 nTransformed;
+						
+						fm_vec4 posFinal = {};
+						fm_vec4 nFinal = {};
+						
+						for(uint32_t is=0; is<FUR_MAX_SKIN_INDICES_PER_VERTEX; ++is)
+						{
+							if(skin->weights[is] > 0.0f)
+							{
+								const uint32_t idxBone = skin->indices[is];
+								FUR_ASSERT(idxBone < chunk->numBones);
+								
+								const fm_mat4* boneMatrix = &chunk->bindPose[idxBone];
+								fm_mat4 boneMatrixT = *boneMatrix;
+								fm_mat4_transpose(&boneMatrixT);
+								fm_mat4_transform(&boneMatrixT, &pos, &posTransformed);
+								fm_mat4_transform(&boneMatrixT, &n, &nTransformed);
+								
+								fm_vec4_mulf(&posTransformed, skin->weights[is], &posTransformed);
+								fm_vec4_add(&posFinal, &posTransformed, &posFinal);
+								
+								fm_vec4_mulf(&nTransformed, skin->weights[is], &nTransformed);
+								fm_vec4_add(&nFinal, &nTransformed, &nFinal);
+							}
+						}
+						
+						position[0] = posFinal.x;
+						position[1] = posFinal.y;
+						position[2] = posFinal.z;
+						
+						normal[0] = nFinal.x;
+						normal[1] = nFinal.y;
+						normal[2] = nFinal.z;
+						
+						itVertex += strideFloats;
+					}
+					
+					FUR_ASSERT(itVertex == chunk->dataVertices + numVertices * strideFloats);
 				}
 			}
 		}
@@ -806,8 +860,8 @@ void fr_release_mesh(fr_resource_mesh_t** ppMesh, fc_alloc_callbacks_t* pAllocCa
 		if(chunks[i].bindPose)
 			FUR_FREE(chunks[i].bindPose, pAllocCallbacks);
 		
-		if(chunks[i].vertexSkin)
-			FUR_FREE(chunks[i].vertexSkin, pAllocCallbacks);
+		if(chunks[i].dataSkinning)
+			FUR_FREE(chunks[i].dataSkinning, pAllocCallbacks);
 	}
 	
 	FUR_FREE((*ppMesh)->chunks, pAllocCallbacks);

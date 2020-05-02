@@ -57,7 +57,8 @@ typedef struct fi_import_mesh_ctx_t
 	const char* path;
 } fi_import_mesh_ctx_t;
 
-#define FUR_MAX_SKIN_INDICES_PER_VERTEX 8
+// if you want to change it then shaders and vertex layout descriptors needs to be changed
+#define FUR_MAX_SKIN_INDICES_PER_VERTEX 4
 	
 typedef enum fr_vertex_attribute_t
 	{
@@ -88,7 +89,7 @@ typedef struct fr_resource_mesh_chunk_t
 	uint32_t numVertexAttributes;
 	
 	// skinning indices and weights, size of numVertices
-	fr_resource_mesh_chunk_skin_t* vertexSkin;
+	fr_resource_mesh_chunk_skin_t* dataSkinning;
 	
 	// bind pose
 	fc_string_hash_t* boneNameHashes;
