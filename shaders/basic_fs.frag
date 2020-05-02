@@ -6,7 +6,7 @@ layout(location = 1) in vec2 fragTexCoord;
 
 layout(location = 0) out vec4 outColor;
 
-layout(binding = 1) uniform sampler2D texSampler[2];
+layout(binding = 2) uniform sampler2D texSampler[2];
 
 layout(push_constant) uniform PER_OBJECT
 {
@@ -15,5 +15,7 @@ layout(push_constant) uniform PER_OBJECT
 
 void main()
 {
-    outColor = texture(texSampler[pc.textureIndex], fragTexCoord);
+    //outColor = texture(texSampler[pc.textureIndex], fragTexCoord);
+	outColor.xyz = fragColor.xyz;
+	outColor.w = 1.0f;
 }
