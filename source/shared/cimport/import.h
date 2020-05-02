@@ -68,6 +68,12 @@ typedef enum fr_vertex_attribute_t
 		FR_VertexAttribute_SkinWeights4,
 	} fr_vertex_attribute_t;
 	
+typedef struct fr_resource_mesh_chunk_skin_t
+{
+	int16_t indices[FUR_MAX_SKIN_INDICES_PER_VERTEX];
+	float weights[FUR_MAX_SKIN_INDICES_PER_VERTEX];
+} fr_resource_mesh_chunk_skin_t;
+	
 typedef struct fr_resource_mesh_chunk_t
 {
 	float* dataVertices;
@@ -81,10 +87,8 @@ typedef struct fr_resource_mesh_chunk_t
 	fr_vertex_attribute_t* vertexAttributes;
 	uint32_t numVertexAttributes;
 	
-	// skinning indices and weights
-	uint32_t numSkinIndices;	// numVertices * 8
-	int16_t* skinIndices;	// 8 indices per vertex
-	float* skinWeights;	// 8 weights per vertex
+	// skinning indices and weights, size of numVertices
+	fr_resource_mesh_chunk_skin_t* vertexSkin;
 	
 	// bind pose
 	fc_string_hash_t* boneNameHashes;

@@ -725,18 +725,18 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 			
 			if(skin)
 			{
-				chunk->numSkinIndices = numVertices * FUR_MAX_SKIN_INDICES_PER_VERTEX;
 				chunk->numBones = skin->getClusterCount();
 				chunk->bindPose = FUR_ALLOC_ARRAY_AND_ZERO(fm_mat4, chunk->numBones, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 				chunk->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(fc_string_hash_t, chunk->numBones, 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
-				chunk->skinIndices = FUR_ALLOC_ARRAY(int16_t, FUR_MAX_SKIN_INDICES_PER_VERTEX, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
-				chunk->skinWeights = FUR_ALLOC_ARRAY_AND_ZERO(float, FUR_MAX_SKIN_INDICES_PER_VERTEX, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+				chunk->vertexSkin = FUR_ALLOC_ARRAY_AND_ZERO(fr_resource_mesh_chunk_skin_t, numVertices, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 				
 				// init all skin indices to -1
-				const uint32_t numAllSkinIndices = chunk->numSkinIndices;
-				for(int32 iv=0; iv<numAllSkinIndices; ++iv)
+				for(uint32_t iv=0; iv<chunk->numVertices; ++iv)
 				{
-					chunk->skinIndices[iv] = -1;
+					for(uint32_t idxSkin=0; idxSkin<FUR_MAX_SKIN_INDICES_PER_VERTEX; ++idxSkin)
+					{
+						chunk->vertexSkin[iv].indices[idxSkin] = -1;
+					}
 				}
 				
 				// go through skin clusters (one cluster = one bone)
@@ -766,21 +766,20 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 						const int32_t idxVertex = vertexIndices[iv];
 						const float skinWeight = skinWeights[iv];
 						
-						const uint32_t offsetSkinIndices = idxVertex * FUR_MAX_SKIN_INDICES_PER_VERTEX;
-						FUR_ASSERT(offsetSkinIndices + FUR_MAX_SKIN_INDICES_PER_VERTEX <= numAllSkinIndices);	// vertex index out of range
+						fr_resource_mesh_chunk_skin_t* skin = &chunk->vertexSkin[idxVertex];
 						
 						uint32_t slotSkinIndices = 0;
 						
 						// find first free slot for index (in case this vertex is skinned to many bones)
-						while(chunk->skinIndices[offsetSkinIndices + slotSkinIndices] != -1 && slotSkinIndices < FUR_MAX_SKIN_INDICES_PER_VERTEX)
+						while(skin->indices[slotSkinIndices] != -1 && slotSkinIndices < FUR_MAX_SKIN_INDICES_PER_VERTEX)
 						{
 							slotSkinIndices += 1;
 						}
 						
 						FUR_ASSERT(slotSkinIndices < FUR_MAX_SKIN_INDICES_PER_VERTEX);	// too many bones per vertex, max is FUR_MAX_SKIN_INDICES_PER_VERTEX
 						
-						chunk->skinIndices[offsetSkinIndices + slotSkinIndices] = (int16_t)idxBone;
-						chunk->skinWeights[offsetSkinIndices + slotSkinIndices] = skinWeight;
+						skin->indices[slotSkinIndices] = (int16_t)idxBone;
+						skin->weights[slotSkinIndices] = skinWeight;
 					}
 				}
 			}
@@ -807,11 +806,8 @@ void fr_release_mesh(fr_resource_mesh_t** ppMesh, fc_alloc_callbacks_t* pAllocCa
 		if(chunks[i].bindPose)
 			FUR_FREE(chunks[i].bindPose, pAllocCallbacks);
 		
-		if(chunks[i].skinIndices)
-			FUR_FREE(chunks[i].bindPose, pAllocCallbacks);
-		
-		if(chunks[i].skinWeights)
-			FUR_FREE(chunks[i].bindPose, pAllocCallbacks);
+		if(chunks[i].vertexSkin)
+			FUR_FREE(chunks[i].vertexSkin, pAllocCallbacks);
 	}
 	
 	FUR_FREE((*ppMesh)->chunks, pAllocCallbacks);
