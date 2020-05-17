@@ -53,7 +53,7 @@ void fr_staging_release_builder(fr_staging_buffer_builder_t* builder);
 
 // copy region 'srcRegionIndex' from staging buffer to dstBuffer (from staging to vertex buffer for example), supports arrays of buffers
 void fr_staging_record_copy_commands(fr_staging_buffer_builder_t* builder, VkCommandBuffer commandBuffer, VkBuffer stagingBuffer,
-									 uint32_t* aSrcRegionIndex, VkBuffer* aDstBuffer, uint32_t numBuffers);
+									 uint32_t* aSrcRegionIndex, VkBuffer* aDstBuffer, const VkDeviceSize* aDstOffsets, uint32_t numBuffers);
 
 // -------------
 // COMMAND UTILS

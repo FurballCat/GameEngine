@@ -272,14 +272,21 @@ typedef struct fr_skinning_buffer_t
 	fm_mat4_t bones[100];
 } fr_skinning_buffer_t;
 
+typedef enum fr_mesh_chunk_buffer_offset_t
+{
+	FR_MESH_CHUNK_BUFFER_OFFSET_INDICES = 0,
+	FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES,
+	FR_MESH_CHUNK_BUFFER_OFFSET_SKIN,
+	FR_MESH_CHUNK_BUFFER_OFFSET_COUNT,
+} fr_mesh_chunk_buffer_offset_t;
+
 typedef struct fr_mesh_chunk_t
 {
-	fr_buffer_t vertices;
-	fr_buffer_t indices;
-	fr_buffer_t skin;
-	fr_buffer_t bindPose;
+	fr_buffer_t data;
+	VkDeviceSize offsets[FR_MESH_CHUNK_BUFFER_OFFSET_COUNT];
 	uint32_t numIndices;
 	int32_t textureIndex;
+	
 } fr_mesh_chunk_t;
 
 typedef struct fr_mesh_t
@@ -1162,6 +1169,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		{
 			const fr_resource_mesh_chunk_t* meshChunkResource = &meshResource->chunks[i];
 			const uint32_t numVertices = meshChunkResource->numVertices;
+			const VkDeviceSize sizeIndices = numVertices * sizeof(uint32_t);
 			const VkDeviceSize sizeVertices = numVertices * sizeof(fr_vertex_t);
 			const VkDeviceSize sizeSkin = numVertices * sizeof(fr_resource_mesh_chunk_skin_t);
 			
@@ -1169,36 +1177,18 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			meshChunk->numIndices = numVertices;
 			meshChunk->textureIndex = textureIndices[i];
 			
-			// vertices
+			// data buffer
 			{
 				fr_buffer_desc_t desc = {};
-				desc.size = sizeVertices;
-				desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
+				desc.size = sizeIndices + sizeVertices + sizeSkin;
+				desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 				desc.properties = FR_VERTEX_BUFFER_MEMORY_FLAGS;
 				
-				fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &meshChunk->vertices, pAllocCallbacks);
-			}
-			
-			const VkDeviceSize sizeIndices = numVertices * sizeof(uint32_t);
-			
-			// indices
-			{
-				fr_buffer_desc_t desc = {};
-				desc.size = sizeIndices;
-				desc.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-				desc.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+				fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &meshChunk->data, pAllocCallbacks);
 				
-				fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &meshChunk->indices, pAllocCallbacks);
-			}
-			
-			// skin
-			{
-				fr_buffer_desc_t desc = {};
-				desc.size = sizeSkin;
-				desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
-				desc.properties = FR_VERTEX_BUFFER_MEMORY_FLAGS;
-				
-				fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &meshChunk->skin, pAllocCallbacks);
+				meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES] = 0;
+				meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES] = sizeIndices;
+				meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_SKIN] = sizeIndices + sizeVertices;
 			}
 		}
 	}
@@ -1542,18 +1532,21 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 				const fr_mesh_chunk_t* meshChunk = &mesh->chunks[idxChunk];
 				
 				// bind vertex and index buffers
-				if(meshChunk->skin.buffer)
+				if(meshChunk->data.buffer)	// todo: previously checking 'has skin'
 				{
-					VkBuffer vertexBuffers[] = {meshChunk->vertices.buffer, meshChunk->skin.buffer};
+					VkDeviceSize offsets[] = {meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_SKIN]};
+					VkBuffer vertexBuffers[] = {meshChunk->data.buffer, meshChunk->data.buffer};
 					vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 2, vertexBuffers, offsets);
 				}
 				else
 				{
-					VkBuffer vertexBuffers[] = {meshChunk->vertices.buffer};
+					FUR_ASSERT(false);	// implement 'has skinning'
+					VkDeviceSize offsets[] = {meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES]};
+					VkBuffer vertexBuffers[] = {meshChunk->data.buffer};
 					vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 1, vertexBuffers, offsets);
 				}
 				
-				vkCmdBindIndexBuffer(pRenderer->aCommandBuffers[i], meshChunk->indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+				vkCmdBindIndexBuffer(pRenderer->aCommandBuffers[i], meshChunk->data.buffer, meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES], VK_INDEX_TYPE_UINT32);
 				
 				vkCmdPushConstants(pRenderer->aCommandBuffers[i], pRenderer->pipelineLayout,
 								   VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(int32_t), &meshChunk->textureIndex);
@@ -1588,8 +1581,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		{
 			fr_resource_mesh_chunk_t* meshChunk = &pRenderer->pMesh->chunks[i];
 			
-			fr_staging_add(&stagingBuilder, (void*)meshChunk->dataVertices, sizeof(fr_vertex_t) * meshChunk->numVertices, NULL, NULL);
 			fr_staging_add(&stagingBuilder, (void*)meshChunk->dataIndices, sizeof(uint16_t) * meshChunk->numIndices, NULL, NULL);
+			fr_staging_add(&stagingBuilder, (void*)meshChunk->dataVertices, sizeof(fr_vertex_t) * meshChunk->numVertices, NULL, NULL);
 			
 			// if skinned mesh
 			fr_staging_add(&stagingBuilder, (void*)meshChunk->dataSkinning, sizeof(fr_resource_mesh_chunk_skin_t) * meshChunk->numVertices, NULL, NULL);
@@ -1627,9 +1620,10 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 				fr_mesh_chunk_t* meshChunk = &pRenderer->mesh.chunks[i];
 				
 				uint32_t srcStagingIndices[numBuffersPerMeshChunk] = {2+i*numBuffersPerMeshChunk, 3+i*numBuffersPerMeshChunk, 4+i*numBuffersPerMeshChunk};
-				VkBuffer dstBuffers[numBuffersPerMeshChunk] = {meshChunk->vertices.buffer, meshChunk->indices.buffer, meshChunk->skin.buffer};
+				VkBuffer dstBuffers[numBuffersPerMeshChunk] = {meshChunk->data.buffer, meshChunk->data.buffer, meshChunk->data.buffer};
+				VkDeviceSize dstOffsets[numBuffersPerMeshChunk] = {meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_SKIN]};
 				
-				fr_staging_record_copy_commands(&stagingBuilder, commandBuffer, pRenderer->stagingBuffer.buffer, srcStagingIndices, dstBuffers, numBuffersPerMeshChunk);
+				fr_staging_record_copy_commands(&stagingBuilder, commandBuffer, pRenderer->stagingBuffer.buffer, srcStagingIndices, dstBuffers, dstOffsets, numBuffersPerMeshChunk);
 			}
 			
 			fr_end_simple_commands(pRenderer->device, pRenderer->graphicsQueue, commandBuffer, pRenderer->stagingCommandPool, pAllocCallbacks);
@@ -1735,10 +1729,7 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 		fr_mesh_chunk_t* meshChunk = &pRenderer->mesh.chunks[i];
 		
 		// destroy vertex buffer
-		fr_buffer_release(pRenderer->device, &meshChunk->vertices, pAllocCallbacks);
-		
-		// destroy index buffer
-		fr_buffer_release(pRenderer->device, &meshChunk->indices, pAllocCallbacks);
+		fr_buffer_release(pRenderer->device, &meshChunk->data, pAllocCallbacks);
 	}
 	
 	FUR_FREE(pRenderer->mesh.chunks, pAllocCallbacks);

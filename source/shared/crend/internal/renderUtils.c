@@ -77,7 +77,7 @@ void fr_staging_release_builder(fr_staging_buffer_builder_t* builder)
 }
 
 void fr_staging_record_copy_commands(fr_staging_buffer_builder_t* builder, VkCommandBuffer commandBuffer, VkBuffer stagingBuffer,
-									 uint32_t* aSrcRegionIndex, VkBuffer* aDstBuffer, uint32_t numBuffers)
+									 uint32_t* aSrcRegionIndex, VkBuffer* aDstBuffer, const VkDeviceSize* aDstOffsets, uint32_t numBuffers)
 {
 	for(uint32_t i=0; i<numBuffers; ++i)
 	{
@@ -88,7 +88,7 @@ void fr_staging_record_copy_commands(fr_staging_buffer_builder_t* builder, VkCom
 		
 		VkBufferCopy copyRegion = {};
 		copyRegion.srcOffset = entry->offset; // Optional
-		copyRegion.dstOffset = 0; // Optional
+		copyRegion.dstOffset = aDstOffsets[i]; // Optional
 		copyRegion.size = entry->size;
 		
 		vkCmdCopyBuffer(commandBuffer, stagingBuffer, aDstBuffer[i], 1, &copyRegion);
