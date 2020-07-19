@@ -25,7 +25,8 @@ typedef enum fc_memory_type_t
 typedef enum fc_memory_scope_t
 {
 	FC_MEMORY_SCOPE_DEFAULT = 0,
-	FC_MEMORY_SCOPE_DEBUG = 1
+	FC_MEMORY_SCOPE_INPUT = 1,
+	FC_MEMORY_SCOPE_DEBUG = 2
 } fc_memory_scope_t;
 
 typedef void* (*fc_mem_alloc_fn_t)(	void* 						pUserData,
