@@ -24,7 +24,7 @@ typedef struct fi_hid_element_info_t
 typedef struct fi_device_info_t
 {
 	IOHIDDeviceRef m_deviceRef;
-	fi_hid_element_info_t* m_elements;
+	fi_hid_element_info_t m_elements[MAX_DEVICE_ELEMENTS];
 	uint32_t m_numElements;
 	
 	int8_t m_buttonMappings[MAX_CONTROLLER_BUTTON_MAPPINGS];

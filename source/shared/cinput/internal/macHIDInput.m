@@ -79,7 +79,7 @@ void fi_hid_input_on_new_hid_controller(fi_hid_input_t* pInput, IOReturn result,
 			{
 				fi_device_info_t* deviceInfo = &pInput->m_controllers[index].m_device;
 				deviceInfo->m_deviceRef = deviceRef;
-				memset(deviceInfo->m_elements, 0, sizeof(fi_hid_element_info_t) * MAX_DEVICE_ELEMENTS);
+				memset(&deviceInfo->m_elements, 0, sizeof(fi_hid_element_info_t) * MAX_DEVICE_ELEMENTS);
 				fi_device_info_setup_mappings(deviceInfo);
 				
 				CFIndex elementsCount = CFArrayGetCount(elementsArray);
