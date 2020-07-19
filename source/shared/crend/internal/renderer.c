@@ -7,6 +7,7 @@
 #include <stdlib.h>
 
 #include "ccore/public.h"
+#include "cinput/public.h"
 
 #include "renderer.h"
 #include "vulkansdk/macOS/include/vulkan/vulkan.h"
@@ -381,6 +382,8 @@ struct fr_renderer_t
 	fa_anim_clip_t* pAnimClip;
 	
 	float rotationAngle;
+	
+	fi_input_manager_t* pInputManager;
 };
 
 void fr_pixels_free_func(void* pData, size_t size, void* pUserData)
@@ -408,6 +411,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	}
 	
 	memset(pRenderer, 0, sizeof(struct fr_renderer_t));
+	
+	pRenderer->pInputManager = fi_input_manager_create(pAllocCallbacks);	// todo: move out of renderer
 	
 	enum fr_result_t res = FR_RESULT_OK;
 	
@@ -1696,6 +1701,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 					   struct fc_alloc_callbacks_t*	pAllocCallbacks)
 {
+	fi_input_manager_release(pRenderer->pInputManager, pAllocCallbacks);	// todo: move out of renderer
+	
 	// release character mesh
 	if(pRenderer->pMesh)
 	{
@@ -1798,7 +1805,7 @@ void fr_wait_for_device(struct fr_renderer_t* pRenderer)
 	vkDeviceWaitIdle(pRenderer->device);
 }
 
-const float g_rotationSpeed = FM_DEG_TO_RAD(10);
+const float g_rotationSpeed = FM_DEG_TO_RAD(90);
 const fm_vec4 g_eye = {0, -4, 3, 0};
 const fm_vec4 g_at = {0, 0, 1, 0};
 const fm_vec4 g_up = {0, 0, 1, 0};
@@ -1825,10 +1832,24 @@ void fr_dbg_draw_mat4(const fm_mat4_t* m)
 
 void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_context_t* ctx)
 {
-	pRenderer->rotationAngle += g_rotationSpeed * ctx->dt;
-	
 	g_timeDelta = ctx->dt;
 	g_time += g_timeDelta;
+	
+	fi_update_input_manager(pRenderer->pInputManager, g_time);	// todo: move out of renderer
+	
+	static float actionRotationLeftX = 0.0f;
+	
+	fi_input_event_t inputEvents[10];
+	const uint32_t numEventsCollected = fi_get_input_events(pRenderer->pInputManager, inputEvents, 10, 0);
+	for(uint32_t i=0; i<numEventsCollected; ++i)
+	{
+		if(inputEvents[i].eventID == Gamepad_leftAnalogX)
+		{
+			actionRotationLeftX = inputEvents[i].value;
+		}
+	}
+	
+	pRenderer->rotationAngle += g_rotationSpeed * ctx->dt * actionRotationLeftX;
 };
 
 uint32_t g_prevImageIndex = 0;
