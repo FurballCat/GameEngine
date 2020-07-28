@@ -919,6 +919,11 @@ class Project:
                 copy_files_build_phase_sources.add_file(project_build_file_ref)
                 header_search_paths.add(project_to_thirdparty_relative_path)
 
+                if item == "physx":
+                    # construct header search path for PhysX
+                    header_search_paths.add(project_to_thirdparty_relative_path + "/PhysX-4.1/physx/include")
+                    header_search_paths.add(project_to_thirdparty_relative_path + "/PhysX-4.1/pxshared/include")
+
         # continue
         group_main.add_file( "Products", product )
         group_products = group_main.subgroups["Products"]
