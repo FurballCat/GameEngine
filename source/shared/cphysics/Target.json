@@ -1,0 +1,13 @@
+{
+	"dependecies":
+	[
+		"ccore",
+		"cmath"
+	],
+	
+	"dependencies_thirdparty": [
+		"physx"
+	],
+	
+    "type": "dynamic_library"
+}
