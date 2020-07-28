@@ -239,9 +239,14 @@ class PBXFileReferenceThirdParty:
     def is_framework(self):
         return self.path.endswith(".framework")
 
+    def is_archive(self):
+        return self.path.endswith(".a")
+
     def get_last_known_file_type(self):
         if self.is_framework():
             return "wrapper.framework"
+        elif self.is_archive():
+            return "archive.ar"
         else:
             return "compiled.mach-o.dylib"
 
@@ -896,6 +901,7 @@ class Project:
         third_party_library_paths = {}
         third_party_library_paths["fmod"] = "fmod/lowlevel/lib/libfmod.dylib"
         third_party_library_paths["vulkan"] = "vulkansdk/macOS/lib/libvulkan.1.dylib"
+        third_party_library_paths["physx"] = "PhysX-4.1/physX/bin/mac.x86_64/release/libPhysX_static_64.a"
 
         # add third party library dependencies
         for item in dependencies_thirdparty:
