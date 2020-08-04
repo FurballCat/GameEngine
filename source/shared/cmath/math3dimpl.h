@@ -301,6 +301,14 @@ static inline float fm_clamp(const float value, const float min, const float max
 	return value;
 }
 
+static inline float fm_snap_near_zero(const float value, const float threshold)
+{
+	if(fabsf(value) < threshold)
+		return 0.0f;
+	
+	return value;
+}
+	
 static inline void fm_quat_identity(fm_quat* q)
 {
 	q->i = 0.0f;

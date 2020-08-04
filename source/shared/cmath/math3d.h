@@ -158,6 +158,9 @@ extern "C"
 	// clamps value to range min..max
 	static inline float fm_clamp(const float value, const float min, const float max);
 	
+	// snap to 0.0f when absolute value is lower than threashold
+	static inline float fm_snap_near_zero(const float value, const float threshold);
+	
 	/***** QUATERNION *****/
 	
 	// quaternion identity

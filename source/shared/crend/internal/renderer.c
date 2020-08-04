@@ -1845,7 +1845,7 @@ void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_
 	{
 		if(inputEvents[i].eventID == Gamepad_leftAnalogX)
 		{
-			actionRotationLeftX = inputEvents[i].value;
+			actionRotationLeftX = fm_snap_near_zero(inputEvents[i].value, 0.05f);
 		}
 	}
 	
