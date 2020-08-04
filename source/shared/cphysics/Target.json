@@ -6,7 +6,10 @@
 	],
 	
 	"dependencies_thirdparty": [
-		"physx"
+		"physx",
+		"physx_common",
+		"physx_foundation",
+		"physx_extensions"
 	],
 	
     "type": "dynamic_library"
