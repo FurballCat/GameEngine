@@ -902,6 +902,11 @@ class Project:
         third_party_library_paths["fmod"] = "fmod/lowlevel/lib/libfmod.dylib"
         third_party_library_paths["vulkan"] = "vulkansdk/macOS/lib/libvulkan.1.dylib"
         third_party_library_paths["physx"] = "PhysX-4.1/physX/bin/mac.x86_64/release/libPhysX_static_64.a"
+        third_party_library_paths["physx_common"] = "PhysX-4.1/physX/bin/mac.x86_64/release/libPhysXCommon_static_64.a"
+        third_party_library_paths["physx_foundation"] = "PhysX-4.1/physX/bin/mac.x86_64/release/libPhysXFoundation_static_64.a"
+        third_party_library_paths["physx_character_kinematic"] = "PhysX-4.1/physX/bin/mac.x86_64/release/libPhysXCharacterKinematic_static_64.a"
+        third_party_library_paths["physx_extensions"] = "PhysX-4.1/physX/bin/mac.x86_64/release/libPhysXExtensions_static_64.a"
+
 
         # add third party library dependencies
         for item in dependencies_thirdparty:
