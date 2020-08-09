@@ -19,6 +19,7 @@
 #include "tiledTerrainSystem.h"
 
 #include "crend/public.h"
+#include "cphysics/public.h"
 
 using namespace game;
 using namespace math;
@@ -764,6 +765,7 @@ struct FurGameEngine
 {
 	struct fr_app_t* pApp;
 	struct fr_renderer_t* pRenderer;
+	fp_physics_t* pPhysics;
 	std::chrono::system_clock::time_point prevTimePoint;
 };
 
@@ -785,6 +787,11 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine)
 		rendererDesc.pApp = pEngine->pApp;
 		
 		res = fr_create_renderer(&rendererDesc, &pEngine->pRenderer, NULL);
+	}
+	
+	if(res == FR_RESULT_OK)
+	{
+		res = fp_init_physics(&pEngine->pPhysics, NULL) == 0 ? FR_RESULT_OK : FR_RESULT_PHYSICS_INIT_ERROR;
 	}
 	
 	if(res == FR_RESULT_OK)
@@ -825,6 +832,7 @@ bool furMainEngineTerminate(FurGameEngine* pEngine)
 	// check for memory leaks
 	//FUR_ASSERT(furValidateAllocatorGeneral(&pEngine->m_memory._defaultInternals));
 	
+	fp_release_physics(pEngine->pPhysics, NULL);
 	fr_release_renderer(pEngine->pRenderer, NULL);
 	fr_release_app(pEngine->pApp, NULL);
 	

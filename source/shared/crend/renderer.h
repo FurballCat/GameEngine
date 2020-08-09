@@ -19,6 +19,7 @@ enum fr_result_t
 	FR_RESULT_ERROR,
 	FR_RESULT_ERROR_SHADER_MODULE_CREATION,
 	FR_RESULT_ERROR_GPU,
+	FR_RESULT_PHYSICS_INIT_ERROR,
 };
 	
 // If render result code is not OK then this function returns additional info
