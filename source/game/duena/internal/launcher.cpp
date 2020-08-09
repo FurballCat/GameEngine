@@ -766,13 +766,17 @@ struct FurGameEngine
 	struct fr_app_t* pApp;
 	struct fr_renderer_t* pRenderer;
 	fp_physics_t* pPhysics;
+	
 	std::chrono::system_clock::time_point prevTimePoint;
+	
+	fp_physics_scene_t* pPhysicsScene;
 };
 
 // Furball Cat - Platform
 bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine)
 {
 	FurGameEngine* pEngine = (FurGameEngine*)malloc(sizeof(FurGameEngine));
+	memset(pEngine, 0, sizeof(FurGameEngine));
 	
 	fr_app_desc_t appDesc;
 	appDesc.appTitle = desc.m_mainApp.m_title;
@@ -805,6 +809,12 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine)
 		return false;
 	}
 	
+	// create physics scene
+	if(res == FR_RESULT_OK)
+	{
+		fp_physics_scene_create(pEngine->pPhysics, &pEngine->pPhysicsScene, NULL);
+	}
+	
 	return true;
 }
 
@@ -831,6 +841,8 @@ bool furMainEngineTerminate(FurGameEngine* pEngine)
 {
 	// check for memory leaks
 	//FUR_ASSERT(furValidateAllocatorGeneral(&pEngine->m_memory._defaultInternals));
+	
+	fp_physics_scene_release(pEngine->pPhysics, pEngine->pPhysicsScene, NULL);
 	
 	fp_release_physics(pEngine->pPhysics, NULL);
 	fr_release_renderer(pEngine->pRenderer, NULL);
