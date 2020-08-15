@@ -830,6 +830,11 @@ void furMainEngineLoop(FurGameEngine* pEngine)
 		
 		fr_update_context_t ctx;
 		ctx.dt = dt.count();
+		
+		fp_physics_update_ctx_t physicsCtx;
+		physicsCtx.dt = dt.count();
+		
+		fp_physics_update(pEngine->pPhysics, pEngine->pPhysicsScene, &physicsCtx);
 		fr_update_renderer(pEngine->pRenderer, &ctx);
 		fr_draw_frame(pEngine->pRenderer);
 	}
