@@ -16,6 +16,7 @@ typedef struct fp_physics_t
 	PxPhysics* physics;
 	PxRigidStatic* worldPlane;
 	PxRigidDynamic* testCapsule;
+	PxMaterial* testMaterial;
 } fp_physics_t;
 
 static PxDefaultAllocator g_defaultAllocator;
@@ -58,19 +59,21 @@ uint32_t fp_physics_scene_create(fp_physics_t* pPhysics, fp_physics_scene_t** pp
 	
 	*ppScene = (fp_physics_scene_t*)pScene;
 	
+	pPhysics->testMaterial = pPhysics->physics->createMaterial(1.0f, 0.5f, 0.6f);
+	
 	// world plane test
 	PxTransform xform(PxVec3(0.0f, 0.0f, 0.0f), PxQuat(-PxHalfPi, PxVec3(0,1,0)));
 	pPhysics->worldPlane = pPhysics->physics->createRigidStatic(xform);
 	PxPlaneGeometry plane;
-	PxRigidActorExt::createExclusiveShape(*pPhysics->worldPlane, plane, NULL, 0);
+	PxRigidActorExt::createExclusiveShape(*pPhysics->worldPlane, plane, &pPhysics->testMaterial, 1);
 	pScene->addActor(*pPhysics->worldPlane);
 	
 	// capsule test
-	pPhysics->testCapsule = pPhysics->physics->createRigidDynamic(PxTransform(PxVec3(0.0f, 0.0f, 2.0f), PxQuat(0.3f, PxVec3(0,1,0))));
+	pPhysics->testCapsule = pPhysics->physics->createRigidDynamic(PxTransform(PxVec3(-2.0f, 0.0f, 2.0f), PxQuat(0.1f, PxVec3(0,1,0))));
 	pPhysics->testCapsule->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, false);
-	pPhysics->testCapsule->setAngularDamping(0.5f);
+	pPhysics->testCapsule->setAngularDamping(0.0f);
 	PxTransform relativePose(PxQuat(-PxHalfPi, PxVec3(0,1,0)));
-	PxShape* aCapsuleShape = PxRigidActorExt::createExclusiveShape(*pPhysics->testCapsule, PxCapsuleGeometry(0.3f, 0.9f), NULL, 0);
+	PxShape* aCapsuleShape = PxRigidActorExt::createExclusiveShape(*pPhysics->testCapsule, PxCapsuleGeometry(0.3f, 0.9f), &pPhysics->testMaterial, 1);
 	aCapsuleShape->setLocalPose(relativePose);
 	PxRigidBodyExt::updateMassAndInertia(*pPhysics->testCapsule, 1.0f);
 	//pPhysics->testCapsule->setMass(40.0f);
