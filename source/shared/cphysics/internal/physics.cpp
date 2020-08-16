@@ -110,4 +110,10 @@ void fp_physics_update(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, const
 	fc_dbg_line(start, end_x, red);
 	fc_dbg_line(start, end_y, green);
 	fc_dbg_line(start, end_z, blue);
+	
+	const float planeCenter[3] = {0.0f, 0.0f, 0.0f};
+	const float planeHalfLength = 10.0f;
+	const float planeColor[4] = FUR_COLOR_DARK_GREY;
+	
+	fc_dbg_plane(planeCenter, planeHalfLength, planeColor);
 }

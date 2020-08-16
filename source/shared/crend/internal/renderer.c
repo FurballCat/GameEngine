@@ -348,7 +348,8 @@ struct fr_renderer_t
 	VkSemaphore renderFinishedSemaphore;
 	
 	// debug draw
-	VkPipeline debugPSO;
+	VkPipeline debugLinesPSO;
+	VkPipeline debugTrianglesPSO;
 	
 	VkShaderModule debugVertexShaderModule;
 	VkShaderModule debugFragmentShaderModule;
@@ -357,6 +358,7 @@ struct fr_renderer_t
 	VkVertexInputAttributeDescription debugLinesVertexAttributes[2];
 	
 	fr_buffer_t debugLinesVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
+	fr_buffer_t debugTrianglesVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
 	
 	// test geometry
 	VkVertexInputBindingDescription bindingDescription[2];
@@ -1101,9 +1103,19 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
 		pipelineInfo.basePipelineIndex = 0; // Optional
 		
-		if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->debugPSO) != VK_SUCCESS)
+		// create lines debug PSO
+		if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->debugLinesPSO) != VK_SUCCESS)
 		{
-			fur_set_last_error("Can't create debug PSO");
+			fur_set_last_error("Can't create debug lines PSO");
+			res = FR_RESULT_ERROR_GPU;
+		}
+		
+		// create triangles debug PSO
+		fr_pso_init_rasterization_state_polygon_fill(&rasterizer);
+		fr_pso_init_input_assembly_state_triangle_list(&inputAssembly);
+		if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->debugTrianglesPSO) != VK_SUCCESS)
+		{
+			fur_set_last_error("Can't create debug triangles PSO");
 			res = FR_RESULT_ERROR_GPU;
 		}
 	}
@@ -1198,19 +1210,31 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 	}
 	
-	const VkDeviceSize debugLinesVertexBufferSize = fc_dbg_line_buffer_size();
-	
 	// create debug lines vertex buffer
 	if(res == FR_RESULT_OK)
 	{
 		fr_buffer_desc_t desc = {};
-		desc.size = debugLinesVertexBufferSize;
+		desc.size = fc_dbg_line_buffer_size();
 		desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
 		desc.properties = FR_STAGING_BUFFER_MEMORY_FLAGS;	// use vertex buffer usage, but staging buffer properties
 		
 		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->debugLinesVertexBuffer[i], pAllocCallbacks);
+		}
+	}
+	
+	// create debug triangles vertex buffer
+	if(res == FR_RESULT_OK)
+	{
+		fr_buffer_desc_t desc = {};
+		desc.size = fc_dbg_triangle_buffer_size();
+		desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
+		desc.properties = FR_STAGING_BUFFER_MEMORY_FLAGS;	// use vertex buffer usage, but staging buffer properties
+		
+		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		{
+			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->debugTrianglesVertexBuffer[i], pAllocCallbacks);
 		}
 	}
 	
@@ -1560,13 +1584,15 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 				vkCmdDrawIndexed(pRenderer->aCommandBuffers[i], meshChunk->numIndices, 1, 0, 0, 0);
 			}
 			 
-			// debug draw
-			vkCmdBindPipeline(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugPSO);
-			
+			// debug draw lines
+			vkCmdBindPipeline(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugLinesPSO);
 			vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 1, &pRenderer->debugLinesVertexBuffer[i].buffer, offsets);
-			
 			vkCmdDraw(pRenderer->aCommandBuffers[i], fc_dbg_line_num_total_vertices(), 0, 0, 0);
-			//vkCmdDrawIndexed(pRenderer->aCommandBuffers[i], g_numTestIndices, 1, 0, 0, 0);
+			
+			// debug draw triangles
+			vkCmdBindPipeline(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugTrianglesPSO);
+			vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 1, &pRenderer->debugTrianglesVertexBuffer[i].buffer, offsets);
+			vkCmdDraw(pRenderer->aCommandBuffers[i], fc_dbg_triangles_num_total_vertices(), 0, 0, 0);
 			
 			vkCmdEndRenderPass(pRenderer->aCommandBuffers[i]);
 			
@@ -1676,11 +1702,16 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 	}
 	
-	// clear debug lines buffer with zeros
+	// clear debug fragments buffers buffer with zeros
 	{
 		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[i].memory, 0, fc_dbg_line_buffer_size());
+		}
+		
+		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		{
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[i].memory, 0, fc_dbg_triangle_buffer_size());
 		}
 	}
 	
@@ -1741,10 +1772,11 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	
 	FUR_FREE(pRenderer->mesh.chunks, pAllocCallbacks);
 	
-	// destroy debug lines vertex buffer
+	// destroy debug fragments vertex buffer
 	for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 	{
 		fr_buffer_release(pRenderer->device, &pRenderer->debugLinesVertexBuffer[i], pAllocCallbacks);
+		fr_buffer_release(pRenderer->device, &pRenderer->debugTrianglesVertexBuffer[i], pAllocCallbacks);
 	}
 	
 	// destroy descriptor set layout
@@ -1772,7 +1804,8 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	vkDestroyRenderPass(pRenderer->device, pRenderer->renderPass, NULL);
 	
 	// destroy debug PSO
-	vkDestroyPipeline(pRenderer->device, pRenderer->debugPSO, NULL);
+	vkDestroyPipeline(pRenderer->device, pRenderer->debugLinesPSO, NULL);
+	vkDestroyPipeline(pRenderer->device, pRenderer->debugTrianglesPSO, NULL);
 	
 	// destroy shaders
 	vkDestroyShaderModule(pRenderer->device, pRenderer->vertexShaderModule, NULL);
@@ -2047,21 +2080,27 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 	
 	// update debug lines buffer
 	{
-		fc_dbg_line_lock();	// lock so no-one adds lines while retriving the buffer
+		fc_dbg_buffers_lock();	// lock so no-one adds lines while retriving the buffer
 		
 		// copy debug lines buffer into vertex buffer
-		const float* lineData = fc_dbg_line_get_data();
-		const uint32_t linesDataSize = fc_dbg_line_current_lines_size();
-		//const uint32_t numLines = fc_dbg_line_current_num_lines();
-		if(linesDataSize > 0)
+		fc_dbg_buffer_desc_t desc;
+		fc_dbg_get_buffers(&desc);
+		
+		if(desc.linesDataSize > 0)
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[imageIndex].memory, 0, linesDataSize);
-			fr_copy_data_to_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[imageIndex].memory, lineData, 0, linesDataSize);
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[imageIndex].memory, 0, desc.linesDataSize);
+			fr_copy_data_to_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[imageIndex].memory, desc.linesData, 0, desc.linesDataSize);
 		}
 		
-		fc_dbg_line_clear();	// clear the buffer for next frame
+		if(desc.trianglesDataSize > 0)
+		{
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[imageIndex].memory, 0, desc.trianglesDataSize);
+			fr_copy_data_to_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[imageIndex].memory, desc.trianglesData, 0, desc.trianglesDataSize);
+		}
 		
-		fc_dbg_line_unlock();	// release lock, so now on everyone can use debug lines again
+		fc_dbg_buffers_clear();	// clear the buffer for next frame
+		
+		fc_dbg_buffers_unlock();	// release lock, so now on everyone can use debug fragments again
 	}
 	
 	// draw
