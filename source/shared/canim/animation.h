@@ -42,13 +42,22 @@ typedef struct fa_anim_clip_t
 	fa_anim_curve_key_t* dataKeys;	// all keys in the animation
 } fa_anim_clip_t;
 	
+typedef enum fa_pose_flags_t
+{
+	PF_ADDITIVE = 0x1,
+} fa_pose_flags_t;
+	
 typedef struct fa_pose_t
 {
 	fm_xform* xforms;
 	float* tracks;
+	uint8_t* weightsXforms;
+	uint8_t* weightsTracks;
 	
 	uint16_t numXforms;
 	uint16_t numTracks;
+	
+	uint32_t flags;
 } fa_pose_t;
 
 // -----
@@ -72,6 +81,8 @@ CANIM_API void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_po
 
 CANIM_API void fa_pose_copy(const fa_pose_t* src, fa_pose_t* dest);
 CANIM_API void fa_pose_local_to_model(const fa_pose_t* localPose, const int16_t* parentIndices, fa_pose_t* modelPose);
+	
+CANIM_API void fa_pose_blend_linear(fa_pose_t* out, const fa_pose_t* a, const fa_pose_t* b, float alpha);
 	
 // -----
 	

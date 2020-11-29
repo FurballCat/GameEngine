@@ -1901,6 +1901,9 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		refPose.numXforms = pRenderer->pRig->numBones;
 		refPose.xforms = pRenderer->pRig->refPose;
 		refPose.tracks = NULL;
+		refPose.weightsXforms = NULL;
+		refPose.weightsTracks = NULL;
+		refPose.flags = 0;
 		
 		fm_mat4_t mat;
 		
@@ -1911,6 +1914,9 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		modelPose.numXforms = refPose.numXforms;
 		modelPose.xforms = modelPoseXforms;
 		modelPose.tracks = NULL;
+		modelPose.weightsXforms = NULL;
+		modelPose.weightsTracks = NULL;
+		modelPose.flags = 0;
 		
 		fm_xform xforms2[400] = {};
 		FUR_ASSERT(refPose.numXforms < 400);
@@ -1920,6 +1926,9 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		pose2.numXforms = refPose.numXforms;
 		pose2.xforms = xforms2;
 		pose2.tracks = NULL;
+		pose2.weightsXforms = NULL;
+		pose2.weightsTracks = NULL;
+		pose2.flags = 0;
 		
 		fa_pose_copy(&refPose, &modelPose);
 		

@@ -12,12 +12,39 @@
 void fa_pose_set_identity(fa_pose_t* pose)
 {
 	fm_xform* xforms = pose->xforms;
+	float* tracks = pose->tracks;
+	
+	const uint8_t* weightsXformsBegin = pose->weightsXforms;
+	const uint8_t* weightsTracksBegin = pose->weightsTracks;
+	
+	const uint8_t* weightsXforms = weightsXformsBegin;
+	const uint8_t* weightsTracks = weightsTracksBegin;
+	
 	for(uint32_t i=0; i<pose->numXforms; ++i)
 	{
-		fm_xform_identity(&xforms[i]);
+		const uint8_t weight = weightsXformsBegin ? *weightsXforms : 255;
+		
+		if(weight != 0)
+		{
+			fm_xform_identity(xforms);
+		}
+		
+		xforms++;
+		weightsXforms++;
 	}
 	
-	memset(pose->tracks, 0, sizeof(float) * pose->numTracks);
+	for(uint32_t i=0; i<pose->numTracks; ++i)
+	{
+		const uint8_t weight = weightsTracksBegin ? *weightsTracks : 255;
+		
+		if(weight != 0)
+		{
+			*tracks = 0.0f;
+		}
+		
+		tracks++;
+		weightsTracks++;
+	}
 }
 
 void fa_pose_set_reference(const fa_rig_t* rig, fa_pose_t* pose)
@@ -26,9 +53,40 @@ void fa_pose_set_reference(const fa_rig_t* rig, fa_pose_t* pose)
 	
 	const fm_xform* refXForms = rig->refPose;
 	fm_xform* xforms = pose->xforms;
+	float* tracks = pose->tracks;
 	
-	memcpy(xforms, refXForms, sizeof(fm_xform) * pose->numXforms);
-	memset(pose->tracks, 0, sizeof(float) * pose->numTracks);
+	const uint8_t* weightsXformsBegin = pose->weightsXforms;
+	const uint8_t* weightsTracksBegin = pose->weightsTracks;
+	
+	const uint8_t* weightsXforms = weightsXformsBegin;
+	const uint8_t* weightsTracks = weightsTracksBegin;
+	
+	for(uint32_t i=0; i<pose->numXforms; ++i)
+	{
+		const uint8_t weight = weightsXformsBegin ? *weightsXforms : 255;
+		
+		if(weight != 0)
+		{
+			*xforms = *refXForms;
+		}
+		
+		xforms++;
+		weightsXforms++;
+		refXForms++;
+	}
+	
+	for(uint32_t i=0; i<pose->numTracks; ++i)
+	{
+		const uint8_t weight = weightsTracksBegin ? *weightsTracks : 255;
+		
+		if(weight != 0)
+		{
+			*tracks = 0.0f;
+		}
+		
+		tracks++;
+		weightsTracks++;
+	}
 }
 
 // -----
@@ -199,8 +257,15 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose
 {
 	const uint32_t numCurves = clip->numCurves;
 	
+	const uint8_t* weightsXformsBegin = pose->weightsXforms;
+	const uint8_t* weightsXforms = weightsXformsBegin;
+	
 	for(uint32_t i_c=0; i_c<numCurves; ++i_c)
 	{
+		const uint8_t weight = weightsXformsBegin ? *weightsXforms : 255;
+		if(weight == 0)
+			continue;
+		
 		const fa_anim_curve_t* curve = &clip->curves[i_c];
 		const uint16_t numKeys = curve->numKeys;
 	
@@ -290,5 +355,128 @@ void fa_pose_local_to_model(const fa_pose_t* localPose, const int16_t* parentInd
 	if(numTracks > 0)
 	{
 		memcpy(modelPose->tracks, localPose->tracks, sizeof(float) * numTracks);
+	}
+}
+
+void fa_pose_blend_linear(fa_pose_t* out, const fa_pose_t* a, const fa_pose_t* b, float alpha)
+{
+	FUR_ASSERT(out->numXforms == a->numXforms && a->numXforms == b->numXforms);
+	FUR_ASSERT(out->numTracks == a->numTracks && a->numTracks == b->numTracks);
+	FUR_ASSERT(out->weightsXforms && out->weightsTracks);
+	
+	// blend xforms
+	{
+		const uint32_t numXforms = out->numXforms;
+		const fm_xform* a_xforms = a->xforms;
+		const fm_xform* b_xforms = b->xforms;
+		fm_xform* out_xforms = out->xforms;
+
+		const uint8_t* const a_weightsBase = a->weightsXforms;
+		const uint8_t* const b_weightsBase = b->weightsXforms;
+		
+		const uint8_t* a_weights = a_weightsBase;
+		const uint8_t* b_weights = b_weightsBase;
+		uint8_t* out_weights = out->weightsXforms;
+
+		for(uint32_t i=0; i<numXforms; ++i)
+		{
+			const uint8_t a_byte = a_weightsBase ? *a_weights : 255;
+			const uint8_t b_byte = b_weightsBase ? *b_weights : 255;
+			
+			const bool a_valid = (a_byte != 0);
+			const bool b_valid = (b_byte != 0);
+			
+			if(a_valid && b_valid)
+			{
+				const float a_weight = a_byte * (1.0f / 255.0f);
+				const float b_weight = b_byte * (1.0f / 255.0f);
+				
+				const float blendFactor = (b_weight > a_weight) ? ((b_weight - a_weight + alpha * a_weight) / b_weight) : alpha * b_weight / a_weight;
+				const float outWeight = (1.0f - blendFactor) * a_weight + blendFactor * b_weight;
+				
+				fm_xform_slerp(a_xforms, b_xforms, blendFactor, out_xforms);
+				
+				*out_weights = (uint8_t)(outWeight * 255.0f + 0.5f);
+			}
+			else if(a_valid)
+			{
+				*out_xforms = *a_xforms;
+				*out_weights = *a_weights;
+			}
+			else if(b_valid)
+			{
+				*out_xforms = *b_xforms;
+				*out_weights = *b_weights;
+			}
+			else
+			{
+				*out_weights = 0x00;
+			}
+			
+			a_xforms++;
+			b_xforms++;
+			out_xforms++;
+			a_weights++;
+			b_weights++;
+			out_weights++;
+		}
+	}
+	
+	// blend tracks
+	{
+		const uint32_t numTracks = out->numTracks;
+		const float* a_tracks = a->tracks;
+		const float* b_tracks = b->tracks;
+		float* out_tracks = out->tracks;
+		
+		const uint8_t* const a_weightsBase = a->weightsTracks;
+		const uint8_t* const b_weightsBase = b->weightsTracks;
+		
+		const uint8_t* a_weights = a_weightsBase;
+		const uint8_t* b_weights = b_weightsBase;
+		uint8_t* out_weights = out->weightsTracks;
+		
+		for(uint32_t i=0; i<numTracks; ++i)
+		{
+			const uint8_t a_byte = a_weightsBase ? *a_weights : 255;
+			const uint8_t b_byte = b_weightsBase ? *b_weights : 255;
+			
+			const bool a_valid = (a_byte != 0);
+			const bool b_valid = (b_byte != 0);
+			
+			if(a_valid && b_valid)
+			{
+				const float a_weight = a_byte * (1.0f / 255.0f);
+				const float b_weight = b_byte * (1.0f / 255.0f);
+				
+				const float blendFactor = (b_weight > a_weight) ? ((b_weight - a_weight + alpha * a_weight) / b_weight) : alpha * b_weight / a_weight;
+				const float outWeight = (1.0f - blendFactor) * a_weight + blendFactor * b_weight;
+				
+				*out_tracks = (1.0f - blendFactor) * (*a_tracks) + blendFactor * (*b_tracks);
+				
+				*out_weights = (uint8_t)(outWeight * 255.0f + 0.5f);
+			}
+			else if(a_valid)
+			{
+				*out_tracks = *a_tracks;
+				*out_weights = *a_weights;
+			}
+			else if(b_valid)
+			{
+				*out_tracks = *b_tracks;
+				*out_weights = *b_weights;
+			}
+			else
+			{
+				*out_weights = 0x00;
+			}
+			
+			a_tracks++;
+			b_tracks++;
+			out_tracks++;
+			a_weights++;
+			b_weights++;
+			out_weights++;
+		}
 	}
 }
