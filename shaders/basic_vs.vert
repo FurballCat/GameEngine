@@ -27,6 +27,11 @@ void main()
 	vec4 posSkinned = {0.0f, 0.0f, 0.0f, 0.0f};
 	vec4 normSkinned = {0.0f, 0.0f, 0.0f, 0.0f};
 	
+	// remove when re-enabling skinning
+	posSkinned = pos;
+	normSkinned = norm;
+	
+	/*
 	for(int i=0; i<4; ++i)
 	{
 		if(skinIndices[i] >= 0)
@@ -40,8 +45,9 @@ void main()
 	}
 	
 	posSkinned.w = 1.0f;
+	*/
 	
-    gl_Position = ubo.proj * ubo.view * ubo.model * posSkinned;
+	gl_Position = ubo.proj * ubo.view * ubo.model * posSkinned;
 	
 	const vec3 colors[2] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}};
 	

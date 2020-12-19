@@ -298,8 +298,9 @@ typedef struct fr_mesh_t
 
 const char* g_texturePathZeldaDiff = "../../../../../assets/characters/zelda/mesh/textures/zelda_diff.png";
 const char* g_texturePathHairDiff = "../../../../../assets/characters/zelda/mesh/textures/hair_diff.png";
+const char* g_texturePathEyesDiff = "../../../../../assets/characters/zelda/mesh/textures/eyes_diff2.png";
 
-#define NUM_TEXTURES_IN_ARRAY 2
+#define NUM_TEXTURES_IN_ARRAY 3
 
 /*************************************************************/
 
@@ -368,6 +369,7 @@ struct fr_renderer_t
 	
 	fr_image_t textureZeldaDiff;
 	fr_image_t textureHairDiff;
+	fr_image_t textureEyesDiff;
 	
 	VkSampler textureSampler;
 	
@@ -1141,8 +1143,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	
 	// load character mesh and rig
 	const char* depotPath = "../../../../../";
-	const char* characterMeshPath = "assets/characters/zelda/mesh/test_skin.fbx";
-	const char* characterRigPath = "assets/characters/zelda/mesh/test_skin.fbx";
+	const char* characterMeshPath = "assets/characters/zelda/mesh/zelda_mesh.fbx";
+	const char* characterRigPath = "assets/characters/zelda/mesh/zelda_rig.fbx";
 	
 	if(res == FR_RESULT_OK)
 	{
@@ -1181,9 +1183,9 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		mesh->chunks = (fr_mesh_chunk_t*)FUR_ALLOC_AND_ZERO(sizeof(fr_mesh_chunk_t) * numChunks, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 		mesh->numChunks = numChunks;
 		
-		const uint32_t numTextureIndices = 1;
+		const uint32_t numTextureIndices = 7;
 		FUR_ASSERT(numChunks == numTextureIndices);
-		int32_t textureIndices[numTextureIndices] = {1}; // , 0, 0, 0, 0};
+		int32_t textureIndices[numTextureIndices] = {0, 1, 0, 2, 0, 0, 0};
 		
 		for(uint32_t i=0; i<numChunks; ++i)
 		{
@@ -1379,6 +1381,46 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			fr_image_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->textureHairDiff, pAllocCallbacks);
 		}
 	}
+	
+	VkDeviceSize imageOffsetInBufferEyesDiff = 0;
+	int texEyesDiffWidth = 0;
+	int texEyesDiffHeight = 0;
+	
+	{
+		VkDeviceSize imageSize = 0;
+		
+		// load texture
+		{
+			int texChannels;
+			stbi_uc* pixels = stbi_load(g_texturePathEyesDiff, &texEyesDiffWidth, &texEyesDiffHeight, &texChannels, STBI_rgb_alpha);
+			imageSize = texEyesDiffWidth * texEyesDiffHeight * 4;
+			
+			if(!pixels)
+			{
+				fur_set_last_error("Can't load texture");
+				res = FR_RESULT_ERROR_GPU;
+			}
+			else
+			{
+				imageOffsetInBufferEyesDiff = stagingBuilder.totalSize;
+				fr_staging_add(&stagingBuilder, pixels, (uint32_t)imageSize, NULL, fr_pixels_free_func);
+			}
+		}
+		
+		// create texture image
+		if(res == FR_RESULT_OK)
+		{
+			fr_image_desc_t desc = {};
+			desc.size = imageSize;
+			desc.width = texEyesDiffWidth;
+			desc.height = texEyesDiffHeight;
+			desc.format = textureImageFormat;
+			desc.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+			desc.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+			
+			fr_image_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->textureEyesDiff, pAllocCallbacks);
+		}
+	}
 		
 	// create texture sampler
 	if(res == FR_RESULT_OK)
@@ -1437,7 +1479,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			bufferInfo[1].offset = 0;
 			bufferInfo[1].range = sizeof(fr_skinning_buffer_t);
 			
-			VkDescriptorImageInfo imageInfo[2] = {};
+			VkDescriptorImageInfo imageInfo[3] = {};
 			imageInfo[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			imageInfo[0].imageView = pRenderer->textureZeldaDiff.view;
 			imageInfo[0].sampler = pRenderer->textureSampler;
@@ -1445,6 +1487,10 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			imageInfo[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			imageInfo[1].imageView = pRenderer->textureHairDiff.view;
 			imageInfo[1].sampler = pRenderer->textureSampler;
+			
+			imageInfo[2].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imageInfo[2].imageView = pRenderer->textureEyesDiff.view;
+			imageInfo[2].sampler = pRenderer->textureSampler;
 			
 			const uint32_t numBindings = 3;
 			VkWriteDescriptorSet descriptorWrites[numBindings] = {};
@@ -1615,11 +1661,12 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		{
 			fr_resource_mesh_chunk_t* meshChunk = &pRenderer->pMesh->chunks[i];
 			
-			fr_staging_add(&stagingBuilder, (void*)meshChunk->dataIndices, sizeof(uint16_t) * meshChunk->numIndices, NULL, NULL);
+			fr_staging_add(&stagingBuilder, (void*)meshChunk->dataIndices, sizeof(uint32_t) * meshChunk->numIndices, NULL, NULL);
 			fr_staging_add(&stagingBuilder, (void*)meshChunk->dataVertices, sizeof(fr_vertex_t) * meshChunk->numVertices, NULL, NULL);
 			
 			// if skinned mesh
-			fr_staging_add(&stagingBuilder, (void*)meshChunk->dataSkinning, sizeof(fr_resource_mesh_chunk_skin_t) * meshChunk->numVertices, NULL, NULL);
+			if(meshChunk->dataSkinning != NULL)
+				fr_staging_add(&stagingBuilder, (void*)meshChunk->dataSkinning, sizeof(fr_resource_mesh_chunk_skin_t) * meshChunk->numVertices, NULL, NULL);
 		}
 		
 		// create staging buffer & release memory of source data
@@ -1647,17 +1694,30 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			VkCommandBuffer commandBuffer = fr_begin_simple_commands(pRenderer->device, pRenderer->stagingCommandPool, pAllocCallbacks);
 			
 			const uint32_t numBuffersPerMeshChunk = 3;
+			const uint32_t numBuffersPerNonSkinnedMeshChunk = 2;
 			
 			// copy vertex buffer region
 			for(uint32_t i=0; i<pRenderer->mesh.numChunks; ++i)
 			{
 				fr_mesh_chunk_t* meshChunk = &pRenderer->mesh.chunks[i];
+				fr_resource_mesh_chunk_t* sourceMeshChunk = &pRenderer->pMesh->chunks[i];
 				
-				uint32_t srcStagingIndices[numBuffersPerMeshChunk] = {2+i*numBuffersPerMeshChunk, 3+i*numBuffersPerMeshChunk, 4+i*numBuffersPerMeshChunk};
-				VkBuffer dstBuffers[numBuffersPerMeshChunk] = {meshChunk->data.buffer, meshChunk->data.buffer, meshChunk->data.buffer};
-				VkDeviceSize dstOffsets[numBuffersPerMeshChunk] = {meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_SKIN]};
-				
-				fr_staging_record_copy_commands(&stagingBuilder, commandBuffer, pRenderer->stagingBuffer.buffer, srcStagingIndices, dstBuffers, dstOffsets, numBuffersPerMeshChunk);
+				if(sourceMeshChunk->dataSkinning)
+				{
+					uint32_t srcStagingIndices[numBuffersPerMeshChunk] = {3+i*numBuffersPerMeshChunk, 4+i*numBuffersPerMeshChunk, 5+i*numBuffersPerMeshChunk};
+					VkBuffer dstBuffers[numBuffersPerMeshChunk] = {meshChunk->data.buffer, meshChunk->data.buffer, meshChunk->data.buffer};
+					VkDeviceSize dstOffsets[numBuffersPerMeshChunk] = {meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_SKIN]};
+					
+					fr_staging_record_copy_commands(&stagingBuilder, commandBuffer, pRenderer->stagingBuffer.buffer, srcStagingIndices, dstBuffers, dstOffsets, numBuffersPerMeshChunk);
+				}
+				else
+				{
+					uint32_t srcStagingIndices[numBuffersPerNonSkinnedMeshChunk] = {3+i*numBuffersPerNonSkinnedMeshChunk, 4+i*numBuffersPerNonSkinnedMeshChunk};
+					VkBuffer dstBuffers[numBuffersPerNonSkinnedMeshChunk] = {meshChunk->data.buffer, meshChunk->data.buffer};
+					VkDeviceSize dstOffsets[numBuffersPerNonSkinnedMeshChunk] = {meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES]};
+					
+					fr_staging_record_copy_commands(&stagingBuilder, commandBuffer, pRenderer->stagingBuffer.buffer, srcStagingIndices, dstBuffers, dstOffsets, numBuffersPerNonSkinnedMeshChunk);
+				}
 			}
 			
 			fr_end_simple_commands(pRenderer->device, pRenderer->graphicsQueue, commandBuffer, pRenderer->stagingCommandPool, pAllocCallbacks);
@@ -1682,6 +1742,12 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 									   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pRenderer->textureHairDiff.image, pAllocCallbacks);
 			fr_copy_buffer_to_image(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, pRenderer->stagingBuffer.buffer,
 									imageOffsetInBufferHairDiff, pRenderer->textureHairDiff.image, texHairDiffWidth, texHairDiffHeight, pAllocCallbacks);
+			
+			// eyes_diff
+			fr_transition_image_layout(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, textureImageFormat,
+									   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pRenderer->textureEyesDiff.image, pAllocCallbacks);
+			fr_copy_buffer_to_image(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, pRenderer->stagingBuffer.buffer,
+									imageOffsetInBufferEyesDiff, pRenderer->textureEyesDiff.image, texEyesDiffWidth, texEyesDiffHeight, pAllocCallbacks);
 		}
 		
 		// release staging buffer
@@ -1765,9 +1831,10 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	
 	// destroy image
 	fr_image_release(pRenderer->device, &pRenderer->textureZeldaDiff, pAllocCallbacks);
-	vkDestroySampler(pRenderer->device, pRenderer->textureSampler, NULL);
-	
 	fr_image_release(pRenderer->device, &pRenderer->textureHairDiff, pAllocCallbacks);
+	fr_image_release(pRenderer->device, &pRenderer->textureEyesDiff, pAllocCallbacks);
+	
+	vkDestroySampler(pRenderer->device, pRenderer->textureSampler, NULL);
 	
 	// destroy mesh
 	for(uint32_t i=0; i<pRenderer->mesh.numChunks; ++i)
@@ -1847,7 +1914,7 @@ void fr_wait_for_device(struct fr_renderer_t* pRenderer)
 }
 
 const float g_rotationSpeed = FM_DEG_TO_RAD(90);
-const fm_vec4 g_eye = {0, -4, 3, 0};
+const fm_vec4 g_eye = {0, -2, 1.5, 0};
 const fm_vec4 g_at = {0, 0, 1, 0};
 const fm_vec4 g_up = {0, 0, 1, 0};
 
@@ -1914,11 +1981,12 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 			
 			desc.numBonesPerPose = pRenderer->pRig->numBones;
 			desc.numTracksPerPose = 0;
-			desc.numMaxPoses = 16;
+			desc.numMaxPoses = 64;
 			
-			fa_pose_stack_init(&poseStack, &desc, pRenderer->scratchpadBuffer, pRenderer->scratchpadBufferSize);
+			//fa_pose_stack_init(&poseStack, &desc, pRenderer->scratchpadBuffer, pRenderer->scratchpadBufferSize);
 		}
 		
+		/*
 		fa_pose_t refPose;
 		refPose.numTracks = 0;
 		refPose.numXforms = pRenderer->pRig->numBones;
@@ -1969,6 +2037,8 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		
 		fa_pose_stack_pop(&poseStack, 2);
 		
+		 */
+		 
 		fm_quat g_rotX;
 		fm_vec4 g_vx;
 		
@@ -2003,9 +2073,10 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		fm_xform_mul(&root, &hips, &hips_model);
 		fm_xform_mul(&root, &hips_model, &hips_model2);
 		
-		fm_xform_to_mat4(&hips_model, &mat);
+		//fm_xform_to_mat4(&hips_model, &mat);
+		//fm_xform_to_mat4(&hips_model2, &mat);
+		
 		//fr_dbg_draw_mat4(&mat);
-		fm_xform_to_mat4(&hips_model2, &mat);
 		//fr_dbg_draw_mat4(&mat);
 		//fc_dbg_line(&vzero.x, &g_vx.x, color2);
 		//fc_dbg_line(&vzero.x, &v.x, color);
