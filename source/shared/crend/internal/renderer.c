@@ -383,6 +383,9 @@ struct fr_renderer_t
 	fa_rig_t* pRig;
 	fa_anim_clip_t* pAnimClip;
 	
+	void* scratchpadBuffer;
+	uint32_t scratchpadBufferSize;
+	
 	float rotationAngle;
 	
 	fi_input_manager_t* pInputManager;
@@ -1726,6 +1729,9 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	
 	pRenderer->rotationAngle = 0.0f;
 	
+	pRenderer->scratchpadBufferSize = 128 * 1024;
+	pRenderer->scratchpadBuffer = FUR_ALLOC_AND_ZERO(pRenderer->scratchpadBufferSize, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+	
 	return res;
 }
 
@@ -1733,6 +1739,8 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 					   struct fc_alloc_callbacks_t*	pAllocCallbacks)
 {
 	fi_input_manager_release(pRenderer->pInputManager, pAllocCallbacks);	// todo: move out of renderer
+	
+	FUR_FREE(pRenderer->scratchpadBuffer, pAllocCallbacks);
 	
 	// release character mesh
 	if(pRenderer->pMesh)
@@ -1896,6 +1904,21 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		const uint32_t numBones = pRenderer->pRig->numBones;
 		const int16_t* parentIndices = pRenderer->pRig->parents;
 		
+		fa_pose_stack_t poseStack;
+		memset(&poseStack, 0, sizeof(poseStack));
+		
+		// init pose stack
+		{
+			fa_pose_stack_desc_t desc;
+			memset(&desc, 0, sizeof(fa_pose_stack_desc_t));
+			
+			desc.numBonesPerPose = pRenderer->pRig->numBones;
+			desc.numTracksPerPose = 0;
+			desc.numMaxPoses = 16;
+			
+			fa_pose_stack_init(&poseStack, &desc, pRenderer->scratchpadBuffer, pRenderer->scratchpadBufferSize);
+		}
+		
 		fa_pose_t refPose;
 		refPose.numTracks = 0;
 		refPose.numXforms = pRenderer->pRig->numBones;
@@ -1907,28 +1930,13 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		
 		fm_mat4_t mat;
 		
-		fm_xform modelPoseXforms[400] = {};
+		fa_pose_stack_push(&poseStack, 2);
 		
 		fa_pose_t modelPose;
-		modelPose.numTracks = 0;
-		modelPose.numXforms = refPose.numXforms;
-		modelPose.xforms = modelPoseXforms;
-		modelPose.tracks = NULL;
-		modelPose.weightsXforms = NULL;
-		modelPose.weightsTracks = NULL;
-		modelPose.flags = 0;
-		
-		fm_xform xforms2[400] = {};
-		FUR_ASSERT(refPose.numXforms < 400);
+		fa_pose_stack_get(&poseStack, &modelPose, 0);
 		
 		fa_pose_t pose2;
-		pose2.numTracks = 0;
-		pose2.numXforms = refPose.numXforms;
-		pose2.xforms = xforms2;
-		pose2.tracks = NULL;
-		pose2.weightsXforms = NULL;
-		pose2.weightsTracks = NULL;
-		pose2.flags = 0;
+		fa_pose_stack_get(&poseStack, &pose2, 1);
 		
 		fa_pose_copy(&refPose, &modelPose);
 		
@@ -1958,6 +1966,8 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		{
 			fm_xform_to_mat4(&modelPose.xforms[i], &skinBuffer.bones[i]);
 		}
+		
+		fa_pose_stack_pop(&poseStack, 2);
 		
 		fm_quat g_rotX;
 		fm_vec4 g_vx;

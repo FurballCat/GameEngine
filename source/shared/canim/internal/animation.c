@@ -91,61 +91,6 @@ void fa_pose_set_reference(const fa_rig_t* rig, fa_pose_t* pose)
 
 // -----
 
-#define POSE_ALIGNMENT 16
-
-struct fa_pose_stack_t
-{
-	uint8_t* buffer;
-	uint16_t numPoses;
-	uint16_t maxPoses;
-	uint32_t bufferSize;
-	
-	uint16_t numBonesPerPose;
-	uint16_t numTracksPerPose;
-};
-
-static inline uint32_t fa_pose_stack_get_transforms_size_in_bytes(const fa_pose_stack_t* stack)
-{
-	return stack->numBonesPerPose * sizeof(fm_xform);
-}
-
-static inline uint32_t fa_pose_stack_get_tracks_size_in_bytes(const fa_pose_stack_t* stack)
-{
-	return stack->numTracksPerPose * sizeof(float);
-}
-
-static inline uint32_t fa_pose_stack_get_pose_size_in_bytes(const fa_pose_stack_t* stack)
-{
-	uint32_t sizeWithoutPadding = fa_pose_stack_get_transforms_size_in_bytes(stack) + fa_pose_stack_get_tracks_size_in_bytes(stack);
-	return sizeWithoutPadding + (sizeWithoutPadding % POSE_ALIGNMENT);
-}
-
-void fa_pose_stack_push(fa_pose_stack_t* stack, uint32_t count)
-{
-	FUR_ASSERT(stack->numPoses < stack->maxPoses);
-	stack->numPoses += 1;
-}
-
-void fa_pose_stack_pop(fa_pose_stack_t* stack, uint32_t count)
-{
-	FUR_ASSERT(stack->numPoses > 0);
-	stack->numPoses -= 1;
-}
-
-void fa_pose_stack_get(const fa_pose_stack_t* stack, uint32_t depth, fa_pose_t* pose)
-{
-	const uint32_t xformsSize = fa_pose_stack_get_transforms_size_in_bytes(stack);
-	const uint32_t poseSize = fa_pose_stack_get_pose_size_in_bytes(stack);
-	uint8_t* ptr = stack->buffer + (stack->numPoses - depth) * poseSize;
-	
-	pose->xforms = (fm_xform*)ptr;
-	pose->tracks = (float*)(ptr + xformsSize);
-	pose->numXforms = stack->numBonesPerPose;
-	pose->numTracks = stack->numTracksPerPose;
-}
-
-// -----
-
 static inline uint16_t fa_anim_clip_key_get_bone_index(const fa_anim_curve_t* curve)
 {
 	return curve->index & 0x3fff;
@@ -257,15 +202,8 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose
 {
 	const uint32_t numCurves = clip->numCurves;
 	
-	const uint8_t* weightsXformsBegin = pose->weightsXforms;
-	const uint8_t* weightsXforms = weightsXformsBegin;
-	
 	for(uint32_t i_c=0; i_c<numCurves; ++i_c)
 	{
-		const uint8_t weight = weightsXformsBegin ? *weightsXforms : 255;
-		if(weight == 0)
-			continue;
-		
 		const fa_anim_curve_t* curve = &clip->curves[i_c];
 		const uint16_t numKeys = curve->numKeys;
 	
@@ -308,6 +246,17 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose
 		
 		uint16_t idxXform = curve->index;
 		pose->xforms[idxXform].rot = rot;
+		pose->weightsXforms[idxXform] = 255;
+	}
+	
+	for(uint32_t i=numCurves; i<pose->numXforms; ++i)
+	{
+		pose->weightsXforms[i] = 0;
+	}
+	
+	for(uint32_t i=0; i<pose->numTracks; ++i)
+	{
+		pose->weightsTracks[i] = 0;
 	}
 }
 
@@ -479,4 +428,92 @@ void fa_pose_blend_linear(fa_pose_t* out, const fa_pose_t* a, const fa_pose_t* b
 			out_weights++;
 		}
 	}
+}
+
+CANIM_API void fa_pose_stack_init(fa_pose_stack_t* pStack, const fa_pose_stack_desc_t* desc, void* buffer, uint32_t bufferSize)
+{
+	FUR_ASSERT(pStack);
+	FUR_ASSERT(pStack->buffer == NULL);
+	
+	const uint32_t sizeXforms = desc->numBonesPerPose * sizeof(fm_xform);
+	const uint32_t sizeWeightXforms = desc->numBonesPerPose * sizeof(uint8_t);
+	const uint32_t sizeTracks = desc->numTracksPerPose * sizeof(float);
+	const uint32_t sizeWeightTracks = desc->numTracksPerPose * sizeof(uint8_t);
+	
+	uint32_t poseSize = sizeXforms + sizeTracks + sizeWeightXforms + sizeWeightTracks;
+	poseSize += 16 - poseSize % 16;	// align pose size to 16 (add padding, so the next pose will be aligned to 16)
+	uint32_t bufferSizeRequired = poseSize * desc->numMaxPoses;
+	
+	FUR_ASSERT(bufferSize >= bufferSizeRequired);
+	
+	pStack->buffer = buffer;
+	pStack->bufferSize = bufferSizeRequired;
+	pStack->numBones = desc->numBonesPerPose;
+	pStack->numTracks = desc->numTracksPerPose;
+	pStack->numMaxPoses = desc->numMaxPoses;
+	pStack->numPoses = 0;
+	pStack->poseSize = poseSize;
+	pStack->offsetTracks = sizeXforms;
+	pStack->offsetWeightXforms = sizeXforms + sizeTracks;
+	pStack->offsetWeightTracks = sizeXforms + sizeTracks + sizeWeightXforms;
+}
+
+CANIM_API void fa_pose_stack_release(fa_pose_stack_t* pStack)
+{
+	FUR_ASSERT(pStack->buffer != NULL);
+	
+	memset(pStack, 0, sizeof(fa_pose_stack_t));
+}
+
+CANIM_API void fa_pose_stack_push(fa_pose_stack_t* pStack, uint32_t count)
+{
+	FUR_ASSERT(pStack->buffer != NULL);
+	FUR_ASSERT(pStack->numPoses + count <= pStack->numMaxPoses);
+	
+	pStack->numPoses += count;
+}
+
+CANIM_API void fa_pose_stack_pop(fa_pose_stack_t* pStack, uint32_t count)
+{
+	FUR_ASSERT(pStack->buffer != NULL);
+	FUR_ASSERT(pStack->numPoses >= count);
+	
+	pStack->numPoses -= count;
+}
+
+CANIM_API void fa_pose_stack_get(const fa_pose_stack_t* pStack, fa_pose_t* pPose, uint32_t depth)
+{
+	FUR_ASSERT(pStack->buffer != NULL);
+	FUR_ASSERT(pStack->numPoses > depth);
+	
+	const uint32_t poseIndex = pStack->numPoses - 1 - depth;
+	const uint32_t poseOffset = poseIndex * pStack->poseSize;
+	void* poseData = pStack->buffer + poseOffset;
+	
+	pPose->numXforms = pStack->numBones;
+	pPose->numTracks = pStack->numTracks;
+	pPose->flags = 0;	// todo: we should store flags somewhere
+	
+	if(pStack->numBones > 0)
+	{
+		pPose->xforms = (fm_xform*)poseData;
+		pPose->weightsXforms = (uint8_t*)(poseData + pStack->offsetWeightXforms);
+	}
+	else
+	{
+		pPose->xforms = NULL;
+		pPose->weightsXforms = NULL;
+	}
+	
+	if(pStack->numTracks > 0)
+	{
+		pPose->tracks = (float*)(poseData + pStack->offsetTracks);
+		pPose->weightsTracks = (uint8_t*)(poseData + pStack->offsetWeightTracks);
+	}
+	else
+	{
+		pPose->tracks = NULL;
+		pPose->weightsTracks = NULL;
+	}
+	
 }
