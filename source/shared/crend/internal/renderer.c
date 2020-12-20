@@ -1194,7 +1194,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		const uint32_t numTextureIndices = 7;
 		FUR_ASSERT(numChunks == numTextureIndices);
-		int32_t textureIndices[numTextureIndices] = {0, 0, 0, 2, 0, 0, 1};
+		int32_t textureIndices[numTextureIndices] = {0, 0, 1, 0, 2, 0, 1};
 		
 		for(uint32_t i=0; i<numChunks; ++i)
 		{
@@ -1952,7 +1952,7 @@ void fr_wait_for_device(struct fr_renderer_t* pRenderer)
 const float g_rotationSpeed = FM_DEG_TO_RAD(90);
 const float g_zoomSpeed = 0.2f;
 const fm_vec4 g_eye = {0, -3, 1.4, 0};
-const fm_vec4 g_at = {0, 0, 1.0, 0};
+const fm_vec4 g_at = {0, 0, 1.5, 0};
 const fm_vec4 g_up = {0, 0, 1, 0};
 
 double g_timeDelta = 0.0f;
@@ -2067,12 +2067,12 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		for(uint32_t i=0; i<numBones; ++i)
 		{
 			fm_xform_to_mat4(&modelPose.xforms[i], &mat);
-			fr_dbg_draw_mat4(&mat);
+			//fr_dbg_draw_mat4(&mat);
 			
 			int16_t idxParent = parentIndices[i];
 			if(idxParent >= 0)
 			{
-				fc_dbg_line(&modelPose.xforms[i].pos.x, &modelPose.xforms[idxParent].pos.x, color);
+				//fc_dbg_line(&modelPose.xforms[i].pos.x, &modelPose.xforms[idxParent].pos.x, color);
 			}
 		}
 		
@@ -2086,8 +2086,6 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		
 		const fm_mat4* bindPose = pRenderer->pMesh->chunks[0].bindPose;
 		fm_mat4 testMatrices[400];
-		
-		const float precision = 0.02f;
 		
 		for(uint32_t i=0; i<skinNumBones; ++i)
 		{
@@ -2199,7 +2197,9 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		fm_mat4_rot_z(pRenderer->rotationAngle, &ubo.model);
 		
 		fm_vec4 eye = g_eye;
-		fm_vec4_mulf(&g_eye, pRenderer->cameraZoom, &eye);
+		fm_vec4_sub(&eye, &g_at, &eye);
+		fm_vec4_mulf(&eye, pRenderer->cameraZoom, &eye);
+		fm_vec4_add(&eye, &g_at, &eye);
 		
 		fm_mat4_lookat(&eye, &g_at, &g_up, &tempView);
 		fm_mat4_projection_fov(45.0f, aspectRatio, 0.1f, 1000.0f, &ubo.proj);
