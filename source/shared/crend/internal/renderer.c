@@ -270,7 +270,7 @@ typedef struct fr_uniform_buffer_t
 
 typedef struct fr_skinning_buffer_t
 {
-	fm_mat4_t bones[100];
+	fm_mat4_t bones[512];
 } fr_skinning_buffer_t;
 
 typedef enum fr_mesh_chunk_buffer_offset_t
@@ -305,6 +305,12 @@ const char* g_texturePathEyesDiff = "../../../../../assets/characters/zelda/mesh
 /*************************************************************/
 
 #define NUM_SWAP_CHAIN_IMAGES 3
+
+typedef struct fr_skinning_mapping_t
+{
+	uint32_t* indicesMapping;
+	uint32_t count;
+} fr_skinning_mapping_t;
 
 struct fr_renderer_t
 {
@@ -385,10 +391,13 @@ struct fr_renderer_t
 	fa_rig_t* pRig;
 	fa_anim_clip_t* pAnimClip;
 	
+	fr_skinning_mapping_t skinningMapping;
+	
 	void* scratchpadBuffer;
 	uint32_t scratchpadBufferSize;
 	
 	float rotationAngle;
+	float cameraZoom;
 	
 	fi_input_manager_t* pInputManager;
 };
@@ -1185,7 +1194,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		const uint32_t numTextureIndices = 7;
 		FUR_ASSERT(numChunks == numTextureIndices);
-		int32_t textureIndices[numTextureIndices] = {0, 1, 0, 2, 0, 0, 0};
+		int32_t textureIndices[numTextureIndices] = {0, 0, 0, 2, 0, 0, 1};
 		
 		for(uint32_t i=0; i<numChunks; ++i)
 		{
@@ -1794,9 +1803,34 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	}
 	
 	pRenderer->rotationAngle = 0.0f;
+	pRenderer->cameraZoom = 1.0f;
 	
 	pRenderer->scratchpadBufferSize = 128 * 1024;
 	pRenderer->scratchpadBuffer = FUR_ALLOC_AND_ZERO(pRenderer->scratchpadBufferSize, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+	
+	// create skinning mapping
+	{
+		const fr_resource_mesh_chunk_t* meshChunk = &pRenderer->pMesh->chunks[0];
+		const uint32_t numBones = meshChunk->numBones;
+		pRenderer->skinningMapping.indicesMapping = FUR_ALLOC_ARRAY_AND_ZERO(uint32_t, numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		pRenderer->skinningMapping.count = numBones;
+		
+		uint32_t* mapping = pRenderer->skinningMapping.indicesMapping;
+		const fa_rig_t* rig = pRenderer->pRig;
+		const uint32_t rigNumBones = rig->numBones;
+		
+		for(uint32_t i=0; i<numBones; ++i)
+		{
+			mapping[i] = 0;
+			for(uint32_t r=0; r<rigNumBones; ++r)
+			{
+				if(meshChunk->boneNameHashes[i] == rig->boneNameHashes[r])
+				{
+					mapping[i] = r;
+				}
+			}
+		}
+	}
 	
 	return res;
 }
@@ -1807,6 +1841,8 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	fi_input_manager_release(pRenderer->pInputManager, pAllocCallbacks);	// todo: move out of renderer
 	
 	FUR_FREE(pRenderer->scratchpadBuffer, pAllocCallbacks);
+	
+	FUR_FREE(pRenderer->skinningMapping.indicesMapping, pAllocCallbacks);
 	
 	// release character mesh
 	if(pRenderer->pMesh)
@@ -1914,8 +1950,9 @@ void fr_wait_for_device(struct fr_renderer_t* pRenderer)
 }
 
 const float g_rotationSpeed = FM_DEG_TO_RAD(90);
-const fm_vec4 g_eye = {0, -2, 1.5, 0};
-const fm_vec4 g_at = {0, 0, 1, 0};
+const float g_zoomSpeed = 0.2f;
+const fm_vec4 g_eye = {0, -3, 1.4, 0};
+const fm_vec4 g_at = {0, 0, 1.0, 0};
 const fm_vec4 g_up = {0, 0, 1, 0};
 
 double g_timeDelta = 0.0f;
@@ -1946,18 +1983,29 @@ void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_
 	fi_update_input_manager(pRenderer->pInputManager, g_time);	// todo: move out of renderer
 	
 	static float actionRotationLeftX = 0.0f;
+	static float actionZoomIn = 0.0f;
+	static float actionZoomOut = 0.0f;
 	
 	fi_input_event_t inputEvents[10];
 	const uint32_t numEventsCollected = fi_get_input_events(pRenderer->pInputManager, inputEvents, 10, 0);
 	for(uint32_t i=0; i<numEventsCollected; ++i)
 	{
-		if(inputEvents[i].eventID == Gamepad_leftAnalogX)
+		if(inputEvents[i].eventID == Gamepad_rightAnalogX)
 		{
 			actionRotationLeftX = fm_snap_near_zero(inputEvents[i].value, 0.05f);
+		}
+		else if(inputEvents[i].eventID == Gamepad_rightTrigger)
+		{
+			actionZoomIn = fm_snap_near_zero(inputEvents[i].value, 0.05f);
+		}
+		else if(inputEvents[i].eventID == Gamepad_leftTrigger)
+		{
+			actionZoomOut = fm_snap_near_zero(inputEvents[i].value, 0.05f);
 		}
 	}
 	
 	pRenderer->rotationAngle += g_rotationSpeed * ctx->dt * actionRotationLeftX;
+	pRenderer->cameraZoom += g_zoomSpeed * ctx->dt * (actionZoomOut - actionZoomIn);
 };
 
 uint32_t g_prevImageIndex = 0;
@@ -1981,12 +2029,11 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 			
 			desc.numBonesPerPose = pRenderer->pRig->numBones;
 			desc.numTracksPerPose = 0;
-			desc.numMaxPoses = 64;
+			desc.numMaxPoses = 4;
 			
-			//fa_pose_stack_init(&poseStack, &desc, pRenderer->scratchpadBuffer, pRenderer->scratchpadBufferSize);
+			fa_pose_stack_init(&poseStack, &desc, pRenderer->scratchpadBuffer, pRenderer->scratchpadBufferSize);
 		}
 		
-		/*
 		fa_pose_t refPose;
 		refPose.numTracks = 0;
 		refPose.numXforms = pRenderer->pRig->numBones;
@@ -2009,7 +2056,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		fa_pose_copy(&refPose, &modelPose);
 		
 		const float animTime = fmodf(g_time, pRenderer->pAnimClip->duration);
-		fa_anim_clip_sample(pRenderer->pAnimClip, animTime, &modelPose);
+		//fa_anim_clip_sample(pRenderer->pAnimClip, animTime, &modelPose);
 		
 		fa_pose_copy(&modelPose, &pose2);
 		
@@ -2030,15 +2077,28 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		}
 		
 		// pass skinning
-		for(uint32_t i=0; i<numBones; ++i)
+		const uint32_t skinNumBones = pRenderer->skinningMapping.count;
+		for(uint32_t i=0; i<skinNumBones; ++i)
 		{
-			fm_xform_to_mat4(&modelPose.xforms[i], &skinBuffer.bones[i]);
+			const uint32_t srcBoneIndex = pRenderer->skinningMapping.indicesMapping[i];
+			fm_xform_to_mat4(&modelPose.xforms[srcBoneIndex], &skinBuffer.bones[i]);
+		}
+		
+		const fm_mat4* bindPose = pRenderer->pMesh->chunks[0].bindPose;
+		fm_mat4 testMatrices[400];
+		
+		const float precision = 0.02f;
+		
+		for(uint32_t i=0; i<skinNumBones; ++i)
+		{
+			const uint32_t srcBoneIndex = pRenderer->skinningMapping.indicesMapping[i];
+			fm_xform_to_mat4(&modelPose.xforms[srcBoneIndex], &skinBuffer.bones[i]);
+			fm_mat4_mul(&bindPose[i], &skinBuffer.bones[i], &testMatrices[i]);
+			skinBuffer.bones[i] = testMatrices[i];
 		}
 		
 		fa_pose_stack_pop(&poseStack, 2);
 		
-		 */
-		 
 		fm_quat g_rotX;
 		fm_vec4 g_vx;
 		
@@ -2137,7 +2197,11 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		
 		fr_uniform_buffer_t ubo = {};
 		fm_mat4_rot_z(pRenderer->rotationAngle, &ubo.model);
-		fm_mat4_lookat(&g_eye, &g_at, &g_up, &tempView);
+		
+		fm_vec4 eye = g_eye;
+		fm_vec4_mulf(&g_eye, pRenderer->cameraZoom, &eye);
+		
+		fm_mat4_lookat(&eye, &g_at, &g_up, &tempView);
 		fm_mat4_projection_fov(45.0f, aspectRatio, 0.1f, 1000.0f, &ubo.proj);
 		
 		fm_mat4_t rot_x_vulkan_correction;

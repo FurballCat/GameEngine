@@ -8,7 +8,7 @@ layout(binding = 0) uniform UniformBufferObject {
 } ubo;
 
 layout(binding = 1) uniform SkinningBuffer {
-	mat4 bones[100];
+	mat4 bones[512];
 } skin;
 
 layout(location = 0) in vec3 inPosition;
@@ -26,12 +26,7 @@ void main()
 	const vec4 norm = vec4(inNormal, 0.0f);
 	vec4 posSkinned = {0.0f, 0.0f, 0.0f, 0.0f};
 	vec4 normSkinned = {0.0f, 0.0f, 0.0f, 0.0f};
-	
-	// remove when re-enabling skinning
-	posSkinned = pos;
-	normSkinned = norm;
-	
-	/*
+
 	for(int i=0; i<4; ++i)
 	{
 		if(skinIndices[i] >= 0)
@@ -45,7 +40,6 @@ void main()
 	}
 	
 	posSkinned.w = 1.0f;
-	*/
 	
 	gl_Position = ubo.proj * ubo.view * ubo.model * posSkinned;
 	

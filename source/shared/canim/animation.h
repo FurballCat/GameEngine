@@ -12,10 +12,11 @@ extern "C"
 	
 typedef struct fm_xform fm_xform;
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
+typedef uint32_t fc_string_hash_t;
 	
 typedef struct fa_rig_t
 {
-	uint64_t* boneNameHashes;
+	fc_string_hash_t* boneNameHashes;
 	int16_t* parents;
 	fm_xform* refPose;
 	uint32_t numBones;

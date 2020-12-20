@@ -57,6 +57,8 @@ struct FBXBoneInfo
 	FBXAnimCurve m_translation[3];
 	FBXAnimCurve m_rotation[3];
 	FBXAnimCurve m_scale[3];
+	
+	uint32_t m_originalIndex;	// to fix skinning data
 };
 
 struct FBXRig
@@ -97,13 +99,15 @@ void fi_gather_anim_curves(ofbx::IScene* scene, std::map<String, FBXBoneInfo*>& 
 			const ofbx::Object* bone = curveNode->getBone();
 			if(bone)
 			{
-				if(!(strcmp(bone->name, "rootTransform") == 0) && !(strcmp(bone->name, "Armature") == 0))		// Blender adds 'Armature' as root bone
+				//!(strcmp(bone->name, "rootTransform") == 0) &&
+				if(!(strcmp(bone->name, "Armature") == 0))		// Blender adds 'Armature' as root bone
 				{
 					if(bones.count(bone->name) == 0)
 					{
 						FBXBoneInfo* info = new FBXBoneInfo();
 						bones[bone->name] = info;
 						info->m_name = String(bone->name);
+						info->m_originalIndex = (uint32_t)icn;
 						
 						const ofbx::Object* parentBone = bone->getParent();
 						if(parentBone)
@@ -175,9 +179,10 @@ void fi_import_sort_bones(std::map<String, FBXBoneInfo*>& bones, DynArray<const 
 		
 		for(uint32 i=0; i<rigBones.size(); ++i)
 		{
-			if(rigBones[i]->m_parentName == "rootTransform")
+			if(rigBones[i]->m_name == "rootTransform")
 			{
 				parentName = "rootTransform";
+				sortedBones.push_back(rigBones[i]);
 				break;
 			}
 		}
@@ -256,12 +261,12 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 					
 					fm_euler_angles rotation = {0.0f, 0.0f, 0.0f};
 					
-					float yaw = 0.0f;
-					float pitch = 0.0f;
-					float roll = 0.0f;
+					float x = 0.0f;
+					float y = 0.0f;
+					float z = 0.0f;
 					
 					const FBXAnimCurve* rotationCurves = sortedRigBones[i]->m_rotation;
-					if(!rotationCurves[0].m_values.empty())
+					/*if(!rotationCurves[0].m_values.empty())
 					{
 						yaw = -rotationCurves[1].m_values[0];
 					}
@@ -272,11 +277,24 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 					if(!rotationCurves[2].m_values.empty())
 					{
 						roll = -rotationCurves[2].m_values[0];
+					}*/
+					
+					if(!rotationCurves[0].m_values.empty())
+					{
+						x = rotationCurves[0].m_values[0];
+					}
+					if(!rotationCurves[1].m_values.empty())
+					{
+						y = rotationCurves[1].m_values[0];
+					}
+					if(!rotationCurves[2].m_values.empty())
+					{
+						z = rotationCurves[2].m_values[0];
 					}
 					
-					rotation.yaw = FM_DEG_TO_RAD(yaw);
-					rotation.pitch = FM_DEG_TO_RAD(pitch);
-					rotation.roll = FM_DEG_TO_RAD(roll);
+					rotation.yaw = FM_DEG_TO_RAD(-y);
+					rotation.pitch = FM_DEG_TO_RAD(-x);
+					rotation.roll = FM_DEG_TO_RAD(-z);
 					
 					rig.m_referencePose[i].pos = position;
 					fm_quat_make_from_euler_angles_xyz(&rotation, &rig.m_referencePose[i].rot);
@@ -324,11 +342,13 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 				pRig->refPose = (fm_xform*)FUR_ALLOC(sizeof(fm_xform) * rig.m_referencePose.size(), 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 				pRig->parents = (int16_t*)FUR_ALLOC(sizeof(int16_t) * rig.m_referencePose.size(), 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 				pRig->numBones = (uint32_t)rig.m_referencePose.size();
+				pRig->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(fc_string_hash_t, numBones, 0, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 				
 				for(uint32_t i=0; i<pRig->numBones; ++i)
 				{
 					pRig->refPose[i] = rig.m_referencePose[i];
 					pRig->parents[i] = rig.m_parents[i];
+					pRig->boneNameHashes[i] = fc_make_string_hash(rig.m_jointNames[i].c_str());
 				}
 			}
 			
@@ -736,6 +756,7 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 					for(uint32_t idxSkin=0; idxSkin<FUR_MAX_SKIN_INDICES_PER_VERTEX; ++idxSkin)
 					{
 						chunk->dataSkinning[iv].indices[idxSkin] = -1;
+						chunk->dataSkinning[iv].weights[idxSkin] = 0.0f;
 					}
 				}
 				
@@ -771,70 +792,34 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 						uint32_t slotSkinIndices = 0;
 						
 						// find first free slot for index (in case this vertex is skinned to many bones)
-						while(skin->indices[slotSkinIndices] != -1 && slotSkinIndices < FUR_MAX_SKIN_INDICES_PER_VERTEX)
+						while(skin->indices[slotSkinIndices] != -1 && slotSkinIndices <= FUR_MAX_SKIN_INDICES_PER_VERTEX)
 						{
 							slotSkinIndices += 1;
 						}
 						
-						FUR_ASSERT(slotSkinIndices < FUR_MAX_SKIN_INDICES_PER_VERTEX);	// too many bones per vertex, max is FUR_MAX_SKIN_INDICES_PER_VERTEX
+						FUR_ASSERT(slotSkinIndices <= FUR_MAX_SKIN_INDICES_PER_VERTEX);	// too many bones per vertex, max is FUR_MAX_SKIN_INDICES_PER_VERTEX
 						
 						skin->indices[slotSkinIndices] = (int16_t)idxBone;
 						skin->weights[slotSkinIndices] = skinWeight;
 					}
 				}
 				
-				// transform vertices by inverse bind pose
+				// normalize weights (sum of weights should be 1.0f)
+				for(uint32_t is=0; is<chunk->numVertices; ++is)
 				{
-					float* itVertex = chunk->dataVertices;
-					
-					for(int32 iv=0; iv<numVertices; ++iv)
+					fr_resource_mesh_chunk_skin_t* skin = &chunk->dataSkinning[is];
+					const float totalWeight = skin->weights[0] + skin->weights[1] + skin->weights[2] + skin->weights[3];
+					if(totalWeight > 0.0f)
 					{
-						float* position = itVertex;
-						float* normal = itVertex + 3;
-						const fr_resource_mesh_chunk_skin_t* skin = &chunk->dataSkinning[iv];
-						
-						fm_vec4 pos = {position[0], position[1], position[2], 1.0f};
-						fm_vec4 n = {normal[0], normal[1], normal[2], 0.0f};
-						
-						fm_vec4 posTransformed;
-						fm_vec4 nTransformed;
-						
-						fm_vec4 posFinal = {};
-						fm_vec4 nFinal = {};
-						
-						for(uint32_t is=0; is<FUR_MAX_SKIN_INDICES_PER_VERTEX; ++is)
-						{
-							if(skin->weights[is] > 0.0f)
-							{
-								const uint32_t idxBone = skin->indices[is];
-								FUR_ASSERT(idxBone < chunk->numBones);
-								
-								const fm_mat4* boneMatrix = &chunk->bindPose[idxBone];
-								fm_mat4 boneMatrixT = *boneMatrix;
-								fm_mat4_transpose(&boneMatrixT);
-								fm_mat4_transform(&boneMatrixT, &pos, &posTransformed);
-								fm_mat4_transform(&boneMatrixT, &n, &nTransformed);
-								
-								fm_vec4_mulf(&posTransformed, skin->weights[is], &posTransformed);
-								fm_vec4_add(&posFinal, &posTransformed, &posFinal);
-								
-								fm_vec4_mulf(&nTransformed, skin->weights[is], &nTransformed);
-								fm_vec4_add(&nFinal, &nTransformed, &nFinal);
-							}
-						}
-						
-						position[0] = posFinal.x;
-						position[1] = posFinal.y;
-						position[2] = posFinal.z;
-						
-						normal[0] = nFinal.x;
-						normal[1] = nFinal.y;
-						normal[2] = nFinal.z;
-						
-						itVertex += strideFloats;
+						const float factor = 1.0f / totalWeight;
+						skin->weights[0] *= factor;
+						skin->weights[1] *= factor;
+						skin->weights[2] *= factor;
+						skin->weights[3] *= factor;
 					}
 					
-					FUR_ASSERT(itVertex == chunk->dataVertices + numVertices * strideFloats);
+					const float totalWeightFinal = skin->weights[0] + skin->weights[1] + skin->weights[2] + skin->weights[3];
+					FUR_ASSERT(0.999f < totalWeightFinal && totalWeightFinal < 1.001f);
 				}
 			}
 		}
