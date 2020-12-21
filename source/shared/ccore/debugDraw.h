@@ -31,6 +31,9 @@ CCORE_API void fc_dbg_triangle(const float pointA[3], const float pointB[3], con
 
 CCORE_API void fc_dbg_plane(const float center[3], const float halfLength, const float color[4]);
 	
+// use sprintf( txt, "blah blah %u", value ) and pass txt to the function (txt is char txt[32] or any other reasonable size)
+CCORE_API void fc_dbg_text(float x, float y, const char* txt, const float color[4]);
+	
 // sizes of each debug fragment buffers
 CCORE_API uint32_t fc_dbg_line_buffer_size(void);
 CCORE_API uint32_t fc_dbg_triangle_buffer_size(void);
@@ -55,6 +58,13 @@ typedef struct fc_dbg_buffers_desc_t
 	
 	const float* trianglesData;
 	uint32_t trianglesDataSize;
+	
+	const float* textLocationData;
+	const uint32_t* textRangeData;
+	uint32_t textLinesCount;
+	
+	const char* textCharactersData;
+	uint32_t textCharacterDataSize;
 } fc_dbg_buffer_desc_t;
 	
 CCORE_API void fc_dbg_get_buffers(fc_dbg_buffer_desc_t* outDesc);
