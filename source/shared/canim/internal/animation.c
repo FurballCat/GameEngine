@@ -262,7 +262,7 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose
 
 // -----
 
-void fa_pose_copy(const fa_pose_t* src, fa_pose_t* dest)
+void fa_pose_copy(fa_pose_t* dest, const fa_pose_t* src)
 {
 	const uint32_t numXforms = MIN(src->numXforms, dest->numXforms);
 	if(numXforms > 0)
@@ -277,7 +277,7 @@ void fa_pose_copy(const fa_pose_t* src, fa_pose_t* dest)
 	}
 }
 
-void fa_pose_local_to_model(const fa_pose_t* localPose, const int16_t* parentIndices, fa_pose_t* modelPose)
+void fa_pose_local_to_model(fa_pose_t* modelPose, const fa_pose_t* localPose, const int16_t* parentIndices)
 {
 	const fm_xform* localXforms = localPose->xforms;
 	fm_xform* modelXforms = modelPose->xforms;
@@ -307,11 +307,11 @@ void fa_pose_local_to_model(const fa_pose_t* localPose, const int16_t* parentInd
 	}
 }
 
-void fa_pose_blend_linear(fa_pose_t* out, const fa_pose_t* a, const fa_pose_t* b, float alpha)
+void fa_pose_blend_linear(fa_pose_t* out, const fa_pose_t* b, const fa_pose_t* a, float alpha)
 {
 	FUR_ASSERT(out->numXforms == a->numXforms && a->numXforms == b->numXforms);
 	FUR_ASSERT(out->numTracks == a->numTracks && a->numTracks == b->numTracks);
-	FUR_ASSERT(out->weightsXforms && out->weightsTracks);
+	FUR_ASSERT((out->weightsXforms || out->numXforms == 0) && (out->weightsTracks || out->numTracks == 0));
 	
 	// blend xforms
 	{

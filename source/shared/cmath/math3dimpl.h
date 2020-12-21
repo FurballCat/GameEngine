@@ -9,6 +9,8 @@ extern "C"
 
 #include <math.h>
 #include "math3d.h"
+	
+#define FM_SLERP_TOL 0.995f
 
 static inline void xm_vec4_add(const xm_vec4 v1, const xm_vec4 v2, xm_vec4* result)
 {
@@ -321,6 +323,11 @@ static inline float fm_quat_dot3(const fm_quat* a, const fm_quat* b)
 {
 	return a->i * b->i + a->j * b->j + a->k * b->k;
 }
+	
+static inline float fm_quat_dot(const fm_quat* a, const fm_quat* b)
+{
+	return a->i * b->i + a->j * b->j + a->k * b->k + a->r * b->r;
+}
 
 static inline void fm_quat_cross3(const fm_quat* a, const fm_quat* b, fm_vec4* v)
 {
@@ -330,12 +337,28 @@ static inline void fm_quat_cross3(const fm_quat* a, const fm_quat* b, fm_vec4* v
 	v->w = 0.0f;
 }
 
+static inline void fm_quat_add(fm_quat* v, const fm_quat* a, const fm_quat* b)
+{
+	v->i = a->i + b->i;
+	v->j = a->j + b->j;
+	v->k = a->k + b->k;
+	v->r = a->r + b->r;
+}
+	
 static inline void fm_quat_mul(const fm_quat* a, const fm_quat* b, fm_quat* c)
 {
 	c->i = a->r * b->i + a->k * b->j - a->j * b->k + a->i * b->r;
 	c->j = -a->k * b->i + a->r * b->j + a->i * b->k + a->j * b->r;
 	c->k = a->j * b->i - a->i * b->j + a->r * b->k + a->k * b->r;
 	c->r = -a->i * b->i - a->j * b->j - a->k * b->k + a->r * b->r;
+}
+	
+static inline void fm_quat_mulf(fm_quat* c, const fm_quat* a, float t)
+{
+	c->i = a->i * t;
+	c->j = a->j * t;
+	c->k = a->k * t;
+	c->r = a->r * t;
 }
 
 static inline void fm_quat_rot(const fm_quat* q, const fm_vec4* v, fm_vec4* c)
@@ -368,18 +391,43 @@ static inline void fm_quat_norm(fm_quat* q)
 	q->r *= n_inv;
 }
 
-static inline void fm_quat_slerp(const fm_quat* a, const fm_quat* b, float alpha, fm_quat* c)
+static inline void fm_quat_neg(fm_quat* q_out, const fm_quat* q_in)
 {
-	const float t = 1.0f - alpha;
-	const float theta = acosf(a->i * b->i + a->j * b->j + a->k * b->k + a->r * b->r);
-	const float sn = sinf(theta);
-	const float w_a = sinf(t * theta) / sn;
-	const float w_b = sinf(alpha * theta) / sn;
+	q_out->i = -q_in->i;
+	q_out->j = -q_in->j;
+	q_out->k = -q_in->k;
+	q_out->r = -q_in->r;
+}
 	
-	c->i = w_a * a->i + w_b * b->i;
-	c->j = w_a * a->j + w_b * b->j;
-	c->k = w_a * a->k + w_b * b->k;
-	c->r = w_a * a->r + w_b * b->r;
+static inline void fm_quat_slerp(const fm_quat* unitQuat0, const fm_quat* unitQuat1, float t, fm_quat* result)
+{
+	fm_quat start, tmpQ_0, tmpQ_1;
+	float recipSinAngle, scale0, scale1, cosAngle, angle;
+	cosAngle = fm_quat_dot( unitQuat0, unitQuat1 );
+	if ( cosAngle < 0.0f )
+	{
+		cosAngle = -cosAngle;
+		fm_quat_neg( &start, unitQuat0 );
+	}
+	else
+	{
+		start = *unitQuat0;
+	}
+	if ( cosAngle < FM_SLERP_TOL )
+	{
+		angle = acosf( cosAngle );
+		recipSinAngle = ( 1.0f / sinf( angle ) );
+		scale0 = ( sinf( ( ( 1.0f - t ) * angle ) ) * recipSinAngle );
+		scale1 = ( sinf( ( t * angle ) ) * recipSinAngle );
+	}
+	else
+	{
+		scale0 = ( 1.0f - t );
+		scale1 = t;
+	}
+	fm_quat_mulf( &tmpQ_0, &start, scale0 );
+	fm_quat_mulf( &tmpQ_1, unitQuat1, scale1 );
+	fm_quat_add( result, &tmpQ_0, &tmpQ_1 );
 }
 
 static inline void fm_quat_lerp(const fm_quat* a, const fm_quat* b, float alpha, fm_quat* c)

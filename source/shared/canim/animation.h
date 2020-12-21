@@ -71,8 +71,8 @@ CANIM_API void fa_pose_set_reference(const fa_rig_t* rig, fa_pose_t* pose);
 	
 CANIM_API void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose);
 
-CANIM_API void fa_pose_copy(const fa_pose_t* src, fa_pose_t* dest);
-CANIM_API void fa_pose_local_to_model(const fa_pose_t* localPose, const int16_t* parentIndices, fa_pose_t* modelPose);
+CANIM_API void fa_pose_copy(fa_pose_t* dest, const fa_pose_t* src);
+CANIM_API void fa_pose_local_to_model(fa_pose_t* modelPose, const fa_pose_t* localPose, const int16_t* parentIndices);
 	
 CANIM_API void fa_pose_blend_linear(fa_pose_t* out, const fa_pose_t* a, const fa_pose_t* b, float alpha);
 	

@@ -390,6 +390,7 @@ struct fr_renderer_t
 	
 	fa_rig_t* pRig;
 	fa_anim_clip_t* pAnimClip;
+	fa_anim_clip_t* pAnimClip2;
 	
 	fr_skinning_mapping_t skinningMapping;
 	
@@ -1155,6 +1156,9 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	const char* characterMeshPath = "assets/characters/zelda/mesh/zelda_mesh.fbx";
 	const char* characterRigPath = "assets/characters/zelda/mesh/zelda_rig.fbx";
 	
+	const char* anim_zelda_stand = "assets/characters/zelda/animations/zelda-idle-stand-01.fbx";
+	const char* anim_zelda_look = "assets/characters/zelda/animations/zelda-idle-stand-look-around.fbx";
+	
 	if(res == FR_RESULT_OK)
 	{
 		fi_depot_t depot;
@@ -1176,9 +1180,16 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		{
 			fi_import_anim_clip_ctx_t ctx;
-			ctx.path = characterRigPath;
+			ctx.path = anim_zelda_stand;
 			
 			fi_import_anim_clip(&depot, &ctx, &pRenderer->pAnimClip, pAllocCallbacks);
+		}
+		
+		{
+			fi_import_anim_clip_ctx_t ctx;
+			ctx.path = anim_zelda_look;
+			
+			fi_import_anim_clip(&depot, &ctx, &pRenderer->pAnimClip2, pAllocCallbacks);
 		}
 	}
 	
@@ -1975,6 +1986,8 @@ void fr_dbg_draw_mat4(const fm_mat4_t* m)
 	fc_dbg_line(pos, axisZ, blue);
 }
 
+float g_blend = 0.0f;
+
 void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_context_t* ctx)
 {
 	g_timeDelta = ctx->dt;
@@ -2003,6 +2016,8 @@ void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_
 			actionZoomOut = fm_snap_near_zero(inputEvents[i].value, 0.05f);
 		}
 	}
+	
+	g_blend = fm_clamp((sinf(g_time / 5.0f) + 1.0f) / 2.0f, 0.0f, 1.0f);
 	
 	pRenderer->rotationAngle += g_rotationSpeed * ctx->dt * actionRotationLeftX;
 	pRenderer->cameraZoom += g_zoomSpeed * ctx->dt * (actionZoomOut - actionZoomIn);
@@ -2045,22 +2060,34 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		
 		fm_mat4_t mat;
 		
-		fa_pose_stack_push(&poseStack, 2);
+		fa_pose_stack_push(&poseStack, 4);
 		
 		fa_pose_t modelPose;
 		fa_pose_stack_get(&poseStack, &modelPose, 0);
 		
-		fa_pose_t pose2;
-		fa_pose_stack_get(&poseStack, &pose2, 1);
+		fa_pose_t pose_stand;
+		fa_pose_stack_get(&poseStack, &pose_stand, 1);
 		
-		fa_pose_copy(&refPose, &modelPose);
+		fa_pose_t pose_look;
+		fa_pose_stack_get(&poseStack, &pose_look, 2);
+		
+		fa_pose_t pose_temp;
+		fa_pose_stack_get(&poseStack, &pose_temp, 3);
+		
+		fa_pose_copy(&modelPose, &refPose);
+		fa_pose_copy(&pose_stand, &refPose);
+		fa_pose_copy(&pose_look, &refPose);
+		fa_pose_copy(&pose_temp, &refPose);
 		
 		const float animTime = fmodf(g_time, pRenderer->pAnimClip->duration);
-		//fa_anim_clip_sample(pRenderer->pAnimClip, animTime, &modelPose);
+		fa_anim_clip_sample(pRenderer->pAnimClip, animTime, &pose_stand);
 		
-		fa_pose_copy(&modelPose, &pose2);
+		const float animTime2 = fmodf(g_time, pRenderer->pAnimClip2->duration);
+		fa_anim_clip_sample(pRenderer->pAnimClip2, animTime2, &pose_look);
 		
-		fa_pose_local_to_model(&pose2, parentIndices, &modelPose);
+		fa_pose_blend_linear(&pose_temp, &pose_stand, &pose_look, g_blend);
+		
+		fa_pose_local_to_model(&modelPose, &pose_temp, parentIndices);
 		
 		float color[4] = FUR_COLOR_CYAN;
 		
@@ -2095,7 +2122,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 			skinBuffer.bones[i] = testMatrices[i];
 		}
 		
-		fa_pose_stack_pop(&poseStack, 2);
+		fa_pose_stack_pop(&poseStack, 4);
 		
 		fm_quat g_rotX;
 		fm_vec4 g_vx;
