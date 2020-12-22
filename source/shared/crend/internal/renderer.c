@@ -361,8 +361,14 @@ struct fr_renderer_t
 	VkShaderModule debugVertexShaderModule;
 	VkShaderModule debugFragmentShaderModule;
 	
+	VkShaderModule textVertexShaderModule;
+	VkShaderModule textFragmentShaderModule;
+	
 	VkVertexInputBindingDescription debugLinesVertexBindingDescription;
 	VkVertexInputAttributeDescription debugLinesVertexAttributes[2];
+	
+	VkVertexInputBindingDescription debugTextVertexBindingDescription;
+	VkVertexInputAttributeDescription debugTextVertexAttributes[3];
 	
 	fr_buffer_t debugLinesVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
 	fr_buffer_t debugTrianglesVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
@@ -770,6 +776,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	const char* basicFragmentShaderPath = "../../../../../shaders/compiled/basic_fs.spv";
 	const char* debugVertexShaderPath = "../../../../../shaders/compiled/debug_vs.spv";
 	const char* debugFragmentShaderPath = "../../../../../shaders/compiled/debug_fs.spv";
+	const char* textVertexShaderPath = "../../../../../shaders/compiled/text_vs.spv";
+	const char* textFragmentShaderPath = "../../../../../shaders/compiled/text_fs.spv";
 	
 	if(res == FR_RESULT_OK)
 	{
@@ -791,6 +799,16 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		res = fr_create_shader_module(pRenderer->device, debugFragmentShaderPath, &pRenderer->debugFragmentShaderModule, pAllocCallbacks);
 	}
 	
+	if(res == FR_RESULT_OK)
+	{
+		res = fr_create_shader_module(pRenderer->device, textVertexShaderPath, &pRenderer->textVertexShaderModule, pAllocCallbacks);
+	}
+	
+	if(res == FR_RESULT_OK)
+	{
+		res = fr_create_shader_module(pRenderer->device, textFragmentShaderPath, &pRenderer->textFragmentShaderModule, pAllocCallbacks);
+	}
+	
 	// debug draw bindings
 	if(res == FR_RESULT_OK)
 	{
@@ -807,6 +825,29 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		pRenderer->debugLinesVertexAttributes[1].location = 1;
 		pRenderer->debugLinesVertexAttributes[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
 		pRenderer->debugLinesVertexAttributes[1].offset = 3 * sizeof(float);
+	}
+	
+	// debug text draw bindings
+	if(res == FR_RESULT_OK)
+	{
+		pRenderer->debugTextVertexBindingDescription.binding = 0;
+		pRenderer->debugTextVertexBindingDescription.stride = 9 * sizeof(float);
+		pRenderer->debugTextVertexBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		
+		pRenderer->debugTextVertexAttributes[0].binding = 0;
+		pRenderer->debugTextVertexAttributes[0].location = 0;
+		pRenderer->debugTextVertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+		pRenderer->debugTextVertexAttributes[0].offset = 0;
+		
+		pRenderer->debugTextVertexAttributes[1].binding = 0;
+		pRenderer->debugTextVertexAttributes[1].location = 1;
+		pRenderer->debugTextVertexAttributes[1].format = VK_FORMAT_R32G32_SFLOAT;
+		pRenderer->debugTextVertexAttributes[1].offset = 3 * sizeof(float);
+		
+		pRenderer->debugTextVertexAttributes[2].binding = 0;
+		pRenderer->debugTextVertexAttributes[2].location = 2;
+		pRenderer->debugTextVertexAttributes[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+		pRenderer->debugTextVertexAttributes[2].offset = 5 * sizeof(float);
 	}
 	
 	// test geometry
@@ -1935,6 +1976,9 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	
 	vkDestroyShaderModule(pRenderer->device, pRenderer->debugVertexShaderModule, NULL);
 	vkDestroyShaderModule(pRenderer->device, pRenderer->debugFragmentShaderModule, NULL);
+	
+	vkDestroyShaderModule(pRenderer->device, pRenderer->textVertexShaderModule, NULL);
+	vkDestroyShaderModule(pRenderer->device, pRenderer->textFragmentShaderModule, NULL);
 	
 	// destroy window surface and swap chain
 	for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
