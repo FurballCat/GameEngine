@@ -389,6 +389,8 @@ bool fc_text_parse_skip_line(fc_text_stream_ro_t* stream)
 
 /*************************************************************/
 
+#define FR_FONT_FLOATS_PER_GLYPH 7
+
 typedef struct fr_font_glyph_t
 {
 	char character;
@@ -401,6 +403,7 @@ typedef struct fr_font_t
 {
 	fr_font_glyph_t* glyphs;	// sorted by character in ASCII, use character as index
 	uint32_t numGlyphs;
+	uint32_t offsetGlyphs;
 	
 	fr_image_t atlas;
 	uint32_t atlasWidth;
@@ -550,7 +553,7 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 					break;
 				}
 				
-				font->glyphs[i].character = asciiChar;
+				font->glyphs[i].character = (char)asciiNumber;
 				font->glyphs[i].uvMin[0] = uv[0];
 				font->glyphs[i].uvMin[1] = uv[1];
 				font->glyphs[i].uvMax[0] = ((float)pixelWidth) / ((float)font->atlasWidth);
@@ -560,12 +563,184 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 			}
 			
 			FUR_ASSERT(parsingErrorGlyphIndex == -1);
+			font->offsetGlyphs = font->glyphs[0].character;	// keep the offset in ASCII to first character for later get_glyph
 		}
 		
 		fr_release_text_buffer(&textBuffer, pAllocCallbacks);
 	}
 	
 	return res;
+}
+
+const fr_font_glyph_t* fr_font_get_glyph(const fr_font_t* font, char chr)
+{
+	const uint32_t offsetGlyphs = font->offsetGlyphs;
+	if(chr < offsetGlyphs)
+		return NULL;
+	
+	const uint32_t idxGlyph = (uint32_t)chr - offsetGlyphs;
+	if(idxGlyph >= font->numGlyphs)
+		return NULL;
+	
+	return &font->glyphs[idxGlyph];
+}
+
+uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, const float textPos[2], const float textColor[3], float* vertices, uint32_t numMaxVertices)
+{
+	FUR_ASSERT(FR_FONT_FLOATS_PER_GLYPH == 7);
+	
+	const uint32_t length = (uint32_t)strlen(text);
+	const uint32_t vertexStride = FR_FONT_FLOATS_PER_GLYPH;
+	const uint32_t numVerticesPerGlyph = 6;
+	const uint32_t numVerticesRequired = length * numVerticesPerGlyph * vertexStride;
+	
+	if(numVerticesRequired > numMaxVertices)
+		return 0;
+	
+	float cursor[2] = {textPos[0], textPos[1]};
+	for(uint32_t i=0; i<length; ++i)
+	{
+		const fr_font_glyph_t* glyph = fr_font_get_glyph(font, text[i]);
+		static const float scale = 0.1f;
+		
+		const float glyphWidth = (float)glyph->size[0];
+		const float glyphHeight = (float)glyph->size[1];
+		
+		const float scaledGlyphWidth = glyphWidth * scale;
+		const float scaledGlyphHeight = glyphHeight * scale;
+		
+		// top-right CCW triangle
+		// O---
+		//  \  |
+		//   \ |
+		//    \|
+		//
+		{
+			float* pos = vertices;
+			float* uv = vertices + 2;
+			float* color = vertices + 4;
+			
+			pos[0] = cursor[0];
+			pos[1] = cursor[1];
+			uv[0] = glyph->uvMin[0];
+			uv[1] = glyph->uvMin[1];
+			color[0] = textColor[0];
+			color[1] = textColor[1];
+			color[2] = textColor[2];
+		}
+		
+		vertices += vertexStride;
+		
+		//  ---
+		//  \  |
+		//   \ |
+		//    \|
+		//     O
+		{
+			float* pos = vertices;
+			float* uv = vertices + 2;
+			float* color = vertices + 4;
+			
+			pos[0] = cursor[0] + scaledGlyphWidth;
+			pos[1] = cursor[1] - scaledGlyphHeight;
+			uv[0] = glyph->uvMax[0];
+			uv[1] = glyph->uvMax[1];
+			color[0] = textColor[0];
+			color[1] = textColor[1];
+			color[2] = textColor[2];
+		}
+		
+		vertices += vertexStride;
+		
+		//  ---O
+		//  \  |
+		//   \ |
+		//    \|
+		//
+		{
+			float* pos = vertices;
+			float* uv = vertices + 2;
+			float* color = vertices + 4;
+			
+			pos[0] = cursor[0] + scaledGlyphWidth;
+			pos[1] = cursor[1];
+			uv[0] = glyph->uvMax[0];
+			uv[1] = glyph->uvMin[1];
+			color[0] = textColor[0];
+			color[1] = textColor[1];
+			color[2] = textColor[2];
+		}
+		
+		vertices += vertexStride;
+		
+		// bottom-left CCW triangle
+		// O
+		// |\
+		// | \
+		// |  \
+		//  ---
+		{
+			// same as vertex 0
+			float* pos = vertices;
+			float* uv = vertices + 2;
+			float* color = vertices + 4;
+			
+			pos[0] = cursor[0];
+			pos[1] = cursor[1];
+			uv[0] = glyph->uvMin[0];
+			uv[1] = glyph->uvMin[1];
+			color[0] = textColor[0];
+			color[1] = textColor[1];
+			color[2] = textColor[2];
+		}
+		
+		vertices += vertexStride;
+		
+		//
+		// |\
+		// | \
+		// |  \
+		// O---
+		{
+			float* pos = vertices;
+			float* uv = vertices + 2;
+			float* color = vertices + 4;
+			
+			pos[0] = cursor[0];
+			pos[1] = cursor[1] - scaledGlyphHeight;
+			uv[0] = glyph->uvMin[0];
+			uv[1] = glyph->uvMax[1];
+			color[0] = textColor[0];
+			color[1] = textColor[1];
+			color[2] = textColor[2];
+		}
+		
+		vertices += vertexStride;
+		
+		//
+		// |\
+		// | \
+		// |  \
+		//  ---O
+		{
+			// same as vertex 1
+			float* pos = vertices;
+			float* uv = vertices + 2;
+			float* color = vertices + 4;
+			
+			pos[0] = cursor[0] + scaledGlyphWidth;
+			pos[1] = cursor[1] - scaledGlyphHeight;
+			uv[0] = glyph->uvMax[0];
+			uv[1] = glyph->uvMax[1];
+			color[0] = textColor[0];
+			color[1] = textColor[1];
+			color[2] = textColor[2];
+		}
+		
+		cursor[0] += scaledGlyphWidth;
+	}
+	
+	return numVerticesRequired;
 }
 
 /*************************************************************/
@@ -1700,7 +1875,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		fr_buffer_desc_t desc = {};
-		desc.size = fc_dbg_text_characters_capacity() * 9 * sizeof(float);
+		desc.size = fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH * sizeof(float);
 		desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
 		desc.properties = FR_STAGING_BUFFER_MEMORY_FLAGS;	// use vertex buffer usage, but staging buffer properties
 		
@@ -2253,7 +2428,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->textVertexBuffer[i].memory, 0, fc_dbg_text_characters_capacity() * 9 * sizeof(float));
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->textVertexBuffer[i].memory, 0, fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH * sizeof(float));
 		}
 	}
 	
@@ -2723,6 +2898,8 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 	fc_dbg_line(begin, axisY, colorGreen);
 	fc_dbg_line(begin, axisZ, colorBlue);
 	
+	fc_dbg_text(0.0f, 0.0f, "Welcome Zelda!", colorGreen);
+	
 	// update debug lines buffer
 	{
 		fc_dbg_buffers_lock();	// lock so no-one adds lines while retriving the buffer
@@ -2745,7 +2922,18 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		
 		if(desc.textLinesCount > 0)
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[imageIndex].memory, 0, fc_dbg_text_characters_capacity() * 9 * sizeof(float));
+			const uint32_t numFloatsCapacity = fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH;
+			const uint32_t dataSize = numFloatsCapacity * sizeof(float);
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->textVertexBuffer[imageIndex].memory, 0, dataSize);
+			
+			VkDeviceMemory dst = pRenderer->textVertexBuffer[imageIndex].memory;
+			const uint32_t offset = 0;
+			
+			void* dataRaw;
+			vkMapMemory(pRenderer->device, dst, offset, dataSize, 0, &dataRaw);
+			
+			float* verticesFloats = (float*)dataRaw;
+			uint32_t dataSizeLeft = numFloatsCapacity;
 			
 			// convert from text info to glyphs
 			for(uint32_t itl=0; itl<desc.textLinesCount; ++itl)
@@ -2755,16 +2943,18 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 				const float* dataLoc = desc.textLocationData + offsetLoc;
 				const uint32_t* dataRange = desc.textRangeData + offsetRange;
 				
-				const float locX = dataLoc[0];
-				const float locY = dataLoc[1];
-				
-				const float colorR = dataLoc[2];
-				const float colorG = dataLoc[3];
-				const float colorB = dataLoc[4];
-				
+				const float* pos = dataLoc;
+				const float* color = dataLoc + 2;
 				const uint32_t offsetText = dataRange[0];
-				const uint32_t lengthText = dataRange[1];
+				
+				const char* text = desc.textCharactersData + offsetText;
+				
+				const uint32_t numFloatsWritten = fr_font_fill_vertex_buffer(&pRenderer->textFont, text, pos, color, verticesFloats, dataSizeLeft);
+				verticesFloats += numFloatsWritten;
+				dataSizeLeft -= numFloatsWritten;
 			}
+			
+			vkUnmapMemory(pRenderer->device, dst);
 		}
 		
 		fc_dbg_buffers_clear();	// clear the buffer for next frame
