@@ -980,7 +980,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 		
 		// create pipeline state object (PSO)
-		VkPipelineShaderStageCreateInfo shaderStages[] = {};
+		VkPipelineShaderStageCreateInfo shaderStages[2] = {};
 		
 		fr_pso_init_shader_stages_simple(pRenderer->vertexShaderModule, "main",
 										 pRenderer->fragmentShaderModule, "main",
@@ -1075,7 +1075,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		// create pipeline state object (PSO)
-		VkPipelineShaderStageCreateInfo shaderStages[] = {};
+		VkPipelineShaderStageCreateInfo shaderStages[2] = {};
 		
 		fr_pso_init_shader_stages_simple(pRenderer->debugVertexShaderModule, "main",
 										 pRenderer->debugFragmentShaderModule, "main",
