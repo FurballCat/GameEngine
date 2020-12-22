@@ -357,6 +357,7 @@ struct fr_renderer_t
 	// debug draw
 	VkPipeline debugLinesPSO;
 	VkPipeline debugTrianglesPSO;
+	VkPipeline debugTextPSO;
 	
 	VkShaderModule debugVertexShaderModule;
 	VkShaderModule debugFragmentShaderModule;
@@ -1174,6 +1175,26 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			fur_set_last_error("Can't create debug triangles PSO");
 			res = FR_RESULT_ERROR_GPU;
 		}
+		
+		// create text debug PSO
+		fr_pso_init_rasterization_state_polygon_fill(&rasterizer);
+		fr_pso_init_input_assembly_state_triangle_list(&inputAssembly);
+		
+		fr_pso_init_shader_stages_simple(pRenderer->textVertexShaderModule, "main",
+										 pRenderer->textFragmentShaderModule, "main",
+										 shaderStages);
+		
+		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		vertexInputInfo.vertexBindingDescriptionCount = 1;
+		vertexInputInfo.vertexAttributeDescriptionCount = 3;
+		vertexInputInfo.pVertexBindingDescriptions = &pRenderer->debugTextVertexBindingDescription;
+		vertexInputInfo.pVertexAttributeDescriptions = pRenderer->debugTextVertexAttributes;
+		
+		if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->debugTextPSO) != VK_SUCCESS)
+		{
+			fur_set_last_error("Can't create debug text PSO");
+			res = FR_RESULT_ERROR_GPU;
+		}
 	}
 	
 	// create depth buffer
@@ -1969,6 +1990,7 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	// destroy debug PSO
 	vkDestroyPipeline(pRenderer->device, pRenderer->debugLinesPSO, NULL);
 	vkDestroyPipeline(pRenderer->device, pRenderer->debugTrianglesPSO, NULL);
+	vkDestroyPipeline(pRenderer->device, pRenderer->debugTextPSO, NULL);
 	
 	// destroy shaders
 	vkDestroyShaderModule(pRenderer->device, pRenderer->vertexShaderModule, NULL);
