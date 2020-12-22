@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #include "ccore/public.h"
 #include "cinput/public.h"
@@ -50,7 +51,8 @@
 
 /*************************************************************/
 
-const char* g_lastError = "";
+#define FC_ERROR_MESSAGE_MAX_LENGTH 512
+char g_lastError[FC_ERROR_MESSAGE_MAX_LENGTH] = {};
 
 const char* fr_get_last_error(void)
 {
@@ -59,7 +61,9 @@ const char* fr_get_last_error(void)
 
 void fur_set_last_error(const char* error)
 {
-	g_lastError = error;
+	uint64_t length = strlen(error);
+	FUR_ASSERT(length < FC_ERROR_MESSAGE_MAX_LENGTH);
+	memcpy((char*)g_lastError, error, length);
 }
 
 #define FUR_CASE_ENUM_TO_CSTR(value, details) case value: return #value details; break;
@@ -177,13 +181,13 @@ uint32_t fr_update_app(struct fr_app_t* pApp)
 
 /*************************************************************/
 
-struct fr_binary_buffer_t
+typedef struct fr_binary_buffer_t
 {
 	void* pData;
 	size_t size;
-};
+} fr_binary_buffer_t;
 
-enum fr_result_t fr_load_binary_file_into_binary_buffer(const char* path, struct fr_binary_buffer_t* pBuffer, struct fc_alloc_callbacks_t* pAllocCallbacks)
+enum fr_result_t fr_load_binary_file_into_binary_buffer(const char* path, fr_binary_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	FILE* pFile = fopen(path, "rb");
 	if(pFile && pBuffer)
@@ -205,9 +209,363 @@ enum fr_result_t fr_load_binary_file_into_binary_buffer(const char* path, struct
 	return FR_RESULT_ERROR;
 }
 
-void fr_release_binary_buffer(struct fr_binary_buffer_t* pBuffer, struct fc_alloc_callbacks_t* pAllocCallbacks)
+void fr_release_binary_buffer(fr_binary_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	FUR_FREE(pBuffer->pData, pAllocCallbacks);
+}
+
+typedef struct fr_text_buffer_t
+{
+	char* pData;
+	size_t size;
+} fr_text_buffer_t;
+
+enum fr_result_t fr_load_text_file_into_text_buffer(const char* path, fr_text_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	FILE* pFile = fopen(path, "r");
+	if(pFile && pBuffer)
+	{
+		fseek(pFile, 0, SEEK_END);
+		size_t size = ftell(pFile);
+		fseek(pFile, 0, SEEK_SET);
+		
+		pBuffer->pData = (char*)FUR_ALLOC(size, 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+		pBuffer->size = size;
+		
+		fread(pBuffer->pData, size, 1, pFile);
+		fclose(pFile);
+		
+		return FR_RESULT_OK;
+	}
+	
+	fur_set_last_error(path);
+	return FR_RESULT_ERROR;
+}
+
+void fr_release_text_buffer(fr_text_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	FUR_FREE(pBuffer->pData, pAllocCallbacks);
+}
+
+/*************************************************************/
+
+typedef struct fc_text_stream_ro_t
+{
+	const char* ptr;
+	const char* end;
+} fc_text_stream_ro_t;
+
+bool fc_text_stream_is_eof(fc_text_stream_ro_t* stream, uint32_t offset)
+{
+	return stream->ptr + offset >= stream->end;
+}
+
+bool fc_text_parse_is_numeric(char chr)
+{
+	return isdigit(chr) != 0;
+}
+
+bool fc_text_parse_is_whitespace(char chr)
+{
+	return chr == ' ' || chr == '\r' || chr == '\t' || chr == '\n';
+}
+
+bool fc_text_parse_whitespaces(fc_text_stream_ro_t* stream)
+{
+	uint32_t i = 0;
+	while(!fc_text_stream_is_eof(stream, i) && fc_text_parse_is_whitespace(stream->ptr[i]))
+	{
+		++i;
+	}
+	
+	stream->ptr += i;
+	
+	return i;
+}
+
+bool fc_text_parse_character(fc_text_stream_ro_t* stream, char* outChar)
+{
+	// note: do not skip whitespaces here
+	
+	if(fc_text_stream_is_eof(stream, 0))
+		return false;
+	
+	*outChar = stream->ptr[0];
+	stream->ptr += 1;
+	
+	return true;
+}
+
+bool fc_text_parse_keyword(fc_text_stream_ro_t* stream, const char* keyword)
+{
+	fc_text_parse_whitespaces(stream);
+	
+	const uint32_t length = (uint32_t)strlen(keyword);
+	for(uint32_t i=0; i<length; ++i)
+	{
+		if(fc_text_stream_is_eof(stream, i))
+		{
+			return false;
+		}
+		
+		if(stream->ptr[i] != keyword[i])
+		{
+			return false;
+		}
+	}
+	
+	stream->ptr += length;
+	
+	return true;
+}
+
+bool fc_text_parse_int32(fc_text_stream_ro_t* stream, int32_t* out)
+{
+	fc_text_parse_whitespaces(stream);
+	
+	char buf[64] = {};
+	
+	uint32_t i = 0;
+	while(!fc_text_stream_is_eof(stream, i) && fc_text_parse_is_numeric(stream->ptr[i]) && i < 63)
+	{
+		buf[i] = stream->ptr[i];
+		++i;
+	}
+	
+	if(i == 0)
+		return false;
+	
+	buf[i] = '\0';
+	
+	*out = atoi(buf);
+	
+	stream->ptr += i;
+	
+	return true;
+}
+
+bool fc_text_parse_float(fc_text_stream_ro_t* stream, float* out)
+{
+	fc_text_parse_whitespaces(stream);
+	
+	char buf[64] = {};
+	
+	uint32_t i = 0;
+	while(!fc_text_stream_is_eof(stream, i) && (fc_text_parse_is_numeric(stream->ptr[i]) || stream->ptr[i] == '.') && i < 63)
+	{
+		buf[i] = stream->ptr[i];
+		++i;
+	}
+	
+	if(i == 0)
+		return false;
+	
+	buf[i] = '\0';
+	
+	*out = atof(buf);
+	
+	stream->ptr += i;
+	
+	return true;
+}
+
+bool fc_text_parse_skip_line(fc_text_stream_ro_t* stream)
+{
+	uint32_t i = 0;
+	while(!fc_text_stream_is_eof(stream, i) && stream->ptr[i] != '\n')
+	{
+		++i;
+	}
+	
+	if(!fc_text_stream_is_eof(stream, i) && stream->ptr[i] == '\n')
+	{
+		++i;
+	}
+		
+	stream->ptr += i;
+	
+	return i > 0;
+}
+
+/*************************************************************/
+
+typedef struct fr_font_glyph_t
+{
+	char character;
+	float uvMin[2];
+	float uvMax[2];
+	uint32_t size[2];	// width and height in pixels
+} fr_font_glyph_t;
+
+typedef struct fr_font_t
+{
+	fr_font_glyph_t* glyphs;	// sorted by character in ASCII, use character as index
+	uint32_t numGlyphs;
+	
+	fr_image_t atlas;
+	uint32_t atlasWidth;
+	uint32_t atlasHeight;
+	
+	void* pixelsData;	// used for staging buffer
+} fr_font_t;
+
+typedef struct fr_font_desc_t
+{
+	const char* atlasPath;		// image with all glyphs
+	const char* glyphsInfoPath;	// UV and sizes of each glyph and character mapping
+} fr_font_desc_t;
+
+void fr_font_release(VkDevice device, fr_font_t* font, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	fr_image_release(device, &font->atlas, pAllocCallbacks);
+	
+	if(font->pixelsData)	// this is optional, can be released earlier during staging buffer phase
+	{
+		FUR_FREE(font->pixelsData, pAllocCallbacks);
+	}
+	
+	FUR_FREE(font->glyphs, pAllocCallbacks);
+	
+	memset(font, 0, sizeof(fr_font_t));
+}
+
+enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice, const fr_font_desc_t* desc, fr_font_t* font, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	enum fr_result_t res = FR_RESULT_OK;
+	
+	// load glyph atlas
+	{
+		VkDeviceSize imageSize = 0;
+		int32_t width = 0;
+		int32_t height = 0;
+		
+		// load texture
+		{
+			int texChannels;
+			font->pixelsData = (void*)stbi_load(desc->atlasPath, &width, &height, &texChannels, STBI_rgb_alpha);
+			font->atlasWidth = width;
+			font->atlasHeight = height;
+			
+			imageSize = width * height * 4;
+			
+			if(!font->pixelsData)
+			{
+				char txt[256];
+				sprintf(txt, "Can't load font atlas \'%s\'", desc->atlasPath);
+				fur_set_last_error("Can't load font atlas");
+				res = FR_RESULT_ERROR;
+			}
+		}
+		
+		// create texture image
+		if(res == FR_RESULT_OK)
+		{
+			fr_image_desc_t desc = {};
+			desc.size = imageSize;
+			desc.width = font->atlasWidth;
+			desc.height = font->atlasHeight;
+			desc.format = VK_FORMAT_R8G8B8A8_UNORM;
+			desc.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+			desc.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+			
+			fr_image_create(device, physicalDevice, &desc, &font->atlas, pAllocCallbacks);
+		}
+	}
+	
+	// read glyph infos
+	if(res == FR_RESULT_OK)
+	{
+		fr_text_buffer_t textBuffer = {};
+		res = fr_load_text_file_into_text_buffer(desc->glyphsInfoPath, &textBuffer, pAllocCallbacks);
+		if(res != FR_RESULT_OK)
+			return res;
+
+		const char* streamBegin = textBuffer.pData;
+		const char* streamEnd = textBuffer.pData + textBuffer.size;
+		
+		// count number of glyphs
+		uint32_t numGlyphs = 0;
+		
+		{
+			fc_text_stream_ro_t stream = {streamBegin, streamEnd};
+			while(!fc_text_stream_is_eof(&stream, 0))
+			{
+				if(!fc_text_parse_skip_line(&stream))
+					break;
+				
+				++numGlyphs;
+			}
+		}
+		
+		FUR_ASSERT(numGlyphs > 0);
+		font->glyphs = FUR_ALLOC_ARRAY_AND_ZERO(fr_font_glyph_t, numGlyphs, 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+		font->numGlyphs = numGlyphs;
+		
+		// parse content
+		{
+			int32_t parsingErrorGlyphIndex = -1;
+			
+			fc_text_stream_ro_t stream = {streamBegin, streamEnd};
+			for(uint32_t i=0; i<numGlyphs; ++i)
+			{
+				int32_t asciiNumber = 0;
+				if(!fc_text_parse_int32(&stream, &asciiNumber))
+				{
+					parsingErrorGlyphIndex = i;
+					break;
+				}
+				
+				char asciiChar = '\0';
+				
+				if(!fc_text_parse_character(&stream, &asciiChar))	// skip first char
+				{
+					parsingErrorGlyphIndex = i;
+					break;
+				}
+				
+				if(!fc_text_parse_character(&stream, &asciiChar))
+				{
+					parsingErrorGlyphIndex = i;
+					break;
+				}
+				
+				float uv[2] = {};
+				
+				if(!fc_text_parse_float(&stream, &uv[0]))
+				{
+					parsingErrorGlyphIndex = i;
+					break;
+				}
+				
+				if(!fc_text_parse_float(&stream, &uv[1]))
+				{
+					parsingErrorGlyphIndex = i;
+					break;
+				}
+				
+				int32_t pixelWidth = 0;
+				if(!fc_text_parse_int32(&stream, &pixelWidth))
+				{
+					parsingErrorGlyphIndex = i;
+					break;
+				}
+				
+				font->glyphs[i].character = asciiChar;
+				font->glyphs[i].uvMin[0] = uv[0];
+				font->glyphs[i].uvMin[1] = uv[1];
+				font->glyphs[i].uvMax[0] = ((float)pixelWidth) / ((float)font->atlasWidth);
+				font->glyphs[i].uvMax[1] = 1.0f;
+				font->glyphs[i].size[0] = pixelWidth;
+				font->glyphs[i].size[1] = font->atlasHeight;
+			}
+			
+			FUR_ASSERT(parsingErrorGlyphIndex == -1);
+		}
+		
+		fr_release_text_buffer(&textBuffer, pAllocCallbacks);
+	}
+	
+	return res;
 }
 
 /*************************************************************/
@@ -373,6 +731,9 @@ struct fr_renderer_t
 	
 	fr_buffer_t debugLinesVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
 	fr_buffer_t debugTrianglesVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
+	
+	fr_buffer_t textVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
+	fr_font_t textFont;
 	
 	// test geometry
 	VkVertexInputBindingDescription bindingDescription[2];
@@ -1197,6 +1558,16 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 	}
 	
+	// load debug font
+	if(res == FR_RESULT_OK)
+	{
+		fr_font_desc_t desc = {};
+		desc.atlasPath = "../../../../../assets/fonts/debug-font.png";
+		desc.glyphsInfoPath = "../../../../../assets/fonts/debug-font-data.txt";
+		
+		res = fr_font_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->textFont, pAllocCallbacks);
+	}
+	
 	// create depth buffer
 	if(res == FR_RESULT_OK)
 	{
@@ -1322,6 +1693,20 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->debugTrianglesVertexBuffer[i], pAllocCallbacks);
+		}
+	}
+	
+	// create debug text vertex buffer
+	if(res == FR_RESULT_OK)
+	{
+		fr_buffer_desc_t desc = {};
+		desc.size = fc_dbg_text_characters_capacity() * 9 * sizeof(float);
+		desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
+		desc.properties = FR_STAGING_BUFFER_MEMORY_FLAGS;	// use vertex buffer usage, but staging buffer properties
+		
+		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		{
+			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->textVertexBuffer[i], pAllocCallbacks);
 		}
 	}
 	
@@ -1854,6 +2239,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	}
 	
 	// clear debug fragments buffers buffer with zeros
+	if(res == FR_RESULT_OK)
 	{
 		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
@@ -1863,6 +2249,11 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[i].memory, 0, fc_dbg_triangle_buffer_size());
+		}
+		
+		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		{
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->textVertexBuffer[i].memory, 0, fc_dbg_text_characters_capacity() * 9 * sizeof(float));
 		}
 	}
 	
@@ -1875,13 +2266,17 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		FUR_FREE(pRenderer, pAllocCallbacks);
 	}
 	
-	pRenderer->rotationAngle = 0.0f;
-	pRenderer->cameraZoom = 1.0f;
-	
-	pRenderer->scratchpadBufferSize = 128 * 1024;
-	pRenderer->scratchpadBuffer = FUR_ALLOC_AND_ZERO(pRenderer->scratchpadBufferSize, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+	if(res == FR_RESULT_OK)
+	{
+		pRenderer->rotationAngle = 0.0f;
+		pRenderer->cameraZoom = 1.0f;
+		
+		pRenderer->scratchpadBufferSize = 128 * 1024;
+		pRenderer->scratchpadBuffer = FUR_ALLOC_AND_ZERO(pRenderer->scratchpadBufferSize, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+	}
 	
 	// create skinning mapping
+	if(res == FR_RESULT_OK)
 	{
 		const fr_resource_mesh_chunk_t* meshChunk = &pRenderer->pMesh->chunks[0];
 		const uint32_t numBones = meshChunk->numBones;
@@ -1961,7 +2356,10 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	{
 		fr_buffer_release(pRenderer->device, &pRenderer->debugLinesVertexBuffer[i], pAllocCallbacks);
 		fr_buffer_release(pRenderer->device, &pRenderer->debugTrianglesVertexBuffer[i], pAllocCallbacks);
+		fr_buffer_release(pRenderer->device, &pRenderer->textVertexBuffer[i], pAllocCallbacks);
 	}
+	
+	fr_font_release(pRenderer->device, &pRenderer->textFont, pAllocCallbacks);
 	
 	// destroy descriptor set layout
 	vkDestroyDescriptorSetLayout(pRenderer->device, pRenderer->descriptorSetLayout, NULL);
@@ -2343,6 +2741,30 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		{
 			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[imageIndex].memory, 0, desc.trianglesDataSize);
 			fr_copy_data_to_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[imageIndex].memory, desc.trianglesData, 0, desc.trianglesDataSize);
+		}
+		
+		if(desc.textLinesCount > 0)
+		{
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[imageIndex].memory, 0, fc_dbg_text_characters_capacity() * 9 * sizeof(float));
+			
+			// convert from text info to glyphs
+			for(uint32_t itl=0; itl<desc.textLinesCount; ++itl)
+			{
+				const uint32_t offsetLoc = itl * 5;
+				const uint32_t offsetRange = itl * 2;
+				const float* dataLoc = desc.textLocationData + offsetLoc;
+				const uint32_t* dataRange = desc.textRangeData + offsetRange;
+				
+				const float locX = dataLoc[0];
+				const float locY = dataLoc[1];
+				
+				const float colorR = dataLoc[2];
+				const float colorG = dataLoc[3];
+				const float colorB = dataLoc[4];
+				
+				const uint32_t offsetText = dataRange[0];
+				const uint32_t lengthText = dataRange[1];
+			}
 		}
 		
 		fc_dbg_buffers_clear();	// clear the buffer for next frame

@@ -37,6 +37,7 @@ CCORE_API void fc_dbg_text(float x, float y, const char* txt, const float color[
 // sizes of each debug fragment buffers
 CCORE_API uint32_t fc_dbg_line_buffer_size(void);
 CCORE_API uint32_t fc_dbg_triangle_buffer_size(void);
+CCORE_API uint32_t fc_dbg_text_characters_capacity(void);
 	
 // call these functions in given order when retrieving data for current frame
 CCORE_API void fc_dbg_buffers_lock(void);

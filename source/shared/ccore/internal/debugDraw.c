@@ -270,3 +270,8 @@ void fc_dbg_text(float x, float y, const char* txt, const float color[4])
 	dataRange[0] = offsetCharacters;
 	dataRange[1] = length;
 }
+
+uint32_t fc_dbg_text_characters_capacity(void)
+{
+	return FC_DEBUG_FRAGMENTS_TEXT_CHARACTERS_CAPACITY;
+}
