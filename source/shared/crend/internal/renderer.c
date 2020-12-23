@@ -556,7 +556,7 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 				font->glyphs[i].character = (char)asciiNumber;
 				font->glyphs[i].uvMin[0] = uv[0];
 				font->glyphs[i].uvMin[1] = uv[1];
-				font->glyphs[i].uvMax[0] = ((float)pixelWidth) / ((float)font->atlasWidth);
+				font->glyphs[i].uvMax[0] = uv[0] + ((float)pixelWidth) / ((float)font->atlasWidth);
 				font->glyphs[i].uvMax[1] = 1.0f;
 				font->glyphs[i].size[0] = pixelWidth;
 				font->glyphs[i].size[1] = font->atlasHeight;
@@ -597,16 +597,28 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 	if(numVerticesRequired > numMaxVertices)
 		return 0;
 	
+	uint32_t verticesUsed = 0;
+	
 	float cursor[2] = {textPos[0], textPos[1]};
 	for(uint32_t i=0; i<length; ++i)
 	{
 		const fr_font_glyph_t* glyph = fr_font_get_glyph(font, text[i]);
+		
 		static const float scale = 0.1f;
 		
+		if(glyph->size[0] == 0)
+		{
+			cursor[0] += 3.0f * scale;	// move cursor by 3 pixels for space character
+		}
+		
+		verticesUsed += numVerticesPerGlyph;
+		
 		const float glyphWidth = (float)glyph->size[0];
+		const float glyphWidthPlusOne = (float)glyph->size[0] + 1;
 		const float glyphHeight = (float)glyph->size[1];
 		
 		const float scaledGlyphWidth = glyphWidth * scale;
+		const float scaledGlyphWidthPlusOne = glyphWidthPlusOne * scale;
 		const float scaledGlyphHeight = glyphHeight * scale;
 		
 		// top-right CCW triangle
@@ -623,7 +635,7 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 			pos[0] = cursor[0];
 			pos[1] = cursor[1];
 			uv[0] = glyph->uvMin[0];
-			uv[1] = glyph->uvMin[1];
+			uv[1] = 0.0f;
 			color[0] = textColor[0];
 			color[1] = textColor[1];
 			color[2] = textColor[2];
@@ -643,8 +655,8 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 			
 			pos[0] = cursor[0] + scaledGlyphWidth;
 			pos[1] = cursor[1] - scaledGlyphHeight;
-			uv[0] = glyph->uvMax[0];
-			uv[1] = glyph->uvMax[1];
+			uv[0] = glyph->uvMin[1];
+			uv[1] = 1.0f;
 			color[0] = textColor[0];
 			color[1] = textColor[1];
 			color[2] = textColor[2];
@@ -664,8 +676,8 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 			
 			pos[0] = cursor[0] + scaledGlyphWidth;
 			pos[1] = cursor[1];
-			uv[0] = glyph->uvMax[0];
-			uv[1] = glyph->uvMin[1];
+			uv[0] = glyph->uvMin[1];
+			uv[1] = 0.0f;
 			color[0] = textColor[0];
 			color[1] = textColor[1];
 			color[2] = textColor[2];
@@ -688,7 +700,7 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 			pos[0] = cursor[0];
 			pos[1] = cursor[1];
 			uv[0] = glyph->uvMin[0];
-			uv[1] = glyph->uvMin[1];
+			uv[1] = 0.0f;
 			color[0] = textColor[0];
 			color[1] = textColor[1];
 			color[2] = textColor[2];
@@ -709,7 +721,7 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 			pos[0] = cursor[0];
 			pos[1] = cursor[1] - scaledGlyphHeight;
 			uv[0] = glyph->uvMin[0];
-			uv[1] = glyph->uvMax[1];
+			uv[1] = 1.0f;
 			color[0] = textColor[0];
 			color[1] = textColor[1];
 			color[2] = textColor[2];
@@ -730,8 +742,8 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 			
 			pos[0] = cursor[0] + scaledGlyphWidth;
 			pos[1] = cursor[1] - scaledGlyphHeight;
-			uv[0] = glyph->uvMax[0];
-			uv[1] = glyph->uvMax[1];
+			uv[0] = glyph->uvMin[1];
+			uv[1] = 1.0f;
 			color[0] = textColor[0];
 			color[1] = textColor[1];
 			color[2] = textColor[2];
@@ -739,10 +751,10 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 		
 		vertices += vertexStride;
 		
-		cursor[0] += scaledGlyphWidth;
+		cursor[0] += scaledGlyphWidthPlusOne;
 	}
 	
-	return numVerticesRequired;
+	return verticesUsed;
 }
 
 /*************************************************************/
@@ -876,6 +888,7 @@ struct fr_renderer_t
 	VkRenderPass renderPass;
 	VkDescriptorSetLayout descriptorSetLayout;	// for uniform buffer
 	VkPipelineLayout pipelineLayout;
+	VkPipelineLayout textPipelineLayout;
 	VkPipeline graphicsPipeline;
 	
 	VkFramebuffer aSwapChainFrameBuffers[NUM_SWAP_CHAIN_IMAGES];
@@ -911,6 +924,9 @@ struct fr_renderer_t
 	
 	fr_buffer_t textVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
 	fr_font_t textFont;
+	VkDescriptorSetLayout textDescriptorSetLayout;	// for uniform buffer
+	VkDescriptorSet aTextDescriptorSets[NUM_SWAP_CHAIN_IMAGES];
+	fr_buffer_t aTextUniformBuffer[NUM_SWAP_CHAIN_IMAGES];
 	
 	// test geometry
 	VkVertexInputBindingDescription bindingDescription[2];
@@ -923,6 +939,7 @@ struct fr_renderer_t
 	fr_image_t textureEyesDiff;
 	
 	VkSampler textureSampler;
+	VkSampler textTextureSampler;
 	
 	fr_buffer_t stagingBuffer;
 	fr_buffer_t aUniformBuffer[NUM_SWAP_CHAIN_IMAGES];
@@ -1468,6 +1485,40 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 	}
 	
+	// create descriptor set layout for text drawing
+	if(res == FR_RESULT_OK)
+	{
+		// uniform buffer (UBO)
+		VkDescriptorSetLayoutBinding uboLayoutBinding = {};
+		uboLayoutBinding.binding = 0;
+		uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uboLayoutBinding.descriptorCount = 1;
+		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		uboLayoutBinding.pImmutableSamplers = NULL;
+		
+		// sampler
+		VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
+		samplerLayoutBinding.binding = 1;
+		samplerLayoutBinding.descriptorCount = 1;
+		samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		samplerLayoutBinding.pImmutableSamplers = NULL;
+		samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		
+		const uint32_t numBindings = 2;
+		VkDescriptorSetLayoutBinding bindings[numBindings] = { uboLayoutBinding, samplerLayoutBinding };
+		
+		VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layoutInfo.bindingCount = numBindings;
+		layoutInfo.pBindings = bindings;
+		
+		if (vkCreateDescriptorSetLayout(pRenderer->device, &layoutInfo, NULL, &pRenderer->textDescriptorSetLayout) != VK_SUCCESS)
+		{
+			fur_set_last_error("Can't create descriptor layout for text drawing");
+			res = FR_RESULT_ERROR_GPU;
+		}
+	}
+	
 	// create uniform buffer
 	if(res == FR_RESULT_OK)
 	{
@@ -1493,6 +1544,20 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		for(uint32_t i=0; i<3; ++i)
 		{
 			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->aSkinningBuffer[i], pAllocCallbacks);
+		}
+	}
+	
+	// create text uniform buffer
+	if(res == FR_RESULT_OK)
+	{
+		fr_buffer_desc_t desc;
+		desc.size = sizeof(fr_uniform_buffer_t);
+		desc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+		desc.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+		
+		for(uint32_t i=0; i<3; ++i)
+		{
+			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->aTextUniformBuffer[i], pAllocCallbacks);
 		}
 	}
 	
@@ -1715,6 +1780,17 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 		
 		// create text debug PSO
+		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
+		fr_pso_init_layout(&pRenderer->textDescriptorSetLayout, &pipelineLayoutInfo);
+		
+		if (vkCreatePipelineLayout(pRenderer->device, &pipelineLayoutInfo, NULL, &pRenderer->textPipelineLayout) != VK_SUCCESS)
+		{
+			fur_set_last_error("Can't create text pipeline layout");
+			res = FR_RESULT_ERROR_GPU;
+		}
+		
+		pipelineInfo.layout = pRenderer->textPipelineLayout;
+		
 		fr_pso_init_rasterization_state_polygon_fill(&rasterizer);
 		fr_pso_init_input_assembly_state_triangle_list(&inputAssembly);
 		
@@ -1934,7 +2010,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		poolInfo.poolSizeCount = numBindings;
 		poolInfo.pPoolSizes = poolSizes;
-		poolInfo.maxSets = NUM_SWAP_CHAIN_IMAGES;
+		poolInfo.maxSets = NUM_SWAP_CHAIN_IMAGES * 2;	// * 2 because part of it is for text drawing
 		
 		if (vkCreateDescriptorPool(pRenderer->device, &poolInfo, NULL, &pRenderer->descriptorPool) != VK_SUCCESS)
 		{
@@ -2129,6 +2205,34 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 	}
 	
+	// create text texture sampler
+	if(res == FR_RESULT_OK)
+	{
+		VkSamplerCreateInfo samplerInfo = {};
+		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		samplerInfo.magFilter = VK_FILTER_NEAREST;
+		samplerInfo.minFilter = VK_FILTER_NEAREST;
+		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerInfo.anisotropyEnable = VK_TRUE;
+		samplerInfo.maxAnisotropy = 16;
+		samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+		samplerInfo.unnormalizedCoordinates = VK_FALSE;
+		samplerInfo.compareEnable = VK_FALSE;
+		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		samplerInfo.mipLodBias = 0.0f;
+		samplerInfo.minLod = 0.0f;
+		samplerInfo.maxLod = 0.0f;
+		
+		if (vkCreateSampler(pRenderer->device, &samplerInfo, NULL, &pRenderer->textTextureSampler) != VK_SUCCESS)
+		{
+			fur_set_last_error("Can't create texture sampler");
+			res = FR_RESULT_ERROR_GPU;
+		}
+	}
+	
 	// create descriptor sets
 	if(res == FR_RESULT_OK)
 	{
@@ -2202,6 +2306,61 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			descriptorWrites[2].descriptorCount = NUM_TEXTURES_IN_ARRAY;	// number of textures in array goes here
 			descriptorWrites[2].pImageInfo = imageInfo;
 
+			vkUpdateDescriptorSets(pRenderer->device, numBindings, descriptorWrites, 0, NULL);
+		}
+	}
+	
+	// create descriptor sets for text drawing
+	if(res == FR_RESULT_OK)
+	{
+		VkDescriptorSetLayout layouts[NUM_SWAP_CHAIN_IMAGES] = {pRenderer->textDescriptorSetLayout,
+			pRenderer->textDescriptorSetLayout, pRenderer->textDescriptorSetLayout};
+		
+		VkDescriptorSetAllocateInfo allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		allocInfo.descriptorPool = pRenderer->descriptorPool;
+		allocInfo.descriptorSetCount = NUM_SWAP_CHAIN_IMAGES;
+		allocInfo.pSetLayouts = layouts;
+		
+		if (vkAllocateDescriptorSets(pRenderer->device, &allocInfo, pRenderer->aTextDescriptorSets) != VK_SUCCESS)
+		{
+			fur_set_last_error("Can't allocate descriptor sets for uniform buffers");
+			res = FR_RESULT_ERROR_GPU;
+		}
+		
+		for (size_t i = 0; i < NUM_SWAP_CHAIN_IMAGES; ++i)
+		{
+			VkDescriptorBufferInfo bufferInfo[2] = {};
+			bufferInfo[0].buffer = pRenderer->aTextUniformBuffer[i].buffer;
+			bufferInfo[0].offset = 0;
+			bufferInfo[0].range = sizeof(fr_uniform_buffer_t);
+			
+			VkDescriptorImageInfo imageInfo = {};
+			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imageInfo.imageView = pRenderer->textFont.atlas.view;
+			imageInfo.sampler = pRenderer->textTextureSampler;
+			
+			const uint32_t numBindings = 2;
+			VkWriteDescriptorSet descriptorWrites[numBindings] = {};
+			
+			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[0].dstSet = pRenderer->aTextDescriptorSets[i];
+			descriptorWrites[0].dstBinding = 0;
+			descriptorWrites[0].dstArrayElement = 0;
+			descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			descriptorWrites[0].descriptorCount = 1;
+			descriptorWrites[0].pBufferInfo = &bufferInfo[0];
+			descriptorWrites[0].pImageInfo = NULL; // Optional
+			descriptorWrites[0].pTexelBufferView = NULL; // Optional
+			
+			descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[1].dstSet = pRenderer->aTextDescriptorSets[i];
+			descriptorWrites[1].dstBinding = 1;
+			descriptorWrites[1].dstArrayElement = 0;
+			descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			descriptorWrites[1].descriptorCount = 1;	// number of textures in array goes here
+			descriptorWrites[1].pImageInfo = &imageInfo;
+			
 			vkUpdateDescriptorSets(pRenderer->device, numBindings, descriptorWrites, 0, NULL);
 		}
 	}
@@ -2324,6 +2483,10 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			
 			// debug draw text
 			vkCmdBindPipeline(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugTextPSO);
+			
+			vkCmdBindDescriptorSets(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
+									pRenderer->textPipelineLayout, 0, 1, &pRenderer->aTextDescriptorSets[i], 0, NULL);
+			
 			vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 1, &pRenderer->textVertexBuffer[i].buffer, offsets);
 			vkCmdDraw(pRenderer->aCommandBuffers[i], fc_dbg_text_num_total_characters() * 6, 0, 0, 0);	// 6 - number of vertices per glyph
 			
@@ -2548,6 +2711,8 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 		{
 			fr_buffer_release(pRenderer->device, &pRenderer->aUniformBuffer[i], pAllocCallbacks);
 			fr_buffer_release(pRenderer->device, &pRenderer->aSkinningBuffer[i], pAllocCallbacks);
+			
+			fr_buffer_release(pRenderer->device, &pRenderer->aTextUniformBuffer[i], pAllocCallbacks);
 		}
 		
 		vkDestroyDescriptorPool(pRenderer->device, pRenderer->descriptorPool, NULL);
@@ -2562,6 +2727,7 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	fr_image_release(pRenderer->device, &pRenderer->textureEyesDiff, pAllocCallbacks);
 	
 	vkDestroySampler(pRenderer->device, pRenderer->textureSampler, NULL);
+	vkDestroySampler(pRenderer->device, pRenderer->textTextureSampler, NULL);
 	
 	// destroy mesh
 	for(uint32_t i=0; i<pRenderer->mesh.numChunks; ++i)
@@ -2586,6 +2752,7 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	
 	// destroy descriptor set layout
 	vkDestroyDescriptorSetLayout(pRenderer->device, pRenderer->descriptorSetLayout, NULL);
+	vkDestroyDescriptorSetLayout(pRenderer->device, pRenderer->textDescriptorSetLayout, NULL);
 	
 	// destroy semaphores
 	vkDestroySemaphore(pRenderer->device, pRenderer->imageAvailableSemaphore, NULL);
@@ -2933,6 +3100,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		fm_mat4_transpose(&ubo.proj);
 		
 		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(fr_uniform_buffer_t));
+		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aTextUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(fr_uniform_buffer_t));
 	}
 	
 	const float begin[3] = {0.0f, 0.0f, 0.0f};
