@@ -275,3 +275,8 @@ uint32_t fc_dbg_text_characters_capacity(void)
 {
 	return FC_DEBUG_FRAGMENTS_TEXT_CHARACTERS_CAPACITY;
 }
+
+uint32_t fc_dbg_text_num_total_characters(void)
+{
+	return FC_DEBUG_FRAGMENTS_TEXT_CHARACTERS_CAPACITY;
+}

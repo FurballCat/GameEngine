@@ -389,7 +389,7 @@ bool fc_text_parse_skip_line(fc_text_stream_ro_t* stream)
 
 /*************************************************************/
 
-#define FR_FONT_FLOATS_PER_GLYPH 7
+#define FR_FONT_FLOATS_PER_GLYPH_VERTEX 7
 
 typedef struct fr_font_glyph_t
 {
@@ -587,10 +587,10 @@ const fr_font_glyph_t* fr_font_get_glyph(const fr_font_t* font, char chr)
 
 uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, const float textPos[2], const float textColor[3], float* vertices, uint32_t numMaxVertices)
 {
-	FUR_ASSERT(FR_FONT_FLOATS_PER_GLYPH == 7);
+	FUR_ASSERT(FR_FONT_FLOATS_PER_GLYPH_VERTEX == 7);
 	
 	const uint32_t length = (uint32_t)strlen(text);
-	const uint32_t vertexStride = FR_FONT_FLOATS_PER_GLYPH;
+	const uint32_t vertexStride = FR_FONT_FLOATS_PER_GLYPH_VERTEX;
 	const uint32_t numVerticesPerGlyph = 6;
 	const uint32_t numVerticesRequired = length * numVerticesPerGlyph * vertexStride;
 	
@@ -736,6 +736,8 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 			color[1] = textColor[1];
 			color[2] = textColor[2];
 		}
+		
+		vertices += vertexStride;
 		
 		cursor[0] += scaledGlyphWidth;
 	}
@@ -1368,23 +1370,23 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		pRenderer->debugTextVertexBindingDescription.binding = 0;
-		pRenderer->debugTextVertexBindingDescription.stride = 9 * sizeof(float);
+		pRenderer->debugTextVertexBindingDescription.stride = FR_FONT_FLOATS_PER_GLYPH_VERTEX * sizeof(float);
 		pRenderer->debugTextVertexBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 		
 		pRenderer->debugTextVertexAttributes[0].binding = 0;
 		pRenderer->debugTextVertexAttributes[0].location = 0;
-		pRenderer->debugTextVertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+		pRenderer->debugTextVertexAttributes[0].format = VK_FORMAT_R32G32_SFLOAT;
 		pRenderer->debugTextVertexAttributes[0].offset = 0;
 		
 		pRenderer->debugTextVertexAttributes[1].binding = 0;
 		pRenderer->debugTextVertexAttributes[1].location = 1;
 		pRenderer->debugTextVertexAttributes[1].format = VK_FORMAT_R32G32_SFLOAT;
-		pRenderer->debugTextVertexAttributes[1].offset = 3 * sizeof(float);
+		pRenderer->debugTextVertexAttributes[1].offset = 2 * sizeof(float);
 		
 		pRenderer->debugTextVertexAttributes[2].binding = 0;
 		pRenderer->debugTextVertexAttributes[2].location = 2;
-		pRenderer->debugTextVertexAttributes[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		pRenderer->debugTextVertexAttributes[2].offset = 5 * sizeof(float);
+		pRenderer->debugTextVertexAttributes[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+		pRenderer->debugTextVertexAttributes[2].offset = 4 * sizeof(float);
 	}
 	
 	// test geometry
@@ -1720,6 +1722,9 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 										 pRenderer->textFragmentShaderModule, "main",
 										 shaderStages);
 		
+		pipelineInfo.stageCount = 2;
+		pipelineInfo.pStages = shaderStages;
+		
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 		vertexInputInfo.vertexBindingDescriptionCount = 1;
 		vertexInputInfo.vertexAttributeDescriptionCount = 3;
@@ -1875,7 +1880,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		fr_buffer_desc_t desc = {};
-		desc.size = fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH * sizeof(float);
+		desc.size = fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6 * sizeof(float);
 		desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
 		desc.properties = FR_STAGING_BUFFER_MEMORY_FLAGS;	// use vertex buffer usage, but staging buffer properties
 		
@@ -1942,6 +1947,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	fr_staging_buffer_builder_t stagingBuilder;
 	fr_staging_init(&stagingBuilder);
 	
+	uint32_t numTexturesInStagingBuffer = 0;
+	
 	const VkFormat textureImageFormat = VK_FORMAT_R8G8B8A8_UNORM;
 	
 	VkDeviceSize imageOffsetInBufferZeldaDiff = 0;
@@ -1966,6 +1973,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			{
 				imageOffsetInBufferZeldaDiff = stagingBuilder.totalSize;
 				fr_staging_add(&stagingBuilder, pixels, (uint32_t)imageSize, NULL, fr_pixels_free_func);
+				numTexturesInStagingBuffer++;
 			}
 		}
 
@@ -2006,6 +2014,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			{
 				imageOffsetInBufferHairDiff = stagingBuilder.totalSize;
 				fr_staging_add(&stagingBuilder, pixels, (uint32_t)imageSize, NULL, fr_pixels_free_func);
+				numTexturesInStagingBuffer++;
 			}
 		}
 		
@@ -2046,6 +2055,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			{
 				imageOffsetInBufferEyesDiff = stagingBuilder.totalSize;
 				fr_staging_add(&stagingBuilder, pixels, (uint32_t)imageSize, NULL, fr_pixels_free_func);
+				numTexturesInStagingBuffer++;
 			}
 		}
 		
@@ -2063,7 +2073,34 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			fr_image_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->textureEyesDiff, pAllocCallbacks);
 		}
 	}
-		
+	
+	VkDeviceSize imageOffsetInBufferFontAtlas = 0;
+	int texFontAtlasWidth = 0;
+	int texFontAtlasHeight = 0;
+	
+	// pass font atlas to staging buffer
+	if(res == FR_RESULT_OK)
+	{
+		if(!pRenderer->textFont.pixelsData)
+		{
+			fur_set_last_error("Can't load font atlas");
+			res = FR_RESULT_ERROR_GPU;
+		}
+		else
+		{
+			imageOffsetInBufferFontAtlas = stagingBuilder.totalSize;
+			texFontAtlasWidth = pRenderer->textFont.atlasWidth;
+			texFontAtlasHeight = pRenderer->textFont.atlasHeight;
+			
+			void* pixels = pRenderer->textFont.pixelsData;
+			uint32_t imageSize = texFontAtlasWidth * texFontAtlasHeight * 4;
+			
+			fr_staging_add(&stagingBuilder, pixels, imageSize, NULL, fr_pixels_free_func);
+			numTexturesInStagingBuffer++;
+			pRenderer->textFont.pixelsData = NULL;	// the ownership has been passed to staging builder
+		}
+	}
+	
 	// create texture sampler
 	if(res == FR_RESULT_OK)
 	{
@@ -2285,6 +2322,11 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 1, &pRenderer->debugTrianglesVertexBuffer[i].buffer, offsets);
 			vkCmdDraw(pRenderer->aCommandBuffers[i], fc_dbg_triangles_num_total_vertices(), 0, 0, 0);
 			
+			// debug draw text
+			vkCmdBindPipeline(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugTextPSO);
+			vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 1, &pRenderer->textVertexBuffer[i].buffer, offsets);
+			vkCmdDraw(pRenderer->aCommandBuffers[i], fc_dbg_text_num_total_characters() * 6, 0, 0, 0);	// 6 - number of vertices per glyph
+			
 			vkCmdEndRenderPass(pRenderer->aCommandBuffers[i]);
 			
 			if (vkEndCommandBuffer(pRenderer->aCommandBuffers[i]) != VK_SUCCESS)
@@ -2346,7 +2388,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 				
 				if(sourceMeshChunk->dataSkinning)
 				{
-					uint32_t srcStagingIndices[numBuffersPerMeshChunk] = {3+i*numBuffersPerMeshChunk, 4+i*numBuffersPerMeshChunk, 5+i*numBuffersPerMeshChunk};
+					uint32_t srcStagingIndices[numBuffersPerMeshChunk] = {numTexturesInStagingBuffer+i*numBuffersPerMeshChunk, numTexturesInStagingBuffer+1+i*numBuffersPerMeshChunk, numTexturesInStagingBuffer+2+i*numBuffersPerMeshChunk};
 					VkBuffer dstBuffers[numBuffersPerMeshChunk] = {meshChunk->data.buffer, meshChunk->data.buffer, meshChunk->data.buffer};
 					VkDeviceSize dstOffsets[numBuffersPerMeshChunk] = {meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_SKIN]};
 					
@@ -2354,7 +2396,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 				}
 				else
 				{
-					uint32_t srcStagingIndices[numBuffersPerNonSkinnedMeshChunk] = {3+i*numBuffersPerNonSkinnedMeshChunk, 4+i*numBuffersPerNonSkinnedMeshChunk};
+					uint32_t srcStagingIndices[numBuffersPerNonSkinnedMeshChunk] = {numTexturesInStagingBuffer+i*numBuffersPerNonSkinnedMeshChunk, numTexturesInStagingBuffer+1+i*numBuffersPerNonSkinnedMeshChunk};
 					VkBuffer dstBuffers[numBuffersPerNonSkinnedMeshChunk] = {meshChunk->data.buffer, meshChunk->data.buffer};
 					VkDeviceSize dstOffsets[numBuffersPerNonSkinnedMeshChunk] = {meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES]};
 					
@@ -2390,6 +2432,12 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 									   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pRenderer->textureEyesDiff.image, pAllocCallbacks);
 			fr_copy_buffer_to_image(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, pRenderer->stagingBuffer.buffer,
 									imageOffsetInBufferEyesDiff, pRenderer->textureEyesDiff.image, texEyesDiffWidth, texEyesDiffHeight, pAllocCallbacks);
+			
+			// font atlas
+			fr_transition_image_layout(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, textureImageFormat,
+									   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pRenderer->textFont.atlas.image, pAllocCallbacks);
+			fr_copy_buffer_to_image(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, pRenderer->stagingBuffer.buffer,
+									imageOffsetInBufferFontAtlas, pRenderer->textFont.atlas.image, texFontAtlasWidth, texFontAtlasHeight, pAllocCallbacks);
 		}
 		
 		// release staging buffer
@@ -2428,7 +2476,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->textVertexBuffer[i].memory, 0, fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH * sizeof(float));
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->textVertexBuffer[i].memory, 0, fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6 * sizeof(float));
 		}
 	}
 	
@@ -2898,7 +2946,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 	fc_dbg_line(begin, axisY, colorGreen);
 	fc_dbg_line(begin, axisZ, colorBlue);
 	
-	fc_dbg_text(0.0f, 0.0f, "Welcome Zelda!", colorGreen);
+	fc_dbg_text(1.0f, 1.0f, "Welcome Zelda!", colorGreen);
 	
 	// update debug lines buffer
 	{
@@ -2922,7 +2970,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		
 		if(desc.textLinesCount > 0)
 		{
-			const uint32_t numFloatsCapacity = fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH;
+			const uint32_t numFloatsCapacity = fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6;
 			const uint32_t dataSize = numFloatsCapacity * sizeof(float);
 			fr_clear_data_in_buffer(pRenderer->device, pRenderer->textVertexBuffer[imageIndex].memory, 0, dataSize);
 			
