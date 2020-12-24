@@ -247,7 +247,7 @@ void fc_dbg_text(float x, float y, const char* txt, const float color[4])
 	const uint32_t length = (uint32_t)strlen(txt);
 	
 	FUR_ASSERT(g_debugFragments.numTextLines < FC_DEBUG_FRAGMENTS_TEXT_LINES_CAPACITY);
-	FUR_ASSERT(g_debugFragments.numTextCharacters + length < FC_DEBUG_FRAGMENTS_TEXT_CHARACTERS_CAPACITY);
+	FUR_ASSERT(g_debugFragments.numTextCharacters + length + 1 < FC_DEBUG_FRAGMENTS_TEXT_CHARACTERS_CAPACITY);
 	
 	const uint32_t offsetFloat = g_debugFragments.numTextLines * FC_DEBUG_TEXT_LOCATION_DATA_NUM_FLOATS;
 	const uint32_t offsetRange = g_debugFragments.numTextLines * FC_DEBUG_TEXT_LOCATION_DATA_NUM_RANGE;
@@ -261,10 +261,11 @@ void fc_dbg_text(float x, float y, const char* txt, const float color[4])
 	dataLocation[4] = color[2];
 	
 	const uint32_t offsetCharacters = g_debugFragments.numTextCharacters;
-	g_debugFragments.numTextCharacters += length;
+	g_debugFragments.numTextCharacters += length + 1;
 	
 	char* dataCharacters = g_debugFragments.textCharactersData + offsetCharacters;
 	memcpy(dataCharacters, txt, length);
+	dataCharacters[length+1] = '\0';
 	
 	uint32_t* dataRange = g_debugFragments.textRangeData + offsetRange;
 	dataRange[0] = offsetCharacters;

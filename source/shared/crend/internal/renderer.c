@@ -611,7 +611,7 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 			cursor[0] += 3.0f * scale;	// move cursor by 3 pixels for space character
 		}
 		
-		verticesUsed += numVerticesPerGlyph;
+		verticesUsed += numVerticesPerGlyph * FR_FONT_FLOATS_PER_GLYPH_VERTEX;
 		
 		const float glyphWidth = (float)glyph->size[0];
 		const float glyphWidthPlusOne = (float)glyph->size[0] + 1;
@@ -3131,9 +3131,12 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 	
 	const float colorWhite[4] = FUR_COLOR_WHITE;
 	{
+		fc_dbg_text(-500.0f, 40.0f, "zelda-idle-stand-01", colorWhite);
+		fc_dbg_text(-500.0f, 20.0f, "zelda-idle-stand-look-around", colorWhite);
+		
 		char txt[64];
 		sprintf(txt, "blend: %1.2f", g_blend);
-		fc_dbg_text(-500.0f, 1.0f, txt, colorWhite);
+		fc_dbg_text(-500.0f, 0.0f, txt, colorWhite);
 	}
 	
 	// update debug lines buffer
