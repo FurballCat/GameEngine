@@ -47,6 +47,21 @@ static inline float fm_vec3_dot(const fm_vec3* a, const fm_vec3* b)
 {
 	return a->x * b->x + a->y * b->y + a->z * b->z;
 }
+
+static inline float fm_vec3_mag(const fm_vec3* v)
+{
+	return sqrtf(v->x * v->x + v->y * v->y + v->z * v->z);
+}
+	
+static inline void fm_vec3_norm(fm_vec3* v)
+{
+	const float magnitude = fm_vec3_mag(v);
+	const float magnitudeInv = 1.0f / magnitude;
+	
+	v->x *= magnitudeInv;
+	v->y *= magnitudeInv;
+	v->z *= magnitudeInv;
+}
 	
 static inline void fm_vec4_zeros(fm_vec4* v)
 {
@@ -165,7 +180,7 @@ static inline void fm_mat4_rot_z(const float phi, fm_mat4_t* m)
 	m->w.x = 0; m->w.y = 0; m->w.z = 0; m->w.w = 1;
 }
 
-static inline void fm_mat4_lookat(const fm_vec4* eye, const fm_vec4* at, const fm_vec4* up, fm_mat4_t* m)
+static inline void fm_mat4_lookat_lh(const fm_vec4* eye, const fm_vec4* at, const fm_vec4* up, fm_mat4_t* m)
 {
 	fm_vec4 axis_y;
 	fm_vec4_sub(at, eye, &axis_y);
@@ -199,6 +214,73 @@ static inline void fm_mat4_lookat(const fm_vec4* eye, const fm_vec4* at, const f
 	m->w.w = 1.0f;
 }
 
+static inline void fm_mat4_lookat_rh(const fm_vec4* eye, const fm_vec4* at, const fm_vec4* up, fm_mat4_t* m)
+{
+	fm_vec4 axis_z;
+	fm_vec4_sub(eye, at, &axis_z);
+	fm_vec4_normalize(&axis_z);
+	
+	fm_vec4 axis_x;
+	fm_vec4_cross(up, &axis_z, &axis_x);
+	fm_vec4_normalize(&axis_x);
+	
+	fm_vec4 axis_y;
+	fm_vec4_cross(&axis_z, &axis_x, &axis_y);
+	
+	m->x.x = axis_x.x;
+	m->x.y = axis_x.y;
+	m->x.z = axis_x.z;
+	m->x.w = fm_vec4_dot(&axis_x, eye);
+	
+	m->y.x = axis_y.x;
+	m->y.y = axis_y.y;
+	m->y.z = axis_y.z;
+	m->y.w = fm_vec4_dot(&axis_y, eye);
+	
+	m->z.x = axis_z.x;
+	m->z.y = axis_z.y;
+	m->z.z = axis_z.z;
+	m->z.w = fm_vec4_dot(&axis_z, eye);
+	
+	m->w.x = 0.0f;
+	m->w.y = 0.0f;
+	m->w.z = 0.0f;
+	m->w.w = 1.0f;
+}
+	
+// projection matrix, b - bottom, t - top, l - left, r - right, n - near, f - far
+static inline void fm_mat4_ortho_projection(const float b, const float t, const float l, const float r,
+									  const float n, const float f, fm_mat4_t* m)
+{
+	float sum_rl, sum_tb, sum_nf, inv_rl, inv_tb, inv_nf;
+	sum_rl = (r + l);
+	sum_tb = (t + b);
+	sum_nf = (n + f);
+	inv_rl = (1.0f / (r - l));
+	inv_tb = (1.0f / (t - b));
+	inv_nf = (1.0f / (n - f));
+	
+	m->x.x = inv_rl + inv_rl;
+	m->x.y = 0.0f;
+	m->x.z = 0.0f;
+	m->x.w = 0.0f;
+	
+	m->y.x = 0.0f;
+	m->y.y = inv_tb + inv_tb;
+	m->y.z = 0.0f;
+	m->y.w = 0.0f;
+	
+	m->z.x = 0.0f;
+	m->z.y = 0.0f;
+	m->z.z = (1.0f / (n - f));
+	m->z.w = 0.0f;
+	
+	m->w.x = 0.0f;
+	m->w.y = 0.0f;
+	m->w.z = -n / (n - f);
+	m->w.w = 1.0f;
+}
+	
 // projection matrix, b - bottom, t - top, l - left, r - right, n - near, f - far
 static inline void fm_mat4_projection(const float b, const float t, const float l, const float r,
 						const float n, const float f, fm_mat4_t* m)

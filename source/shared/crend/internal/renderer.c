@@ -604,7 +604,7 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 	{
 		const fr_font_glyph_t* glyph = fr_font_get_glyph(font, text[i]);
 		
-		static const float scale = 0.1f;
+		static const float scale = 1.0f;
 		
 		if(glyph->size[0] == 0)
 		{
@@ -620,6 +620,12 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 		const float scaledGlyphWidth = glyphWidth * scale;
 		const float scaledGlyphWidthPlusOne = glyphWidthPlusOne * scale;
 		const float scaledGlyphHeight = glyphHeight * scale;
+		
+		//  / Z
+		// o----X
+		// |
+		// |
+		// Y
 		
 		// top-right CCW triangle
 		// O---
@@ -3082,26 +3088,35 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		fm_vec4_mulf(&eye, pRenderer->cameraZoom, &eye);
 		fm_vec4_add(&eye, &g_at, &eye);
 		
-		fm_mat4_lookat(&eye, &g_at, &g_up, &tempView);
+		fm_mat4_lookat_lh(&eye, &g_at, &g_up, &tempView);
 		fm_mat4_projection_fov(45.0f, aspectRatio, 0.1f, 1000.0f, &ubo.proj);
 		
 		fm_mat4_t rot_x_vulkan_correction;
 		fm_mat4_rot_x(FM_DEG_TO_RAD(-90), &rot_x_vulkan_correction);
 		fm_mat4_mul(&rot_x_vulkan_correction, &tempView, &ubo.view);
 		
-		ubo.proj.y.y *= -1.0f;
+		ubo.proj.y.y *= -1.0f;	// flipping from right-handed (Blender) to left-handed (Vulkan)?
 		
-		//fm_mat4_identity(&ubo.model);
 		//fm_mat4_identity(&ubo.view);
-		//fm_mat4_identity(&ubo.proj);
 		
 		fm_mat4_transpose(&ubo.model);
 		fm_mat4_transpose(&ubo.view);
 		fm_mat4_transpose(&ubo.proj);
 		
 		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(fr_uniform_buffer_t));
+		
+		fm_mat4 ortho_text_proj;
+		
+		const float scale = pRenderer->swapChainExtent.height * 0.18f;
+		fm_mat4_ortho_projection(scale, -scale, -aspectRatio * scale, aspectRatio * scale, 0.0f, 1.0f, &ubo.proj);
+		fm_mat4_identity(&ubo.model);
+		fm_mat4_identity(&ubo.view);
+		fm_mat4_transpose(&ubo.proj);
+		
 		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aTextUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(fr_uniform_buffer_t));
 	}
+	
+	// !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
 	
 	const float begin[3] = {0.0f, 0.0f, 0.0f};
 	const float axisX[3] = {1.0f, 0.0f, 0.0f};
@@ -3114,7 +3129,12 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 	fc_dbg_line(begin, axisY, colorGreen);
 	fc_dbg_line(begin, axisZ, colorBlue);
 	
-	fc_dbg_text(1.0f, 1.0f, "Welcome Zelda!", colorGreen);
+	const float colorWhite[4] = FUR_COLOR_WHITE;
+	{
+		char txt[64];
+		sprintf(txt, "blend: %1.2f", g_blend);
+		fc_dbg_text(-500.0f, 1.0f, txt, colorWhite);
+	}
 	
 	// update debug lines buffer
 	{
