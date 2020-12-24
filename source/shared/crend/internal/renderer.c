@@ -3097,15 +3097,11 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		
 		ubo.proj.y.y *= -1.0f;	// flipping from right-handed (Blender) to left-handed (Vulkan)?
 		
-		//fm_mat4_identity(&ubo.view);
-		
 		fm_mat4_transpose(&ubo.model);
 		fm_mat4_transpose(&ubo.view);
 		fm_mat4_transpose(&ubo.proj);
 		
 		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(fr_uniform_buffer_t));
-		
-		fm_mat4 ortho_text_proj;
 		
 		const float scale = pRenderer->swapChainExtent.height * 0.18f;
 		fm_mat4_ortho_projection(scale, -scale, -aspectRatio * scale, aspectRatio * scale, 0.0f, 1.0f, &ubo.proj);
@@ -3115,8 +3111,6 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 		
 		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aTextUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(fr_uniform_buffer_t));
 	}
-	
-	// !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
 	
 	const float begin[3] = {0.0f, 0.0f, 0.0f};
 	const float axisX[3] = {1.0f, 0.0f, 0.0f};
