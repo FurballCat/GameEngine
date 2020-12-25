@@ -1,26 +1,13 @@
 {
   "dependecies": [
-    "core",
-    "platform",
-    "gpu",
-    "renderer",
-    "math",
-    "input",
-    "jobs",
-    "memory",
-    "import",
-    "audio",
-    "gamework",
     "crend",
 	"cphysics"
   ],
 
   "dependencies_osx": [
-    "macPlatform"
   ],
 
   "dependencies_windows": [
-    "windowsPlatform"
   ],
     
   "type": "application"

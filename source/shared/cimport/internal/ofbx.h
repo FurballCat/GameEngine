@@ -450,8 +450,8 @@ inline double fbxTimeToSeconds(i64 value) { return double(value) / 46186158000L;
 inline i64 secondsToFbxTime(double value) { return i64(value * 46186158000L); }
 	
 
-IMPORT_API IScene* load(const u8* data, int size);
-IMPORT_API const char* getError();
+IScene* load(const u8* data, int size);
+const char* getError();
 
 
 } // namespace ofbx

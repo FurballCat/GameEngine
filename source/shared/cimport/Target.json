@@ -3,8 +3,7 @@
 	[
 		"ccore",
 		"canim",
-		"cmath",
-		"import"
+		"cmath"
 	],
 	
     "type": "dynamic_library"

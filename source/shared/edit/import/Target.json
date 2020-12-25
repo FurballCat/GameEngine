@@ -1,8 +1,0 @@
-{
-	"dependecies":
-	[
-        "core"
-    ],
-    
-    "type": "dynamic_library"
-}

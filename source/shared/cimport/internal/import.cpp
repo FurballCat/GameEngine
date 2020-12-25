@@ -2,10 +2,13 @@
 
 #include "import.h"
 #include <string.h>
-#include "import/public.h"		// todo: move that to toolset, then load through resource system
+#include <fstream>
+#include <vector>
+#include <map>
 #include "ccore/public.h"
 #include "cmath/public.h"
 #include "canim/public.h"
+#include "ofbx.h"
 
 #define MIN(a, b) a < b ? a : b;
 
@@ -24,20 +27,19 @@ bool IsFileExtensionEqualTo(const char* path, const char* ext)
 
 ofbx::IScene* OpenScene_FBX(const char* path)
 {
-	FileStream file(path, FileStream::in | FileStream::binary | FileStream::ate);
+	std::ifstream file(path, std::ifstream::in | std::ifstream::binary | std::ifstream::ate);
 	FUR_ASSERT(file);
 	
-	uint32_t fileSize = (uint32)file.tellg();
-	file.seekg(0, FileStream::beg);
+	uint32_t fileSize = (uint32_t)file.tellg();
+	file.seekg(0, std::ifstream::beg);
 	
-	DynArray<char> fileData(fileSize);
+	std::vector<char> fileData;
+	fileData.resize(fileSize);
 	
 	file.read(&fileData[0], fileSize);
 	file.close();
 	
-	FUR_ASSERT(!fileData.empty());
-	
-	ofbx::IScene* scene = ofbx::load((const uint8*)fileData.data(), (int)fileData.size());
+	ofbx::IScene* scene = ofbx::load((const uint8_t*)fileData.data(), (int)fileData.size());
 	FUR_ASSERT(scene);
 	
 	return scene;
@@ -45,8 +47,8 @@ ofbx::IScene* OpenScene_FBX(const char* path)
 
 struct FBXAnimCurve
 {
-	DynArray<float> m_times;
-	DynArray<float> m_values;
+	std::vector<float> m_times;
+	std::vector<float> m_values;
 };
 
 struct FBXBoneInfo
@@ -77,23 +79,23 @@ void FillFBXAnimCurve(FBXAnimCurve& curve, const ofbx::AnimationCurve* fbxCurve)
 	curve.m_times.resize(numKeys);
 	curve.m_values.resize(numKeys);
 	
-	for(int32 ik=0; ik<numKeys; ++ik)
+	for(int32_t ik=0; ik<numKeys; ++ik)
 	{
 		curve.m_times[ik] = ofbx::fbxTimeToSeconds(keyTimes[ik]);
 		curve.m_values[ik] = keyValues[ik];
 	}
 }
 
-void fi_gather_anim_curves(ofbx::IScene* scene, std::map<String, FBXBoneInfo*>& bones)
+void fi_gather_anim_curves(ofbx::IScene* scene, std::map<std::string, FBXBoneInfo*>& bones)
 {
 	const int32_t numAnimStacks = scene->getAnimationStackCount();
 	for(int32_t i=0; i<numAnimStacks; ++i)
 	{
 		const ofbx::AnimationStack* animStack = scene->getAnimationStack(i);
 		const ofbx::AnimationLayer* layer = animStack->getLayer(0);	// usually there's only one layer, unless two animations are blended together
-		const int32 numCurveNodes = layer->getCurveNodeCount();
+		const int32_t numCurveNodes = layer->getCurveNodeCount();
 		
-		for(int32 icn=0; icn<numCurveNodes; ++icn)
+		for(int32_t icn=0; icn<numCurveNodes; ++icn)
 		{
 			const ofbx::AnimationCurveNode* curveNode = layer->getCurveNode(icn);
 			const ofbx::Object* bone = curveNode->getBone();
@@ -106,47 +108,47 @@ void fi_gather_anim_curves(ofbx::IScene* scene, std::map<String, FBXBoneInfo*>& 
 					{
 						FBXBoneInfo* info = new FBXBoneInfo();
 						bones[bone->name] = info;
-						info->m_name = String(bone->name);
+						info->m_name = std::string(bone->name);
 						info->m_originalIndex = (uint32_t)icn;
 						
 						const ofbx::Object* parentBone = bone->getParent();
 						if(parentBone)
 						{
-							info->m_parentName = String(parentBone->name);
+							info->m_parentName = std::string(parentBone->name);
 						}
 					}
 					
 					FBXBoneInfo* info = bones[bone->name];
 					
-					String propertyName;
-					const int32 propNameSize = curveNode->getBoneLinkPropertySize();
+					std::string propertyName;
+					const int32_t propNameSize = curveNode->getBoneLinkPropertySize();
 					if(propNameSize < 128)
 					{
 						char buffer[128];
 						curveNode->getBoneLinkProperty(buffer, propNameSize);
 						buffer[propNameSize] = '\0';
-						propertyName = String(buffer);
+						propertyName = std::string(buffer);
 					}
 					
-					const int32 numCurves = std::min(curveNode->getCurveCount(), 3);
+					const int32_t numCurves = std::min(curveNode->getCurveCount(), 3);
 					
 					if(propertyName == "Lcl Translation")
 					{
-						for(int32 ic=0; ic<numCurves; ++ic)
+						for(int32_t ic=0; ic<numCurves; ++ic)
 						{
 							FillFBXAnimCurve(info->m_translation[ic], curveNode->getCurve(ic));
 						}
 					}
 					else if(propertyName == "Lcl Rotation")
 					{
-						for(int32 ic=0; ic<numCurves; ++ic)
+						for(int32_t ic=0; ic<numCurves; ++ic)
 						{
 							FillFBXAnimCurve(info->m_rotation[ic], curveNode->getCurve(ic));
 						}
 					}
 					else if(propertyName == "Lcl Scale")
 					{
-						for(int32 ic=0; ic<numCurves; ++ic)
+						for(int32_t ic=0; ic<numCurves; ++ic)
 						{
 							FillFBXAnimCurve(info->m_scale[ic], curveNode->getCurve(ic));
 						}
@@ -157,12 +159,12 @@ void fi_gather_anim_curves(ofbx::IScene* scene, std::map<String, FBXBoneInfo*>& 
 	}
 }
 
-void fi_import_sort_bones(std::map<String, FBXBoneInfo*>& bones, DynArray<const FBXBoneInfo*>& sortedBones)
+void fi_import_sort_bones(std::map<std::string, FBXBoneInfo*>& bones, std::vector<const FBXBoneInfo*>& sortedBones)
 {
 	if(!bones.empty())
 	{
 		// preparing stuff
-		DynArray<const FBXBoneInfo*> rigBones;
+		std::vector<const FBXBoneInfo*> rigBones;
 		rigBones.reserve(bones.size());
 		for(const auto& it : bones)
 		{
@@ -172,12 +174,12 @@ void fi_import_sort_bones(std::map<String, FBXBoneInfo*>& bones, DynArray<const 
 		
 		sortedBones.reserve(rigBones.size());
 		
-		DynArray<String> parents;
+		std::vector<std::string> parents;
 		parents.reserve(bones.size());
 		
 		std::string parentName = "Armature";
 		
-		for(uint32 i=0; i<rigBones.size(); ++i)
+		for(uint32_t i=0; i<rigBones.size(); ++i)
 		{
 			if(rigBones[i]->m_name == "rootTransform")
 			{
@@ -190,9 +192,9 @@ void fi_import_sort_bones(std::map<String, FBXBoneInfo*>& bones, DynArray<const 
 		parents.push_back(parentName);
 		while(!parents.empty())
 		{
-			const String& parent = parents.front();
+			const std::string& parent = parents.front();
 			
-			for(uint32 i=0; i<rigBones.size(); ++i)
+			for(uint32_t i=0; i<rigBones.size(); ++i)
 			{
 				if(rigBones[i]->m_parentName == parent)
 				{
@@ -221,8 +223,8 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 		ofbx::IScene* scene = OpenScene_FBX(absolutePath.c_str());
 		FUR_ASSERT(scene);
 		
-		std::map<String, FBXBoneInfo*> bones;
-		DynArray<const FBXBoneInfo*> sortedRigBones;
+		std::map<std::string, FBXBoneInfo*> bones;
+		std::vector<const FBXBoneInfo*> sortedRigBones;
 		
 		fi_gather_anim_curves(scene, bones);
 		fi_import_sort_bones(bones, sortedRigBones);
@@ -238,7 +240,7 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 			
 			if(!sortedRigBones.empty())
 			{
-				for(uint32 i=0; i<sortedRigBones.size(); ++i)
+				for(uint32_t i=0; i<sortedRigBones.size(); ++i)
 				{
 					rig.m_jointNames[i] = sortedRigBones[i]->m_name;
 					
@@ -300,16 +302,16 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 					fm_quat_make_from_euler_angles_xyz(&rotation, &rig.m_referencePose[i].rot);
 				}
 				
-				for(int32 i=0; i<sortedRigBones.size(); ++i)
+				for(int32_t i=0; i<sortedRigBones.size(); ++i)
 				{
-					const String& parentName = sortedRigBones[i]->m_parentName;
-					int16 parentIndex = -1;
+					const std::string& parentName = sortedRigBones[i]->m_parentName;
+					int16_t parentIndex = -1;
 					
-					for(int32 p=i-1; p>=0; --p)
+					for(int32_t p=i-1; p>=0; --p)
 					{
 						if(sortedRigBones[p]->m_name == parentName)
 						{
-							parentIndex = (int16)p;
+							parentIndex = (int16_t)p;
 							break;
 						}
 					}
@@ -352,7 +354,7 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 				}
 			}
 			
-			for(uint32 i=0; i<sortedRigBones.size(); ++i)
+			for(uint32_t i=0; i<sortedRigBones.size(); ++i)
 			{
 				delete sortedRigBones[i];
 			}
@@ -366,7 +368,7 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 
 struct fi_temp_anim_curve_key_t
 {
-	uint16 keyTime;
+	uint16_t keyTime;
 	bool isRotation;
 	bool isLastCompMinus;	// for rotation
 	uint16_t keyValues[3];
@@ -374,30 +376,30 @@ struct fi_temp_anim_curve_key_t
 
 struct fi_temp_anim_curve_t
 {
-	uint16 index;
-	DynArray<fi_temp_anim_curve_key_t> keys;
+	uint16_t index;
+	std::vector<fi_temp_anim_curve_key_t> keys;
 };
 
 struct fi_temp_anim_clip_t
 {
 	float duration;
-	DynArray<fi_temp_anim_curve_t> curves;
+	std::vector<fi_temp_anim_curve_t> curves;
 };
 
-void fi_sample_fbx_anim_curve(const FBXAnimCurve* curve, uint32 size, float* result, float time)
+void fi_sample_fbx_anim_curve(const FBXAnimCurve* curve, uint32_t size, float* result, float time)
 {
-	for(uint32 i=0; i<size; ++i)
+	for(uint32_t i=0; i<size; ++i)
 	{
-		const uint32 timesSize = (uint32)curve[i].m_times.size();
+		const uint32_t timesSize = (uint32_t)curve[i].m_times.size();
 		
-		uint32 idx = 0;
+		uint32_t idx = 0;
 		while(idx < timesSize-1 && curve[i].m_times[idx] < time)
 		{
 			++idx;
 		}
 		
-		const uint32 upperIdx = idx;
-		const uint32 lowerIdx = idx == 0 ? idx : idx - 1;
+		const uint32_t upperIdx = idx;
+		const uint32_t lowerIdx = idx == 0 ? idx : idx - 1;
 		
 		if(lowerIdx == upperIdx)
 		{
@@ -500,8 +502,8 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 		ofbx::IScene* scene = OpenScene_FBX(absolutePath.c_str());
 		FUR_ASSERT(scene);
 		
-		std::map<String, FBXBoneInfo*> bones;
-		DynArray<const FBXBoneInfo*> sortedBones;
+		std::map<std::string, FBXBoneInfo*> bones;
+		std::vector<const FBXBoneInfo*> sortedBones;
 		
 		fi_gather_anim_curves(scene, bones);
 		fi_import_sort_bones(bones, sortedBones);
@@ -526,7 +528,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 				fi_temp_anim_curve_t& tempCurve = tempClip.curves[tempClip.curves.size()-1];
 				
 				// gather all times
-				DynArray<float> uniqueTimesSorted;
+				std::vector<float> uniqueTimesSorted;
 				for(uint32_t i=0; i<3; ++i)
 				{
 					const FBXAnimCurve& curve = bone->m_rotation[i];
@@ -610,7 +612,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 				curve->numKeys = tempCurve.keys.size();
 				curve->keys = curKey;
 				
-				for(uint32 i=0; i<curve->numKeys; ++i)
+				for(uint32_t i=0; i<curve->numKeys; ++i)
 				{
 					const fi_temp_anim_curve_key_t& key = tempCurve.keys[i];
 					
@@ -683,7 +685,7 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 			const ofbx::Mesh* mesh = scene->getMesh(i);
 			const ofbx::Geometry* geometry = mesh->getGeometry();
 			
-			const int32 numVertices = geometry->getVertexCount();
+			const int32_t numVertices = geometry->getVertexCount();
 			const ofbx::Vec3* vertices = geometry->getVertices();
 			const ofbx::Vec3* normals = geometry->getNormals();
 			const ofbx::Vec2* uvs = geometry->getUVs();
@@ -702,7 +704,7 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 			float* itVertex = chunk->dataVertices;
 			uint32_t* itIndex = chunk->dataIndices;
 			
-			for(int32 iv=0; iv<numVertices; ++iv)
+			for(int32_t iv=0; iv<numVertices; ++iv)
 			{
 				float* position = itVertex;
 				float* normal = itVertex + 3;
@@ -762,7 +764,7 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 				
 				// go through skin clusters (one cluster = one bone)
 				const uint32_t numClusters = skin->getClusterCount();
-				for(uint32 ic=0; ic<numClusters; ++ic)
+				for(uint32_t ic=0; ic<numClusters; ++ic)
 				{
 					const uint32_t idxBone = ic;
 					
