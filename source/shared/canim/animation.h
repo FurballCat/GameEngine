@@ -133,6 +133,8 @@ typedef struct fa_cmd_buffer_recorder_t
 	void* currPointer;
 	uint32_t sizeLeft;
 	uint32_t sizeRecorded;
+	
+	uint32_t poseStackSizeTracking;
 } fa_cmd_buffer_recorder_t;
 
 typedef enum fa_cmd_status_t

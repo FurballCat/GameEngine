@@ -573,12 +573,13 @@ void fa_cmd_buffer_recorder_init(fa_cmd_buffer_recorder_t* recorder, void* outDa
 	recorder->currPointer = outData;
 	recorder->sizeLeft = maxSize;
 	recorder->sizeRecorded = 0;
+	recorder->poseStackSizeTracking = 0;
 }
 
 // begin command
 void fa_cmd_begin(fa_cmd_buffer_recorder_t* recorder)
 {
-	
+	FUR_ASSERT(recorder->poseStackSizeTracking == 0);	// at the beginning of command buffer, we expect no additional pose added
 }
 
 // end command
@@ -590,6 +591,8 @@ fa_cmd_status_t fa_cmd_impl_end(fa_cmd_context_t* ctx, const void* cmdData)
 void fa_cmd_end(fa_cmd_buffer_recorder_t* recorder)
 {
 	fa_cmd_buffer_write(recorder, fa_cmd_impl_end, NULL, 0);
+	
+	FUR_ASSERT(recorder->poseStackSizeTracking == 1);	// at the end of command buffer, we expect the post stack to have +1 pose
 }
 
 // set reference pose command
@@ -620,6 +623,7 @@ fa_cmd_status_t fa_cmd_impl_ref_pose(fa_cmd_context_t* ctx, const void* cmdData)
 void fa_cmd_ref_pose(fa_cmd_buffer_recorder_t* recorder)
 {
 	fa_cmd_buffer_write(recorder, fa_cmd_impl_ref_pose, NULL, 0);
+	recorder->poseStackSizeTracking += 1;
 }
 
 // set identity pose command
@@ -648,6 +652,7 @@ fa_cmd_status_t fa_cmd_impl_identity(fa_cmd_context_t* ctx, const void* cmdData)
 void fa_cmd_identity(fa_cmd_buffer_recorder_t* recorder)
 {
 	fa_cmd_buffer_write(recorder, fa_cmd_impl_identity, NULL, 0);
+	recorder->poseStackSizeTracking += 1;
 }
 
 // sample animation command
@@ -694,6 +699,7 @@ void fa_cmd_anim_sample(fa_cmd_buffer_recorder_t* recorder, float time, uint16_t
 {
 	fa_cmd_anim_sample_data_t data = { time, animClipId };
 	fa_cmd_buffer_write(recorder, fa_cmd_impl_anim_sample, &data, sizeof(fa_cmd_anim_sample_data_t));
+	recorder->poseStackSizeTracking += 1;
 }
 
 // blend two poses command
@@ -723,4 +729,5 @@ void fa_cmd_blend2(fa_cmd_buffer_recorder_t* recorder, float alpha)
 {
 	fa_cmd_blend2_data_t data = { alpha };
 	fa_cmd_buffer_write(recorder, fa_cmd_impl_blend2, &data, sizeof(fa_cmd_blend2_data_t));
+	recorder->poseStackSizeTracking -= 1;
 }
