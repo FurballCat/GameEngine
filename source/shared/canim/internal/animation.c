@@ -517,3 +517,210 @@ CANIM_API void fa_pose_stack_get(const fa_pose_stack_t* pStack, fa_pose_t* pPose
 	}
 	
 }
+
+// ******************* COMMANDS ******************* //
+
+void fa_cmd_buffer_evaluate(const fa_cmd_buffer_t* buffer, fa_cmd_context_t* ctx)
+{
+	fa_cmd_status_t status = FA_CMD_STATUS_OK;
+	uint32_t dbgIndexCommand = 0;
+	const void* cmdPointer = buffer->data;
+	while(status == FA_CMD_STATUS_OK)
+	{
+		const fa_cmd_func_t* func = (const fa_cmd_func_t*)cmdPointer;
+		const uint32_t* dataSize = (const uint32_t*)(cmdPointer + sizeof(fa_cmd_func_t));
+		const void* cmdData = NULL;
+		if(*dataSize > 0)
+		{
+			 cmdData = cmdPointer + sizeof(fa_cmd_func_t) + sizeof(uint32_t);
+		}
+		
+		status = (*func)(ctx, cmdData);
+		const uint32_t totalCommandSize = sizeof(fa_cmd_func_t) + sizeof(uint32_t) + (*dataSize);
+		cmdPointer += totalCommandSize;
+		++dbgIndexCommand;
+	}
+}
+
+// this is the cmd memory formatting function
+void fa_cmd_buffer_write(fa_cmd_buffer_recorder_t* recorder, fa_cmd_func_t func, const void* data, uint32_t dataSize)
+{
+	const uint32_t sizeRequired = sizeof(fa_cmd_func_t) + sizeof(uint32_t) + dataSize;
+	FUR_ASSERT(sizeRequired <= recorder->sizeLeft);
+
+	// command function pointer
+	fa_cmd_func_t* funcPtr = (fa_cmd_func_t*)recorder->currPointer;
+	*funcPtr = func;
+	
+	// command data size (can be 0)
+	uint32_t* dataSizePtr = (uint32_t*)(recorder->currPointer + sizeof(fa_cmd_func_t));
+	*dataSizePtr = dataSize;
+	
+	// command data
+	if(data)
+	{
+		void* dataPtr = recorder->currPointer + sizeof(fa_cmd_func_t) + sizeof(uint32_t);
+		memcpy(dataPtr, data, dataSize);
+	}
+	
+	recorder->currPointer += sizeRequired;
+	recorder->sizeLeft -= sizeRequired;
+	recorder->sizeRecorded += sizeRequired;
+}
+
+void fa_cmd_buffer_recorder_init(fa_cmd_buffer_recorder_t* recorder, void* outData, uint32_t maxSize)
+{
+	recorder->currPointer = outData;
+	recorder->sizeLeft = maxSize;
+	recorder->sizeRecorded = 0;
+}
+
+// begin command
+void fa_cmd_begin(fa_cmd_buffer_recorder_t* recorder)
+{
+	
+}
+
+// end command
+fa_cmd_status_t fa_cmd_impl_end(fa_cmd_context_t* ctx, const void* cmdData)
+{
+	return FA_CMD_STATUS_STOP;
+}
+
+void fa_cmd_end(fa_cmd_buffer_recorder_t* recorder)
+{
+	fa_cmd_buffer_write(recorder, fa_cmd_impl_end, NULL, 0);
+}
+
+// set reference pose command
+fa_cmd_status_t fa_cmd_impl_ref_pose(fa_cmd_context_t* ctx, const void* cmdData)
+{
+	fa_pose_stack_push(ctx->poseStack, 1);
+	
+	fa_pose_t pose;
+	fa_pose_stack_get(ctx->poseStack, &pose, 0);
+	
+	FUR_ASSERT(pose.numXforms == ctx->rig->numBones);
+	
+	for(uint32_t i=0; i<pose.numXforms; ++i)
+	{
+		pose.xforms[i] = ctx->rig->refPose[i];
+		pose.weightsXforms[i] = 255;
+	}
+	
+	for(uint32_t i=0; i<pose.numTracks; ++i)
+	{
+		pose.tracks[i] = 0.0f;
+		pose.weightsTracks[i] = 255;
+	}
+	
+	return FA_CMD_STATUS_OK;
+}
+
+void fa_cmd_ref_pose(fa_cmd_buffer_recorder_t* recorder)
+{
+	fa_cmd_buffer_write(recorder, fa_cmd_impl_ref_pose, NULL, 0);
+}
+
+// set identity pose command
+fa_cmd_status_t fa_cmd_impl_identity(fa_cmd_context_t* ctx, const void* cmdData)
+{
+	fa_pose_stack_push(ctx->poseStack, 1);
+	
+	fa_pose_t pose;
+	fa_pose_stack_get(ctx->poseStack, &pose, 0);
+	
+	for(uint32_t i=0; i<pose.numXforms; ++i)
+	{
+		fm_xform_identity(&pose.xforms[i]);
+		pose.weightsXforms[i] = 255;
+	}
+	
+	for(uint32_t i=0; i<pose.numTracks; ++i)
+	{
+		pose.tracks[i] = 0.0f;
+		pose.weightsTracks[i] = 255;
+	}
+	
+	return FA_CMD_STATUS_OK;
+}
+
+void fa_cmd_identity(fa_cmd_buffer_recorder_t* recorder)
+{
+	fa_cmd_buffer_write(recorder, fa_cmd_impl_identity, NULL, 0);
+}
+
+// sample animation command
+typedef struct fa_cmd_anim_sample_data_t
+{
+	float time;
+	uint16_t animClipId;
+} fa_cmd_anim_sample_data_t;
+
+fa_cmd_status_t fa_cmd_impl_anim_sample(fa_cmd_context_t* ctx, const void* cmdData)
+{
+	const fa_cmd_anim_sample_data_t* data = (fa_cmd_anim_sample_data_t*)cmdData;
+	FUR_ASSERT(data->animClipId < ctx->numAnimClips);
+	
+	const fa_anim_clip_t* clip = ctx->animClips[data->animClipId];
+	
+	fa_pose_stack_push(ctx->poseStack, 1);
+	fa_pose_t pose;
+	fa_pose_stack_get(ctx->poseStack, &pose, 0);
+	
+	// temporary ref pose write - todo: remove that, this should be part of anim clip sampling function
+	{
+		FUR_ASSERT(pose.numXforms == ctx->rig->numBones);
+		
+		for(uint32_t i=0; i<pose.numXforms; ++i)
+		{
+			pose.xforms[i] = ctx->rig->refPose[i];
+			pose.weightsXforms[i] = 255;
+		}
+		
+		for(uint32_t i=0; i<pose.numTracks; ++i)
+		{
+			pose.tracks[i] = 0.0f;
+			pose.weightsTracks[i] = 255;
+		}
+	}
+	
+	fa_anim_clip_sample(clip, data->time, &pose);
+	
+	return FA_CMD_STATUS_OK;
+}
+
+void fa_cmd_anim_sample(fa_cmd_buffer_recorder_t* recorder, float time, uint16_t animClipId)
+{
+	fa_cmd_anim_sample_data_t data = { time, animClipId };
+	fa_cmd_buffer_write(recorder, fa_cmd_impl_anim_sample, &data, sizeof(fa_cmd_anim_sample_data_t));
+}
+
+// blend two poses command
+typedef struct fa_cmd_blend2_data_t
+{
+	float alpha;
+} fa_cmd_blend2_data_t;
+
+fa_cmd_status_t fa_cmd_impl_blend2(fa_cmd_context_t* ctx, const void* cmdData)
+{
+	fa_cmd_blend2_data_t* data = (fa_cmd_blend2_data_t*)cmdData;
+	
+	fa_pose_t pose1;
+	fa_pose_stack_get(ctx->poseStack, &pose1, 0);
+	
+	fa_pose_t pose2;
+	fa_pose_stack_get(ctx->poseStack, &pose2, 1);
+	
+	fa_pose_blend_linear(&pose2, &pose1, &pose2, data->alpha);
+	
+	fa_pose_stack_pop(ctx->poseStack, 1);
+	
+	return FA_CMD_STATUS_OK;
+}
+
+void fa_cmd_blend2(fa_cmd_buffer_recorder_t* recorder, float alpha)
+{
+	fa_cmd_blend2_data_t data = { alpha };
+	fa_cmd_buffer_write(recorder, fa_cmd_impl_blend2, &data, sizeof(fa_cmd_blend2_data_t));
+}

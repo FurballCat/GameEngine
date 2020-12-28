@@ -2663,7 +2663,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		pRenderer->rotationAngle = 0.0f;
 		pRenderer->cameraZoom = 1.0f;
 		
-		pRenderer->scratchpadBufferSize = 128 * 1024;
+		pRenderer->scratchpadBufferSize = 256 * 1024;
 		pRenderer->scratchpadBuffer = FUR_ALLOC_AND_ZERO(pRenderer->scratchpadBufferSize, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 	}
 	
@@ -2889,67 +2889,92 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 {
 	fr_skinning_buffer_t skinBuffer = {};
 	
+	uint32_t scratchpadBufferSizeUsed = 0;
+	void* scratchpadBufferPtr = pRenderer->scratchpadBuffer;
+	
+	const uint32_t poseStackSize = 128 * 1024;
+	void* animPoseStackMemory = NULL;
+	{
+		uint32_t sizeRequired = poseStackSize;
+		FUR_ASSERT(scratchpadBufferSizeUsed + sizeRequired < pRenderer->scratchpadBufferSize);
+		
+		animPoseStackMemory = scratchpadBufferPtr;
+		
+		scratchpadBufferPtr += sizeRequired;
+		scratchpadBufferSizeUsed += sizeRequired;
+	}
+	
+	const uint32_t animCmdBufferSize = 32 * 1024;
+	void* animCmdBufferMemory = NULL;
+	{
+		uint32_t sizeRequired = animCmdBufferSize;
+		FUR_ASSERT(scratchpadBufferSizeUsed + sizeRequired < pRenderer->scratchpadBufferSize);
+		
+		animCmdBufferMemory = scratchpadBufferPtr;
+		
+		scratchpadBufferPtr += sizeRequired;
+		scratchpadBufferSizeUsed += sizeRequired;
+	}
+	
 	if(pRenderer->pRig)
 	{
 		const uint32_t numBones = pRenderer->pRig->numBones;
 		const int16_t* parentIndices = pRenderer->pRig->parents;
 		
-		fa_pose_stack_t poseStack;
-		memset(&poseStack, 0, sizeof(poseStack));
+		fa_cmd_buffer_t animCmdBuffer = { animCmdBufferMemory, animCmdBufferSize };
+		fa_cmd_buffer_recorder_t recorder = {};
+		fa_cmd_buffer_recorder_init(&recorder, animCmdBuffer.data, animCmdBuffer.size);
+		
+		// record anim commands
+		{
+			fa_cmd_begin(&recorder);
+			
+			const float animTime = fmodf(g_time, pRenderer->pAnimClip->duration);
+			fa_cmd_anim_sample(&recorder, animTime, 0);
+			
+			const float animTime2 = fmodf(g_time, pRenderer->pAnimClip2->duration);
+			fa_cmd_anim_sample(&recorder, animTime2, 1);
+			
+			fa_cmd_blend2(&recorder, g_blend);
+			
+			fa_cmd_end(&recorder);
+		}
+		
+		// evaluate anim commands
+		fa_pose_stack_t poseStack = {};
 		
 		// init pose stack
 		{
-			fa_pose_stack_desc_t desc;
-			memset(&desc, 0, sizeof(fa_pose_stack_desc_t));
+			fa_pose_stack_desc_t desc = {};
 			
 			desc.numBonesPerPose = pRenderer->pRig->numBones;
 			desc.numTracksPerPose = 0;
 			desc.numMaxPoses = 4;
 			
-			fa_pose_stack_init(&poseStack, &desc, pRenderer->scratchpadBuffer, pRenderer->scratchpadBufferSize);
+			fa_pose_stack_init(&poseStack, &desc, animPoseStackMemory, poseStackSize);
 		}
-		
-		fa_pose_t refPose;
-		refPose.numTracks = 0;
-		refPose.numXforms = pRenderer->pRig->numBones;
-		refPose.xforms = pRenderer->pRig->refPose;
-		refPose.tracks = NULL;
-		refPose.weightsXforms = NULL;
-		refPose.weightsTracks = NULL;
-		refPose.flags = 0;
 		
 		fm_mat4_t mat;
 		
-		fa_pose_stack_push(&poseStack, 4);
+		const uint32_t numAnimClips = 2;
+		const fa_anim_clip_t* animClips[numAnimClips] = {pRenderer->pAnimClip, pRenderer->pAnimClip2};
 		
+		fa_cmd_context_t animCtx = {};
+		animCtx.animClips = animClips;
+		animCtx.numAnimClips = numAnimClips;
+		animCtx.rig = pRenderer->pRig;
+		animCtx.poseStack = &poseStack;
+		
+		fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
+		
+		fa_pose_t outPose;
+		fa_pose_stack_get(&poseStack, &outPose, 0);
+		
+		fa_pose_stack_push(&poseStack, 1);
 		fa_pose_t modelPose;
 		fa_pose_stack_get(&poseStack, &modelPose, 0);
 		
-		fa_pose_t pose_stand;
-		fa_pose_stack_get(&poseStack, &pose_stand, 1);
-		
-		fa_pose_t pose_look;
-		fa_pose_stack_get(&poseStack, &pose_look, 2);
-		
-		fa_pose_t pose_temp;
-		fa_pose_stack_get(&poseStack, &pose_temp, 3);
-		
-		fa_pose_copy(&modelPose, &refPose);
-		fa_pose_copy(&pose_stand, &refPose);
-		fa_pose_copy(&pose_look, &refPose);
-		fa_pose_copy(&pose_temp, &refPose);
-		
-		const float animTime = fmodf(g_time, pRenderer->pAnimClip->duration);
-		fa_anim_clip_sample(pRenderer->pAnimClip, animTime, &pose_stand);
-		
-		const float animTime2 = fmodf(g_time, pRenderer->pAnimClip2->duration);
-		fa_anim_clip_sample(pRenderer->pAnimClip2, animTime2, &pose_look);
-		
-		fa_pose_blend_linear(&pose_temp, &pose_stand, &pose_look, g_blend);
-		
-		fa_pose_local_to_model(&modelPose, &pose_temp, parentIndices);
-		
-		float color[4] = FUR_COLOR_CYAN;
+		fa_pose_local_to_model(&modelPose, &outPose, parentIndices);
 		
 		for(uint32_t i=0; i<numBones; ++i)
 		{
@@ -2981,8 +3006,6 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 			fm_mat4_mul(&bindPose[i], &skinBuffer.bones[i], &testMatrices[i]);
 			skinBuffer.bones[i] = testMatrices[i];
 		}
-		
-		fa_pose_stack_pop(&poseStack, 4);
 		
 		fm_quat g_rotX;
 		fm_vec4 g_vx;
