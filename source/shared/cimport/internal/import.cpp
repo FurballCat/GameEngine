@@ -834,10 +834,10 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 	return FI_RESULT_UNKNOWN_FILE_FORMAT_IMPORT_ERROR;
 }
 
-void fr_release_mesh(fr_resource_mesh_t** ppMesh, fc_alloc_callbacks_t* pAllocCallbacks)
+void fr_mesh_release(fr_resource_mesh_t* pMesh, fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	fr_resource_mesh_chunk_t* chunks = (*ppMesh)->chunks;
-	uint32_t numChunks = (*ppMesh)->numChunks;
+	fr_resource_mesh_chunk_t* chunks = pMesh->chunks;
+	uint32_t numChunks = pMesh->numChunks;
 	
 	for(uint32_t i=0; i<numChunks; ++i)
 	{
@@ -849,9 +849,11 @@ void fr_release_mesh(fr_resource_mesh_t** ppMesh, fc_alloc_callbacks_t* pAllocCa
 		
 		if(chunks[i].dataSkinning)
 			FUR_FREE(chunks[i].dataSkinning, pAllocCallbacks);
+		
+		if(chunks[i].boneNameHashes)
+			FUR_FREE(chunks[i].boneNameHashes, pAllocCallbacks);
 	}
 	
-	FUR_FREE((*ppMesh)->chunks, pAllocCallbacks);
-	FUR_FREE(*ppMesh, pAllocCallbacks);
-	*ppMesh = NULL;
+	FUR_FREE(pMesh->chunks, pAllocCallbacks);
+	FUR_FREE(pMesh, pAllocCallbacks);
 }

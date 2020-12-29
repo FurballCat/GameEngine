@@ -24,6 +24,8 @@ typedef struct fa_rig_t
 	int16_t idxLocoJoint;	// locomotion (root motion) joint index
 } fa_rig_t;
 
+CANIM_API void fa_rig_release(fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks);
+	
 typedef struct fa_anim_curve_key_t
 {
 	uint16_t keyTime;
@@ -46,6 +48,8 @@ typedef struct fa_anim_clip_t
 	fa_anim_curve_key_t* dataKeys;	// all keys in the animation
 } fa_anim_clip_t;
 	
+CANIM_API void fa_anim_clip_release(fa_anim_clip_t* clip, fc_alloc_callbacks_t* pAllocCallbacks);
+
 typedef enum fa_pose_flags_t
 {
 	PF_ADDITIVE = 0x1,

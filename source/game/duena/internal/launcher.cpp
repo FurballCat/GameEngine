@@ -309,12 +309,15 @@ void furMainEngineLoop(FurGameEngine* pEngine)
 	fr_wait_for_device(pEngine->pRenderer);
 }
 
-bool furMainEngineTerminate(FurGameEngine* pEngine)
+bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	// check for memory leaks
 	//FUR_ASSERT(furValidateAllocatorGeneral(&pEngine->m_memory._defaultInternals));
 	
 	FUR_FREE(pEngine->scratchpadBuffer, NULL);
+	fa_rig_release(pEngine->pRig, pAllocCallbacks);
+	fa_anim_clip_release(pEngine->pAnimClip, pAllocCallbacks);
+	fa_anim_clip_release(pEngine->pAnimClip2, pAllocCallbacks);
 	
 	fp_physics_scene_release(pEngine->pPhysics, pEngine->pPhysicsScene, NULL);
 	
@@ -351,7 +354,7 @@ int main()
 	furMainEngineLoop(pEngine);
 	
 	// terminate most basic engine components
-	bool result = furMainEngineTerminate(pEngine);
+	bool result = furMainEngineTerminate(pEngine, pAllocCallbacks);
 	if(!result)
 	{
 		return 1;

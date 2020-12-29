@@ -108,7 +108,7 @@ typedef struct fr_resource_mesh_t
 	
 CIMPORT_API fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* ctx, fr_resource_mesh_t** ppMesh, fc_alloc_callbacks_t* pAllocCallbacks);
 	
-CIMPORT_API void fr_release_mesh(fr_resource_mesh_t** ppMesh, fc_alloc_callbacks_t* pAllocCallbacks);
+CIMPORT_API void fr_mesh_release(fr_resource_mesh_t* ppMesh, fc_alloc_callbacks_t* pAllocCallbacks);
 	
 #ifdef __cplusplus
 }

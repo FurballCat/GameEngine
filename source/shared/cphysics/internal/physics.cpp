@@ -47,6 +47,8 @@ void fp_release_physics(fp_physics_t* pPhysics, fc_alloc_callbacks_t* pAllocCall
 	pPhysics->physics->release();
 	
 	g_defaultCPUDispatcher->release();
+	
+	FUR_FREE(pPhysics, pAllocCallbacks);
 }
 
 uint32_t fp_physics_scene_create(fp_physics_t* pPhysics, fp_physics_scene_t** ppScene, fc_alloc_callbacks_t* pAllocCallbacks)

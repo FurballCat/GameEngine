@@ -2653,7 +2653,7 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	// release character mesh
 	if(pRenderer->pMesh)
 	{
-		fr_release_mesh(&pRenderer->pMesh, pAllocCallbacks);
+		fr_mesh_release(pRenderer->pMesh, pAllocCallbacks);
 	}
 	
 	// this should be in clean-up swap chain

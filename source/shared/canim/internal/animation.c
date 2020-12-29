@@ -7,6 +7,24 @@
 
 #define MIN(x, y) x < y ? x : y
 
+void fa_rig_release(fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	FUR_FREE(rig->boneNameHashes, pAllocCallbacks);
+	FUR_FREE(rig->parents, pAllocCallbacks);
+	FUR_FREE(rig->refPose, pAllocCallbacks);
+	
+	FUR_FREE(rig, pAllocCallbacks);
+}
+
+void fa_anim_clip_release(fa_anim_clip_t* clip, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	FUR_FREE(clip->curves, pAllocCallbacks);
+	FUR_FREE(clip->dataKeys, pAllocCallbacks);
+	
+	FUR_FREE(clip, pAllocCallbacks);
+}
+
+
 // -----
 
 void fa_pose_set_identity(fa_pose_t* pose)
