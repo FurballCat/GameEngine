@@ -47,6 +47,9 @@
 SourceArt/**/*.png
 SourceArt/**/*.tga
 
+# some racket files
+*.rkt~
+
 # Binary Files
 Binaries/*
 Plugins/*/Binaries/*
