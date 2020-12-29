@@ -14,6 +14,61 @@
 
 /**************** FURBALL CAT GAME ENGINE ****************/
 
+typedef union fs_variant_t
+{
+	fc_string_hash_t asStringHash;
+} fs_variant_t;
+
+// ***** script native functions ***** //
+
+fs_variant_t fs_native_animate(uint32_t numArgs, const fs_variant_t* args)
+{
+	FUR_ASSERT(numArgs == 2);
+	const fc_string_hash_t objectName = args[0].asStringHash;
+	const fc_string_hash_t animName = args[1].asStringHash;
+	
+	fs_variant_t result = {};
+	return result;
+};
+
+// ***** scripts core ***** //
+
+typedef fs_variant_t (*fs_script_navitve_func_t)(uint32_t numArgs, const fs_variant_t* args);
+
+typedef struct fs_native_func_entry_t
+{
+	fc_string_hash_t name;
+	fs_script_navitve_func_t func;
+} fs_native_func_entry_t;
+
+fs_native_func_entry_t g_nativeFuncLookUp[] = {
+	{ SID("animate"), fs_native_animate }
+};
+
+typedef struct fs_script_data_t
+{
+	
+} fs_script_data_t;
+
+bool fs_script_data_load(const fi_depot_t* depot, const char* path, fs_script_data_t* pOutScript)
+{
+	const uint32_t maxPathLen = 256;
+	char absolutePath[maxPathLen] = {};
+	uint32_t depotPathLen = strlen(depot->path);
+	uint32_t pathLen = strlen(path);
+	
+	FUR_ASSERT(depotPathLen + pathLen < maxPathLen);
+	
+	memcpy(absolutePath, depot->path, depotPathLen);
+	memcpy(absolutePath + depotPathLen, path, pathLen);
+	
+	printf("abs path: %s\n", absolutePath);
+	
+	return true;
+}
+
+// ******************* //
+
 struct FurMainAppDesc
 {
 	uint32_t m_width;
@@ -110,7 +165,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	pEngine->scratchpadBufferSize = 256 * 1024;
 	pEngine->scratchpadBuffer = FUR_ALLOC_AND_ZERO(pEngine->scratchpadBufferSize, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 	
-	// load rig and anims
+	// load resources
 	{
 		const char* depotPath = "../../../../../";
 
@@ -141,6 +196,12 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			ctx.path = anim_zelda_look;
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipGesture, pAllocCallbacks);
+		}
+		
+		// import script data resources
+		{
+			fs_script_data_t scriptData;
+			fs_script_data_load(&depot, "scripts/zelda.txt", &scriptData);
 		}
 	}
 	
