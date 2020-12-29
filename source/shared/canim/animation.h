@@ -164,25 +164,33 @@ CANIM_API void fa_cmd_blend_additive(fa_cmd_buffer_recorder_t* recorder, float a
 	
 // **************** CHARACTER **************** //
 	
-typedef struct fa_action_t
-{
-	void* userData;
-	void (*func)(fa_cmd_context_t* ctx, void* userData);
-	
-	uint64_t globalStartTime;
-} fa_action_t;
-	
 typedef enum fa_character_layer_t
 {
 	FA_CHAR_LAYER_BODY = 0,
 	FA_CHAR_LAYER_COUNT
 } fa_character_layer_t;
 	
+typedef struct fa_action_ctx_t
+{
+	float dt;
+	fa_character_layer_t layer;
+} fa_action_ctx_t;
+	
+typedef void (*fa_action_func_t)(const fa_action_ctx_t* ctx, void* userData);
+	
+typedef struct fa_action_t
+{
+	void* userData;
+	fa_action_func_t func;	// if this is NULL, then action is NULL
+	
+	uint64_t globalStartTime;
+} fa_action_t;
+	
 typedef struct fa_layer_t
 {
-	uint8_t* mask;
-	fa_action_t* currAction;
-	fa_action_t* nextAction;
+	//const uint8_t* mask;
+	fa_action_t currAction;
+	fa_action_t nextAction;
 } fa_layer_t;
 	
 typedef struct fa_character_t

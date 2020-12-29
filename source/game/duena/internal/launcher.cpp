@@ -54,8 +54,8 @@ struct FurGameEngine
 	
 	// animation
 	fa_rig_t* pRig;
-	fa_anim_clip_t* pAnimClip;
-	fa_anim_clip_t* pAnimClip2;
+	fa_anim_clip_t* pAnimClipIdle;
+	fa_anim_clip_t* pAnimClipGesture;
 	
 	fm_mat4 skinMatrices[512];
 	
@@ -133,14 +133,14 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			fi_import_anim_clip_ctx_t ctx;
 			ctx.path = anim_zelda_stand;
 			
-			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClip, pAllocCallbacks);
+			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipIdle, pAllocCallbacks);
 		}
 
 		{
 			fi_import_anim_clip_ctx_t ctx;
 			ctx.path = anim_zelda_look;
 			
-			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClip2, pAllocCallbacks);
+			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipGesture, pAllocCallbacks);
 		}
 	}
 	
@@ -194,17 +194,31 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		fa_cmd_buffer_recorder_t recorder = {};
 		fa_cmd_buffer_recorder_init(&recorder, animCmdBuffer.data, animCmdBuffer.size);
 		
+		const float colorWhite[4] = FUR_COLOR_WHITE;
+		
 		// record anim commands
 		{
 			fa_cmd_begin(&recorder);
 			
-			const float animTime = fmodf(pEngine->globalTime, pEngine->pAnimClip->duration);
-			fa_cmd_anim_sample(&recorder, animTime, 0);
+			// idle action
+			const float animTimeIdle = fmodf(pEngine->globalTime, pEngine->pAnimClipIdle->duration);
+			fa_cmd_anim_sample(&recorder, animTimeIdle, 0);
+			fc_dbg_text(-500.0f, 40.0f, "zelda-idle-stand-01", colorWhite);
 			
-			const float animTime2 = fmodf(pEngine->globalTime, pEngine->pAnimClip2->duration);
-			fa_cmd_anim_sample(&recorder, animTime2, 1);
-			
-			fa_cmd_blend2(&recorder, pEngine->blendAlpha);
+			// gesture action
+			if(pEngine->blendAlpha > 0.001f)
+			{
+				const float animTimeGesture = fmodf(pEngine->globalTime, pEngine->pAnimClipGesture->duration);
+				fa_cmd_anim_sample(&recorder, animTimeGesture, 1);
+				fc_dbg_text(-500.0f, 20.0f, "zelda-idle-stand-look-around", colorWhite);
+				
+				// transition
+				fa_cmd_blend2(&recorder, pEngine->blendAlpha);
+				
+				char txt[64];
+				sprintf(txt, "blend: %1.2f", pEngine->blendAlpha);
+				fc_dbg_text(-500.0f, 0.0f, txt, colorWhite);
+			}
 			
 			fa_cmd_end(&recorder);
 		}
@@ -226,7 +240,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		fm_mat4_t mat;
 		
 		const uint32_t numAnimClips = 2;
-		const fa_anim_clip_t* animClips[numAnimClips] = {pEngine->pAnimClip, pEngine->pAnimClip2};
+		const fa_anim_clip_t* animClips[numAnimClips] = {pEngine->pAnimClipIdle, pEngine->pAnimClipGesture};
 		
 		fa_cmd_context_t animCtx = {};
 		animCtx.animClips = animClips;
@@ -262,16 +276,6 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		for(uint32_t i=0; i<numSkinMatrices; ++i)
 		{
 			fm_xform_to_mat4(&modelPose.xforms[i], &pEngine->skinMatrices[i]);
-		}
-		
-		const float colorWhite[4] = FUR_COLOR_WHITE;
-		{
-			fc_dbg_text(-500.0f, 40.0f, "zelda-idle-stand-01", colorWhite);
-			fc_dbg_text(-500.0f, 20.0f, "zelda-idle-stand-look-around", colorWhite);
-			
-			char txt[64];
-			sprintf(txt, "blend: %1.2f", pEngine->blendAlpha);
-			fc_dbg_text(-500.0f, 0.0f, txt, colorWhite);
 		}
 	}
 }
@@ -316,8 +320,8 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	
 	FUR_FREE(pEngine->scratchpadBuffer, NULL);
 	fa_rig_release(pEngine->pRig, pAllocCallbacks);
-	fa_anim_clip_release(pEngine->pAnimClip, pAllocCallbacks);
-	fa_anim_clip_release(pEngine->pAnimClip2, pAllocCallbacks);
+	fa_anim_clip_release(pEngine->pAnimClipIdle, pAllocCallbacks);
+	fa_anim_clip_release(pEngine->pAnimClipGesture, pAllocCallbacks);
 	
 	fp_physics_scene_release(pEngine->pPhysics, pEngine->pPhysicsScene, NULL);
 	
@@ -362,4 +366,3 @@ int main()
 	
 	return 0;
 }
-
