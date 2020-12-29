@@ -34,7 +34,6 @@
 
 #include <math.h>
 #include "cmath/public.h"
-#include "canim/public.h"
 
 #define MAX(a,b) \
 	({ __typeof__ (a) _a = (a); \
@@ -956,14 +955,7 @@ struct fr_renderer_t
 	
 	fr_resource_mesh_t* pMesh;
 	
-	fa_rig_t* pRig;
-	fa_anim_clip_t* pAnimClip;
-	fa_anim_clip_t* pAnimClip2;
-	
 	fr_skinning_mapping_t skinningMapping;
-	
-	void* scratchpadBuffer;
-	uint32_t scratchpadBufferSize;
 	
 	float rotationAngle;
 	float cameraZoom;
@@ -1849,10 +1841,6 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// load character mesh and rig
 	const char* depotPath = "../../../../../";
 	const char* characterMeshPath = "assets/characters/zelda/mesh/zelda_mesh.fbx";
-	const char* characterRigPath = "assets/characters/zelda/mesh/zelda_rig.fbx";
-	
-	const char* anim_zelda_stand = "assets/characters/zelda/animations/zelda-idle-stand-01.fbx";
-	const char* anim_zelda_look = "assets/characters/zelda/animations/zelda-idle-stand-look-around.fbx";
 	
 	if(res == FR_RESULT_OK)
 	{
@@ -1864,27 +1852,6 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			ctx.path = characterMeshPath;
 			
 			fi_import_mesh(&depot, &ctx, &pRenderer->pMesh, pAllocCallbacks);
-		}
-
-		{
-			fi_import_rig_ctx_t ctx;
-			ctx.path = characterRigPath;
-			
-			fi_import_rig(&depot, &ctx, &pRenderer->pRig, pAllocCallbacks);
-		}
-		
-		{
-			fi_import_anim_clip_ctx_t ctx;
-			ctx.path = anim_zelda_stand;
-			
-			fi_import_anim_clip(&depot, &ctx, &pRenderer->pAnimClip, pAllocCallbacks);
-		}
-		
-		{
-			fi_import_anim_clip_ctx_t ctx;
-			ctx.path = anim_zelda_look;
-			
-			fi_import_anim_clip(&depot, &ctx, &pRenderer->pAnimClip2, pAllocCallbacks);
 		}
 	}
 	
@@ -2662,34 +2629,12 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	{
 		pRenderer->rotationAngle = 0.0f;
 		pRenderer->cameraZoom = 1.0f;
-		
-		pRenderer->scratchpadBufferSize = 256 * 1024;
-		pRenderer->scratchpadBuffer = FUR_ALLOC_AND_ZERO(pRenderer->scratchpadBufferSize, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 	}
 	
 	// create skinning mapping
 	if(res == FR_RESULT_OK)
 	{
-		const fr_resource_mesh_chunk_t* meshChunk = &pRenderer->pMesh->chunks[0];
-		const uint32_t numBones = meshChunk->numBones;
-		pRenderer->skinningMapping.indicesMapping = FUR_ALLOC_ARRAY_AND_ZERO(uint32_t, numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		pRenderer->skinningMapping.count = numBones;
 		
-		uint32_t* mapping = pRenderer->skinningMapping.indicesMapping;
-		const fa_rig_t* rig = pRenderer->pRig;
-		const uint32_t rigNumBones = rig->numBones;
-		
-		for(uint32_t i=0; i<numBones; ++i)
-		{
-			mapping[i] = 0;
-			for(uint32_t r=0; r<rigNumBones; ++r)
-			{
-				if(meshChunk->boneNameHashes[i] == rig->boneNameHashes[r])
-				{
-					mapping[i] = r;
-				}
-			}
-		}
 	}
 	
 	return res;
@@ -2700,9 +2645,10 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 {
 	fi_input_manager_release(pRenderer->pInputManager, pAllocCallbacks);	// todo: move out of renderer
 	
-	FUR_FREE(pRenderer->scratchpadBuffer, pAllocCallbacks);
-	
-	FUR_FREE(pRenderer->skinningMapping.indicesMapping, pAllocCallbacks);
+	if(pRenderer->skinningMapping.indicesMapping)
+	{
+		FUR_FREE(pRenderer->skinningMapping.indicesMapping, pAllocCallbacks);
+	}
 	
 	// release character mesh
 	if(pRenderer->pMesh)
@@ -2885,170 +2831,29 @@ void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_
 
 uint32_t g_prevImageIndex = 0;
 
-void fr_draw_frame(struct fr_renderer_t* pRenderer)
+void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_t* ctx)
 {
 	fr_skinning_buffer_t skinBuffer = {};
 	
-	uint32_t scratchpadBufferSizeUsed = 0;
-	void* scratchpadBufferPtr = pRenderer->scratchpadBuffer;
-	
-	const uint32_t poseStackSize = 128 * 1024;
-	void* animPoseStackMemory = NULL;
+	// pass skinning
+	const uint32_t skinNumBones = pRenderer->skinningMapping.count;
+	FUR_ASSERT(ctx->numSkinMatrices <= skinNumBones);
+	for(uint32_t i=0; i<skinNumBones; ++i)
 	{
-		uint32_t sizeRequired = poseStackSize;
-		FUR_ASSERT(scratchpadBufferSizeUsed + sizeRequired < pRenderer->scratchpadBufferSize);
-		
-		animPoseStackMemory = scratchpadBufferPtr;
-		
-		scratchpadBufferPtr += sizeRequired;
-		scratchpadBufferSizeUsed += sizeRequired;
+		const uint32_t srcBoneIndex = pRenderer->skinningMapping.indicesMapping[i];
+		skinBuffer.bones[i] = ctx->skinMatrices[srcBoneIndex];
 	}
 	
-	const uint32_t animCmdBufferSize = 32 * 1024;
-	void* animCmdBufferMemory = NULL;
+	const fm_mat4* bindPose = pRenderer->pMesh->chunks[0].bindPose;
+	fm_mat4 testMatrices[400];
+	
+	for(uint32_t i=0; i<skinNumBones; ++i)
 	{
-		uint32_t sizeRequired = animCmdBufferSize;
-		FUR_ASSERT(scratchpadBufferSizeUsed + sizeRequired < pRenderer->scratchpadBufferSize);
-		
-		animCmdBufferMemory = scratchpadBufferPtr;
-		
-		scratchpadBufferPtr += sizeRequired;
-		scratchpadBufferSizeUsed += sizeRequired;
+		fm_mat4_mul(&bindPose[i], &skinBuffer.bones[i], &testMatrices[i]);
+		skinBuffer.bones[i] = testMatrices[i];
 	}
 	
-	if(pRenderer->pRig)
-	{
-		const uint32_t numBones = pRenderer->pRig->numBones;
-		const int16_t* parentIndices = pRenderer->pRig->parents;
-		
-		fa_cmd_buffer_t animCmdBuffer = { animCmdBufferMemory, animCmdBufferSize };
-		fa_cmd_buffer_recorder_t recorder = {};
-		fa_cmd_buffer_recorder_init(&recorder, animCmdBuffer.data, animCmdBuffer.size);
-		
-		// record anim commands
-		{
-			fa_cmd_begin(&recorder);
-			
-			const float animTime = fmodf(g_time, pRenderer->pAnimClip->duration);
-			fa_cmd_anim_sample(&recorder, animTime, 0);
-			
-			const float animTime2 = fmodf(g_time, pRenderer->pAnimClip2->duration);
-			fa_cmd_anim_sample(&recorder, animTime2, 1);
-			
-			fa_cmd_blend2(&recorder, g_blend);
-			
-			fa_cmd_end(&recorder);
-		}
-		
-		// evaluate anim commands
-		fa_pose_stack_t poseStack = {};
-		
-		// init pose stack
-		{
-			fa_pose_stack_desc_t desc = {};
-			
-			desc.numBonesPerPose = pRenderer->pRig->numBones;
-			desc.numTracksPerPose = 0;
-			desc.numMaxPoses = 4;
-			
-			fa_pose_stack_init(&poseStack, &desc, animPoseStackMemory, poseStackSize);
-		}
-		
-		fm_mat4_t mat;
-		
-		const uint32_t numAnimClips = 2;
-		const fa_anim_clip_t* animClips[numAnimClips] = {pRenderer->pAnimClip, pRenderer->pAnimClip2};
-		
-		fa_cmd_context_t animCtx = {};
-		animCtx.animClips = animClips;
-		animCtx.numAnimClips = numAnimClips;
-		animCtx.rig = pRenderer->pRig;
-		animCtx.poseStack = &poseStack;
-		
-		fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
-		
-		fa_pose_t outPose;
-		fa_pose_stack_get(&poseStack, &outPose, 0);
-		
-		fa_pose_stack_push(&poseStack, 1);
-		fa_pose_t modelPose;
-		fa_pose_stack_get(&poseStack, &modelPose, 0);
-		
-		fa_pose_local_to_model(&modelPose, &outPose, parentIndices);
-		
-		for(uint32_t i=0; i<numBones; ++i)
-		{
-			fm_xform_to_mat4(&modelPose.xforms[i], &mat);
-			//fr_dbg_draw_mat4(&mat);
-			
-			int16_t idxParent = parentIndices[i];
-			if(idxParent >= 0)
-			{
-				//fc_dbg_line(&modelPose.xforms[i].pos.x, &modelPose.xforms[idxParent].pos.x, color);
-			}
-		}
-		
-		// pass skinning
-		const uint32_t skinNumBones = pRenderer->skinningMapping.count;
-		for(uint32_t i=0; i<skinNumBones; ++i)
-		{
-			const uint32_t srcBoneIndex = pRenderer->skinningMapping.indicesMapping[i];
-			fm_xform_to_mat4(&modelPose.xforms[srcBoneIndex], &skinBuffer.bones[i]);
-		}
-		
-		const fm_mat4* bindPose = pRenderer->pMesh->chunks[0].bindPose;
-		fm_mat4 testMatrices[400];
-		
-		for(uint32_t i=0; i<skinNumBones; ++i)
-		{
-			const uint32_t srcBoneIndex = pRenderer->skinningMapping.indicesMapping[i];
-			fm_xform_to_mat4(&modelPose.xforms[srcBoneIndex], &skinBuffer.bones[i]);
-			fm_mat4_mul(&bindPose[i], &skinBuffer.bones[i], &testMatrices[i]);
-			skinBuffer.bones[i] = testMatrices[i];
-		}
-		
-		fm_quat g_rotX;
-		fm_vec4 g_vx;
-		
-		fm_euler_angles angles;
-		angles.yaw = FM_DEG_TO_RAD(45);
-		angles.pitch = FM_DEG_TO_RAD(0);
-		angles.roll = FM_DEG_TO_RAD(0);
-		fm_quat_make_from_euler_angles_yzpxry(&angles, &g_rotX);
-		g_vx.x = 0.0f;
-		g_vx.y = 1.0f;
-		g_vx.z = 0.0f;
-		g_vx.w = 0.0f;
-		
-		fm_vec4 v;
-		fm_quat_rot(&g_rotX, &g_vx, &v);
-		
-		fm_vec4 vzero;
-		fm_vec4_zeros(&vzero);
-		
-		fm_xform root;
-		fm_xform_identity(&root);
-		root.pos.x = 1.0f;
-		
-		fm_quat_make_from_euler_angles_yzpxry(&angles, &root.rot);
-		
-		fm_xform hips;
-		fm_xform_identity(&hips);
-		
-		fm_xform hips_model;
-		fm_xform hips_model2;
-		
-		fm_xform_mul(&root, &hips, &hips_model);
-		fm_xform_mul(&root, &hips_model, &hips_model2);
-		
-		//fm_xform_to_mat4(&hips_model, &mat);
-		//fm_xform_to_mat4(&hips_model2, &mat);
-		
-		//fr_dbg_draw_mat4(&mat);
-		//fr_dbg_draw_mat4(&mat);
-		//fc_dbg_line(&vzero.x, &g_vx.x, color2);
-		//fc_dbg_line(&vzero.x, &v.x, color);
-	}
+	// todo: pass skinning matrices
 	
 	/*
 	const uint32_t numChunks = pRenderer->pMesh->numChunks;
@@ -3145,16 +2950,6 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer)
 	fc_dbg_line(begin, axisX, colorRed);
 	fc_dbg_line(begin, axisY, colorGreen);
 	fc_dbg_line(begin, axisZ, colorBlue);
-	
-	const float colorWhite[4] = FUR_COLOR_WHITE;
-	{
-		fc_dbg_text(-500.0f, 40.0f, "zelda-idle-stand-01", colorWhite);
-		fc_dbg_text(-500.0f, 20.0f, "zelda-idle-stand-look-around", colorWhite);
-		
-		char txt[64];
-		sprintf(txt, "blend: %1.2f", g_blend);
-		fc_dbg_text(-500.0f, 0.0f, txt, colorWhite);
-	}
 	
 	// update debug lines buffer
 	{
@@ -3338,4 +3133,26 @@ enum fr_example_struct_version_t
 void frSerialize_example(fr_serializer_t* ser, fr_example_struct_t* data)
 {
 	FR_ADD_FIELD(FR_VER_INITIAL, fieldA);
+}
+
+void fr_temp_create_skinning_mapping(struct fr_renderer_t* pRenderer, const uint32_t* boneNameHashes, uint32_t rigNumBones, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	const fr_resource_mesh_chunk_t* meshChunk = &pRenderer->pMesh->chunks[0];
+	const uint32_t meshNumBones = meshChunk->numBones;
+	pRenderer->skinningMapping.indicesMapping = FUR_ALLOC_ARRAY_AND_ZERO(uint32_t, meshNumBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	pRenderer->skinningMapping.count = meshNumBones;
+	
+	uint32_t* mapping = pRenderer->skinningMapping.indicesMapping;
+	
+	for(uint32_t i=0; i<meshNumBones; ++i)
+	{
+		mapping[i] = 0;
+		for(uint32_t r=0; r<rigNumBones; ++r)
+		{
+			if(meshChunk->boneNameHashes[i] == boneNameHashes[r])
+			{
+				mapping[i] = r;
+			}
+		}
+	}
 }

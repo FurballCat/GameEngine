@@ -1,7 +1,10 @@
 {
   "dependecies": [
+	"ccore",
     "crend",
-	"cphysics"
+	"cphysics",
+	"canim",
+	"cimport"
   ],
 
   "dependencies_osx": [

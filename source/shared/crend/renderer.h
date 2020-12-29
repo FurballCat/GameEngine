@@ -82,8 +82,18 @@ struct fr_update_context_t
 };
 	
 CREND_API void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_context_t* ctx);
+
+typedef struct fm_mat4 fm_mat4;
 	
-CREND_API void fr_draw_frame(struct fr_renderer_t* pRenderer);
+typedef struct fr_draw_frame_context_t
+{
+	const fm_mat4* skinMatrices;
+	uint32_t numSkinMatrices;
+} fr_draw_frame_context_t;
+	
+CREND_API void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_t* ctx);
+
+CREND_API void fr_temp_create_skinning_mapping(struct fr_renderer_t* pRenderer, const uint32_t* boneNameHashes, uint32_t numBones, fc_alloc_callbacks_t* pAllocCallbacks);
 	
 #ifdef __cplusplus
 }
