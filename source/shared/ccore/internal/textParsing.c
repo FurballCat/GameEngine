@@ -94,6 +94,31 @@ bool fc_text_parse_int32(fc_text_stream_ro_t* stream, int32_t* out)
 	return true;
 }
 
+bool fc_text_parse_uint32(fc_text_stream_ro_t* stream, uint32_t* out)
+{
+	fc_text_parse_whitespaces(stream);
+	
+	char buf[64] = {};
+	
+	uint32_t i = 0;
+	while(!fc_text_stream_is_eof(stream, i) && fc_text_parse_is_numeric(stream->ptr[i]) && i < 63)
+	{
+		buf[i] = stream->ptr[i];
+		++i;
+	}
+	
+	if(i == 0)
+		return false;
+	
+	buf[i] = '\0';
+	
+	*out = (uint32_t)atol(buf);
+	
+	stream->ptr += i;
+	
+	return true;
+}
+
 bool fc_text_parse_float(fc_text_stream_ro_t* stream, float* out)
 {
 	fc_text_parse_whitespaces(stream);

@@ -28,7 +28,8 @@ typedef enum fc_memory_scope_t
 	FC_MEMORY_SCOPE_INPUT = 1,
 	FC_MEMORY_SCOPE_PHYSICS = 2,
 	FC_MEMORY_SCOPE_ANIMATION = 3,
-	FC_MEMORY_SCOPE_DEBUG = 4
+	FC_MEMORY_SCOPE_SCRIPT = 4,
+	FC_MEMORY_SCOPE_DEBUG = 5
 } fc_memory_scope_t;
 
 typedef void* (*fc_mem_alloc_fn_t)(	void* 						pUserData,
@@ -98,6 +99,8 @@ CCORE_API void fc_dealloc(struct fc_alloc_callbacks_t* pAllocCallbacks, void* pM
 	
 CCORE_API bool fc_validate_memory(void);
 
+#define FUR_ARRAY_SIZE(_arr) sizeof(_arr) / sizeof(_arr[0])
+	
 #ifdef __cplusplus
 }
 #endif // __cplusplus

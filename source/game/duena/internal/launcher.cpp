@@ -11,6 +11,8 @@
 #include "cimport/public.h"
 #include "cmath/public.h"
 #include "ccore/public.h"
+#include "ccore/buffer.h"
+#include "ccore/textParsing.h"
 
 /**************** FURBALL CAT GAME ENGINE ****************/
 
@@ -39,30 +41,164 @@ typedef struct fs_native_func_entry_t
 {
 	fc_string_hash_t name;
 	fs_script_navitve_func_t func;
+	uint32_t numArgs;
 } fs_native_func_entry_t;
 
 fs_native_func_entry_t g_nativeFuncLookUp[] = {
-	{ SID("animate"), fs_native_animate }
+	{ SID("animate"), fs_native_animate, 2 },
+	{ SID("__null"), NULL, 0 }
 };
+
+typedef struct fs_script_op_t
+{
+	fs_script_navitve_func_t func;
+	fs_variant_t* args;	// not owning this memory, it's just a pointer
+	uint32_t numArgs;
+} fs_script_op_t;
 
 typedef struct fs_script_data_t
 {
+	fs_script_op_t* ops;	// sequence of operations
+	fs_variant_t* allArgs; // owning memory to all args for all calls
 	
+	uint32_t numOps;
+	uint32_t numAllArgs;
 } fs_script_data_t;
 
-bool fs_script_data_load(const fi_depot_t* depot, const char* path, fs_script_data_t* pOutScript)
+enum fs_script_parsing_stage_t
+{
+	SPS_NONE = 0,
+	SPS_READING,
+	SPS_END,
+};
+
+void fs_script_release(fs_script_data_t* script, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	FUR_FREE(script->ops, pAllocCallbacks);
+	FUR_FREE(script->allArgs, pAllocCallbacks);
+}
+
+bool fs_script_data_load(const fi_depot_t* depot, const char* path, fs_script_data_t* pOutScript, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	const uint32_t maxPathLen = 256;
 	char absolutePath[maxPathLen] = {};
-	uint32_t depotPathLen = strlen(depot->path);
-	uint32_t pathLen = strlen(path);
+	uint32_t depotPathLen = (uint32_t)strlen(depot->path);
+	uint32_t pathLen = (uint32_t)strlen(path);
 	
 	FUR_ASSERT(depotPathLen + pathLen < maxPathLen);
 	
 	memcpy(absolutePath, depot->path, depotPathLen);
 	memcpy(absolutePath + depotPathLen, path, pathLen);
 	
-	printf("abs path: %s\n", absolutePath);
+	// todo: alloc proper number of ops and args
+	const uint32_t tempMaxOpsAndArgs = 128;
+	pOutScript->allArgs = FUR_ALLOC_ARRAY_AND_ZERO(fs_variant_t, tempMaxOpsAndArgs, 0, FC_MEMORY_SCOPE_SCRIPT, pAllocCallbacks);
+	pOutScript->ops = FUR_ALLOC_ARRAY_AND_ZERO(fs_script_op_t, tempMaxOpsAndArgs, 0, FC_MEMORY_SCOPE_SCRIPT, pAllocCallbacks);
+	
+	fc_text_buffer_t buffer {};
+	if(!fc_load_text_file_into_text_buffer(absolutePath, &buffer, pAllocCallbacks))
+	{
+		char txt[512];
+		sprintf(txt, "Can't load script file %s", path);
+		// todo: report error here
+		return false;
+	}
+	
+	enum fs_script_parsing_stage_t stage = SPS_NONE;
+	uint32_t idxDataOp = 0;
+	uint32_t idxDataArg = 0;
+	
+	fc_text_stream_ro_t stream {buffer.pData, buffer.pData + buffer.size};
+	fc_text_parse_keyword(&stream, "(");
+	while(!fc_text_parse_keyword(&stream, ")"))
+	{
+		fc_string_hash_t hash;
+		bool parseRes = fc_text_parse_uint32(&stream, &hash);
+		FUR_ASSERT(parseRes);
+		
+		if(hash == SID("__scriptbegin"))
+		{
+			fc_string_hash_t selfObjectName;
+			parseRes = fc_text_parse_uint32(&stream, &selfObjectName);
+			FUR_ASSERT(parseRes);
+			stage = SPS_READING;
+		}
+		else if(stage == SPS_READING)
+		{
+			if(hash == SID("__funcbegin"))
+			{
+				fc_string_hash_t funcName;
+				parseRes = fc_text_parse_uint32(&stream, &funcName);
+				FUR_ASSERT(parseRes);
+				
+				const uint32_t numFuncs = FUR_ARRAY_SIZE(g_nativeFuncLookUp);
+				
+				uint32_t idxFunc = 0;
+				for(idxFunc=0; idxFunc<numFuncs; ++idxFunc)
+				{
+					if(funcName == g_nativeFuncLookUp[idxFunc].name)
+					{
+						fs_script_op_t* op = &pOutScript->ops[idxDataOp];
+						idxDataOp += 1;
+						
+						op->func = g_nativeFuncLookUp[idxFunc].func;
+						
+						const uint32_t numArgs = g_nativeFuncLookUp[idxFunc].numArgs;
+						
+						FUR_ASSERT(idxDataOp + 1 < tempMaxOpsAndArgs);	// we need +1 for NULL end op
+						FUR_ASSERT(idxDataArg + numArgs < tempMaxOpsAndArgs);
+						
+						if(numArgs > 0)
+						{
+							op->args = &pOutScript->allArgs[idxDataArg];
+							op->numArgs = numArgs;
+						}
+						else
+						{
+							op->args = NULL;
+							op->numArgs = 0;
+						}
+						
+						idxDataArg += numArgs;
+						
+						for(uint32_t idxArg=0; idxArg<numArgs; ++idxArg)
+						{
+							fc_string_hash_t argValue;
+							parseRes = fc_text_parse_uint32(&stream, &argValue);
+							FUR_ASSERT(parseRes);
+							
+							op->args[idxArg].asStringHash = argValue;
+						}
+						
+						fc_string_hash_t fundEndValue = 0;
+						parseRes = fc_text_parse_uint32(&stream, &fundEndValue);
+						FUR_ASSERT(parseRes && fundEndValue == SID("__funcend"));
+						break;
+					}
+				}
+				FUR_ASSERT(idxFunc < numFuncs);	// if false, function was not found
+			}
+			else if(hash == SID("__scriptend"))
+			{
+				FUR_ASSERT(idxDataOp < tempMaxOpsAndArgs);
+				pOutScript->ops[idxDataOp].func = NULL;
+				pOutScript->ops[idxDataOp].args = NULL;
+				pOutScript->ops[idxDataOp].numArgs = 0;
+				stage = SPS_END;
+				
+				pOutScript->numOps = idxDataOp;
+				pOutScript->numAllArgs = idxDataArg;
+			}
+			else
+			{
+				FUR_ASSERT(false);	// unknown operation
+			}
+		}
+	}
+	
+	FUR_ASSERT(stage == SPS_END);
+	
+	fc_release_text_buffer(&buffer, pAllocCallbacks);
 	
 	return true;
 }
@@ -116,6 +252,9 @@ struct FurGameEngine
 	
 	void* scratchpadBuffer;
 	uint32_t scratchpadBufferSize;
+	
+	// scripts
+	fs_script_data_t zeldaScript;
 };
 
 // Furball Cat - Platform
@@ -178,21 +317,21 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 
 		// import animation resources
 		{
-			fi_import_rig_ctx_t ctx;
+			fi_import_rig_ctx_t ctx = {};
 			ctx.path = characterRigPath;
 			
 			fi_import_rig(&depot, &ctx, &pEngine->pRig, pAllocCallbacks);
 		}
 
 		{
-			fi_import_anim_clip_ctx_t ctx;
+			fi_import_anim_clip_ctx_t ctx = {};
 			ctx.path = anim_zelda_stand;
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipIdle, pAllocCallbacks);
 		}
 
 		{
-			fi_import_anim_clip_ctx_t ctx;
+			fi_import_anim_clip_ctx_t ctx = {};
 			ctx.path = anim_zelda_look;
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipGesture, pAllocCallbacks);
@@ -200,8 +339,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		
 		// import script data resources
 		{
-			fs_script_data_t scriptData;
-			fs_script_data_load(&depot, "scripts/zelda.txt", &scriptData);
+			fs_script_data_load(&depot, "scripts/zelda.txt", &pEngine->zeldaScript, pAllocCallbacks);
 		}
 	}
 	
@@ -379,16 +517,19 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	// check for memory leaks
 	//FUR_ASSERT(furValidateAllocatorGeneral(&pEngine->m_memory._defaultInternals));
 	
-	FUR_FREE(pEngine->scratchpadBuffer, NULL);
+	FUR_FREE(pEngine->scratchpadBuffer, pAllocCallbacks);
 	fa_rig_release(pEngine->pRig, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipIdle, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipGesture, pAllocCallbacks);
 	
-	fp_physics_scene_release(pEngine->pPhysics, pEngine->pPhysicsScene, NULL);
+	fp_physics_scene_release(pEngine->pPhysics, pEngine->pPhysicsScene, pAllocCallbacks);
 	
-	fp_release_physics(pEngine->pPhysics, NULL);
-	fr_release_renderer(pEngine->pRenderer, NULL);
-	fr_release_app(pEngine->pApp, NULL);
+	fp_release_physics(pEngine->pPhysics, pAllocCallbacks);
+	fr_release_renderer(pEngine->pRenderer, pAllocCallbacks);
+	
+	fs_script_release(&pEngine->zeldaScript, pAllocCallbacks);
+	
+	fr_release_app(pEngine->pApp, pAllocCallbacks);
 	
 	free(pEngine);	// rest of the deallocations should happen through allocators
 	
