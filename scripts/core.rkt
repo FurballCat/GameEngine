@@ -1,5 +1,8 @@
 #lang racket
 
+;; global compilation flags
+(define use-debug-compilation #f)
+
 ;; hashing function
 (define hash-initial-fnv 2166136261)
 (define hash-fnv-multiple 16777619)
@@ -10,7 +13,7 @@
   (for ([i name])
     (set! result (bitwise-and (* (bitwise-xor result (char->integer i)) hash-fnv-multiple) 0xFFFFFFFF))
     )
-  result
+  (if use-debug-compilation name result)
   )
 
 ;; data writing - result is a list
@@ -35,7 +38,7 @@
    )
   )
 
-;; starting code
+;; simple script
 (define data-script-begin-id "__scriptbegin")
 (define data-script-end-id "__scriptend")
 
@@ -51,6 +54,43 @@
    #:mode 'text
    #:exists 'replace
    )
+   (printf "compiled simple script ~a.txt\n" name)
+  )
+
+;; state
+(define begin (write-data-name-single "__begin"))
+
+(define (on handle code)
+  (list
+   (write-data-name-single "__eventhandlebegin")
+   handle
+   code
+   (write-data-name-single "__eventhandleend")
+   )
+  )
+
+(define (state name event-handlers)
+  (list
+   (write-data-name-pair "__statebegin" name)
+   event-handlers
+   (write-data-name-single "__stateend")
+   )
+  )
+
+;; state script
+(define (define-state-script name states)
+  (write-to-file
+   (flatten (list
+             (write-data-name-pair "__statescriptbegin" name)
+             states
+             (write-data-name-single "__statescriptend")
+             )
+    )
+   (string-append name ".txt")
+   #:mode 'text
+   #:exists 'replace
+   )
+   (printf "compiled state script ~a.txt\n" name)
   )
 
 ;; =================
@@ -59,6 +99,14 @@
 (simple-script "zelda"
                [animate "zelda" "zelda-idle-stand-01"]
                )
+
+(define-state-script "test"
+  (state "init"
+         (on begin
+             [animate "zelda" "zelda-idle-stand-01"]
+             )
+         )
+  )
 
 ;; end of the script
 ;; =================
