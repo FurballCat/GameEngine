@@ -97,7 +97,7 @@
 ;; write script here
 
 (simple-script "zelda"
-               [animate "zelda" "zelda-idle-stand-01"]
+               [animate "zelda" "zelda-idle-stand-look-around"]
                )
 
 (define-state-script "test"

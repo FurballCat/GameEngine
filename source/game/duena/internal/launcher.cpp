@@ -21,21 +21,28 @@ typedef union fs_variant_t
 	fc_string_hash_t asStringHash;
 } fs_variant_t;
 
-// ***** script native functions ***** //
-
-fs_variant_t fs_native_animate(uint32_t numArgs, const fs_variant_t* args)
-{
-	FUR_ASSERT(numArgs == 2);
-	const fc_string_hash_t objectName = args[0].asStringHash;
-	const fc_string_hash_t animName = args[1].asStringHash;
-	
-	fs_variant_t result = {};
-	return result;
-};
-
 // ***** scripts core ***** //
 
-typedef fs_variant_t (*fs_script_navitve_func_t)(uint32_t numArgs, const fs_variant_t* args);
+typedef struct fg_game_object_t fg_game_object_t;
+
+typedef struct fg_game_object_register_t
+{
+	fg_game_object_t** objects;
+	fc_string_hash_t* ids;
+	uint32_t numObjects;	// also numIds
+	uint32_t capacity;
+} fg_game_object_register_t;
+
+typedef struct fs_script_ctx_t
+{
+	fg_game_object_t* self;
+	fg_game_object_register_t* gameObjectRegister;
+} fs_script_ctx_t;
+
+// todo: move it somewhere else
+fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
+
+typedef fs_variant_t (*fs_script_navitve_func_t)(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 
 typedef struct fs_native_func_entry_t
 {
@@ -64,6 +71,11 @@ typedef struct fs_script_data_t
 	uint32_t numOps;
 	uint32_t numAllArgs;
 } fs_script_data_t;
+
+typedef struct fs_script_state_t
+{
+	uint32_t idxOp;
+} fs_script_state_t;
 
 enum fs_script_parsing_stage_t
 {
@@ -231,6 +243,19 @@ const char* FurGetLastError()
 	return g_furLastDetailedError;
 }
 
+typedef struct fg_game_object_t
+{
+	fc_string_hash_t id;	// name: like "zelda"
+	fs_script_data_t* script;
+	fs_script_state_t scriptState;
+	
+	// temp
+	bool scriptTicked;
+	
+	fc_string_hash_t animToPlay;
+	
+} fg_game_object_t;
+
 struct FurGameEngine
 {
 	struct fr_app_t* pApp;
@@ -253,8 +278,12 @@ struct FurGameEngine
 	void* scratchpadBuffer;
 	uint32_t scratchpadBufferSize;
 	
-	// scripts
+	// game objects
+	fg_game_object_register_t gameObjectRegister;
+	
+	// scripts temp
 	fs_script_data_t zeldaScript;
+	fg_game_object_t zeldaGameObject;
 };
 
 // Furball Cat - Platform
@@ -345,13 +374,90 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	
 	fr_temp_create_skinning_mapping(pEngine->pRenderer, pEngine->pRig->boneNameHashes, pEngine->pRig->numBones, pAllocCallbacks);
 	
+	// init game
+	pEngine->gameObjectRegister.capacity = 128;
+	pEngine->gameObjectRegister.objects = FUR_ALLOC_ARRAY_AND_ZERO(fg_game_object_t*, pEngine->gameObjectRegister.capacity, 0, FC_MEMORY_SCOPE_SCRIPT, pAllocCallbacks);
+	pEngine->gameObjectRegister.ids = FUR_ALLOC_ARRAY_AND_ZERO(fc_string_hash_t, pEngine->gameObjectRegister.capacity, 0, FC_MEMORY_SCOPE_SCRIPT, pAllocCallbacks);
+	pEngine->gameObjectRegister.numObjects = 0;
+	
+	pEngine->zeldaGameObject.id = SID("zelda");
+	pEngine->zeldaGameObject.script = &pEngine->zeldaScript;
+	pEngine->zeldaGameObject.scriptState.idxOp = 0;
+	pEngine->zeldaGameObject.scriptTicked = false;
+	pEngine->zeldaGameObject.animToPlay = 0;
+	
+	// register player game object
+	pEngine->gameObjectRegister.objects[pEngine->gameObjectRegister.numObjects] = &pEngine->zeldaGameObject;
+	pEngine->gameObjectRegister.ids[pEngine->gameObjectRegister.numObjects] = pEngine->zeldaGameObject.id;
+	pEngine->gameObjectRegister.numObjects += 1;
+	
 	return true;
+}
+
+fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+{
+	FUR_ASSERT(numArgs == 2);
+	const fc_string_hash_t objectName = args[0].asStringHash;
+	const fc_string_hash_t animName = args[1].asStringHash;
+	
+	// find game object
+	fg_game_object_t* gameObj = NULL;
+	if(objectName == SID("self"))
+	{
+		gameObj = ctx->self;
+	}
+	else
+	{
+		for(uint32_t i=0; i<ctx->gameObjectRegister->numObjects; ++i)
+		{
+			if(ctx->gameObjectRegister->ids[i] == objectName)
+			{
+				gameObj = ctx->gameObjectRegister->objects[i];
+				break;
+			}
+		}
+	}
+	FUR_ASSERT(gameObj);
+	
+	gameObj->animToPlay = animName;
+	
+	fs_variant_t result = {};
+	return result;
+};
+
+void fg_scripts_update(FurGameEngine* pEngine, float dt)
+{
+	for(uint32_t idxGO=0; idxGO<pEngine->gameObjectRegister.numObjects; ++idxGO)
+	{
+		fg_game_object_t* gameObj = pEngine->gameObjectRegister.objects[idxGO];
+		
+		// temp
+		if(gameObj->scriptTicked)
+		{
+			break;
+		}
+		
+		fs_script_ctx_t ctx = {};
+		ctx.gameObjectRegister = &pEngine->gameObjectRegister;
+		ctx.self = gameObj;
+		
+		uint32_t idxOp = gameObj->scriptState.idxOp;
+		const fs_script_op_t* ops = gameObj->script->ops;
+		while(ops[idxOp].func != NULL)
+		{
+			const fs_script_op_t op = gameObj->script->ops[idxOp];
+			op.func(&ctx, op.numArgs, op.args);
+			++idxOp;
+		}
+	}
 }
 
 void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 {
 	pEngine->globalTime += dt;
 	pEngine->blendAlpha = fm_clamp(((sinf(pEngine->globalTime * 0.4f) + 1.0f) / 2.0f), 0.0f, 1.0f);
+	
+	fg_scripts_update(pEngine, dt);
 	
 	uint32_t scratchpadBufferSizeUsed = 0;
 	void* scratchpadBufferPtr = pEngine->scratchpadBuffer;
@@ -386,6 +492,9 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 	
 	// update animation
 	{
+		const fa_anim_clip_t* animClips[] = {pEngine->pAnimClipIdle, pEngine->pAnimClipGesture};
+		const uint32_t numAnimClips = FUR_ARRAY_SIZE(animClips);
+		
 		const uint32_t numBones = pEngine->pRig->numBones;
 		const int16_t* parentIndices = pEngine->pRig->parents;
 		
@@ -395,6 +504,17 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		
 		const float colorWhite[4] = FUR_COLOR_WHITE;
 		
+		uint32_t idxAnimToPlayFromGameObject = numAnimClips;
+		for(uint32_t idxAnim=0; idxAnim<numAnimClips; ++idxAnim)
+		{
+			if(animClips[idxAnim]->name == pEngine->zeldaGameObject.animToPlay)
+			{
+				idxAnimToPlayFromGameObject = idxAnim;
+				break;
+			}
+		}
+		FUR_ASSERT(idxAnimToPlayFromGameObject != numAnimClips);
+		
 		// record anim commands
 		{
 			fa_cmd_begin(&recorder);
@@ -402,14 +522,16 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 			// idle action
 			const float animTimeIdle = fmodf(pEngine->globalTime, pEngine->pAnimClipIdle->duration);
 			fa_cmd_anim_sample(&recorder, animTimeIdle, 0);
-			fc_dbg_text(-500.0f, 40.0f, "zelda-idle-stand-01", colorWhite);
+			//fc_dbg_text(-500.0f, 40.0f, "zelda-idle-stand-01", colorWhite);
+			
+			//pEngine->zeldaGameObject.animToPlay
 			
 			// gesture action
 			if(pEngine->blendAlpha > 0.001f)
 			{
-				const float animTimeGesture = fmodf(pEngine->globalTime, pEngine->pAnimClipGesture->duration);
-				fa_cmd_anim_sample(&recorder, animTimeGesture, 1);
-				fc_dbg_text(-500.0f, 20.0f, "zelda-idle-stand-look-around", colorWhite);
+				const float animTimeGesture = fmodf(pEngine->globalTime, animClips[idxAnimToPlayFromGameObject]->duration);
+				fa_cmd_anim_sample(&recorder, animTimeGesture, idxAnimToPlayFromGameObject);
+				//fc_dbg_text(-500.0f, 20.0f, "zelda-idle-stand-look-around", colorWhite);
 				
 				// transition
 				fa_cmd_blend2(&recorder, pEngine->blendAlpha);
@@ -437,9 +559,6 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		}
 		
 		fm_mat4_t mat;
-		
-		const uint32_t numAnimClips = 2;
-		const fa_anim_clip_t* animClips[numAnimClips] = {pEngine->pAnimClipIdle, pEngine->pAnimClipGesture};
 		
 		fa_cmd_context_t animCtx = {};
 		animCtx.animClips = animClips;
@@ -516,6 +635,9 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 {
 	// check for memory leaks
 	//FUR_ASSERT(furValidateAllocatorGeneral(&pEngine->m_memory._defaultInternals));
+	
+	FUR_FREE(pEngine->gameObjectRegister.objects, pAllocCallbacks);
+	FUR_FREE(pEngine->gameObjectRegister.ids, pAllocCallbacks);
 	
 	FUR_FREE(pEngine->scratchpadBuffer, pAllocCallbacks);
 	fa_rig_release(pEngine->pRig, pAllocCallbacks);
