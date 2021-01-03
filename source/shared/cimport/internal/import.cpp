@@ -603,7 +603,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 			animClip->numDataKeys = numAllKeys;
 			animClip->numCurves = (uint16_t)tempClip.curves.size();
 			animClip->duration = duration;
-			animClip->name = SID(animName.c_str());
+			animClip->name = SID_REG(animName.c_str());
 			
 			fa_anim_curve_key_t* curKey = animClip->dataKeys;
 			

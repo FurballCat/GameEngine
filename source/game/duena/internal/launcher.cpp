@@ -299,6 +299,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	
 	fr_result_t res = fr_create_app(&appDesc, &pEngine->pApp, pAllocCallbacks);
 	
+	fc_string_hash_register_init(pAllocCallbacks);
+	
 	if(res == FR_RESULT_OK)
 	{
 		fr_renderer_desc_t rendererDesc;
@@ -380,7 +382,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	pEngine->gameObjectRegister.ids = FUR_ALLOC_ARRAY_AND_ZERO(fc_string_hash_t, pEngine->gameObjectRegister.capacity, 0, FC_MEMORY_SCOPE_SCRIPT, pAllocCallbacks);
 	pEngine->gameObjectRegister.numObjects = 0;
 	
-	pEngine->zeldaGameObject.id = SID("zelda");
+	pEngine->zeldaGameObject.id = SID_REG("zelda");
 	pEngine->zeldaGameObject.script = &pEngine->zeldaScript;
 	pEngine->zeldaGameObject.scriptState.idxOp = 0;
 	pEngine->zeldaGameObject.scriptTicked = false;
@@ -522,7 +524,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 			// idle action
 			const float animTimeIdle = fmodf(pEngine->globalTime, pEngine->pAnimClipIdle->duration);
 			fa_cmd_anim_sample(&recorder, animTimeIdle, 0);
-			//fc_dbg_text(-500.0f, 40.0f, "zelda-idle-stand-01", colorWhite);
+			fc_dbg_text(-500.0f, 40.0f, fc_string_hash_as_cstr_debug(pEngine->pAnimClipIdle->name), colorWhite);
 			
 			//pEngine->zeldaGameObject.animToPlay
 			
@@ -531,7 +533,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 			{
 				const float animTimeGesture = fmodf(pEngine->globalTime, animClips[idxAnimToPlayFromGameObject]->duration);
 				fa_cmd_anim_sample(&recorder, animTimeGesture, idxAnimToPlayFromGameObject);
-				//fc_dbg_text(-500.0f, 20.0f, "zelda-idle-stand-look-around", colorWhite);
+				fc_dbg_text(-500.0f, 20.0f, fc_string_hash_as_cstr_debug(animClips[idxAnimToPlayFromGameObject]->name), colorWhite);
 				
 				// transition
 				fa_cmd_blend2(&recorder, pEngine->blendAlpha);
@@ -650,6 +652,8 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	fr_release_renderer(pEngine->pRenderer, pAllocCallbacks);
 	
 	fs_script_release(&pEngine->zeldaScript, pAllocCallbacks);
+	
+	fc_string_hash_register_release(pAllocCallbacks);
 	
 	fr_release_app(pEngine->pApp, pAllocCallbacks);
 	
