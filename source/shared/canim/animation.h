@@ -41,6 +41,7 @@ typedef struct fa_anim_curve_t
 	
 typedef struct fa_anim_clip_t
 {
+	fc_string_hash_t name;
 	float duration;
 	uint32_t numCurves;
 	uint32_t numDataKeys;

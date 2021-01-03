@@ -499,6 +499,9 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 	
 	if(IsFileExtensionEqualTo(absolutePath.c_str(), ".fbx"))
 	{
+		std::string animName = absolutePath.substr(absolutePath.find_last_of("\\/") + 1);
+		animName = animName.substr(0, animName.size() - strlen(".fbx"));
+		
 		ofbx::IScene* scene = OpenScene_FBX(absolutePath.c_str());
 		FUR_ASSERT(scene);
 		
@@ -600,6 +603,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 			animClip->numDataKeys = numAllKeys;
 			animClip->numCurves = (uint16_t)tempClip.curves.size();
 			animClip->duration = duration;
+			animClip->name = SID(animName.c_str());
 			
 			fa_anim_curve_key_t* curKey = animClip->dataKeys;
 			
