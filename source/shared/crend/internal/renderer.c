@@ -9,6 +9,7 @@
 
 #include "ccore/public.h"
 #include "ccore/textParsing.h"
+#include "ccore/buffer.h"
 #include "cinput/public.h"
 
 #include "renderer.h"
@@ -181,74 +182,6 @@ uint32_t fr_update_app(struct fr_app_t* pApp)
 
 /*************************************************************/
 
-typedef struct fr_binary_buffer_t
-{
-	void* pData;
-	size_t size;
-} fr_binary_buffer_t;
-
-enum fr_result_t fr_load_binary_file_into_binary_buffer(const char* path, fr_binary_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks)
-{
-	FILE* pFile = fopen(path, "rb");
-	if(pFile && pBuffer)
-	{
-		fseek(pFile, 0, SEEK_END);
-		size_t size = ftell(pFile);
-		fseek(pFile, 0, SEEK_SET);
-		
-		pBuffer->pData = FUR_ALLOC(size, 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
-		pBuffer->size = size;
-		
-		fread(pBuffer->pData, size, 1, pFile);
-		fclose(pFile);
-		
-		return FR_RESULT_OK;
-	}
-	
-	fur_set_last_error(path);
-	return FR_RESULT_ERROR;
-}
-
-void fr_release_binary_buffer(fr_binary_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks)
-{
-	FUR_FREE(pBuffer->pData, pAllocCallbacks);
-}
-
-typedef struct fr_text_buffer_t
-{
-	char* pData;
-	size_t size;
-} fr_text_buffer_t;
-
-enum fr_result_t fr_load_text_file_into_text_buffer(const char* path, fr_text_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks)
-{
-	FILE* pFile = fopen(path, "r");
-	if(pFile && pBuffer)
-	{
-		fseek(pFile, 0, SEEK_END);
-		size_t size = ftell(pFile);
-		fseek(pFile, 0, SEEK_SET);
-		
-		pBuffer->pData = (char*)FUR_ALLOC(size, 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
-		pBuffer->size = size;
-		
-		fread(pBuffer->pData, size, 1, pFile);
-		fclose(pFile);
-		
-		return FR_RESULT_OK;
-	}
-	
-	fur_set_last_error(path);
-	return FR_RESULT_ERROR;
-}
-
-void fr_release_text_buffer(fr_text_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks)
-{
-	FUR_FREE(pBuffer->pData, pAllocCallbacks);
-}
-
-/*************************************************************/
-
 #define FR_FONT_FLOATS_PER_GLYPH_VERTEX 7
 
 typedef struct fr_font_glyph_t
@@ -338,10 +271,14 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 	// read glyph infos
 	if(res == FR_RESULT_OK)
 	{
-		fr_text_buffer_t textBuffer = {};
-		res = fr_load_text_file_into_text_buffer(desc->glyphsInfoPath, &textBuffer, pAllocCallbacks);
-		if(res != FR_RESULT_OK)
-			return res;
+		fc_text_buffer_t textBuffer = {};
+		if(!fc_load_text_file_into_text_buffer(desc->glyphsInfoPath, &textBuffer, pAllocCallbacks))
+		{
+			char txt[256];
+			sprintf(txt, "Can't load file %s", desc->glyphsInfoPath);
+			fur_set_last_error(txt);
+			return FR_RESULT_ERROR;
+		}
 
 		const char* streamBegin = textBuffer.pData;
 		const char* streamEnd = textBuffer.pData + textBuffer.size;
@@ -426,7 +363,7 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 			font->offsetGlyphs = font->glyphs[0].character;	// keep the offset in ASCII to first character for later get_glyph
 		}
 		
-		fr_release_text_buffer(&textBuffer, pAllocCallbacks);
+		fc_release_text_buffer(&textBuffer, pAllocCallbacks);
 	}
 	
 	return res;
@@ -627,11 +564,10 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 
 enum fr_result_t fr_create_shader_module(VkDevice device, const char* path, VkShaderModule* pShader, struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	struct fr_binary_buffer_t buffer;
-	memset(&buffer, 0, sizeof(struct fr_binary_buffer_t));
+	struct fc_binary_buffer_t buffer;
+	memset(&buffer, 0, sizeof(struct fc_binary_buffer_t));
 	
-	enum fr_result_t res = fr_load_binary_file_into_binary_buffer(path, &buffer, pAllocCallbacks);
-	if(res == FR_RESULT_OK)
+	if(fc_load_binary_file_into_binary_buffer(path, &buffer, pAllocCallbacks))
 	{
 		VkShaderModuleCreateInfo createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -639,7 +575,7 @@ enum fr_result_t fr_create_shader_module(VkDevice device, const char* path, VkSh
 		createInfo.pCode = buffer.pData;
 		
 		VkResult res = vkCreateShaderModule(device, &createInfo, NULL, pShader);
-		fr_release_binary_buffer(&buffer, pAllocCallbacks);
+		fc_release_binary_buffer(&buffer, pAllocCallbacks);
 		
 		if (res != VK_SUCCESS)
 		{
@@ -651,7 +587,10 @@ enum fr_result_t fr_create_shader_module(VkDevice device, const char* path, VkSh
 	}
 	else
 	{
-		return res;
+		char txt[256];
+		sprintf(txt, "Can't load file %s", path);
+		fur_set_last_error(txt);
+		return FR_RESULT_ERROR;
 	}
 }
 
