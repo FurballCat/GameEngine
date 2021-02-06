@@ -195,7 +195,7 @@ typedef struct fa_action_t
 	fa_action_func_t func;	// if this is NULL, then action is NULL
 	fa_action_get_anims_func_t getAnimsFunc;
 	
-	uint64_t globalStartTime;
+	uint64_t globalStartTime; // todo: this shouldn't be an input, global start time should be set once action is started/scheduled
 	float fadeInSec;
 	fa_curve_type_t fadeInCurve;
 } fa_action_t;
@@ -203,10 +203,15 @@ typedef struct fa_action_t
 typedef struct fa_layer_t
 {
 	//const uint8_t* mask;
+	// optional cached pose - caching result of currAction, so we can move nextAction to currAction, then use nextAction for 3rd action
 	fa_action_t currAction;
-	fa_action_t nextAction;
+	fa_action_t nextAction;	// if 3rd action scheduled, then if fade-in is 0 - jump to 3rd, if fade-in is >0, then we have 1 frame of old stuff so we cache the pose
 } fa_layer_t;
 
+// fa_action_scheduler_t
+// - linked list of actions to schedule, you can put as many as you want, when ticked, it might cache pose of character
+// - perhaps when character is invisible, then skip to the last action?
+	
 typedef struct fa_character_t
 {
 	const fa_rig_t* rig;
