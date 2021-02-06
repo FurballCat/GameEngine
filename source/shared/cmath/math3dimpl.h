@@ -718,6 +718,12 @@ static inline void fm_spline_catmull_rom(const fm_vec4* p0, const fm_vec4* p1, c
 	fm_vec4_mulf(&b2, (t-t1)/(t2-t1), &tmp1);
 	fm_vec4_add(output, &tmp1, output);
 }
+	
+static inline float fm_curve_uniform_s(float alpha)
+{
+	float sqt = alpha * alpha;
+	return sqt / (2.0f * (sqt - alpha) + 1.0f);
+}
 
 #ifdef __cplusplus
 }

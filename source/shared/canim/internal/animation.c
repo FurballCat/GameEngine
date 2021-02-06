@@ -830,7 +830,12 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		{
 			if(action->fadeInSec > 0.0f)
 			{
-				const float alpha = fm_clamp(localTime / action->fadeInSec, 0.0f, 1.0f);
+				float alpha = fm_clamp(localTime / action->fadeInSec, 0.0f, 1.0f);
+				if(action->fadeInCurve == FA_CURVE_UNIFORM_S)
+				{
+					alpha = fm_curve_uniform_s(alpha);
+				}
+				
 				if(alpha < 1.0f)
 				{
 					fa_cmd_ref_pose(&recorder);

@@ -183,6 +183,12 @@ typedef struct fa_action_ctx_t
 typedef void (*fa_action_func_t)(const fa_action_ctx_t* ctx, void* userData);
 typedef const fa_anim_clip_t** (*fa_action_get_anims_func_t)(const void* userData, uint32_t* numAnims);
 	
+typedef enum fa_curve_type_t
+{
+	FA_CURVE_UNIFORM_S = 0,	// default
+	FA_CURVE_LINEAR
+} fa_curve_type_t;
+	
 typedef struct fa_action_t
 {
 	void* userData;
@@ -191,6 +197,7 @@ typedef struct fa_action_t
 	
 	uint64_t globalStartTime;
 	float fadeInSec;
+	fa_curve_type_t fadeInCurve;
 } fa_action_t;
 	
 typedef struct fa_layer_t

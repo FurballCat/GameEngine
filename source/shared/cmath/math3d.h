@@ -228,6 +228,9 @@ extern "C"
 	static inline void fm_spline_catmull_rom(const fm_vec4* p0, const fm_vec4* p1, const fm_vec4* p2, const fm_vec4* p3,
 											 const float t, fm_vec4* output );
 	
+	// uniform-s curve in range 0..1
+	static inline float fm_curve_uniform_s(float alpha);
+	
 #ifdef __cplusplus
 }
 #endif // __cplusplus
