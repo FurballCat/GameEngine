@@ -749,3 +749,142 @@ void fa_cmd_blend2(fa_cmd_buffer_recorder_t* recorder, float alpha)
 	fa_cmd_buffer_write(recorder, fa_cmd_impl_blend2, &data, sizeof(fa_cmd_blend2_data_t));
 	recorder->poseStackSizeTracking -= 1;
 }
+
+void fa_character_animate(fa_character_t* character, const fa_character_animate_ctx_t* ctx)
+{
+	// allocate pose stack and command buffer memory
+	uint32_t scratchpadBufferSizeUsed = 0;
+	void* scratchpadBufferPtr = ctx->scratchpadBuffer;
+	
+	const uint32_t poseStackSize = 128 * 1024;
+	void* animPoseStackMemory = NULL;
+	{
+		uint32_t sizeRequired = poseStackSize;
+		FUR_ASSERT(scratchpadBufferSizeUsed + sizeRequired < ctx->scratchpadBufferSize);
+		
+		animPoseStackMemory = scratchpadBufferPtr;
+		
+		uint8_t* ptr = (uint8_t*)scratchpadBufferPtr;
+		ptr += sizeRequired;
+		scratchpadBufferPtr = (void*)ptr;
+		scratchpadBufferSizeUsed += sizeRequired;
+	}
+	
+	const uint32_t animCmdBufferSize = 32 * 1024;
+	void* animCmdBufferMemory = NULL;
+	{
+		uint32_t sizeRequired = animCmdBufferSize;
+		FUR_ASSERT(scratchpadBufferSizeUsed + sizeRequired < ctx->scratchpadBufferSize);
+		
+		animCmdBufferMemory = scratchpadBufferPtr;
+		
+		uint8_t* ptr = (uint8_t*)scratchpadBufferPtr;
+		ptr += sizeRequired;
+		scratchpadBufferPtr = (void*)ptr;
+		scratchpadBufferSizeUsed += sizeRequired;
+	}
+	
+	// init pose stack - pose stack is shared across multiple command buffers
+	fa_pose_stack_t poseStack = {};
+	
+	{
+		fa_pose_stack_desc_t desc = {};
+		
+		desc.numBonesPerPose = character->rig->numBones;
+		desc.numTracksPerPose = 0;
+		desc.numMaxPoses = 4;
+		
+		fa_pose_stack_init(&poseStack, &desc, animPoseStackMemory, poseStackSize);
+	}
+	
+	// animate layer
+	{
+		fa_character_layer_t layerEnum = FA_CHAR_LAYER_BODY;
+		
+		fa_cmd_buffer_t animCmdBuffer = { animCmdBufferMemory, animCmdBufferSize };
+		fa_cmd_buffer_recorder_t recorder = {};
+		fa_cmd_buffer_recorder_init(&recorder, animCmdBuffer.data, animCmdBuffer.size);
+		
+		fa_layer_t* layer = &character->layers[layerEnum];
+		fa_action_t* action = &layer->currAction;
+		
+		// record commands
+		FUR_ASSERT(layer->currAction.func != NULL);
+		FUR_ASSERT(layer->currAction.getAnimsFunc != NULL);
+		
+		float localTime = -1.0f;
+		if(ctx->globalTime >= action->globalStartTime)
+		{
+			localTime = (float)((ctx->globalTime - action->globalStartTime) / 1000000.0);
+		}
+		
+		fa_action_ctx_t actionCtx = {};
+		actionCtx.dt = ctx->dt;
+		actionCtx.layer = layerEnum;
+		actionCtx.cmdRecorder = &recorder;
+		actionCtx.localTime = localTime;
+		
+		fa_cmd_begin(&recorder);
+		
+		if(localTime != -1.0f)
+		{
+			if(action->fadeInSec > 0.0f)
+			{
+				const float alpha = fm_clamp(localTime / action->fadeInSec, 0.0f, 1.0f);
+				if(alpha < 1.0f)
+				{
+					fa_cmd_ref_pose(&recorder);
+					layer->currAction.func(&actionCtx, action->userData);
+					fa_cmd_blend2(&recorder, alpha);
+				}
+				else
+				{
+					layer->currAction.func(&actionCtx, action->userData);
+				}
+			}
+			else
+			{
+				layer->currAction.func(&actionCtx, action->userData);
+			}
+		}
+		else
+		{
+			fa_cmd_ref_pose(&recorder);
+		}
+		
+		fa_cmd_end(&recorder);
+		
+		// evaluate commands
+		fa_cmd_context_t animCtx = {};
+		animCtx.animClips = action->getAnimsFunc(action->userData, &animCtx.numAnimClips);
+		animCtx.rig = character->rig;
+		animCtx.poseStack = &poseStack;
+		
+		fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
+	}
+	
+	fa_pose_t outPose;
+	fa_pose_stack_get(&poseStack, &outPose, 0);
+	
+	const int16_t* parentIndices = character->rig->parents;
+	fa_pose_t poseMS = {};
+	poseMS.xforms = character->poseMS;
+	poseMS.numXforms = character->rig->numBones;
+	fa_pose_local_to_model(&poseMS, &outPose, parentIndices);
+}
+
+void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData)
+{
+	fa_action_animate_t* data = (fa_action_animate_t*)userData;
+	
+	const float animDuration = data->animation->duration;
+	const float time = fmodf(ctx->localTime, animDuration);
+	fa_cmd_anim_sample(ctx->cmdRecorder, time, 0);
+}
+
+const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* userData, uint32_t* numAnims)
+{
+	const fa_action_animate_t* data = (const fa_action_animate_t*)userData;
+	*numAnims = 1;
+	return (const fa_anim_clip_t**)&data->animation;	// todo: check it, is this return correct?
+}

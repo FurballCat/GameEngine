@@ -9,6 +9,7 @@ extern "C"
 
 #include "api.h"
 #include <inttypes.h>
+#include <stdbool.h>
 	
 typedef struct fm_xform fm_xform;
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
@@ -174,17 +175,22 @@ typedef enum fa_character_layer_t
 typedef struct fa_action_ctx_t
 {
 	float dt;
+	float localTime;
 	fa_character_layer_t layer;
+	fa_cmd_buffer_recorder_t* cmdRecorder;
 } fa_action_ctx_t;
 	
 typedef void (*fa_action_func_t)(const fa_action_ctx_t* ctx, void* userData);
+typedef const fa_anim_clip_t** (*fa_action_get_anims_func_t)(const void* userData, uint32_t* numAnims);
 	
 typedef struct fa_action_t
 {
 	void* userData;
 	fa_action_func_t func;	// if this is NULL, then action is NULL
+	fa_action_get_anims_func_t getAnimsFunc;
 	
 	uint64_t globalStartTime;
+	float fadeInSec;
 } fa_action_t;
 	
 typedef struct fa_layer_t
@@ -193,13 +199,38 @@ typedef struct fa_layer_t
 	fa_action_t currAction;
 	fa_action_t nextAction;
 } fa_layer_t;
-	
+
 typedef struct fa_character_t
 {
 	const fa_rig_t* rig;
 	fa_layer_t layers[FA_CHAR_LAYER_COUNT];
+	
+	// resulting pose
+	fm_xform* poseMS;
+	float* tracks;
 } fa_character_t;
 
+typedef struct fa_character_animate_ctx_t
+{
+	float dt;
+	uint64_t globalTime;
+	
+	void* scratchpadBuffer;
+	uint32_t scratchpadBufferSize;
+} fa_character_animate_ctx_t;
+	
+CANIM_API void fa_character_animate(fa_character_t* character, const fa_character_animate_ctx_t* ctx);
+
+// simple play animation action
+typedef struct fa_action_animate_t
+{
+	fa_anim_clip_t* animation;
+	bool forceLoop;
+	bool forceNoLoop;
+} fa_action_animate_t;
+	
+CANIM_API void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData);
+CANIM_API const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* userData, uint32_t* numAnims);
 	
 #ifdef __cplusplus
 }

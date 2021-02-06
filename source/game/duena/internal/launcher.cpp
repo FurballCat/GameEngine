@@ -273,6 +273,9 @@ struct FurGameEngine
 	fa_anim_clip_t* pAnimClipIdle;
 	fa_anim_clip_t* pAnimClipGesture;
 	
+	fa_character_t animCharacterZelda;
+	fa_action_animate_t animSimpleAction;
+	
 	fm_mat4 skinMatrices[512];
 	
 	void* scratchpadBuffer;
@@ -377,22 +380,35 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	fr_temp_create_skinning_mapping(pEngine->pRenderer, pEngine->pRig->boneNameHashes, pEngine->pRig->numBones, pAllocCallbacks);
 	
 	// init game
-	pEngine->gameObjectRegister.capacity = 128;
-	pEngine->gameObjectRegister.objects = FUR_ALLOC_ARRAY_AND_ZERO(fg_game_object_t*, pEngine->gameObjectRegister.capacity, 0, FC_MEMORY_SCOPE_SCRIPT, pAllocCallbacks);
-	pEngine->gameObjectRegister.ids = FUR_ALLOC_ARRAY_AND_ZERO(fc_string_hash_t, pEngine->gameObjectRegister.capacity, 0, FC_MEMORY_SCOPE_SCRIPT, pAllocCallbacks);
-	pEngine->gameObjectRegister.numObjects = 0;
-	
-	pEngine->zeldaGameObject.id = SID_REG("zelda");
-	pEngine->zeldaGameObject.script = &pEngine->zeldaScript;
-	pEngine->zeldaGameObject.scriptState.idxOp = 0;
-	pEngine->zeldaGameObject.scriptTicked = false;
-	pEngine->zeldaGameObject.animToPlay = 0;
-	
-	// register player game object
-	pEngine->gameObjectRegister.objects[pEngine->gameObjectRegister.numObjects] = &pEngine->zeldaGameObject;
-	pEngine->gameObjectRegister.ids[pEngine->gameObjectRegister.numObjects] = pEngine->zeldaGameObject.id;
-	pEngine->gameObjectRegister.numObjects += 1;
-	
+	{
+		pEngine->gameObjectRegister.capacity = 128;
+		pEngine->gameObjectRegister.objects = FUR_ALLOC_ARRAY_AND_ZERO(fg_game_object_t*, pEngine->gameObjectRegister.capacity, 0, FC_MEMORY_SCOPE_SCRIPT, pAllocCallbacks);
+		pEngine->gameObjectRegister.ids = FUR_ALLOC_ARRAY_AND_ZERO(fc_string_hash_t, pEngine->gameObjectRegister.capacity, 0, FC_MEMORY_SCOPE_SCRIPT, pAllocCallbacks);
+		pEngine->gameObjectRegister.numObjects = 0;
+		
+		// create Zelda
+		pEngine->animCharacterZelda.rig = pEngine->pRig;
+		pEngine->animCharacterZelda.poseMS = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		
+		pEngine->animSimpleAction.animation = pEngine->pAnimClipGesture;
+		pEngine->animSimpleAction.forceLoop = true;
+		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].currAction.userData = &pEngine->animSimpleAction;
+		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].currAction.func = fa_action_animate_func;
+		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].currAction.getAnimsFunc = fa_action_animate_get_anims_func;
+		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].currAction.globalStartTime = 1000000;
+		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].currAction.fadeInSec = 0.5f;
+		
+		pEngine->zeldaGameObject.id = SID_REG("zelda");
+		pEngine->zeldaGameObject.script = &pEngine->zeldaScript;
+		pEngine->zeldaGameObject.scriptState.idxOp = 0;
+		pEngine->zeldaGameObject.scriptTicked = false;
+		pEngine->zeldaGameObject.animToPlay = 0;
+		
+		// register Zelda (player) game object
+		pEngine->gameObjectRegister.objects[pEngine->gameObjectRegister.numObjects] = &pEngine->zeldaGameObject;
+		pEngine->gameObjectRegister.ids[pEngine->gameObjectRegister.numObjects] = pEngine->zeldaGameObject.id;
+		pEngine->gameObjectRegister.numObjects += 1;
+	}
 	return true;
 }
 
@@ -461,127 +477,23 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 	
 	fg_scripts_update(pEngine, dt);
 	
-	uint32_t scratchpadBufferSizeUsed = 0;
-	void* scratchpadBufferPtr = pEngine->scratchpadBuffer;
-	
-	const uint32_t poseStackSize = 128 * 1024;
-	void* animPoseStackMemory = NULL;
 	{
-		uint32_t sizeRequired = poseStackSize;
-		FUR_ASSERT(scratchpadBufferSizeUsed + sizeRequired < pEngine->scratchpadBufferSize);
+		fa_character_animate_ctx_t animateCtx = {};
+		animateCtx.dt = dt;
+		animateCtx.globalTime = (uint64_t)(pEngine->globalTime * 1000000.0);
+		animateCtx.scratchpadBuffer = pEngine->scratchpadBuffer;
+		animateCtx.scratchpadBufferSize = pEngine->scratchpadBufferSize;
 		
-		animPoseStackMemory = scratchpadBufferPtr;
+		fa_character_animate(&pEngine->animCharacterZelda, &animateCtx);
 		
-		uint8_t* ptr = (uint8_t*)scratchpadBufferPtr;
-		ptr += sizeRequired;
-		scratchpadBufferPtr = (void*)ptr;
-		scratchpadBufferSizeUsed += sizeRequired;
-	}
-	
-	const uint32_t animCmdBufferSize = 32 * 1024;
-	void* animCmdBufferMemory = NULL;
-	{
-		uint32_t sizeRequired = animCmdBufferSize;
-		FUR_ASSERT(scratchpadBufferSizeUsed + sizeRequired < pEngine->scratchpadBufferSize);
-		
-		animCmdBufferMemory = scratchpadBufferPtr;
-		
-		uint8_t* ptr = (uint8_t*)scratchpadBufferPtr;
-		ptr += sizeRequired;
-		scratchpadBufferPtr = (void*)ptr;
-		scratchpadBufferSizeUsed += sizeRequired;
-	}
-	
-	// update animation
-	{
-		const fa_anim_clip_t* animClips[] = {pEngine->pAnimClipIdle, pEngine->pAnimClipGesture};
-		const uint32_t numAnimClips = FUR_ARRAY_SIZE(animClips);
-		
-		const uint32_t numBones = pEngine->pRig->numBones;
-		const int16_t* parentIndices = pEngine->pRig->parents;
-		
-		fa_cmd_buffer_t animCmdBuffer = { animCmdBufferMemory, animCmdBufferSize };
-		fa_cmd_buffer_recorder_t recorder = {};
-		fa_cmd_buffer_recorder_init(&recorder, animCmdBuffer.data, animCmdBuffer.size);
-		
-		const float colorWhite[4] = FUR_COLOR_WHITE;
-		
-		uint32_t idxAnimToPlayFromGameObject = numAnimClips;
-		for(uint32_t idxAnim=0; idxAnim<numAnimClips; ++idxAnim)
-		{
-			if(animClips[idxAnim]->name == pEngine->zeldaGameObject.animToPlay)
-			{
-				idxAnimToPlayFromGameObject = idxAnim;
-				break;
-			}
-		}
-		FUR_ASSERT(idxAnimToPlayFromGameObject != numAnimClips);
-		
-		// record anim commands
-		{
-			fa_cmd_begin(&recorder);
-			
-			// idle action
-			const float animTimeIdle = fmodf(pEngine->globalTime, pEngine->pAnimClipIdle->duration);
-			fa_cmd_anim_sample(&recorder, animTimeIdle, 0);
-			fc_dbg_text(-500.0f, 40.0f, fc_string_hash_as_cstr_debug(pEngine->pAnimClipIdle->name), colorWhite);
-			
-			//pEngine->zeldaGameObject.animToPlay
-			
-			// gesture action
-			if(pEngine->blendAlpha > 0.001f)
-			{
-				const float animTimeGesture = fmodf(pEngine->globalTime, animClips[idxAnimToPlayFromGameObject]->duration);
-				fa_cmd_anim_sample(&recorder, animTimeGesture, idxAnimToPlayFromGameObject);
-				fc_dbg_text(-500.0f, 20.0f, fc_string_hash_as_cstr_debug(animClips[idxAnimToPlayFromGameObject]->name), colorWhite);
-				
-				// transition
-				fa_cmd_blend2(&recorder, pEngine->blendAlpha);
-				
-				char txt[64];
-				sprintf(txt, "blend: %1.2f", pEngine->blendAlpha);
-				fc_dbg_text(-500.0f, 0.0f, txt, colorWhite);
-			}
-			
-			fa_cmd_end(&recorder);
-		}
-		
-		// evaluate anim commands
-		fa_pose_stack_t poseStack = {};
-		
-		// init pose stack
-		{
-			fa_pose_stack_desc_t desc = {};
-			
-			desc.numBonesPerPose = pEngine->pRig->numBones;
-			desc.numTracksPerPose = 0;
-			desc.numMaxPoses = 4;
-			
-			fa_pose_stack_init(&poseStack, &desc, animPoseStackMemory, poseStackSize);
-		}
-		
-		fm_mat4_t mat;
-		
-		fa_cmd_context_t animCtx = {};
-		animCtx.animClips = animClips;
-		animCtx.numAnimClips = numAnimClips;
-		animCtx.rig = pEngine->pRig;
-		animCtx.poseStack = &poseStack;
-		
-		fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
-		
-		fa_pose_t outPose;
-		fa_pose_stack_get(&poseStack, &outPose, 0);
-		
-		fa_pose_stack_push(&poseStack, 1);
-		fa_pose_t modelPose;
-		fa_pose_stack_get(&poseStack, &modelPose, 0);
-		
-		fa_pose_local_to_model(&modelPose, &outPose, parentIndices);
-		
+		// draw pose
+		const uint32_t numBones = pEngine->animCharacterZelda.rig->numBones;
+		const int16_t* parentIndices = pEngine->animCharacterZelda.rig->parents;
+		const fm_xform* poseMS = pEngine->animCharacterZelda.poseMS;
+		fm_mat4 mat;
 		for(uint32_t i=0; i<numBones; ++i)
 		{
-			fm_xform_to_mat4(&modelPose.xforms[i], &mat);
+			fm_xform_to_mat4(&poseMS[i], &mat);
 			//fr_dbg_draw_mat4(&mat);
 			
 			int16_t idxParent = parentIndices[i];
@@ -595,7 +507,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		
 		for(uint32_t i=0; i<numSkinMatrices; ++i)
 		{
-			fm_xform_to_mat4(&modelPose.xforms[i], &pEngine->skinMatrices[i]);
+			fm_xform_to_mat4(&poseMS[i], &pEngine->skinMatrices[i]);
 		}
 	}
 }
@@ -637,6 +549,8 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 {
 	// check for memory leaks
 	//FUR_ASSERT(furValidateAllocatorGeneral(&pEngine->m_memory._defaultInternals));
+	
+	FUR_FREE(pEngine->animCharacterZelda.poseMS, pAllocCallbacks);
 	
 	FUR_FREE(pEngine->gameObjectRegister.objects, pAllocCallbacks);
 	FUR_FREE(pEngine->gameObjectRegister.ids, pAllocCallbacks);
