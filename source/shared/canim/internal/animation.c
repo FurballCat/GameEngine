@@ -901,6 +901,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			FUR_ASSERT(poseStack.bufferSize > 0);	// we need at least one pose on stack to blend with
 			
 			bool recorded = false;
+			bool fullyBlended = false;
 			
 			if(localTime != -1.0f)
 			{
@@ -917,6 +918,11 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 					fa_cmd_blend2(&recorder, alpha);
 					fa_cmd_end(&recorder);
 					recorded = true;
+					
+					if(alpha >= 1.0f)
+					{
+						fullyBlended = true;
+					}
 				}
 				else
 				{
@@ -925,6 +931,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 					fa_cmd_blend2(&recorder, 1.0);
 					fa_cmd_end(&recorder);
 					recorded = true;
+					fullyBlended = true;
 				}
 			}
 			
@@ -937,6 +944,12 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 				animCtx.poseStack = &poseStack;
 				
 				fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
+				
+				if(fullyBlended)
+				{
+					layer->currAction = layer->nextAction;
+					memset(&layer->nextAction, 0, sizeof(fa_action_t));
+				}
 			}
 		}
 	}
