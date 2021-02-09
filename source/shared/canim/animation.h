@@ -140,6 +140,7 @@ typedef struct fa_cmd_buffer_recorder_t
 	uint32_t sizeLeft;
 	uint32_t sizeRecorded;
 	
+	uint32_t poseStackInitialSize;
 	uint32_t poseStackSizeTracking;
 } fa_cmd_buffer_recorder_t;
 
@@ -154,7 +155,7 @@ typedef fa_cmd_status_t (*fa_cmd_func_t)(fa_cmd_context_t* ctx, const void* cmdD
 CANIM_API void fa_cmd_buffer_evaluate(const fa_cmd_buffer_t* buffer, fa_cmd_context_t* ctx);
 	
 CANIM_API void fa_cmd_buffer_recorder_init(fa_cmd_buffer_recorder_t* recorder, void* outData, uint32_t maxSize);
-CANIM_API void fa_cmd_begin(fa_cmd_buffer_recorder_t* recorder);
+CANIM_API void fa_cmd_begin(fa_cmd_buffer_recorder_t* recorder, uint32_t poseStackInitialSize);	// poseStackInitialSize = 0 by default
 CANIM_API void fa_cmd_end(fa_cmd_buffer_recorder_t* recorder);
 
 CANIM_API void fa_cmd_ref_pose(fa_cmd_buffer_recorder_t* recorder);

@@ -595,9 +595,10 @@ void fa_cmd_buffer_recorder_init(fa_cmd_buffer_recorder_t* recorder, void* outDa
 }
 
 // begin command
-void fa_cmd_begin(fa_cmd_buffer_recorder_t* recorder)
+void fa_cmd_begin(fa_cmd_buffer_recorder_t* recorder, uint32_t poseStackInitialSize)
 {
-	FUR_ASSERT(recorder->poseStackSizeTracking == 0);	// at the beginning of command buffer, we expect no additional pose added
+	recorder->poseStackSizeTracking = poseStackInitialSize;
+	recorder->poseStackInitialSize = poseStackInitialSize;
 }
 
 // end command
@@ -608,9 +609,9 @@ fa_cmd_status_t fa_cmd_impl_end(fa_cmd_context_t* ctx, const void* cmdData)
 
 void fa_cmd_end(fa_cmd_buffer_recorder_t* recorder)
 {
-	fa_cmd_buffer_write(recorder, fa_cmd_impl_end, NULL, 0);
+	fa_cmd_buffer_write(recorder, fa_cmd_impl_end, NULL, 0); // writing a null cmd, similar to c-string having null character at the end
 	
-	FUR_ASSERT(recorder->poseStackSizeTracking == 1);	// at the end of command buffer, we expect the post stack to have +1 pose
+	FUR_ASSERT(recorder->poseStackSizeTracking >= 1);	// at the end of command buffer, we expect the post stack to have +1 pose
 }
 
 // set reference pose command
@@ -797,7 +798,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		fa_pose_stack_init(&poseStack, &desc, animPoseStackMemory, poseStackSize);
 	}
 	
-	// animate layer
+	// animate action
 	{
 		fa_character_layer_t layerEnum = FA_CHAR_LAYER_BODY;
 		
@@ -824,7 +825,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		actionCtx.cmdRecorder = &recorder;
 		actionCtx.localTime = localTime;
 		
-		fa_cmd_begin(&recorder);
+		fa_cmd_begin(&recorder, 0);
 		
 		if(localTime != -1.0f)
 		{
@@ -866,6 +867,78 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		animCtx.poseStack = &poseStack;
 		
 		fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
+	}
+	
+	// animate next action
+	{
+		fa_character_layer_t layerEnum = FA_CHAR_LAYER_BODY;
+		
+		fa_cmd_buffer_t animCmdBuffer = { animCmdBufferMemory, animCmdBufferSize };
+		fa_cmd_buffer_recorder_t recorder = {};
+		fa_cmd_buffer_recorder_init(&recorder, animCmdBuffer.data, animCmdBuffer.size);
+		
+		fa_layer_t* layer = &character->layers[layerEnum];
+		fa_action_t* nextAction = &layer->nextAction;
+		
+		if(nextAction->userData != NULL)
+		{
+			// record commands
+			FUR_ASSERT(nextAction->func != NULL);
+			FUR_ASSERT(nextAction->getAnimsFunc != NULL);
+			
+			float localTime = -1.0f;
+			if(ctx->globalTime >= nextAction->globalStartTime)
+			{
+				localTime = (float)((ctx->globalTime - nextAction->globalStartTime) / 1000000.0);
+			}
+			
+			fa_action_ctx_t actionCtx = {};
+			actionCtx.dt = ctx->dt;
+			actionCtx.layer = layerEnum;
+			actionCtx.cmdRecorder = &recorder;
+			actionCtx.localTime = localTime;
+			
+			FUR_ASSERT(poseStack.bufferSize > 0);	// we need at least one pose on stack to blend with
+			
+			bool recorded = false;
+			
+			if(localTime != -1.0f)
+			{
+				if(nextAction->fadeInSec > 0.0f)
+				{
+					float alpha = fm_clamp(localTime / nextAction->fadeInSec, 0.0f, 1.0f);
+					if(nextAction->fadeInCurve == FA_CURVE_UNIFORM_S)
+					{
+						alpha = fm_curve_uniform_s(alpha);
+					}
+					
+					fa_cmd_begin(&recorder, poseStack.numPoses);
+					layer->nextAction.func(&actionCtx, nextAction->userData);
+					fa_cmd_blend2(&recorder, alpha);
+					fa_cmd_end(&recorder);
+					recorded = true;
+				}
+				else
+				{
+					fa_cmd_begin(&recorder, poseStack.numPoses);
+					layer->nextAction.func(&actionCtx, nextAction->userData);
+					fa_cmd_blend2(&recorder, 1.0);
+					fa_cmd_end(&recorder);
+					recorded = true;
+				}
+			}
+			
+			if(recorded)
+			{
+				// evaluate commands
+				fa_cmd_context_t animCtx = {};
+				animCtx.animClips = nextAction->getAnimsFunc(nextAction->userData, &animCtx.numAnimClips);
+				animCtx.rig = character->rig;
+				animCtx.poseStack = &poseStack;
+				
+				fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
+			}
+		}
 	}
 	
 	fa_pose_t outPose;

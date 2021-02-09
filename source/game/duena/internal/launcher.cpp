@@ -275,6 +275,8 @@ struct FurGameEngine
 	
 	fa_character_t animCharacterZelda;
 	fa_action_animate_t animSimpleAction;
+	fa_action_animate_t animSimpleAction2;
+	bool simpleAction2scheduled;
 	
 	fm_mat4 skinMatrices[512];
 	
@@ -477,6 +479,20 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 	pEngine->blendAlpha = fm_clamp(((sinf(pEngine->globalTime * 0.4f) + 1.0f) / 2.0f), 0.0f, 1.0f);
 	
 	fg_scripts_update(pEngine, dt);
+	
+	if(!pEngine->simpleAction2scheduled && pEngine->globalTime > 6.0f)
+	{
+		pEngine->simpleAction2scheduled = true;
+		
+		pEngine->animSimpleAction2.animation = pEngine->pAnimClipIdle;
+		pEngine->animSimpleAction2.forceLoop = true;
+		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].nextAction.userData = &pEngine->animSimpleAction2;
+		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].nextAction.func = fa_action_animate_func;
+		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].nextAction.getAnimsFunc = fa_action_animate_get_anims_func;
+		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].nextAction.globalStartTime = (uint64_t)(pEngine->globalTime * 1000000);
+		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].nextAction.fadeInSec = 0.5f;
+		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].nextAction.fadeInCurve = FA_CURVE_UNIFORM_S;
+	}
 	
 	{
 		fa_character_animate_ctx_t animateCtx = {};
