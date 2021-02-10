@@ -394,12 +394,10 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		
 		pEngine->animSimpleAction.animation = pEngine->pAnimClipGesture;
 		pEngine->animSimpleAction.forceLoop = true;
-		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].currAction.userData = &pEngine->animSimpleAction;
-		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].currAction.func = fa_action_animate_func;
-		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].currAction.getAnimsFunc = fa_action_animate_get_anims_func;
-		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].currAction.globalStartTime = 2000000;
-		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].currAction.fadeInSec = 1.0f;
-		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].currAction.fadeInCurve = FA_CURVE_UNIFORM_S;
+		
+		fa_action_args_t args = {};
+		args.fadeInSec = 1.0f;
+		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction, &args, (uint64_t)(pEngine->globalTime * 1000000));
 		
 		pEngine->zeldaGameObject.id = SID_REG("zelda");
 		pEngine->zeldaGameObject.script = &pEngine->zeldaScript;
@@ -486,12 +484,10 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		
 		pEngine->animSimpleAction2.animation = pEngine->pAnimClipIdle;
 		pEngine->animSimpleAction2.forceLoop = true;
-		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].nextAction.userData = &pEngine->animSimpleAction2;
-		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].nextAction.func = fa_action_animate_func;
-		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].nextAction.getAnimsFunc = fa_action_animate_get_anims_func;
-		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].nextAction.globalStartTime = (uint64_t)(pEngine->globalTime * 1000000);
-		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].nextAction.fadeInSec = 0.5f;
-		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_BODY].nextAction.fadeInCurve = FA_CURVE_UNIFORM_S;
+		
+		fa_action_args_t args = {};
+		args.fadeInSec = 0.5f;
+		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction2, &args, (uint64_t)(pEngine->globalTime * 1000000));
 	}
 	
 	{

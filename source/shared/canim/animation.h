@@ -190,6 +190,12 @@ typedef enum fa_curve_type_t
 	FA_CURVE_LINEAR
 } fa_curve_type_t;
 	
+typedef struct fa_action_args_t
+{
+	float fadeInSec;
+	fa_curve_type_t fadeInCurve;
+} fa_action_args_t;
+	
 typedef struct fa_action_t
 {
 	void* userData;
@@ -197,8 +203,8 @@ typedef struct fa_action_t
 	fa_action_get_anims_func_t getAnimsFunc;
 	
 	uint64_t globalStartTime; // todo: this shouldn't be an input, global start time should be set once action is started/scheduled
-	float fadeInSec;
-	fa_curve_type_t fadeInCurve;
+	
+	fa_action_args_t args;
 } fa_action_t;
 	
 typedef struct fa_layer_t
@@ -233,7 +239,7 @@ typedef struct fa_character_animate_ctx_t
 } fa_character_animate_ctx_t;
 	
 CANIM_API void fa_character_animate(fa_character_t* character, const fa_character_animate_ctx_t* ctx);
-
+	
 // simple play animation action
 typedef struct fa_action_animate_t
 {
@@ -244,6 +250,8 @@ typedef struct fa_action_animate_t
 	
 CANIM_API void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData);
 CANIM_API const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* userData, uint32_t* numAnims);
+
+CANIM_API void fa_character_schedule_action_simple(fa_character_t* character, fa_action_animate_t* action, const fa_action_args_t* args, uint64_t currGlobalTime);
 	
 #ifdef __cplusplus
 }

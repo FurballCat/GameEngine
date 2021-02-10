@@ -825,14 +825,16 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		actionCtx.cmdRecorder = &recorder;
 		actionCtx.localTime = localTime;
 		
+		const fa_action_args_t* args = &action->args;
+		
 		fa_cmd_begin(&recorder, 0);
 		
 		if(localTime != -1.0f)
 		{
-			if(action->fadeInSec > 0.0f)
+			if(args->fadeInSec > 0.0f)
 			{
-				float alpha = fm_clamp(localTime / action->fadeInSec, 0.0f, 1.0f);
-				if(action->fadeInCurve == FA_CURVE_UNIFORM_S)
+				float alpha = fm_clamp(localTime / args->fadeInSec, 0.0f, 1.0f);
+				if(args->fadeInCurve == FA_CURVE_UNIFORM_S)
 				{
 					alpha = fm_curve_uniform_s(alpha);
 				}
@@ -898,6 +900,8 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			actionCtx.cmdRecorder = &recorder;
 			actionCtx.localTime = localTime;
 			
+			const fa_action_args_t* args = &nextAction->args;
+			
 			FUR_ASSERT(poseStack.bufferSize > 0);	// we need at least one pose on stack to blend with
 			
 			bool recorded = false;
@@ -905,10 +909,10 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			
 			if(localTime != -1.0f)
 			{
-				if(nextAction->fadeInSec > 0.0f)
+				if(args->fadeInSec > 0.0f)
 				{
-					float alpha = fm_clamp(localTime / nextAction->fadeInSec, 0.0f, 1.0f);
-					if(nextAction->fadeInCurve == FA_CURVE_UNIFORM_S)
+					float alpha = fm_clamp(localTime / args->fadeInSec, 0.0f, 1.0f);
+					if(args->fadeInCurve == FA_CURVE_UNIFORM_S)
 					{
 						alpha = fm_curve_uniform_s(alpha);
 					}
@@ -978,4 +982,25 @@ const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* userData, ui
 	const fa_action_animate_t* data = (const fa_action_animate_t*)userData;
 	*numAnims = 1;
 	return (const fa_anim_clip_t**)&data->animation;	// todo: check it, is this return correct?
+}
+
+void fa_character_schedule_action_simple(fa_character_t* character, fa_action_animate_t* action, const fa_action_args_t* args, uint64_t currGlobalTime)
+{
+	// todo: change to action scheduler
+	if(character->layers[FA_CHAR_LAYER_BODY].currAction.userData == NULL)
+	{
+		character->layers[FA_CHAR_LAYER_BODY].currAction.userData = action;
+		character->layers[FA_CHAR_LAYER_BODY].currAction.func = fa_action_animate_func;
+		character->layers[FA_CHAR_LAYER_BODY].currAction.getAnimsFunc = fa_action_animate_get_anims_func;
+		character->layers[FA_CHAR_LAYER_BODY].currAction.globalStartTime = currGlobalTime;
+		character->layers[FA_CHAR_LAYER_BODY].currAction.args = *args;
+	}
+	else
+	{
+		character->layers[FA_CHAR_LAYER_BODY].nextAction.userData = action;
+		character->layers[FA_CHAR_LAYER_BODY].nextAction.func = fa_action_animate_func;
+		character->layers[FA_CHAR_LAYER_BODY].nextAction.getAnimsFunc = fa_action_animate_get_anims_func;
+		character->layers[FA_CHAR_LAYER_BODY].nextAction.globalStartTime = currGlobalTime;
+		character->layers[FA_CHAR_LAYER_BODY].nextAction.args = *args;
+	}
 }
