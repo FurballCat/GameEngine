@@ -118,14 +118,29 @@ CANIM_API void fa_pose_stack_push(fa_pose_stack_t* pStack, uint32_t count);
 CANIM_API void fa_pose_stack_pop(fa_pose_stack_t* pStack, uint32_t count);
 CANIM_API void fa_pose_stack_get(const fa_pose_stack_t* pStack, fa_pose_t* pPose, uint32_t depth);
 	
+// -----
+
+typedef struct fa_pose_cache_t
+{
+	fa_pose_t tempPose;
+} fa_pose_cache_t;
+	
 // **************** COMMANDS **************** //
 
+typedef struct fa_cmd_context_debug_t
+{
+	uint32_t cmdDrawCursorVerticalPos;
+} fa_cmd_context_debug_t;
+	
 typedef struct fa_cmd_context_t
 {
 	fa_pose_stack_t* poseStack;
+	const fa_pose_cache_t* poseCache;
 	const fa_rig_t* rig;
 	const fa_anim_clip_t** animClips;
 	uint32_t numAnimClips;
+	
+	fa_cmd_context_debug_t* debug;	// if NULL, don't use debug
 } fa_cmd_context_t;
 
 typedef struct fa_cmd_buffer_t
@@ -164,6 +179,7 @@ CANIM_API void fa_cmd_anim_sample(fa_cmd_buffer_recorder_t* recorder, float time
 CANIM_API void fa_cmd_blend2(fa_cmd_buffer_recorder_t* recorder, float alpha);
 CANIM_API void fa_cmd_blend_override(fa_cmd_buffer_recorder_t* recorder, float alpha, uint16_t maskId);
 CANIM_API void fa_cmd_blend_additive(fa_cmd_buffer_recorder_t* recorder, float alpha);
+CANIM_API void fa_cmd_use_cached_pose(fa_cmd_buffer_recorder_t* recorder, uint16_t poseId);
 	
 // **************** CHARACTER **************** //
 	
@@ -213,6 +229,8 @@ typedef struct fa_layer_t
 	// optional cached pose - caching result of currAction, so we can move nextAction to currAction, then use nextAction for 3rd action
 	fa_action_t currAction;
 	fa_action_t nextAction;	// if 3rd action scheduled, then if fade-in is 0 - jump to 3rd, if fade-in is >0, then we have 1 frame of old stuff so we cache the pose
+	
+	fa_action_t scheduledActions[2];
 } fa_layer_t;
 
 // fa_action_scheduler_t
@@ -227,6 +245,9 @@ typedef struct fa_character_t
 	// resulting pose
 	fm_xform* poseMS;
 	float* tracks;
+	
+	fa_pose_cache_t poseCache;
+	bool transitionPoseCached;
 } fa_character_t;
 
 typedef struct fa_character_animate_ctx_t

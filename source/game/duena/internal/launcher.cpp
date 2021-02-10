@@ -276,7 +276,11 @@ struct FurGameEngine
 	fa_character_t animCharacterZelda;
 	fa_action_animate_t animSimpleAction;
 	fa_action_animate_t animSimpleAction2;
+	fa_action_animate_t animSimpleAction3;
+	fa_action_animate_t animSimpleAction4;
 	bool simpleAction2scheduled;
+	bool simpleAction3scheduled;
+	bool simpleAction4scheduled;
 	
 	fm_mat4 skinMatrices[512];
 	
@@ -391,12 +395,14 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		// create Zelda
 		pEngine->animCharacterZelda.rig = pEngine->pRig;
 		pEngine->animCharacterZelda.poseMS = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		pEngine->animCharacterZelda.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		pEngine->animCharacterZelda.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 		
 		pEngine->animSimpleAction.animation = pEngine->pAnimClipGesture;
 		pEngine->animSimpleAction.forceLoop = true;
 		
 		fa_action_args_t args = {};
-		args.fadeInSec = 1.0f;
+		args.fadeInSec = 0.3f;
 		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction, &args, (uint64_t)(pEngine->globalTime * 1000000));
 		
 		pEngine->zeldaGameObject.id = SID_REG("zelda");
@@ -473,12 +479,14 @@ void fg_scripts_update(FurGameEngine* pEngine, float dt)
 
 void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 {
-	pEngine->globalTime += dt;
+	pEngine->globalTime += dt * 0.04f;
 	pEngine->blendAlpha = fm_clamp(((sinf(pEngine->globalTime * 0.4f) + 1.0f) / 2.0f), 0.0f, 1.0f);
+	
+	uint64_t globalTime = (uint64_t)(pEngine->globalTime * 1000000);
 	
 	fg_scripts_update(pEngine, dt);
 	
-	if(!pEngine->simpleAction2scheduled && pEngine->globalTime > 6.0f)
+	if(!pEngine->simpleAction2scheduled && pEngine->globalTime > 1.0f)
 	{
 		pEngine->simpleAction2scheduled = true;
 		
@@ -486,8 +494,20 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		pEngine->animSimpleAction2.forceLoop = true;
 		
 		fa_action_args_t args = {};
+		args.fadeInSec = 2.0f;
+		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction2, &args, globalTime);
+	}
+	
+	if(!pEngine->simpleAction3scheduled && pEngine->globalTime > 2.0f)
+	{
+		pEngine->simpleAction3scheduled = true;
+		
+		pEngine->animSimpleAction3.animation = pEngine->pAnimClipGesture;
+		pEngine->animSimpleAction3.forceLoop = true;
+		
+		fa_action_args_t args = {};
 		args.fadeInSec = 0.5f;
-		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction2, &args, (uint64_t)(pEngine->globalTime * 1000000));
+		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction3, &args, globalTime);
 	}
 	
 	{
@@ -564,6 +584,8 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	//FUR_ASSERT(furValidateAllocatorGeneral(&pEngine->m_memory._defaultInternals));
 	
 	FUR_FREE(pEngine->animCharacterZelda.poseMS, pAllocCallbacks);
+	FUR_FREE(pEngine->animCharacterZelda.poseCache.tempPose.xforms, pAllocCallbacks);
+	FUR_FREE(pEngine->animCharacterZelda.poseCache.tempPose.weightsXforms, pAllocCallbacks);
 	
 	FUR_FREE(pEngine->gameObjectRegister.objects, pAllocCallbacks);
 	FUR_FREE(pEngine->gameObjectRegister.ids, pAllocCallbacks);

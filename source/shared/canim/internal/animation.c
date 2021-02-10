@@ -4,6 +4,7 @@
 #include "ccore/public.h"
 #include "cmath/public.h"
 #include <string.h>
+#include <stdio.h>
 
 #define MIN(x, y) x < y ? x : y
 
@@ -557,6 +558,11 @@ void fa_cmd_buffer_evaluate(const fa_cmd_buffer_t* buffer, fa_cmd_context_t* ctx
 		const uint32_t totalCommandSize = sizeof(fa_cmd_func_t) + sizeof(uint32_t) + (*dataSize);
 		cmdPointer += totalCommandSize;
 		++dbgIndexCommand;
+		
+		if(ctx->debug)
+		{
+			ctx->debug->cmdDrawCursorVerticalPos += 14;
+		}
 	}
 }
 
@@ -614,6 +620,9 @@ void fa_cmd_end(fa_cmd_buffer_recorder_t* recorder)
 	FUR_ASSERT(recorder->poseStackSizeTracking >= 1);	// at the end of command buffer, we expect the post stack to have +1 pose
 }
 
+#define FA_DBG_TEXT_X -400.0f
+#define FA_DBG_TEXT_Y(_pos) 1.0f - 1.0f * _pos
+
 // set reference pose command
 fa_cmd_status_t fa_cmd_impl_ref_pose(fa_cmd_context_t* ctx, const void* cmdData)
 {
@@ -634,6 +643,13 @@ fa_cmd_status_t fa_cmd_impl_ref_pose(fa_cmd_context_t* ctx, const void* cmdData)
 	{
 		pose.tracks[i] = 0.0f;
 		pose.weightsTracks[i] = 255;
+	}
+	
+	if(ctx->debug)
+	{
+		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
+		const float color[4] = FUR_COLOR_WHITE;
+		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), "ref_pose", color);
 	}
 	
 	return FA_CMD_STATUS_OK;
@@ -663,6 +679,13 @@ fa_cmd_status_t fa_cmd_impl_identity(fa_cmd_context_t* ctx, const void* cmdData)
 	{
 		pose.tracks[i] = 0.0f;
 		pose.weightsTracks[i] = 255;
+	}
+	
+	if(ctx->debug)
+	{
+		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
+		const float color[4] = FUR_COLOR_WHITE;
+		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), "identity", color);
 	}
 	
 	return FA_CMD_STATUS_OK;
@@ -711,6 +734,15 @@ fa_cmd_status_t fa_cmd_impl_anim_sample(fa_cmd_context_t* ctx, const void* cmdDa
 	
 	fa_anim_clip_sample(clip, data->time, &pose);
 	
+	if(ctx->debug)
+	{
+		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
+		const float color[4] = FUR_COLOR_WHITE;
+		char txt[256];
+		sprintf(txt, "anim_sample %s t=%1.2f", fc_string_hash_as_cstr_debug(clip->name), data->time);
+		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
+	}
+	
 	return FA_CMD_STATUS_OK;
 }
 
@@ -741,6 +773,15 @@ fa_cmd_status_t fa_cmd_impl_blend2(fa_cmd_context_t* ctx, const void* cmdData)
 	
 	fa_pose_stack_pop(ctx->poseStack, 1);
 	
+	if(ctx->debug)
+	{
+		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
+		const float color[4] = FUR_COLOR_WHITE;
+		char txt[128];
+		sprintf(txt, "blend2 a=%1.2f", data->alpha);
+		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
+	}
+	
 	return FA_CMD_STATUS_OK;
 }
 
@@ -749,6 +790,48 @@ void fa_cmd_blend2(fa_cmd_buffer_recorder_t* recorder, float alpha)
 	fa_cmd_blend2_data_t data = { alpha };
 	fa_cmd_buffer_write(recorder, fa_cmd_impl_blend2, &data, sizeof(fa_cmd_blend2_data_t));
 	recorder->poseStackSizeTracking -= 1;
+}
+
+// use cached pose command
+typedef struct fa_cmd_use_cached_pose_data_t
+{
+	uint16_t poseId;
+} fa_cmd_use_cached_pose_data_t;
+
+fa_cmd_status_t fa_cmd_impl_use_cached_pose(fa_cmd_context_t* ctx, const void* cmdData)
+{
+	fa_cmd_use_cached_pose_data_t* data = (fa_cmd_use_cached_pose_data_t*)cmdData;
+	
+	FUR_ASSERT(data->poseId == 0);
+	
+	fa_pose_stack_push(ctx->poseStack, 1);
+	fa_pose_t pose;
+	fa_pose_stack_get(ctx->poseStack, &pose, 0);
+	
+	fa_pose_copy(&pose, &ctx->poseCache->tempPose);
+	
+	if(ctx->debug)
+	{
+		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
+		const float color[4] = FUR_COLOR_WHITE;
+		char txt[128];
+		sprintf(txt, "use_cached_pose id=%i", data->poseId);
+		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
+	}
+	
+	return FA_CMD_STATUS_OK;
+}
+
+void fa_cmd_use_cached_pose(fa_cmd_buffer_recorder_t* recorder, uint16_t poseId)
+{
+	fa_cmd_use_cached_pose_data_t data = { poseId };
+	fa_cmd_buffer_write(recorder, fa_cmd_impl_use_cached_pose, &data, sizeof(fa_cmd_use_cached_pose_data_t));
+	recorder->poseStackSizeTracking += 1;
+}
+
+void fa_action_reset(fa_action_t* action)
+{
+	memset(action, 0, sizeof(fa_action_t));
 }
 
 void fa_character_animate(fa_character_t* character, const fa_character_animate_ctx_t* ctx)
@@ -798,15 +881,57 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		fa_pose_stack_init(&poseStack, &desc, animPoseStackMemory, poseStackSize);
 	}
 	
+	fa_character_layer_t layerEnum = FA_CHAR_LAYER_BODY;
+	fa_layer_t* layer = &character->layers[layerEnum];
+	
+	// resolve scheduled actions
+	{
+		const bool currInProgress = layer->currAction.userData != NULL;
+		const bool nextInProgress = layer->nextAction.userData != NULL;
+		const bool scheduledA = layer->scheduledActions[0].userData != NULL;
+		const bool scheduledB = layer->scheduledActions[1].userData != NULL;
+		if(scheduledA && scheduledB)
+		{
+			// cache pose
+			if(currInProgress && nextInProgress)
+			{
+				if(layer->scheduledActions[0].args.fadeInSec <= 0.0f)
+				{
+					layer->currAction = layer->scheduledActions[0];
+					fa_action_reset(&layer->scheduledActions[0]);
+				}
+				
+				if(layer->scheduledActions[1].args.fadeInSec <= 0.0f)
+				{
+					layer->currAction = layer->scheduledActions[1];	// assigning to curr, not next, just like above
+					fa_action_reset(&layer->scheduledActions[1]);
+					fa_action_reset(&layer->nextAction);
+				}
+			}
+			else
+			{
+				layer->currAction = layer->scheduledActions[0];
+				fa_action_reset(&layer->scheduledActions[0]);
+				layer->nextAction = layer->scheduledActions[1];
+				fa_action_reset(&layer->scheduledActions[1]);
+			}
+		}
+	}
+	
+	// if at this point we still have pending scheduled actions, then it means we need to cache the pose of current actions
+	const bool stillScheduledA = layer->scheduledActions[0].userData != NULL;
+	const bool stillScheduledB = layer->scheduledActions[1].userData != NULL;
+	
+	const bool isCachingPose = stillScheduledA || stillScheduledB;
+	
+	fa_cmd_context_debug_t debug = {};
+	
 	// animate action
 	{
-		fa_character_layer_t layerEnum = FA_CHAR_LAYER_BODY;
-		
 		fa_cmd_buffer_t animCmdBuffer = { animCmdBufferMemory, animCmdBufferSize };
 		fa_cmd_buffer_recorder_t recorder = {};
 		fa_cmd_buffer_recorder_init(&recorder, animCmdBuffer.data, animCmdBuffer.size);
 		
-		fa_layer_t* layer = &character->layers[layerEnum];
 		fa_action_t* action = &layer->currAction;
 		
 		// record commands
@@ -841,7 +966,14 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 				
 				if(alpha < 1.0f)
 				{
-					fa_cmd_ref_pose(&recorder);
+					if(character->transitionPoseCached)
+					{
+						fa_cmd_use_cached_pose(&recorder, 0); // todo: set proper index in the future
+					}
+					else
+					{
+						fa_cmd_ref_pose(&recorder);
+					}
 					layer->currAction.func(&actionCtx, action->userData);
 					fa_cmd_blend2(&recorder, alpha);
 				}
@@ -867,8 +999,20 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		animCtx.animClips = action->getAnimsFunc(action->userData, &animCtx.numAnimClips);
 		animCtx.rig = character->rig;
 		animCtx.poseStack = &poseStack;
+		animCtx.poseCache = &character->poseCache;
+		animCtx.debug = &debug;
 		
 		fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
+	}
+	
+	// optionally cache pose
+	if(isCachingPose && stillScheduledA && !stillScheduledB)
+	{
+		fa_pose_t outPose;
+		fa_pose_stack_get(&poseStack, &outPose, 0);
+		
+		fa_pose_copy(&character->poseCache.tempPose, &outPose);
+		character->transitionPoseCached = true;
 	}
 	
 	// animate next action
@@ -946,26 +1090,54 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 				animCtx.animClips = nextAction->getAnimsFunc(nextAction->userData, &animCtx.numAnimClips);
 				animCtx.rig = character->rig;
 				animCtx.poseStack = &poseStack;
+				animCtx.poseCache = &character->poseCache;
+				animCtx.debug = &debug;
 				
 				fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
 				
 				if(fullyBlended)
 				{
 					layer->currAction = layer->nextAction;
-					memset(&layer->nextAction, 0, sizeof(fa_action_t));
+					fa_action_reset(&layer->nextAction);
+					character->transitionPoseCached = false;
 				}
 			}
 		}
 	}
 	
+	// out pose is the result of this layer
 	fa_pose_t outPose;
 	fa_pose_stack_get(&poseStack, &outPose, 0);
 	
-	const int16_t* parentIndices = character->rig->parents;
-	fa_pose_t poseMS = {};
-	poseMS.xforms = character->poseMS;
-	poseMS.numXforms = character->rig->numBones;
-	fa_pose_local_to_model(&poseMS, &outPose, parentIndices);
+	// optionally cache pose
+	if(isCachingPose && stillScheduledA && stillScheduledB)
+	{
+		fa_pose_copy(&character->poseCache.tempPose, &outPose);
+		character->transitionPoseCached = true;
+		
+		layer->currAction = layer->scheduledActions[0];
+		fa_action_reset(&layer->scheduledActions[0]);
+		layer->nextAction = layer->scheduledActions[1];
+		fa_action_reset(&layer->scheduledActions[1]);
+	}
+	
+	if(stillScheduledA && !stillScheduledB)
+	{
+		FUR_ASSERT(!stillScheduledB);
+		layer->currAction = layer->nextAction;
+		fa_action_reset(&layer->nextAction);
+		layer->nextAction = layer->scheduledActions[0];
+		fa_action_reset(&layer->scheduledActions[0]);
+	}
+	
+	// convert to model space
+	{
+		const int16_t* parentIndices = character->rig->parents;
+		fa_pose_t poseMS = {};
+		poseMS.xforms = character->poseMS;
+		poseMS.numXforms = character->rig->numBones;
+		fa_pose_local_to_model(&poseMS, &outPose, parentIndices);
+	}
 }
 
 void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData)
@@ -986,21 +1158,36 @@ const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* userData, ui
 
 void fa_character_schedule_action_simple(fa_character_t* character, fa_action_animate_t* action, const fa_action_args_t* args, uint64_t currGlobalTime)
 {
-	// todo: change to action scheduler
-	if(character->layers[FA_CHAR_LAYER_BODY].currAction.userData == NULL)
+	fa_layer_t* layer = &character->layers[FA_CHAR_LAYER_BODY];
+	
+	fa_action_t* actionSlot = NULL;
+	
+	if(layer->currAction.userData == NULL)
 	{
-		character->layers[FA_CHAR_LAYER_BODY].currAction.userData = action;
-		character->layers[FA_CHAR_LAYER_BODY].currAction.func = fa_action_animate_func;
-		character->layers[FA_CHAR_LAYER_BODY].currAction.getAnimsFunc = fa_action_animate_get_anims_func;
-		character->layers[FA_CHAR_LAYER_BODY].currAction.globalStartTime = currGlobalTime;
-		character->layers[FA_CHAR_LAYER_BODY].currAction.args = *args;
+		actionSlot = &layer->currAction;
+	}
+	else if(layer->nextAction.userData == NULL)
+	{
+		actionSlot = &layer->nextAction;
+	}
+	else if(layer->scheduledActions[0].userData == NULL)
+	{
+		actionSlot = &layer->scheduledActions[0];
+	}
+	else if(layer->scheduledActions[1].userData == NULL)
+	{
+		actionSlot = &layer->scheduledActions[1];
 	}
 	else
 	{
-		character->layers[FA_CHAR_LAYER_BODY].nextAction.userData = action;
-		character->layers[FA_CHAR_LAYER_BODY].nextAction.func = fa_action_animate_func;
-		character->layers[FA_CHAR_LAYER_BODY].nextAction.getAnimsFunc = fa_action_animate_get_anims_func;
-		character->layers[FA_CHAR_LAYER_BODY].nextAction.globalStartTime = currGlobalTime;
-		character->layers[FA_CHAR_LAYER_BODY].nextAction.args = *args;
+		layer->scheduledActions[0] = layer->scheduledActions[1];
+		fa_action_reset(&layer->scheduledActions[1]);
+		actionSlot = &layer->scheduledActions[1];
 	}
+	
+	actionSlot->userData = action;
+	actionSlot->func = fa_action_animate_func;
+	actionSlot->getAnimsFunc = fa_action_animate_get_anims_func;
+	actionSlot->globalStartTime = currGlobalTime;
+	actionSlot->args = *args;
 }

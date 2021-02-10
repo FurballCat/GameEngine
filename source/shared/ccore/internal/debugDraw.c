@@ -265,7 +265,7 @@ void fc_dbg_text(float x, float y, const char* txt, const float color[4])
 	
 	char* dataCharacters = g_debugFragments.textCharactersData + offsetCharacters;
 	memcpy(dataCharacters, txt, length);
-	dataCharacters[length+1] = '\0';
+	dataCharacters[length] = '\0';
 	
 	uint32_t* dataRange = g_debugFragments.textRangeData + offsetRange;
 	dataRange[0] = offsetCharacters;
