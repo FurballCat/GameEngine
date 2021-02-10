@@ -397,6 +397,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		pEngine->animCharacterZelda.poseMS = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 		pEngine->animCharacterZelda.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 		pEngine->animCharacterZelda.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		pEngine->animCharacterZelda.poseCache.tempPose.numXforms = pEngine->animCharacterZelda.rig->numBones;
 		
 		pEngine->animSimpleAction.animation = pEngine->pAnimClipGesture;
 		pEngine->animSimpleAction.forceLoop = true;
@@ -479,7 +480,7 @@ void fg_scripts_update(FurGameEngine* pEngine, float dt)
 
 void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 {
-	pEngine->globalTime += dt * 0.04f;
+	pEngine->globalTime += dt;
 	pEngine->blendAlpha = fm_clamp(((sinf(pEngine->globalTime * 0.4f) + 1.0f) / 2.0f), 0.0f, 1.0f);
 	
 	uint64_t globalTime = (uint64_t)(pEngine->globalTime * 1000000);

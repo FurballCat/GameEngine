@@ -287,12 +287,20 @@ void fa_pose_copy(fa_pose_t* dest, const fa_pose_t* src)
 	if(numXforms > 0)
 	{
 		memcpy(dest->xforms, src->xforms, sizeof(fm_xform) * numXforms);
+		if(dest->weightsXforms && src->weightsXforms)
+		{
+			memcpy(dest->weightsXforms, src->weightsXforms, sizeof(uint8_t) * numXforms);
+		}
 	}
 	
 	const uint32_t numTracks = MIN(src->numTracks, dest->numTracks);
 	if(numTracks > 0)
 	{
 		memcpy(dest->tracks, src->tracks, sizeof(float) * numTracks);
+		if(dest->weightsTracks && src->weightsTracks)
+		{
+			memcpy(dest->weightsTracks, src->weightsTracks, sizeof(uint8_t) * numXforms);
+		}
 	}
 }
 
@@ -1013,6 +1021,8 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		
 		fa_pose_copy(&character->poseCache.tempPose, &outPose);
 		character->transitionPoseCached = true;
+		const float color[4] = FUR_COLOR_RED;
+		fc_dbg_text(-450.0f, 1.0f, "caching_pose", color);
 	}
 	
 	// animate next action
