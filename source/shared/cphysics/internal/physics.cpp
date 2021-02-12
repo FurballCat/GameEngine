@@ -17,6 +17,9 @@ typedef struct fp_physics_t
 	PxRigidStatic* worldPlane;
 	PxRigidDynamic* testCapsule;
 	PxMaterial* testMaterial;
+	
+	PxControllerManager* controllerManager;
+	PxController* controller;
 } fp_physics_t;
 
 static PxDefaultAllocator g_defaultAllocator;
@@ -81,41 +84,109 @@ uint32_t fp_physics_scene_create(fp_physics_t* pPhysics, fp_physics_scene_t** pp
 	//pPhysics->testCapsule->setMass(40.0f);
 	pScene->addActor(*pPhysics->testCapsule);
 	
+	// todo: refactor, probably shouldn't be created here
+	{
+		FUR_ASSERT(pPhysics->controllerManager == NULL);
+		FUR_ASSERT(pPhysics->controller == NULL);
+		pPhysics->controllerManager = PxCreateControllerManager(*pScene);
+		PxControllerManager* mgr = pPhysics->controllerManager;
+		mgr->setOverlapRecoveryModule(true);	// make sure character is not created in an initial overlap state
+		mgr->setPreciseSweeps(true);	//use precise sweep tests
+		
+		PxCapsuleControllerDesc controllerDesc;
+		controllerDesc.setToDefault();
+		controllerDesc.height = 1.3f;
+		controllerDesc.radius = 0.2f;
+		controllerDesc.stepOffset = 0.04f;	// must be smaller than height + 2 * radius
+		controllerDesc.material = pPhysics->testMaterial;
+		controllerDesc.position = {0.0f, 0.0f, 1.0f};
+		controllerDesc.upDirection = {0.0f, 0.0f, 1.0f};
+		
+		FUR_ASSERT(controllerDesc.isValid());
+		pPhysics->controller = mgr->createController(controllerDesc);
+	}
+	
 	return 0;
 }
 
 void fp_physics_scene_release(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, fc_alloc_callbacks_t* pAllocCallbacks)
 {
+	if(pPhysics->controller)
+		pPhysics->controller->release();
+	
+	pPhysics->controllerManager->release();
+	
 	PxScene* scene = (PxScene*)pScene;
 	scene->release();
 }
 
 void fp_physics_update(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, const fp_physics_update_ctx_t* pCtx)
 {
-	PxScene* scene = fp_physics_scene_to_px_scene(pScene);
-	scene->simulate(pCtx->dt);
-	scene->fetchResults();
+	// character controller update
+	{
+		PxVec3 disp = {-0.5f * pCtx->dt, 0.0f, 0.0f};
+		PxControllerFilters filters;
+		pPhysics->controller->move(disp, 0.00001f, pCtx->dt, filters);
+	}
 	
-	const PxTransform t = pPhysics->testCapsule->getGlobalPose();
-	const PxVec3 x = t.q.getBasisVector0();
-	const PxVec3 y = t.q.getBasisVector1();
-	const PxVec3 z = t.q.getBasisVector2();
+	// scene simulation
+	{
+		PxScene* scene = fp_physics_scene_to_px_scene(pScene);
+		scene->simulate(pCtx->dt);
+		scene->fetchResults(true); // true to block the thread until simulate is finished
+	}
 	
-	const float start[3] = {t.p.x, t.p.y, t.p.z};
-	const float end_x[3] = {t.p.x + x.x, t.p.y + x.y, t.p.z + x.z};
-	const float end_y[3] = {t.p.x + y.x, t.p.y + y.y, t.p.z + y.z};
-	const float end_z[3] = {t.p.x + z.x, t.p.y + z.y, t.p.z + z.z};
 	const float red[4] = FUR_COLOR_RED;
 	const float green[4] = FUR_COLOR_GREEN;
 	const float blue[4] = FUR_COLOR_BLUE;
 	
-	fc_dbg_line(start, end_x, red);
-	fc_dbg_line(start, end_y, green);
-	fc_dbg_line(start, end_z, blue);
+	// text capsule rigid body
+	{
+		const PxTransform t = pPhysics->testCapsule->getGlobalPose();
+		const PxVec3 x = t.q.getBasisVector0();
+		const PxVec3 y = t.q.getBasisVector1();
+		const PxVec3 z = t.q.getBasisVector2();
+		
+		const float start[3] = {t.p.x, t.p.y, t.p.z};
+		const float end_x[3] = {t.p.x + x.x, t.p.y + x.y, t.p.z + x.z};
+		const float end_y[3] = {t.p.x + y.x, t.p.y + y.y, t.p.z + y.z};
+		const float end_z[3] = {t.p.x + z.x, t.p.y + z.y, t.p.z + z.z};
+		
+		fc_dbg_line(start, end_x, red);
+		fc_dbg_line(start, end_y, green);
+		fc_dbg_line(start, end_z, blue);
+	}
 	
-	const float planeCenter[3] = {0.0f, 0.0f, 0.0f};
-	const float planeHalfLength = 10.0f;
-	const float planeColor[4] = FUR_COLOR_DARK_GREY;
+	// plane collider
+	{
+		const float planeCenter[3] = {0.0f, 0.0f, 0.0f};
+		const float planeHalfLength = 10.0f;
+		const float planeColor[4] = FUR_COLOR_DARK_GREY;
+		
+		fc_dbg_plane(planeCenter, planeHalfLength, planeColor);
+	}
 	
-	fc_dbg_plane(planeCenter, planeHalfLength, planeColor);
+	// character controller
+	{
+		const PxTransform t = pPhysics->controller->getActor()->getGlobalPose();
+		const PxVec3 x = t.q.getBasisVector0();
+		const PxVec3 y = t.q.getBasisVector1();
+		const PxVec3 z = t.q.getBasisVector2();
+		
+		const PxExtendedVec3 footPos = pPhysics->controller->getFootPosition();
+		
+		const float start[3] = {t.p.x, t.p.y, t.p.z};
+		const float end_x[3] = {t.p.x + x.x, t.p.y + x.y, t.p.z + x.z};
+		const float end_y[3] = {t.p.x + y.x, t.p.y + y.y, t.p.z + y.z};
+		const float end_z[3] = {t.p.x + z.x, t.p.y + z.y, t.p.z + z.z};
+		const float footPosf[3] = {(float)footPos.x, (float)footPos.y, (float)footPos.z};
+		
+		const float yellow[4] = FUR_COLOR_YELLOW;
+		
+		fc_dbg_line(start, end_x, red);
+		fc_dbg_line(start, end_x, red);
+		fc_dbg_line(start, end_y, green);
+		fc_dbg_line(start, end_z, blue);
+		fc_dbg_line(start, footPosf, yellow);
+	}
 }
