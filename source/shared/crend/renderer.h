@@ -79,6 +79,10 @@ CREND_API enum fr_result_t fr_release_render_proxy_mesh(struct fr_scene_t* pRend
 struct fr_update_context_t
 {
 	float dt;
+	
+	float cameraZoomIn;
+	float cameraZoomOut;
+	float cameraRotationX;
 };
 	
 CREND_API void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_context_t* ctx);

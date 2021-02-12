@@ -10,7 +10,6 @@
 #include "ccore/public.h"
 #include "ccore/textParsing.h"
 #include "ccore/buffer.h"
-#include "cinput/public.h"
 
 #include "renderer.h"
 #include "vulkansdk/macOS/include/vulkan/vulkan.h"
@@ -759,8 +758,6 @@ struct fr_renderer_t
 	
 	float rotationAngle;
 	float cameraZoom;
-	
-	fi_input_manager_t* pInputManager;
 };
 
 void fr_pixels_free_func(void* pData, size_t size, void* pUserData)
@@ -788,8 +785,6 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	}
 	
 	memset(pRenderer, 0, sizeof(struct fr_renderer_t));
-	
-	pRenderer->pInputManager = fi_input_manager_create(pAllocCallbacks);	// todo: move out of renderer
 	
 	enum fr_result_t res = FR_RESULT_OK;
 	
@@ -2443,8 +2438,6 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 					   struct fc_alloc_callbacks_t*	pAllocCallbacks)
 {
-	fi_input_manager_release(pRenderer->pInputManager, pAllocCallbacks);	// todo: move out of renderer
-	
 	if(pRenderer->skinningMapping.indicesMapping)
 	{
 		FUR_FREE(pRenderer->skinningMapping.indicesMapping, pAllocCallbacks);
@@ -2599,34 +2592,10 @@ void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_
 	g_timeDelta = ctx->dt;
 	g_time += g_timeDelta;
 	
-	fi_update_input_manager(pRenderer->pInputManager, g_time);	// todo: move out of renderer
-	
-	static float actionRotationLeftX = 0.0f;
-	static float actionZoomIn = 0.0f;
-	static float actionZoomOut = 0.0f;
-	
-	fi_input_event_t inputEvents[10];
-	const uint32_t numEventsCollected = fi_get_input_events(pRenderer->pInputManager, inputEvents, 10, 0);
-	for(uint32_t i=0; i<numEventsCollected; ++i)
-	{
-		if(inputEvents[i].eventID == Gamepad_rightAnalogX)
-		{
-			actionRotationLeftX = fm_snap_near_zero(inputEvents[i].value, 0.05f);
-		}
-		else if(inputEvents[i].eventID == Gamepad_rightTrigger)
-		{
-			actionZoomIn = fm_snap_near_zero(inputEvents[i].value, 0.05f);
-		}
-		else if(inputEvents[i].eventID == Gamepad_leftTrigger)
-		{
-			actionZoomOut = fm_snap_near_zero(inputEvents[i].value, 0.05f);
-		}
-	}
-	
 	g_blend = fm_clamp((sinf(g_time / 5.0f) + 1.0f) / 2.0f, 0.0f, 1.0f);
 	
-	pRenderer->rotationAngle += g_rotationSpeed * ctx->dt * actionRotationLeftX;
-	pRenderer->cameraZoom += g_zoomSpeed * ctx->dt * (actionZoomOut - actionZoomIn);
+	pRenderer->rotationAngle += g_rotationSpeed * ctx->dt * ctx->cameraRotationX;
+	pRenderer->cameraZoom += g_zoomSpeed * ctx->dt * (ctx->cameraZoomOut - ctx->cameraZoomIn);
 };
 
 uint32_t g_prevImageIndex = 0;

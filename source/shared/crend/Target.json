@@ -3,8 +3,6 @@
 	[
 		"ccore",
 		"cmath",
-		"cinput",
-		"canim",
 		"cimport",
         "glfw"
     ],

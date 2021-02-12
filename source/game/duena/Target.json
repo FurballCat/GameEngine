@@ -4,7 +4,8 @@
     "crend",
 	"cphysics",
 	"canim",
-	"cimport"
+	"cimport",
+	"cinput"
   ],
 
   "dependencies_osx": [

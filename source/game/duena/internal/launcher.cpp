@@ -13,6 +13,7 @@
 #include "ccore/public.h"
 #include "ccore/buffer.h"
 #include "ccore/textParsing.h"
+#include "cinput/public.h"
 
 /**************** FURBALL CAT GAME ENGINE ****************/
 
@@ -268,22 +269,29 @@ struct FurGameEngine
 	
 	fp_physics_scene_t* pPhysicsScene;
 	
+	fi_input_manager_t* pInputManager;
+	
 	// animation
 	fa_rig_t* pRig;
 	fa_anim_clip_t* pAnimClipIdle;
 	fa_anim_clip_t* pAnimClipGesture;
 	
+	// input actions
+	bool inActionPressed;
+	float actionRotationLeftX;
+	float actionZoomIn;
+	float actionZoomOut;
+	
+	// gameplay animation states
 	fa_character_t animCharacterZelda;
 	fa_action_animate_t animSimpleAction;
 	fa_action_animate_t animSimpleAction2;
 	fa_action_animate_t animSimpleAction3;
-	fa_action_animate_t animSimpleAction4;
-	bool simpleAction2scheduled;
-	bool simpleAction3scheduled;
-	bool simpleAction4scheduled;
 	
+	// skinning
 	fm_mat4 skinMatrices[512];
 	
+	// update memory (scratchpad)
 	void* scratchpadBuffer;
 	uint32_t scratchpadBufferSize;
 	
@@ -309,6 +317,11 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	fr_result_t res = fr_create_app(&appDesc, &pEngine->pApp, pAllocCallbacks);
 	
 	fc_string_hash_register_init(pAllocCallbacks);
+	
+	if(res == FR_RESULT_OK)
+	{
+		pEngine->pInputManager = fi_input_manager_create(pAllocCallbacks);
+	}
 	
 	if(res == FR_RESULT_OK)
 	{
@@ -478,31 +491,65 @@ void fg_scripts_update(FurGameEngine* pEngine, float dt)
 	}
 }
 
-void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
+void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 {
-	pEngine->globalTime += dt;
-	pEngine->blendAlpha = fm_clamp(((sinf(pEngine->globalTime * 0.4f) + 1.0f) / 2.0f), 0.0f, 1.0f);
+	bool actionPressed = false;
+	static bool actionWasPressed = false;
 	
+	fi_input_event_t inputEvents[10];
+	const uint32_t numEventsCollected = fi_get_input_events(pEngine->pInputManager, inputEvents, 10, 0);
+	for(uint32_t i=0; i<numEventsCollected; ++i)
+	{
+		if(inputEvents[i].eventID == Gamepad_faceButtonLeft)
+		{
+			actionPressed = true;
+		}
+		else if(inputEvents[i].eventID == Gamepad_rightAnalogX)
+		{
+			pEngine->actionRotationLeftX = fm_snap_near_zero(inputEvents[i].value, 0.05f);
+		}
+		else if(inputEvents[i].eventID == Gamepad_rightTrigger)
+		{
+			pEngine->actionZoomIn = fm_snap_near_zero(inputEvents[i].value, 0.05f);
+		}
+		else if(inputEvents[i].eventID == Gamepad_leftTrigger)
+		{
+			pEngine->actionZoomOut = fm_snap_near_zero(inputEvents[i].value, 0.05f);
+		}
+	}
+	
+	if(actionWasPressed != actionPressed)
+	{
+		pEngine->inActionPressed = actionPressed;
+		actionWasPressed = actionPressed;
+	}
+	else
+	{
+		pEngine->inActionPressed = false;
+	}
+}
+
+void fg_gameplay_update(FurGameEngine* pEngine, float dt)
+{
 	uint64_t globalTime = (uint64_t)(pEngine->globalTime * 1000000);
 	
-	fg_scripts_update(pEngine, dt);
+	static uint32_t actionRandomizer = 0;
 	
-	if(!pEngine->simpleAction2scheduled && pEngine->globalTime > 1.0f)
+	if(pEngine->inActionPressed)
+		actionRandomizer += 1;
+	
+	if(pEngine->inActionPressed && ((actionRandomizer % 2) == 1))
 	{
-		pEngine->simpleAction2scheduled = true;
-		
 		pEngine->animSimpleAction2.animation = pEngine->pAnimClipIdle;
 		pEngine->animSimpleAction2.forceLoop = true;
 		
 		fa_action_args_t args = {};
-		args.fadeInSec = 2.0f;
+		args.fadeInSec = 0.5f;
 		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction2, &args, globalTime);
 	}
 	
-	if(!pEngine->simpleAction3scheduled && pEngine->globalTime > 2.0f)
+	if(pEngine->inActionPressed &&((actionRandomizer % 2) == 0))
 	{
-		pEngine->simpleAction3scheduled = true;
-		
 		pEngine->animSimpleAction3.animation = pEngine->pAnimClipGesture;
 		pEngine->animSimpleAction3.forceLoop = true;
 		
@@ -510,40 +557,61 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		args.fadeInSec = 0.5f;
 		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction3, &args, globalTime);
 	}
+}
+
+void fg_animation_update(FurGameEngine* pEngine, float dt)
+{
+	// animation states update
+	fa_character_animate_ctx_t animateCtx = {};
+	animateCtx.dt = dt;
+	animateCtx.globalTime = (uint64_t)(pEngine->globalTime * 1000000.0);
+	animateCtx.scratchpadBuffer = pEngine->scratchpadBuffer;
+	animateCtx.scratchpadBufferSize = pEngine->scratchpadBufferSize;
 	
+	fa_character_animate(&pEngine->animCharacterZelda, &animateCtx);
+	
+	// skinning
+	const fm_xform* poseMS = pEngine->animCharacterZelda.poseMS;
+	const uint32_t numSkinMatrices = pEngine->pRig->numBones;
+	for(uint32_t i=0; i<numSkinMatrices; ++i)
 	{
-		fa_character_animate_ctx_t animateCtx = {};
-		animateCtx.dt = dt;
-		animateCtx.globalTime = (uint64_t)(pEngine->globalTime * 1000000.0);
-		animateCtx.scratchpadBuffer = pEngine->scratchpadBuffer;
-		animateCtx.scratchpadBufferSize = pEngine->scratchpadBufferSize;
-		
-		fa_character_animate(&pEngine->animCharacterZelda, &animateCtx);
-		
-		// draw pose
-		const uint32_t numBones = pEngine->animCharacterZelda.rig->numBones;
-		const int16_t* parentIndices = pEngine->animCharacterZelda.rig->parents;
-		const fm_xform* poseMS = pEngine->animCharacterZelda.poseMS;
-		fm_mat4 mat;
-		for(uint32_t i=0; i<numBones; ++i)
-		{
-			fm_xform_to_mat4(&poseMS[i], &mat);
-			//fr_dbg_draw_mat4(&mat);
-			
-			int16_t idxParent = parentIndices[i];
-			if(idxParent >= 0)
-			{
-				//fc_dbg_line(&modelPose.xforms[i].pos.x, &modelPose.xforms[idxParent].pos.x, color);
-			}
-		}
-		
-		uint32_t numSkinMatrices = pEngine->pRig->numBones;
-		
-		for(uint32_t i=0; i<numSkinMatrices; ++i)
-		{
-			fm_xform_to_mat4(&poseMS[i], &pEngine->skinMatrices[i]);
-		}
+		fm_xform_to_mat4(&poseMS[i], &pEngine->skinMatrices[i]);
 	}
+}
+
+void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
+{
+	pEngine->globalTime += dt;
+	pEngine->blendAlpha = fm_clamp(((sinf(pEngine->globalTime * 0.4f) + 1.0f) / 2.0f), 0.0f, 1.0f);
+	
+	// input
+	fi_update_input_manager(pEngine->pInputManager, pEngine->globalTime);
+	fg_input_actions_update(pEngine, dt);
+	
+	// game
+	fg_scripts_update(pEngine, dt);
+	fg_gameplay_update(pEngine, dt);
+	
+	// animation
+	fg_animation_update(pEngine, dt);
+	
+	// physics
+	fp_physics_update_ctx_t physicsCtx = {};
+	physicsCtx.dt = dt;
+	fp_physics_update(pEngine->pPhysics, pEngine->pPhysicsScene, &physicsCtx);
+	
+	// rendering
+	fr_update_context_t ctx = {};
+	ctx.dt = dt;
+	ctx.cameraZoomIn = pEngine->actionZoomIn;
+	ctx.cameraZoomOut = pEngine->actionZoomOut;
+	ctx.cameraRotationX = pEngine->actionRotationLeftX;
+	fr_update_renderer(pEngine->pRenderer, &ctx);
+	
+	fr_draw_frame_context_t renderCtx = {};
+	renderCtx.skinMatrices = pEngine->skinMatrices;
+	renderCtx.numSkinMatrices = pEngine->pRig->numBones;
+	fr_draw_frame(pEngine->pRenderer, &renderCtx);
 }
 
 void furMainEngineLoop(FurGameEngine* pEngine)
@@ -558,22 +626,7 @@ void furMainEngineLoop(FurGameEngine* pEngine)
 		
 		const float dt = dtOrig.count();
 		
-		fr_update_context_t ctx = {};
-		ctx.dt = dt;
-		
-		fp_physics_update_ctx_t physicsCtx = {};
-		physicsCtx.dt = dt;
-		
 		furMainEngineGameUpdate(pEngine, dt);
-		
-		fp_physics_update(pEngine->pPhysics, pEngine->pPhysicsScene, &physicsCtx);
-		fr_update_renderer(pEngine->pRenderer, &ctx);
-		
-		fr_draw_frame_context_t renderCtx = {};
-		renderCtx.skinMatrices = pEngine->skinMatrices;
-		renderCtx.numSkinMatrices = pEngine->pRig->numBones;
-		
-		fr_draw_frame(pEngine->pRenderer, &renderCtx);
 	}
 	
 	fr_wait_for_device(pEngine->pRenderer);
@@ -600,6 +653,8 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	
 	fp_release_physics(pEngine->pPhysics, pAllocCallbacks);
 	fr_release_renderer(pEngine->pRenderer, pAllocCallbacks);
+	
+	fi_input_manager_release(pEngine->pInputManager, pAllocCallbacks);
 	
 	fs_script_release(&pEngine->zeldaScript, pAllocCallbacks);
 	
