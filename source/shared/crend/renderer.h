@@ -76,13 +76,18 @@ CREND_API enum fr_result_t fr_create_render_proxy_mesh(struct fr_scene_t* pRende
 CREND_API enum fr_result_t fr_release_render_proxy_mesh(struct fr_scene_t* pRenderScene,
 										  struct fr_render_proxy_mesh_t* pProxy);
 
+typedef struct fr_camera_t
+{
+	float eye[3];
+	float at[3];
+	float up[3];
+} fr_camera_t;
+	
 struct fr_update_context_t
 {
 	float dt;
 	
-	float cameraZoomIn;
-	float cameraZoomOut;
-	float cameraRotationX;
+	fr_camera_t camera;
 };
 	
 CREND_API void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_context_t* ctx);

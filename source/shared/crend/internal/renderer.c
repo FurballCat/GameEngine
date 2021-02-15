@@ -756,8 +756,9 @@ struct fr_renderer_t
 	
 	fr_skinning_mapping_t skinningMapping;
 	
-	float rotationAngle;
-	float cameraZoom;
+	fm_vec4 cameraEye;
+	fm_vec4 cameraAt;
+	fm_vec4 cameraUp;
 };
 
 void fr_pixels_free_func(void* pData, size_t size, void* pUserData)
@@ -2422,8 +2423,12 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	
 	if(res == FR_RESULT_OK)
 	{
-		pRenderer->rotationAngle = 0.0f;
-		pRenderer->cameraZoom = 1.0f;
+		const fm_vec4 g_eye = {0, -3, 1.4, 0};
+		const fm_vec4 g_at = {0, 0, 1.5, 0};
+		const fm_vec4 g_up = {0, 0, 1, 0};
+		pRenderer->cameraEye = g_eye;
+		pRenderer->cameraAt = g_at;
+		pRenderer->cameraUp = g_up;
 	}
 	
 	// create skinning mapping
@@ -2559,12 +2564,6 @@ void fr_wait_for_device(struct fr_renderer_t* pRenderer)
 	vkDeviceWaitIdle(pRenderer->device);
 }
 
-const float g_rotationSpeed = FM_DEG_TO_RAD(90);
-const float g_zoomSpeed = 0.2f;
-const fm_vec4 g_eye = {0, -3, 1.4, 0};
-const fm_vec4 g_at = {0, 0, 1.5, 0};
-const fm_vec4 g_up = {0, 0, 1, 0};
-
 double g_timeDelta = 0.0f;
 double g_time = 0.0f;
 
@@ -2592,10 +2591,23 @@ void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_
 	g_timeDelta = ctx->dt;
 	g_time += g_timeDelta;
 	
-	g_blend = fm_clamp((sinf(g_time / 5.0f) + 1.0f) / 2.0f, 0.0f, 1.0f);
+	// update camera
+	pRenderer->cameraEye.x = ctx->camera.eye[0];
+	pRenderer->cameraEye.y = ctx->camera.eye[1];
+	pRenderer->cameraEye.z = ctx->camera.eye[2];
+	pRenderer->cameraEye.w = 0.0f;
 	
-	pRenderer->rotationAngle += g_rotationSpeed * ctx->dt * ctx->cameraRotationX;
-	pRenderer->cameraZoom += g_zoomSpeed * ctx->dt * (ctx->cameraZoomOut - ctx->cameraZoomIn);
+	pRenderer->cameraAt.x = ctx->camera.at[0];
+	pRenderer->cameraAt.y = ctx->camera.at[1];
+	pRenderer->cameraAt.z = ctx->camera.at[2];
+	pRenderer->cameraAt.w = 0.0f;
+	
+	pRenderer->cameraUp.x = ctx->camera.up[0];
+	pRenderer->cameraUp.y = ctx->camera.up[1];
+	pRenderer->cameraUp.z = ctx->camera.up[2];
+	pRenderer->cameraUp.w = 0.0f;
+	
+	g_blend = fm_clamp((sinf(g_time / 5.0f) + 1.0f) / 2.0f, 0.0f, 1.0f);
 };
 
 uint32_t g_prevImageIndex = 0;
@@ -2678,14 +2690,9 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		fm_mat4_t tempView;
 		
 		fr_uniform_buffer_t ubo = {};
-		fm_mat4_rot_z(pRenderer->rotationAngle, &ubo.model);
+		fm_mat4_identity(&ubo.model);
 		
-		fm_vec4 eye = g_eye;
-		fm_vec4_sub(&eye, &g_at, &eye);
-		fm_vec4_mulf(&eye, pRenderer->cameraZoom, &eye);
-		fm_vec4_add(&eye, &g_at, &eye);
-		
-		fm_mat4_lookat_lh(&eye, &g_at, &g_up, &tempView);
+		fm_mat4_lookat_lh(&pRenderer->cameraEye, &pRenderer->cameraAt, &pRenderer->cameraUp, &tempView);
 		fm_mat4_projection_fov(45.0f, aspectRatio, 0.1f, 1000.0f, &ubo.proj);
 		
 		fm_mat4_t rot_x_vulkan_correction;

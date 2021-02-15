@@ -601,17 +601,29 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 	fp_physics_update(pEngine->pPhysics, pEngine->pPhysicsScene, &physicsCtx);
 	
 	// rendering
-	fr_update_context_t ctx = {};
-	ctx.dt = dt;
-	ctx.cameraZoomIn = pEngine->actionZoomIn;
-	ctx.cameraZoomOut = pEngine->actionZoomOut;
-	ctx.cameraRotationX = pEngine->actionRotationLeftX;
-	fr_update_renderer(pEngine->pRenderer, &ctx);
-	
-	fr_draw_frame_context_t renderCtx = {};
-	renderCtx.skinMatrices = pEngine->skinMatrices;
-	renderCtx.numSkinMatrices = pEngine->pRig->numBones;
-	fr_draw_frame(pEngine->pRenderer, &renderCtx);
+	{
+		const fm_vec4 g_eye = {0, -3, 1.4, 0};
+		const fm_vec4 g_at = {0, 0, 1, 0};
+		const fm_vec4 g_up = {0, 0, 1, 0};
+		
+		fr_update_context_t ctx = {};
+		ctx.dt = dt;
+		ctx.camera.eye[0] = g_eye.x;
+		ctx.camera.eye[1] = g_eye.y;
+		ctx.camera.eye[2] = g_eye.z;
+		ctx.camera.at[0] = g_at.x;
+		ctx.camera.at[1] = g_at.y;
+		ctx.camera.at[2] = g_at.z;
+		ctx.camera.up[0] = g_up.x;
+		ctx.camera.up[1] = g_up.y;
+		ctx.camera.up[2] = g_up.z;
+		fr_update_renderer(pEngine->pRenderer, &ctx);
+		
+		fr_draw_frame_context_t renderCtx = {};
+		renderCtx.skinMatrices = pEngine->skinMatrices;
+		renderCtx.numSkinMatrices = pEngine->pRig->numBones;
+		fr_draw_frame(pEngine->pRenderer, &renderCtx);
+	}
 }
 
 void furMainEngineLoop(FurGameEngine* pEngine)
