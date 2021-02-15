@@ -602,15 +602,33 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 	
 	// rendering
 	{
-		const fm_vec4 g_eye = {0, -3, 1.4, 0};
+		const fm_vec4 g_eye = {-3, -3, 1.4, 0};
 		const fm_vec4 g_at = {0, 0, 1, 0};
 		const fm_vec4 g_up = {0, 0, 1, 0};
 		
+		fm_vec4 eye = g_eye;
+		
+		static float cameraRotation = 0.0f;
+		const float rotationSpeed = 0.02f;
+		cameraRotation += rotationSpeed * (pEngine->actionRotationLeftX);
+		const float sinRot = sinf(cameraRotation);
+		const float cosRot = cosf(cameraRotation);
+		eye.x = g_eye.x * sinRot;
+		eye.y = g_eye.y * cosRot;
+		
+		static float cameraZoom = 1.0f;
+		const float zoomSpeed = 0.02f;
+		cameraZoom += zoomSpeed * (pEngine->actionZoomOut - pEngine->actionZoomIn);
+		
+		fm_vec4_sub(&eye, &g_at, &eye);
+		fm_vec4_mulf(&eye, cameraZoom, &eye);
+		fm_vec4_add(&eye, &g_at, &eye);
+		
 		fr_update_context_t ctx = {};
 		ctx.dt = dt;
-		ctx.camera.eye[0] = g_eye.x;
-		ctx.camera.eye[1] = g_eye.y;
-		ctx.camera.eye[2] = g_eye.z;
+		ctx.camera.eye[0] = eye.x;
+		ctx.camera.eye[1] = eye.y;
+		ctx.camera.eye[2] = eye.z;
 		ctx.camera.at[0] = g_at.x;
 		ctx.camera.at[1] = g_at.y;
 		ctx.camera.at[2] = g_at.z;
