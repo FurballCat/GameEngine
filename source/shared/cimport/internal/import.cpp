@@ -494,9 +494,11 @@ fm_quat quat_ihm_16bit(const uint16_t* b)
 	return quat_ihm(&vec);
 }
 
+const float c_positionCompressionRange = 5.0f;
+
 void vec4_com_16bit(fm_vec4 v, uint16_t* b)
 {
-	fm_vec3 vec = {v.x / 10.0f, v.y / 10.0f, v.z / 10.0f};
+	fm_vec3 vec = {v.x / c_positionCompressionRange, v.y / c_positionCompressionRange, v.z / c_positionCompressionRange};
 	fm_vec3_to_16bit(&vec, b);
 }
 
@@ -506,9 +508,9 @@ fm_vec4 vec4_decom_16bit(const uint16_t* v)
 	fm_16bit_to_vec3(v, &vec);
 	
 	fm_vec4 res;
-	res.x = vec.x * 10.0f;
-	res.y = vec.y * 10.0f;
-	res.z = vec.z * 10.0f;
+	res.x = vec.x * c_positionCompressionRange;
+	res.y = vec.y * c_positionCompressionRange;
+	res.z = vec.z * c_positionCompressionRange;
 	res.w = 0.0f;
 	
 	return res;
@@ -596,7 +598,6 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 					
 					float value[3] = {0.0f};
 					fi_sample_fbx_anim_curve(bone->m_rotation, 3, value, time);
-					//printf("bone[%u].rot[%1.2f] = {%1.2f, %1.2f, %1.2f}\n", i_b, time, value[0], value[1], value[2]);
 					
 					tempCurve.keys[i].keyTime = (uint16_t)(time * 24.0f);
 					
@@ -610,17 +611,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 					fm_quat_make_from_euler_angles_xyz(&angles, &quat);
 					
 					uint16_t* key = tempCurve.keys[i].keyValues;
-					//key[0] = (uint16_t)(((quat.i + 1.0f) / 2.0f) * 65535);
-					//key[1] = (uint16_t)(((quat.j + 1.0f) / 2.0f) * 65535);
-					//key[2] = (uint16_t)(((quat.k + 1.0f) / 2.0f) * 65535);
 					quat_fhm_16bit(quat, key);
-					
-					//fm_quat quat2 = quat_ihm_16bit(key);
-					
-					//if(bone->m_name == "Bip001_Thigh_R")
-					//{
-					//	printf("b=%u   t=%1.3f   qt=%u   ea={%1.3f, %1.3f, %1.3f}   q={%1.3f, %1.3f, %1.3f, %1.3f}\n", i_b, time, tempCurve.keys[i].keyTime, angles.yaw, angles.pitch, angles.roll, quat.i - quat2.i, quat.j - quat2.j, quat.k - quat2.k, quat.r - quat2.r);
-					//}
 					
 					tempCurve.keys[i].isLastCompMinus = quat.r < 0.0f;
 				}
@@ -675,7 +666,6 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 					
 					float value[3] = {0.0f};
 					fi_sample_fbx_anim_curve(bone->m_translation, 3, value, time);
-					//printf("bone[%u].rot[%1.2f] = {%1.2f, %1.2f, %1.2f}\n", i_b, time, value[0], value[1], value[2]);
 					
 					tempCurve.posKeys[i].keyTime = (uint16_t)(time * 24.0f);
 					
@@ -685,6 +675,11 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 					pos.y = value[1];
 					pos.z = value[2];
 					pos.w = 0.0f;
+					
+					//if(bone->m_name == "Bip001_Pelvis")
+					//{
+					//	printf("t=%1.2f   p={%1.3f, %1.3f, %1.3f}\n", time, pos.x, pos.y, pos.z);
+					//}
 					
 					uint16_t* key = tempCurve.posKeys[i].keyValues;
 					vec4_com_16bit(pos, key);

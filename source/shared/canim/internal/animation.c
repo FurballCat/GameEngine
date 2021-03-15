@@ -110,16 +110,6 @@ void fa_pose_set_reference(const fa_rig_t* rig, fa_pose_t* pose)
 
 // -----
 
-static inline uint16_t fa_anim_clip_key_get_bone_index(const fa_anim_curve_t* curve)
-{
-	return curve->index & 0x3fff;
-}
-
-static inline uint16_t fa_anim_clip_key_get_channel(const fa_anim_curve_t* curve)
-{
-	return (curve->index & 0xc000) >> 14;
-}
-
 const float Km  = 4.0*(0.4142135679721832275390625); // 4(sqrt(2)-1)
 const float Khf = 2.414213657379150390625;           // sqrt(2)+1 = 1/(sqrt(2)-1)
 const float Khi = 0.17157287895679473876953125;      // 3-2sqrt(2)
@@ -189,9 +179,11 @@ fm_quat quat_ihm_16bit(const uint16_t* b)
 	return quat_ihm(&vec);
 }
 
+const float c_positionCompressionRange = 5.0f;
+
 void vec4_com_16bit(fm_vec4 v, uint16_t* b)
 {
-	fm_vec3 vec = {v.x / 10.0f, v.y / 10.0f, v.z / 10.0f};
+	fm_vec3 vec = {v.x / c_positionCompressionRange, v.y / c_positionCompressionRange, v.z / c_positionCompressionRange};
 	fm_vec3_to_16bit(&vec, b);
 }
 
@@ -201,9 +193,9 @@ fm_vec4 vec4_decom_16bit(const uint16_t* v)
 	fm_16bit_to_vec3(v, &vec);
 	
 	fm_vec4 res;
-	res.x = vec.x * 10.0f;
-	res.y = vec.y * 10.0f;
-	res.z = vec.z * 10.0f;
+	res.x = vec.x * c_positionCompressionRange;
+	res.y = vec.y * c_positionCompressionRange;
+	res.z = vec.z * c_positionCompressionRange;
 	res.w = 0.0f;
 	
 	return res;
@@ -309,7 +301,7 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose
 				const float time2 = fa_decompress_key_time(curve->posKeys[upperIdx].keyTime);
 				
 				float alpha = (time - time1) / (time2 - time1);
-				fm_vec4_lerp(&pos1, &pos2, alpha, &pos);
+				fm_vec4_lerp(&pos2, &pos1, alpha, &pos);
 			}
 			
 			pose->xforms[idxXform].pos = pos;
