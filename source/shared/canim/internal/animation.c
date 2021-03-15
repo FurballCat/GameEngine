@@ -179,7 +179,7 @@ fm_quat quat_ihm_16bit(const uint16_t* b)
 	return quat_ihm(&vec);
 }
 
-const float c_positionCompressionRange = 5.0f;
+const float c_positionCompressionRange = 20.0f;
 
 void vec4_com_16bit(fm_vec4 v, uint16_t* b)
 {
