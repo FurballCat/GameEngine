@@ -38,6 +38,7 @@ typedef struct fa_anim_curve_t
 {
 	uint16_t index;
 	uint16_t numKeys;
+	uint16_t numPosKeys;
 	fa_anim_curve_key_t* keys;
 	fa_anim_curve_key_t* posKeys;
 } fa_anim_curve_t;

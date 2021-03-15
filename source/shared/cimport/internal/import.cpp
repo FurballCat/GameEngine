@@ -381,6 +381,7 @@ struct fi_temp_anim_curve_t
 {
 	uint16_t index;
 	std::vector<fi_temp_anim_curve_key_t> keys;
+	std::vector<fi_temp_anim_curve_key_t> posKeys;
 };
 
 struct fi_temp_anim_clip_t
@@ -495,7 +496,7 @@ fm_quat quat_ihm_16bit(const uint16_t* b)
 
 void vec4_com_16bit(fm_vec4 v, uint16_t* b)
 {
-	fm_vec3 vec = {v.x / 50.0f, v.y / 50.0f, v.z / 50.0f};
+	fm_vec3 vec = {v.x / 10.0f, v.y / 10.0f, v.z / 10.0f};
 	fm_vec3_to_16bit(&vec, b);
 }
 
@@ -505,9 +506,9 @@ fm_vec4 vec4_decom_16bit(const uint16_t* v)
 	fm_16bit_to_vec3(v, &vec);
 	
 	fm_vec4 res;
-	res.x = vec.x * 50.0f;
-	res.y = vec.y * 50.0f;
-	res.z = vec.z * 50.0f;
+	res.x = vec.x * 10.0f;
+	res.y = vec.y * 10.0f;
+	res.z = vec.z * 10.0f;
 	res.w = 0.0f;
 	
 	return res;
@@ -546,6 +547,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 			
 			float duration = 0.0f;
 			
+			// rotations
 			for(uint32_t i_b=0; i_b<numBones; ++i_b)
 			{
 				const FBXBoneInfo* bone = sortedBones[i_b];
@@ -624,6 +626,73 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 				}
 			}
 			
+			// positions
+			for(uint32_t i_b=0; i_b<numBones; ++i_b)
+			{
+				const FBXBoneInfo* bone = sortedBones[i_b];
+				
+				fi_temp_anim_curve_t& tempCurve = tempClip.curves[i_b];
+				FUR_ASSERT(tempCurve.index == i_b);
+				
+				// gather all times
+				std::vector<float> uniqueTimesSorted;
+				for(uint32_t i=0; i<3; ++i)
+				{
+					const FBXAnimCurve& curve = bone->m_translation[i];
+					for(float t : curve.m_times)
+					{
+						uniqueTimesSorted.push_back(t);
+					}
+				}
+				
+				// sort times
+				std::sort(uniqueTimesSorted.begin(), uniqueTimesSorted.end());
+				
+				// remove duplicates
+				for(int32_t i=(int32_t)uniqueTimesSorted.size()-1; i>0; --i)
+				{
+					if(uniqueTimesSorted[i-1] == uniqueTimesSorted[i])
+					{
+						uniqueTimesSorted.erase(uniqueTimesSorted.begin()+i);
+					}
+				}
+				
+				const float curveDuration = uniqueTimesSorted.back();
+				if(curveDuration > duration)
+				{
+					duration = curveDuration;
+				}
+				
+				const uint32_t numKeys = (uint32_t)uniqueTimesSorted.size();
+				tempCurve.posKeys.resize(numKeys);
+				tempCurve.index = i_b;
+				
+				numAllKeys += numKeys;
+				
+				for(uint32_t i=0; i<numKeys; ++i)
+				{
+					const float time = uniqueTimesSorted[i];
+					
+					float value[3] = {0.0f};
+					fi_sample_fbx_anim_curve(bone->m_translation, 3, value, time);
+					//printf("bone[%u].rot[%1.2f] = {%1.2f, %1.2f, %1.2f}\n", i_b, time, value[0], value[1], value[2]);
+					
+					tempCurve.posKeys[i].keyTime = (uint16_t)(time * 24.0f);
+					
+					fm_vec4 pos;
+					
+					pos.x = value[0];
+					pos.y = value[1];
+					pos.z = value[2];
+					pos.w = 0.0f;
+					
+					uint16_t* key = tempCurve.posKeys[i].keyValues;
+					vec4_com_16bit(pos, key);
+					
+					tempCurve.posKeys[i].isLastCompMinus = false;
+				}
+			}
+			
 			fa_anim_clip_t* animClip = (fa_anim_clip_t*)FUR_ALLOC_AND_ZERO(sizeof(fa_anim_clip_t), 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 			animClip->curves = (fa_anim_curve_t*)FUR_ALLOC_AND_ZERO(sizeof(fa_anim_curve_t) * tempClip.curves.size(), 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
 			animClip->dataKeys = (fa_anim_curve_key_t*)FUR_ALLOC(sizeof(fa_anim_curve_key_t) * numAllKeys, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
@@ -642,15 +711,31 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 				
 				curve->index = tempCurve.index;
 				curve->numKeys = tempCurve.keys.size();
-				curve->keys = curKey;
+				curve->numPosKeys = tempCurve.posKeys.size();
 				
+				curve->keys = curKey;
 				for(uint32_t i=0; i<curve->numKeys; ++i)
 				{
 					const fi_temp_anim_curve_key_t& key = tempCurve.keys[i];
 					
 					FUR_ASSERT(curKey < animClip->dataKeys + animClip->numDataKeys);
 					
-					curKey->keyTime = key.keyTime;	// | (key.isRotation ? 0x8000 : 0x0000) | (key.isLastCompMinus ? 0x4000 : 0x0000);
+					curKey->keyTime = key.keyTime;
+					curKey->keyData[0] = key.keyValues[0];
+					curKey->keyData[1] = key.keyValues[1];
+					curKey->keyData[2] = key.keyValues[2];
+					
+					curKey += 1;
+				}
+				
+				curve->posKeys = curKey;
+				for(uint32_t i=0; i<curve->numPosKeys; ++i)
+				{
+					const fi_temp_anim_curve_key_t& key = tempCurve.posKeys[i];
+					
+					FUR_ASSERT(curKey < animClip->dataKeys + animClip->numDataKeys);
+					
+					curKey->keyTime = key.keyTime;
 					curKey->keyData[0] = key.keyValues[0];
 					curKey->keyData[1] = key.keyValues[1];
 					curKey->keyData[2] = key.keyValues[2];

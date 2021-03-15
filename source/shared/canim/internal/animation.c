@@ -191,7 +191,7 @@ fm_quat quat_ihm_16bit(const uint16_t* b)
 
 void vec4_com_16bit(fm_vec4 v, uint16_t* b)
 {
-	fm_vec3 vec = {v.x / 50.0f, v.y / 50.0f, v.z / 50.0f};
+	fm_vec3 vec = {v.x / 10.0f, v.y / 10.0f, v.z / 10.0f};
 	fm_vec3_to_16bit(&vec, b);
 }
 
@@ -201,9 +201,9 @@ fm_vec4 vec4_decom_16bit(const uint16_t* v)
 	fm_16bit_to_vec3(v, &vec);
 	
 	fm_vec4 res;
-	res.x = vec.x * 50.0f;
-	res.y = vec.y * 50.0f;
-	res.z = vec.z * 50.0f;
+	res.x = vec.x * 10.0f;
+	res.y = vec.y * 10.0f;
+	res.z = vec.z * 10.0f;
 	res.w = 0.0f;
 	
 	return res;
@@ -233,6 +233,8 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose
 	for(uint32_t i_c=0; i_c<numCurves; ++i_c)
 	{
 		const fa_anim_curve_t* curve = &clip->curves[i_c];
+		
+		const uint16_t idxXform = curve->index;
 		
 		// rotation
 		{
@@ -267,32 +269,21 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose
 				const float time2 = fa_decompress_key_time(curve->keys[upperIdx].keyTime);
 				
 				float alpha = (time - time1) / (time2 - time1);
-				/*if(i_c==0)
-				{
-					printf("%1.2f = (%1.2f - %1.2f) / (%1.2f - %1.2f)   idx=%u upperIdx=%u\n", alpha, time, time1, time2, time1, lowerIdx, upperIdx);
-				}*/
 				fm_quat_lerp(&rot1, &rot2, alpha, &rot);
 				fm_quat_norm(&rot);
 			}
-			
-			const uint16_t idxXform = curve->index;
-			
-			//if(idxXform == 32)
-			//{
-			//	printf("t=%1.2f   q={%1.3f, %1.3f, %1.3f, %1.3f}   li=%u    ui=%u\n", time, rot.i, rot.j, rot.k, rot.r, lowerIdx, upperIdx);
-			//}
 			
 			pose->xforms[idxXform].rot = rot;
 		}
 		
 		// position
 		{
-			const uint16_t numKeys = curve->numKeys;
+			const uint16_t numKeys = curve->numPosKeys;
 		
 			uint16_t idx = 0;
 			
 			// todo: make it a binary search (or a binary-guess search, check weekly links)
-			while(idx < (numKeys-1) && fa_decompress_key_time(curve->keys[idx].keyTime) < time)
+			while(idx < (numKeys-1) && fa_decompress_key_time(curve->posKeys[idx].keyTime) < time)
 			{
 				++idx;
 			}
@@ -304,36 +295,24 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose
 			
 			if(lowerIdx == upperIdx)
 			{
-				fa_decompress_position_key(&curve->keys[idx], &pos);
+				fa_decompress_position_key(&curve->posKeys[idx], &pos);
 			}
 			else
 			{
-				fm_quat rot1;
-				fa_decompress_position_key(&curve->keys[lowerIdx], &rot1);
+				fm_vec4 pos1;
+				fa_decompress_position_key(&curve->posKeys[lowerIdx], &pos1);
 				
-				fm_quat rot2;
-				fa_decompress_position_key(&curve->keys[upperIdx], &rot2);
+				fm_vec4 pos2;
+				fa_decompress_position_key(&curve->posKeys[upperIdx], &pos2);
 				
-				const float time1 = fa_decompress_key_time(curve->keys[lowerIdx].keyTime);
-				const float time2 = fa_decompress_key_time(curve->keys[upperIdx].keyTime);
+				const float time1 = fa_decompress_key_time(curve->posKeys[lowerIdx].keyTime);
+				const float time2 = fa_decompress_key_time(curve->posKeys[upperIdx].keyTime);
 				
 				float alpha = (time - time1) / (time2 - time1);
-				/*if(i_c==0)
-				{
-					printf("%1.2f = (%1.2f - %1.2f) / (%1.2f - %1.2f)   idx=%u upperIdx=%u\n", alpha, time, time1, time2, time1, lowerIdx, upperIdx);
-				}*/
-				fm_quat_lerp(&rot1, &rot2, alpha, &rot);
-				fm_quat_norm(&rot);
+				fm_vec4_lerp(&pos1, &pos2, alpha, &pos);
 			}
 			
-			const uint16_t idxXform = curve->index;
-			
-			//if(idxXform == 32)
-			//{
-			//	printf("t=%1.2f   q={%1.3f, %1.3f, %1.3f, %1.3f}   li=%u    ui=%u\n", time, rot.i, rot.j, rot.k, rot.r, lowerIdx, upperIdx);
-			//}
-			
-			pose->xforms[idxXform].rot = rot;
+			pose->xforms[idxXform].pos = pos;
 		}
 		
 		pose->weightsXforms[idxXform] = 255;
