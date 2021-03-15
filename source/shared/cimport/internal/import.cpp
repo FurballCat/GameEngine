@@ -101,8 +101,11 @@ void fi_gather_anim_curves(ofbx::IScene* scene, std::map<std::string, FBXBoneInf
 			const ofbx::Object* bone = curveNode->getBone();
 			if(bone)
 			{
-				//!(strcmp(bone->name, "rootTransform") == 0) &&
-				if(!(strcmp(bone->name, "Armature") == 0))		// Blender adds 'Armature' as root bone
+				if(strcmp(bone->name, "motion") == 0)
+				{
+					
+				}
+				else if(!(strcmp(bone->name, "Armature") == 0))		// Blender adds 'Armature' as root bone
 				{
 					if(bones.count(bone->name) == 0)
 					{
@@ -350,7 +353,7 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 				{
 					pRig->refPose[i] = rig.m_referencePose[i];
 					pRig->parents[i] = rig.m_parents[i];
-					pRig->boneNameHashes[i] = fc_make_string_hash(rig.m_jointNames[i].c_str());
+					pRig->boneNameHashes[i] = SID_REG(rig.m_jointNames[i].c_str());
 				}
 			}
 			
@@ -490,6 +493,26 @@ fm_quat quat_ihm_16bit(const uint16_t* b)
 	return quat_ihm(&vec);
 }
 
+void vec4_com_16bit(fm_vec4 v, uint16_t* b)
+{
+	fm_vec3 vec = {v.x / 50.0f, v.y / 50.0f, v.z / 50.0f};
+	fm_vec3_to_16bit(&vec, b);
+}
+
+fm_vec4 vec4_decom_16bit(const uint16_t* v)
+{
+	fm_vec3 vec;
+	fm_16bit_to_vec3(v, &vec);
+	
+	fm_vec4 res;
+	res.x = vec.x * 50.0f;
+	res.y = vec.y * 50.0f;
+	res.z = vec.z * 50.0f;
+	res.w = 0.0f;
+	
+	return res;
+}
+
 fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_clip_ctx_t* ctx, fa_anim_clip_t** ppAnimClip, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	std::string absolutePath = depot->path;
@@ -581,8 +604,6 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 					angles.pitch = FM_DEG_TO_RAD(-value[0]);
 					angles.roll = FM_DEG_TO_RAD(-value[2]);
 					
-					//printf("b=%u   t=%1.3f   qt=%u   {%1.3f, %1.3f, %1.3f}\n", i_b, time, tempCurve.keys[i].keyTime, angles.yaw, angles.pitch, angles.roll);
-					
 					fm_quat quat;
 					fm_quat_make_from_euler_angles_xyz(&angles, &quat);
 					
@@ -591,6 +612,13 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 					//key[1] = (uint16_t)(((quat.j + 1.0f) / 2.0f) * 65535);
 					//key[2] = (uint16_t)(((quat.k + 1.0f) / 2.0f) * 65535);
 					quat_fhm_16bit(quat, key);
+					
+					//fm_quat quat2 = quat_ihm_16bit(key);
+					
+					//if(bone->m_name == "Bip001_Thigh_R")
+					//{
+					//	printf("b=%u   t=%1.3f   qt=%u   ea={%1.3f, %1.3f, %1.3f}   q={%1.3f, %1.3f, %1.3f, %1.3f}\n", i_b, time, tempCurve.keys[i].keyTime, angles.yaw, angles.pitch, angles.roll, quat.i - quat2.i, quat.j - quat2.j, quat.k - quat2.k, quat.r - quat2.r);
+					//}
 					
 					tempCurve.keys[i].isLastCompMinus = quat.r < 0.0f;
 				}
@@ -622,7 +650,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 					
 					FUR_ASSERT(curKey < animClip->dataKeys + animClip->numDataKeys);
 					
-					curKey->keyTime = key.keyTime | (key.isRotation ? 0x8000 : 0x0000) | (key.isLastCompMinus ? 0x4000 : 0x0000);
+					curKey->keyTime = key.keyTime;	// | (key.isRotation ? 0x8000 : 0x0000) | (key.isLastCompMinus ? 0x4000 : 0x0000);
 					curKey->keyData[0] = key.keyValues[0];
 					curKey->keyData[1] = key.keyValues[1];
 					curKey->keyData[2] = key.keyValues[2];

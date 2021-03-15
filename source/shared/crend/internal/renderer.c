@@ -2189,9 +2189,9 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			
 			const uint32_t numClearValues = 2;
 			VkClearValue clearColor[numClearValues] = {};
-			clearColor[0].color.float32[0] = 0.0f;
-			clearColor[0].color.float32[1] = 0.0f;
-			clearColor[0].color.float32[2] = 0.0f;
+			clearColor[0].color.float32[0] = 1.0f;
+			clearColor[0].color.float32[1] = 1.0f;
+			clearColor[0].color.float32[2] = 1.0f;
 			clearColor[0].color.float32[3] = 1.0f;
 			
 			clearColor[1].depthStencil.depth = 1.0f;
@@ -2243,12 +2243,12 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			// debug draw lines
 			vkCmdBindPipeline(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugLinesPSO);
 			vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 1, &pRenderer->debugLinesVertexBuffer[i].buffer, offsets);
-			vkCmdDraw(pRenderer->aCommandBuffers[i], fc_dbg_line_num_total_vertices(), 0, 0, 0);
+			vkCmdDraw(pRenderer->aCommandBuffers[i], fc_dbg_line_num_total_vertices(), 1, 0, 0);
 			
 			// debug draw triangles
 			vkCmdBindPipeline(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugTrianglesPSO);
 			vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 1, &pRenderer->debugTrianglesVertexBuffer[i].buffer, offsets);
-			vkCmdDraw(pRenderer->aCommandBuffers[i], fc_dbg_triangles_num_total_vertices(), 0, 0, 0);
+			//vkCmdDraw(pRenderer->aCommandBuffers[i], fc_dbg_triangles_num_total_vertices(), 1, 0, 0);
 			
 			// debug draw text
 			vkCmdBindPipeline(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugTextPSO);
@@ -2257,7 +2257,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 									pRenderer->textPipelineLayout, 0, 1, &pRenderer->aTextDescriptorSets[i], 0, NULL);
 			
 			vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 1, &pRenderer->textVertexBuffer[i].buffer, offsets);
-			vkCmdDraw(pRenderer->aCommandBuffers[i], fc_dbg_text_num_total_characters() * 6, 0, 0, 0);	// 6 - number of vertices per glyph
+			//vkCmdDraw(pRenderer->aCommandBuffers[i], fc_dbg_text_num_total_characters() * 6, 1, 0, 0);	// 6 - number of vertices per glyph
 			
 			vkCmdEndRenderPass(pRenderer->aCommandBuffers[i]);
 			
@@ -2716,6 +2716,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aTextUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(fr_uniform_buffer_t));
 	}
 	
+	/*
 	const float begin[3] = {0.0f, 0.0f, 0.0f};
 	const float axisX[3] = {1.0f, 0.0f, 0.0f};
 	const float axisY[3] = {0.0f, 1.0f, 0.0f};
@@ -2726,6 +2727,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 	fc_dbg_line(begin, axisX, colorRed);
 	fc_dbg_line(begin, axisY, colorGreen);
 	fc_dbg_line(begin, axisZ, colorBlue);
+	 */
 	
 	// update debug lines buffer
 	{

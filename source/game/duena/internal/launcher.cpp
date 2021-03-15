@@ -301,6 +301,9 @@ struct FurGameEngine
 	// scripts temp
 	fs_script_data_t zeldaScript;
 	fg_game_object_t zeldaGameObject;
+	
+	// test dangle
+	fa_dangle dangle;
 };
 
 // Furball Cat - Platform
@@ -365,8 +368,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		depot.path = depotPath;
 
 		const char* characterRigPath = "assets/characters/zelda/mesh/zelda_rig.fbx";
-		const char* anim_zelda_stand = "assets/characters/zelda/animations/zelda-idle-stand-01.fbx";
-		const char* anim_zelda_look = "assets/characters/zelda/animations/zelda-idle-stand-look-around.fbx";
+		const char* anim_zelda_stand = "assets/characters/zelda/animations/zelda-idle-stand-relaxed.fbx";
+		const char* anim_zelda_look = "assets/characters/zelda/animations/zelda-loco-run-relaxed.fbx";
 
 		// import animation resources
 		{
@@ -430,6 +433,34 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		pEngine->gameObjectRegister.ids[pEngine->gameObjectRegister.numObjects] = pEngine->zeldaGameObject.id;
 		pEngine->gameObjectRegister.numObjects += 1;
 	}
+	
+	// init dangle
+	{
+		const uint32_t numParticles = 4;
+		const float segmentLength = 0.2f;
+		
+		pEngine->dangle.x0 = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
+		pEngine->dangle.p = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
+		pEngine->dangle.v = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
+		pEngine->dangle.d = FUR_ALLOC_ARRAY_AND_ZERO(float, numParticles-1, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
+		pEngine->dangle.freq = 60.0f;
+		pEngine->dangle.numParaticles = numParticles;
+		pEngine->dangle.tAcc = 0.0f;
+		pEngine->dangle.damping = 0.96f;
+		
+		fm_vec4 pos = {0.0f, 0.0f, 1.0f};
+		for(uint32_t i=0; i<numParticles; ++i)
+		{
+			pEngine->dangle.x0[i] = pos;
+			pos.x += segmentLength;
+		}
+		
+		for(uint32_t i=0; i<numParticles; ++i)
+		{
+			pEngine->dangle.d[i] = segmentLength;
+		}
+	}
+	
 	return true;
 }
 
@@ -600,6 +631,26 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 	physicsCtx.dt = dt;
 	fp_physics_update(pEngine->pPhysics, pEngine->pPhysicsScene, &physicsCtx);
 	
+	fa_dangle_sim_ctx simCtx {};
+	simCtx.dt = dt;
+	fa_dangle_simulate(&simCtx, &pEngine->dangle);
+	
+	// draw dangle
+	const float color[4] = FUR_COLOR_BLACK;
+	const float colorV[4] = FUR_COLOR_RED;
+	
+	for(uint32_t i=1; i<pEngine->dangle.numParaticles; ++i)
+	{
+		const fm_vec4 p0 = pEngine->dangle.x0[i-1];
+		const fm_vec4 p1 = pEngine->dangle.x0[i];
+		fm_vec4 v = pEngine->dangle.v[i];
+		fm_vec4_mulf(&v, 0.1f, &v);
+		fm_vec4_add(&v, &p1, &v);
+		
+		fc_dbg_line(&p0.x, &p1.x, color);
+		fc_dbg_line(&p1.x, &v.x, colorV);
+	}
+	
 	// rendering
 	{
 		const fm_vec4 g_eye = {-3, -3, 1.4, 0};
@@ -666,6 +717,11 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 {
 	// check for memory leaks
 	//FUR_ASSERT(furValidateAllocatorGeneral(&pEngine->m_memory._defaultInternals));
+	
+	FUR_FREE(pEngine->dangle.x0, pAllocCallbacks);
+	FUR_FREE(pEngine->dangle.p, pAllocCallbacks);
+	FUR_FREE(pEngine->dangle.v, pAllocCallbacks);
+	FUR_FREE(pEngine->dangle.d, pAllocCallbacks);
 	
 	FUR_FREE(pEngine->animCharacterZelda.poseMS, pAllocCallbacks);
 	FUR_FREE(pEngine->animCharacterZelda.poseCache.tempPose.xforms, pAllocCallbacks);

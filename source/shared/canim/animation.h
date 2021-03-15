@@ -14,7 +14,8 @@ extern "C"
 typedef struct fm_xform fm_xform;
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 typedef uint32_t fc_string_hash_t;
-	
+typedef struct fm_vec4 fm_vec4;
+
 typedef struct fa_rig_t
 {
 	fc_string_hash_t* boneNameHashes;
@@ -38,7 +39,22 @@ typedef struct fa_anim_curve_t
 	uint16_t index;
 	uint16_t numKeys;
 	fa_anim_curve_key_t* keys;
+	fa_anim_curve_key_t* posKeys;
 } fa_anim_curve_t;
+	
+typedef enum fa_anim_motion_type_t
+{
+	FA_MOTION_TYPE_2D = 0,
+	FA_MOTION_TYPE_3D = 1,
+} fa_anim_motion_type_t;
+	
+typedef struct fa_anim_motion_t
+{
+	uint16_t* times;
+	float* data;	// for 2D motion it's 3x floats per key (xy + yaw)
+	uint32_t numKeys;
+	fa_anim_motion_type_t type;
+} fa_anim_motion_t;
 	
 typedef struct fa_anim_clip_t
 {
@@ -48,10 +64,45 @@ typedef struct fa_anim_clip_t
 	uint32_t numDataKeys;
 	fa_anim_curve_t* curves;
 	fa_anim_curve_key_t* dataKeys;	// all keys in the animation
+	
+	fa_anim_motion_t* motion;
 } fa_anim_clip_t;
 	
 CANIM_API void fa_anim_clip_release(fa_anim_clip_t* clip, fc_alloc_callbacks_t* pAllocCallbacks);
 
+typedef struct fa_anim_curve_2_t
+{
+	// 0x80 is bind pose flag, 0 - constant, up to 23 or 19 bits per key component, based on that we know the size of data, as it's always 16 keys in block * bitrate / 16 one data element size
+	uint8_t bitrate;
+	
+	// range
+	uint8_t tr_min;
+	uint8_t tr_max;
+	uint8_t rot_min;
+	uint8_t rot_max;
+	
+	// keys data
+	uint16_t* data;
+} fa_anim_curve_2_t;
+	
+typedef struct fa_anim_clip_block_t
+{
+	// each block contains 16 key frames
+	
+	// ranges
+	float pos_min;
+	float pos_max;
+	float rot_min;
+	float rot_max;
+} fa_anim_clip_block_t;
+	
+typedef struct fa_anim_clip_2_t
+{
+	// ranges for entire anim clip
+} fa_anim_clip_2_t;
+	
+// -----
+	
 typedef enum fa_pose_flags_t
 {
 	PF_ADDITIVE = 0x1,
@@ -78,6 +129,7 @@ CANIM_API void fa_pose_set_reference(const fa_rig_t* rig, fa_pose_t* pose);
 // -----
 	
 CANIM_API void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose);
+CANIM_API void fa_anim_clip_sample_motion(const fa_anim_clip_t* clip, float timeBegin, float timeEnd, fm_xform* motion);
 
 CANIM_API void fa_pose_copy(fa_pose_t* dest, const fa_pose_t* src);
 CANIM_API void fa_pose_local_to_model(fa_pose_t* modelPose, const fa_pose_t* localPose, const int16_t* parentIndices);
@@ -273,7 +325,27 @@ CANIM_API void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData
 CANIM_API const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* userData, uint32_t* numAnims);
 
 CANIM_API void fa_character_schedule_action_simple(fa_character_t* character, fa_action_animate_t* action, const fa_action_args_t* args, uint64_t currGlobalTime);
-	
+
+typedef struct fa_dangle
+{
+	fm_vec4* x0;
+	fm_vec4* p;
+	fm_vec4* v;
+	float* d;	// distance costraint, segments length, size=numParticles-1
+
+	uint32_t numParaticles;
+	float tAcc;
+	float freq;
+	float damping;
+} fa_dangle;
+
+typedef struct fa_dangle_sim_ctx
+{
+	float dt;
+} fa_dangle_sim_ctx;
+
+CANIM_API void fa_dangle_simulate(const fa_dangle_sim_ctx* ctx, fa_dangle* dangle);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

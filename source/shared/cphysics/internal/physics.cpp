@@ -152,9 +152,11 @@ void fp_physics_update(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, const
 		const float end_y[3] = {t.p.x + y.x, t.p.y + y.y, t.p.z + y.z};
 		const float end_z[3] = {t.p.x + z.x, t.p.y + z.y, t.p.z + z.z};
 		
+		/*
 		fc_dbg_line(start, end_x, red);
 		fc_dbg_line(start, end_y, green);
 		fc_dbg_line(start, end_z, blue);
+		 */
 	}
 	
 	// plane collider
@@ -183,10 +185,12 @@ void fp_physics_update(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, const
 		
 		const float yellow[4] = FUR_COLOR_YELLOW;
 		
+		/*
 		fc_dbg_line(start, end_x, red);
 		fc_dbg_line(start, end_x, red);
 		fc_dbg_line(start, end_y, green);
 		fc_dbg_line(start, end_z, blue);
 		fc_dbg_line(start, footPosf, yellow);
+		 */
 	}
 }
