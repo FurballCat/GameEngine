@@ -610,6 +610,23 @@ void fg_animation_update(FurGameEngine* pEngine, float dt)
 	}
 }
 
+void fc_dbg_mat4(const fm_mat4* m)
+{
+	const float pos[3] = {m->w.x, m->w.y, m->w.z};
+	const float scale = 0.1f;
+	const float axisX[3] = {pos[0] + m->x.x * scale, pos[1] + m->x.y * scale, pos[2] + m->x.z * scale};
+	const float axisY[3] = {pos[0] + m->y.x * scale, pos[1] + m->y.y * scale, pos[2] + m->y.z * scale};
+	const float axisZ[3] = {pos[0] + m->z.x * scale, pos[1] + m->z.y * scale, pos[2] + m->z.z * scale};
+	
+	const float red[4] = FUR_COLOR_RED;
+	const float green[4] = FUR_COLOR_GREEN;
+	const float blue[4] = FUR_COLOR_BLUE;
+	
+	fc_dbg_line(pos, axisX, red);
+	fc_dbg_line(pos, axisY, green);
+	fc_dbg_line(pos, axisZ, blue);
+}
+
 void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 {
 	pEngine->globalTime += dt;
@@ -636,19 +653,32 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 	fa_dangle_simulate(&simCtx, &pEngine->dangle);
 	
 	// draw dangle
-	const float color[4] = FUR_COLOR_BLACK;
-	const float colorV[4] = FUR_COLOR_RED;
-	
-	for(uint32_t i=1; i<pEngine->dangle.numParaticles; ++i)
 	{
-		const fm_vec4 p0 = pEngine->dangle.x0[i-1];
-		const fm_vec4 p1 = pEngine->dangle.x0[i];
-		fm_vec4 v = pEngine->dangle.v[i];
-		fm_vec4_mulf(&v, 0.1f, &v);
-		fm_vec4_add(&v, &p1, &v);
+		const float color[4] = FUR_COLOR_BLACK;
+		const float colorV[4] = FUR_COLOR_RED;
 		
-		fc_dbg_line(&p0.x, &p1.x, color);
-		fc_dbg_line(&p1.x, &v.x, colorV);
+		fm_mat4 attachmentMatrix;
+		fm_mat4_identity(&attachmentMatrix);
+
+		fm_mat4 matrices[40];
+		fm_vec4 refDir = {1.0f, 0.0f, 0.0f, 0.0f};
+		fa_dangle_to_matrices(&pEngine->dangle, &attachmentMatrix, matrices);
+		
+		fc_dbg_mat4(&matrices[0]);
+		
+		for(uint32_t i=1; i<pEngine->dangle.numParaticles; ++i)
+		{
+			const fm_vec4 p0 = pEngine->dangle.x0[i-1];
+			const fm_vec4 p1 = pEngine->dangle.x0[i];
+			fm_vec4 v = pEngine->dangle.v[i];
+			fm_vec4_mulf(&v, 0.1f, &v);
+			fm_vec4_add(&v, &p1, &v);
+			
+			fc_dbg_line(&p0.x, &p1.x, color);
+			//fc_dbg_line(&p1.x, &v.x, colorV);
+			
+			fc_dbg_mat4(&matrices[i]);
+		}
 	}
 	
 	// rendering

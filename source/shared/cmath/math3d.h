@@ -33,6 +33,8 @@ extern "C"
 	{
 		fm_vec4 x, y, z, w;
 	} fm_mat4_t;
+
+	typedef struct fm_mat4 fm_mat4;
 	
 	typedef struct fm_quat
 	{

@@ -15,6 +15,7 @@ typedef struct fm_xform fm_xform;
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 typedef uint32_t fc_string_hash_t;
 typedef struct fm_vec4 fm_vec4;
+typedef struct fm_mat4 fm_mat4;
 
 typedef struct fa_rig_t
 {
@@ -346,6 +347,7 @@ typedef struct fa_dangle_sim_ctx
 } fa_dangle_sim_ctx;
 
 CANIM_API void fa_dangle_simulate(const fa_dangle_sim_ctx* ctx, fa_dangle* dangle);
+CANIM_API void fa_dangle_to_matrices(const fa_dangle* dangle, const fm_mat4* attachmentMatrix, fm_mat4* matrices);
 
 #ifdef __cplusplus
 }

@@ -1311,3 +1311,42 @@ void fa_dangle_simulate(const fa_dangle_sim_ctx* ctx, fa_dangle* dangle)
 		fa_dangle_simulate_single_step(dangle, timeStep);
 	}
 }
+
+void fa_dangle_to_matrices(const fa_dangle* dangle, const fm_mat4* attachmentMatrix, fm_mat4* matrices)
+{
+	const uint32_t count = dangle->numParaticles - 1;
+	const fm_vec4* p = dangle->p;
+	
+	matrices[0] = *attachmentMatrix;
+	matrices[0].w = p[0];
+	matrices[0].w.w = 1.0f;
+	
+	fm_vec4 refDir = attachmentMatrix->x;
+	
+	for(uint32_t i=1; i<count; ++i)
+	{
+		fm_vec4 z;
+		fm_vec4_sub(&p[i], &p[i+1], &z);
+		fm_vec4_normalize(&z);
+		
+		fm_vec4 y;
+		fm_vec4_cross(&z, &refDir, &y);
+		fm_vec4_normalize(&y);
+		
+		fm_vec4 x;
+		fm_vec4_cross(&y, &z, &x);
+		fm_vec4_normalize(&x);
+		
+		matrices[i].x = x;
+		matrices[i].y = y;
+		matrices[i].z = z;
+		matrices[i].w = p[i];
+		matrices[i].w.w = 1.0f;
+		
+		refDir = matrices[i].x;
+	}
+	
+	matrices[count] = matrices[count-1];
+	matrices[count].w = p[count];
+	matrices[count].w.w = 1.0f;
+}
