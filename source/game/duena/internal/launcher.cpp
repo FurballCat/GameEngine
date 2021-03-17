@@ -304,6 +304,14 @@ struct FurGameEngine
 	
 	// test dangle
 	fa_dangle dangle;
+	
+	// hair dangles
+	fa_dangle zeldaDangleHairLeft;
+	fa_dangle zeldaDangleHairRight;
+	uint32_t zeldaDangleHairLeftIdx1;
+	uint32_t zeldaDangleHairLeftIdx2;
+	uint32_t zeldaDangleHairRightIdx1;
+	uint32_t zeldaDangleHairRightIdx2;
 };
 
 // Furball Cat - Platform
@@ -439,14 +447,12 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		const uint32_t numParticles = 4;
 		const float segmentLength = 0.2f;
 		
-		pEngine->dangle.x0 = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
-		pEngine->dangle.p = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
-		pEngine->dangle.v = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
-		pEngine->dangle.d = FUR_ALLOC_ARRAY_AND_ZERO(float, numParticles-1, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
-		pEngine->dangle.freq = 60.0f;
-		pEngine->dangle.numParaticles = numParticles;
-		pEngine->dangle.tAcc = 0.0f;
-		pEngine->dangle.damping = 0.96f;
+		fa_dangle_desc desc;
+		desc.frequency = 60.0f;
+		desc.numParticles = numParticles;
+		desc.dampingCoef = 0.96f;
+		
+		fa_dangle_create(&desc, &pEngine->dangle, pAllocCallbacks);
 		
 		fm_vec4 pos = {0.0f, 0.0f, 1.0f};
 		for(uint32_t i=0; i<numParticles; ++i)
@@ -459,6 +465,49 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		{
 			pEngine->dangle.d[i] = segmentLength;
 		}
+	}
+	
+	// init hair dangles
+	{
+		fa_dangle_desc desc;
+		desc.frequency = 60.0f;
+		desc.numParticles = 3;
+		desc.dampingCoef = 0.96f;
+		
+		fa_dangle_create(&desc, &pEngine->zeldaDangleHairLeft, pAllocCallbacks);
+		fa_dangle_create(&desc, &pEngine->zeldaDangleHairRight, pAllocCallbacks);
+		
+		const fc_string_hash_t hair_r = SID("Bip001_Hair_R");
+		const fc_string_hash_t hair_r2 = SID("Bip001_Hair1_R");
+		const fc_string_hash_t hair_l = SID("Bip001_Hair_L");
+		const fc_string_hash_t hair_l2 = SID("Bip001_Hair1_L");
+		
+		for(uint32_t i=0; i<pEngine->pRig->numBones; ++i)
+		{
+			if(pEngine->pRig->boneNameHashes[i] == hair_r)
+				pEngine->zeldaDangleHairRightIdx1 = i;
+			else if(pEngine->pRig->boneNameHashes[i] == hair_r2)
+				pEngine->zeldaDangleHairRightIdx2 = i;
+			else if(pEngine->pRig->boneNameHashes[i] == hair_l)
+				pEngine->zeldaDangleHairLeftIdx1 = i;
+			else if(pEngine->pRig->boneNameHashes[i] == hair_l2)
+				pEngine->zeldaDangleHairLeftIdx2 = i;
+		}
+		
+		fm_xform refPoseLeft2 = pEngine->pRig->refPose[pEngine->zeldaDangleHairLeftIdx2];
+		fm_xform refPoseRight2 = pEngine->pRig->refPose[pEngine->zeldaDangleHairRightIdx2];
+		
+		refPoseLeft2.pos.w = 0.0f;
+		refPoseRight2.pos.w = 0.0f;
+		
+		const float dLeft = fm_vec4_mag(&refPoseLeft2.pos);
+		const float dRight = fm_vec4_mag(&refPoseRight2.pos);
+		
+		pEngine->zeldaDangleHairLeft.d[0] = dLeft;
+		pEngine->zeldaDangleHairLeft.d[1] = dLeft;
+		
+		pEngine->zeldaDangleHairRight.d[0] = dRight;
+		pEngine->zeldaDangleHairRight.d[1] = dRight;
 	}
 	
 	return true;
@@ -648,9 +697,34 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 	physicsCtx.dt = dt;
 	fp_physics_update(pEngine->pPhysics, pEngine->pPhysicsScene, &physicsCtx);
 	
-	fa_dangle_sim_ctx simCtx {};
-	simCtx.dt = dt;
-	fa_dangle_simulate(&simCtx, &pEngine->dangle);
+	{
+		fa_dangle_sim_ctx simCtx {};
+		simCtx.dt = dt;
+		fa_dangle_simulate(&simCtx, &pEngine->dangle);
+	}
+	
+	// simulate hair dangles
+	{
+		fa_dangle_sim_ctx simCtx {};
+		simCtx.dt = dt;
+		
+		pEngine->zeldaDangleHairLeft.x0[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1].w;
+		pEngine->zeldaDangleHairRight.x0[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1].w;
+		fa_dangle_simulate(&simCtx, &pEngine->zeldaDangleHairLeft);
+		fa_dangle_simulate(&simCtx, &pEngine->zeldaDangleHairRight);
+		
+		fm_mat4 m[3] = {};
+		
+		m[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1];
+		fa_dangle_to_matrices_y_down(&pEngine->zeldaDangleHairLeft, &m[0], m);
+		pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1] = m[0];
+		pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx2] = m[1];
+		
+		m[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1];
+		fa_dangle_to_matrices_y_down(&pEngine->zeldaDangleHairRight, &m[0], m);
+		pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1] = m[0];
+		pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx2] = m[1];
+	}
 	
 	// draw dangle
 	{
@@ -659,10 +733,10 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		
 		fm_mat4 attachmentMatrix;
 		fm_mat4_identity(&attachmentMatrix);
+		attachmentMatrix.x = {-1.0f, 0.0f, 0.0f, 0.0f};
 
 		fm_mat4 matrices[40];
-		fm_vec4 refDir = {1.0f, 0.0f, 0.0f, 0.0f};
-		fa_dangle_to_matrices(&pEngine->dangle, &attachmentMatrix, matrices);
+		fa_dangle_to_matrices_y_down(&pEngine->dangle, &attachmentMatrix, matrices);
 		
 		fc_dbg_mat4(&matrices[0]);
 		
@@ -679,12 +753,17 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 			
 			fc_dbg_mat4(&matrices[i]);
 		}
+		
+		//fc_dbg_mat4(&pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1]);
+		//fc_dbg_mat4(&pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx2]);
+		//fc_dbg_mat4(&pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1]);
+		//fc_dbg_mat4(&pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx2]);
 	}
 	
 	// rendering
 	{
-		const fm_vec4 g_eye = {-3, -3, 1.4, 0};
-		const fm_vec4 g_at = {0, 0, 1, 0};
+		const fm_vec4 g_eye = {-3, -3, 1.7, 0};
+		const fm_vec4 g_at = {0, 0, 1.55, 0};
 		const fm_vec4 g_up = {0, 0, 1, 0};
 		
 		fm_vec4 eye = g_eye;
@@ -748,10 +827,9 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	// check for memory leaks
 	//FUR_ASSERT(furValidateAllocatorGeneral(&pEngine->m_memory._defaultInternals));
 	
-	FUR_FREE(pEngine->dangle.x0, pAllocCallbacks);
-	FUR_FREE(pEngine->dangle.p, pAllocCallbacks);
-	FUR_FREE(pEngine->dangle.v, pAllocCallbacks);
-	FUR_FREE(pEngine->dangle.d, pAllocCallbacks);
+	fa_dangle_release(&pEngine->dangle, pAllocCallbacks);
+	fa_dangle_release(&pEngine->zeldaDangleHairLeft, pAllocCallbacks);
+	fa_dangle_release(&pEngine->zeldaDangleHairRight, pAllocCallbacks);
 	
 	FUR_FREE(pEngine->animCharacterZelda.poseMS, pAllocCallbacks);
 	FUR_FREE(pEngine->animCharacterZelda.poseCache.tempPose.xforms, pAllocCallbacks);

@@ -1300,6 +1300,36 @@ void fa_dangle_simulate_single_step(fa_dangle* dangle, float dt)
 	}
 }
 
+void fa_dangle_create(const fa_dangle_desc* desc, fa_dangle* dangle, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	FUR_ASSERT(!dangle->x0 && !dangle->p && !dangle->v && !dangle->d);
+	
+	dangle->x0 = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, desc->numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
+	dangle->p = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, desc->numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
+	dangle->v = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, desc->numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
+	dangle->d = FUR_ALLOC_ARRAY_AND_ZERO(float, desc->numParticles-1, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
+	
+	dangle->freq = desc->frequency;
+	dangle->numParaticles = desc->numParticles;
+	dangle->tAcc = 0.0f;
+	dangle->damping = desc->dampingCoef;
+}
+
+void fa_dangle_release(fa_dangle* dangle, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	FUR_ASSERT(dangle->x0 && dangle->p && dangle->v && dangle->d);
+	
+	FUR_FREE(dangle->x0, pAllocCallbacks);
+	FUR_FREE(dangle->p, pAllocCallbacks);
+	FUR_FREE(dangle->v, pAllocCallbacks);
+	FUR_FREE(dangle->d, pAllocCallbacks);
+	
+	dangle->x0 = NULL;
+	dangle->p = NULL;
+	dangle->v = NULL;
+	dangle->d = NULL;
+}
+
 void fa_dangle_simulate(const fa_dangle_sim_ctx* ctx, fa_dangle* dangle)
 {
 	dangle->tAcc += ctx->dt;
@@ -1312,7 +1342,7 @@ void fa_dangle_simulate(const fa_dangle_sim_ctx* ctx, fa_dangle* dangle)
 	}
 }
 
-void fa_dangle_to_matrices(const fa_dangle* dangle, const fm_mat4* attachmentMatrix, fm_mat4* matrices)
+void fa_dangle_to_matrices_z_up(const fa_dangle* dangle, const fm_mat4* attachmentMatrix, fm_mat4* matrices)
 {
 	const uint32_t count = dangle->numParaticles - 1;
 	const fm_vec4* p = dangle->p;
@@ -1332,6 +1362,41 @@ void fa_dangle_to_matrices(const fa_dangle* dangle, const fm_mat4* attachmentMat
 		fm_vec4 y;
 		fm_vec4_cross(&z, &refDir, &y);
 		fm_vec4_normalize(&y);
+		
+		fm_vec4 x;
+		fm_vec4_cross(&y, &z, &x);
+		fm_vec4_normalize(&x);
+		
+		matrices[i].x = x;
+		matrices[i].y = y;
+		matrices[i].z = z;
+		matrices[i].w = p[i];
+		matrices[i].w.w = 1.0f;
+		
+		refDir = matrices[i].x;
+	}
+	
+	matrices[count] = matrices[count-1];
+	matrices[count].w = p[count];
+	matrices[count].w.w = 1.0f;
+}
+
+void fa_dangle_to_matrices_y_down(const fa_dangle* dangle, const fm_mat4* attachmentMatrix, fm_mat4* matrices)
+{
+	const uint32_t count = dangle->numParaticles - 1;
+	const fm_vec4* p = dangle->p;
+	
+	fm_vec4 refDir = attachmentMatrix->x;
+	
+	for(uint32_t i=0; i<count; ++i)
+	{
+		fm_vec4 y;
+		fm_vec4_sub(&p[i+1], &p[i], &y);
+		fm_vec4_normalize(&y);
+		
+		fm_vec4 z;
+		fm_vec4_cross(&refDir, &y, &z);
+		fm_vec4_normalize(&z);
 		
 		fm_vec4 x;
 		fm_vec4_cross(&y, &z, &x);

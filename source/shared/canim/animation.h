@@ -346,8 +346,19 @@ typedef struct fa_dangle_sim_ctx
 	float dt;
 } fa_dangle_sim_ctx;
 
+typedef struct fa_dangle_desc
+{
+	uint32_t numParticles;
+	float frequency;
+	float dampingCoef;
+} fa_dangle_desc;
+
+CANIM_API void fa_dangle_create(const fa_dangle_desc* desc, fa_dangle* dangle, fc_alloc_callbacks_t* pAllocCallbacks);
+CANIM_API void fa_dangle_release(fa_dangle* dangle, fc_alloc_callbacks_t* pAllocCallbacks);
+
 CANIM_API void fa_dangle_simulate(const fa_dangle_sim_ctx* ctx, fa_dangle* dangle);
-CANIM_API void fa_dangle_to_matrices(const fa_dangle* dangle, const fm_mat4* attachmentMatrix, fm_mat4* matrices);
+CANIM_API void fa_dangle_to_matrices_z_up(const fa_dangle* dangle, const fm_mat4* attachmentMatrix, fm_mat4* matrices);
+CANIM_API void fa_dangle_to_matrices_y_down(const fa_dangle* dangle, const fm_mat4* attachmentMatrix, fm_mat4* matrices);
 
 #ifdef __cplusplus
 }
