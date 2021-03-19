@@ -385,6 +385,29 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			ctx.path = characterRigPath;
 			
 			fi_import_rig(&depot, &ctx, &pEngine->pRig, pAllocCallbacks);
+			
+			// apply rig properties
+			{
+				// left leg IK setup
+				{
+					fa_ik_setup_t* ik = &pEngine->pRig->ikLeftLeg;
+					ik->idxBeginParent = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Pelvis"));
+					ik->idxBegin = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Thigh_L"));
+					ik->idxMid = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Calf_L"));
+					ik->idxEnd = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Foot_L"));
+					ik->hingeAxisMid = FM_AXIS_Z;
+				}
+				
+				// right leg IK setup
+				{
+					fa_ik_setup_t* ik = &pEngine->pRig->ikRightLeg;
+					ik->idxBeginParent = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Pelvis"));
+					ik->idxBegin = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Thigh_R"));
+					ik->idxMid = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Calf_R"));
+					ik->idxEnd = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Foot_R"));
+					ik->hingeAxisMid = FM_AXIS_Z;
+				}
+			}
 		}
 
 		{
@@ -625,6 +648,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		
 		fa_action_args_t args = {};
 		args.fadeInSec = 0.5f;
+		args.ikMode = FA_IK_MODE_LEGS;
 		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction2, &args, globalTime);
 	}
 	
@@ -762,8 +786,8 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 	
 	// rendering
 	{
-		const fm_vec4 g_eye = {-3, -3, 1.7, 0};
-		const fm_vec4 g_at = {0, 0, 1.55, 0};
+		const fm_vec4 g_eye = {-3, -3, 1.55, 0};
+		const fm_vec4 g_at = {0, 0, 1, 0};
 		const fm_vec4 g_up = {0, 0, 1, 0};
 		
 		fm_vec4 eye = g_eye;

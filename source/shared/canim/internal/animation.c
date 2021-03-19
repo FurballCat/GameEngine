@@ -17,6 +17,17 @@ void fa_rig_release(fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks)
 	FUR_FREE(rig, pAllocCallbacks);
 }
 
+int16_t fa_rig_find_bone_idx(const fa_rig_t* rig, fc_string_hash_t name)
+{
+	for(int32_t i=0; i<rig->numBones; ++i)
+	{
+		if(rig->boneNameHashes[i] == name)
+			return i;
+	}
+	
+	return -1;
+}
+
 void fa_anim_clip_release(fa_anim_clip_t* clip, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	FUR_FREE(clip->curves, pAllocCallbacks);
@@ -1053,6 +1064,144 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		animCtx.debug = &debug;
 		
 		fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
+		
+		// inverse kinematics
+		if(action->args.ikMode == FA_IK_MODE_LEGS)
+		{
+			fa_pose_stack_push(&poseStack, 1);
+			
+			fa_pose_t poseMS;
+			fa_pose_stack_get(&poseStack, &poseMS, 0);
+			fa_pose_t poseLS;
+			fa_pose_stack_get(&poseStack, &poseLS, 1);
+			
+			fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
+			
+			{
+				static fm_vec4 target = {0.4f, -0.4f, 0.4f, 0.0f};
+				fm_vec4 endEffector = {0.0f, 0.0f, 0.0f, 0.0f};
+				
+				float colorRed[4] = FUR_COLOR_RED;
+				float colorBlue[4] = FUR_COLOR_BLUE;
+				float colorGreen[4] = FUR_COLOR_GREEN;
+				float colorBlack[4] = FUR_COLOR_BLACK;
+				
+				fc_dbg_line(&endEffector.x, &target.x, colorRed);
+				
+				const fa_ik_setup_t* ikSetup = &character->rig->ikLeftLeg;
+				
+				const uint32_t num_iterations = 4;
+				for(uint32_t it=0; it<num_iterations; ++it)
+				{
+					// recalculate model space
+					fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
+					
+					fm_xform boneBegin = poseMS.xforms[ikSetup->idxBegin];
+					fm_xform boneMid = poseMS.xforms[ikSetup->idxMid];
+					fm_xform boneEnd = poseMS.xforms[ikSetup->idxEnd];
+					
+					endEffector = boneEnd.pos;
+					
+					// loop bones in IK setup
+					{
+						fm_vec4 e_i;
+						fm_vec4_sub(&endEffector, &boneMid.pos, &e_i);
+						fm_vec4 t_i;
+						fm_vec4_sub(&target, &boneMid.pos, &t_i);
+						
+						fc_dbg_line(&boneMid.pos.x, &target.x, colorBlue);
+						fc_dbg_line(&boneMid.pos.x, &endEffector.x, colorGreen);
+						
+						const float e_i_mag = fm_vec4_mag(&e_i);
+						
+						fm_vec4_normalize(&e_i);
+						fm_vec4_normalize(&t_i);
+						const float angle = -acosf(fm_vec4_dot(&e_i, &t_i));
+						const bool canRot = fabsf(angle) > 0.0001f;
+						if(canRot)
+						{
+							fm_vec4 axis;
+							fm_vec4_cross(&e_i, &t_i, &axis);
+							if(fm_vec4_mag2(&axis) > 0.0f)
+							{
+								fm_vec4_normalize(&axis);
+								
+								fm_vec4 tmp;
+								fm_vec4_add(&boneMid.pos, &axis, &tmp);
+								fc_dbg_line(&boneMid.pos.x, &tmp.x, colorBlack);
+								
+								fm_quat rot;
+								fm_quat_rot_axis_angle(&axis, angle, &rot);
+								
+								fm_vec4 t_i_dir = t_i;
+								fm_vec4_normalize(&t_i_dir);
+								fm_vec4_mulf(&t_i_dir, e_i_mag, &e_i);	// set new e_i
+								fm_vec4_add(&boneMid.pos, &e_i, &endEffector);	// keep track of end effector
+								
+								fm_quat invMS = poseMS.xforms[ikSetup->idxBegin].rot;
+								fm_quat_conj(&invMS);
+								
+								fm_quat rotBefore2 = poseMS.xforms[ikSetup->idxMid].rot;
+								fm_quat_mul(&rot, &rotBefore2, &poseMS.xforms[ikSetup->idxMid].rot);
+								
+								fm_quat rotBefore = poseMS.xforms[ikSetup->idxMid].rot;
+								fm_quat_mul(&invMS, &rotBefore, &poseLS.xforms[ikSetup->idxMid].rot);
+							}
+						}
+						
+					}
+					{
+						fm_vec4 e_i;
+						fm_vec4_sub(&endEffector, &boneBegin.pos, &e_i);
+						fm_vec4 t_i;
+						fm_vec4_sub(&target, &boneBegin.pos, &t_i);
+						
+						fc_dbg_line(&boneBegin.pos.x, &target.x, colorBlue);
+						fc_dbg_line(&boneBegin.pos.x, &endEffector.x, colorGreen);
+						
+						const float e_i_mag = fm_vec4_mag(&e_i);
+						
+						fm_vec4_normalize(&e_i);
+						fm_vec4_normalize(&t_i);
+						const float angle = -acosf(fm_vec4_dot(&e_i, &t_i));
+						const bool canRot = fabsf(angle) > 0.0001f;
+						if(canRot)
+						{
+							fm_vec4 axis;
+							fm_vec4_cross(&e_i, &t_i, &axis);
+							if(fm_vec4_mag2(&axis) > 0.0f)
+							{
+								fm_vec4_normalize(&axis);
+								
+								fm_vec4 tmp;
+								fm_vec4_add(&boneBegin.pos, &axis, &tmp);
+								fc_dbg_line(&boneBegin.pos.x, &tmp.x, colorBlack);
+								
+								fm_quat rot;
+								fm_quat_rot_axis_angle(&axis, angle, &rot);
+								
+								fm_vec4 t_i_dir = t_i;
+								fm_vec4_normalize(&t_i_dir);
+								fm_vec4_mulf(&t_i_dir, e_i_mag, &e_i);	// set new e_i
+								fm_vec4_add(&boneBegin.pos, &e_i, &endEffector);	// keep track of end effector
+								
+								fm_quat invMS = poseMS.xforms[ikSetup->idxBeginParent].rot;
+								fm_quat_conj(&invMS);
+								
+								fm_quat rotBefore2 = poseMS.xforms[ikSetup->idxBegin].rot;
+								fm_quat_mul(&rot, &rotBefore2, &poseMS.xforms[ikSetup->idxBegin].rot);
+								
+								fm_quat rotBefore = poseMS.xforms[ikSetup->idxBegin].rot;
+								fm_quat_mul(&invMS, &rotBefore, &poseLS.xforms[ikSetup->idxBegin].rot);
+							}
+						}
+						
+					}
+				}
+			}
+			
+			fa_pose_stack_pop(&poseStack, 1);
+		}
 	}
 	
 	// optionally cache pose

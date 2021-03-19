@@ -92,6 +92,11 @@ static inline float fm_vec4_mag(const fm_vec4* v)
 	return sqrtf(v->x * v->x + v->y * v->y + v->z * v->z + v->w * v->w);
 }
 
+static inline float fm_vec4_mag2(const fm_vec4* v)
+{
+	return v->x * v->x + v->y * v->y + v->z * v->z + v->w * v->w;
+}
+
 static inline float fm_vec4_dot(const fm_vec4* a, const fm_vec4* b)
 {
 	return a->x * b->x + a->y * b->y + a->z * b->z + a->w * b->w;
@@ -131,6 +136,30 @@ static inline void fm_vec4_lerp(const fm_vec4* a, const fm_vec4* b, float alpha,
 	c->y = a->y * alpha + b->y * invAlpha;
 	c->z = a->z * alpha + b->z * invAlpha;
 	c->w = a->w * alpha + b->w * invAlpha;
+}
+
+static inline void fm_vec4_rot_between(const fm_vec4* from, const fm_vec4* to, fm_quat* rot)
+{
+	fm_vec4 fromNorm = *from;
+	fm_vec4_normalize(&fromNorm);
+	fm_vec4 toNorm = *to;
+	fm_vec4_normalize(&toNorm);
+	
+	const float cosAlpha = fm_vec4_dot(&fromNorm, &toNorm);
+	const float alpha = acosf(cosAlpha);
+	fm_vec4 axis;
+	fm_vec4_cross(&fromNorm, &toNorm, &axis);
+	if(fm_vec4_mag2(&axis) > 0.0f)
+	{
+		fm_vec4_normalize(&axis);
+
+		fm_quat_make_from_axis_angle(axis.x, axis.y, axis.z, alpha, rot);
+		fm_quat_norm(rot);
+	}
+	else
+	{
+		fm_quat_identity(rot);
+	}
 }
 
 static inline void fm_mat4_identity(fm_mat4_t* m)
@@ -618,6 +647,13 @@ static inline void fm_quat_make_from_euler_angles_pxryyz(const fm_euler_angles* 
 	fm_quat_mul(&tmp, &y, quat);
 }
 
+static inline void fm_quat_conj(fm_quat* q)
+{
+	q->i = -q->i;
+	q->j = -q->j;
+	q->k = -q->k;
+}
+
 static inline void fm_xform_identity(fm_xform* x)
 {
 	fm_vec4_zeros(&x->pos);
@@ -634,13 +670,13 @@ static inline void fm_xform_mul(const fm_xform* a, const fm_xform* b, fm_xform* 
 
 static inline void fm_xform_lerp(const fm_xform* a, const fm_xform* b, float alpha, fm_xform* c)
 {
-	fm_vec4_lerp(&a->pos, &b->pos, alpha, &c->pos);
+	fm_vec4_lerp(&b->pos, &a->pos, alpha, &c->pos);
 	fm_quat_lerp(&a->rot, &b->rot, alpha, &c->rot);
 }
 
 static inline void fm_xform_slerp(const fm_xform* a, const fm_xform* b, float alpha, fm_xform* c)
 {
-	fm_vec4_lerp(&a->pos, &b->pos, alpha, &c->pos);
+	fm_vec4_lerp(&b->pos, &a->pos, alpha, &c->pos);
 	fm_quat_slerp(&a->rot, &b->rot, alpha, &c->rot);
 }
 

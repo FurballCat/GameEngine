@@ -17,6 +17,25 @@ typedef uint32_t fc_string_hash_t;
 typedef struct fm_vec4 fm_vec4;
 typedef struct fm_mat4 fm_mat4;
 
+typedef enum fm_axis_t
+{
+	FM_AXIS_X = 0,
+	FM_AXIS_NEG_X,
+	FM_AXIS_Y,
+	FM_AXIS_NEG_Y,
+	FM_AXIS_Z,
+	FM_AXIS_NEG_Z,
+} fm_axis_t;
+
+typedef struct fa_ik_setup_t
+{
+	uint16_t idxBeginParent;
+	uint16_t idxBegin;
+	uint16_t idxMid;
+	uint16_t idxEnd;
+	fm_axis_t hingeAxisMid;
+} fa_ik_setup_t;
+
 typedef struct fa_rig_t
 {
 	fc_string_hash_t* boneNameHashes;
@@ -25,9 +44,14 @@ typedef struct fa_rig_t
 	uint32_t numBones;
 	
 	int16_t idxLocoJoint;	// locomotion (root motion) joint index
+	
+	// inverse kinematics
+	fa_ik_setup_t ikLeftLeg;
+	fa_ik_setup_t ikRightLeg;
 } fa_rig_t;
 
 CANIM_API void fa_rig_release(fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks);
+CANIM_API int16_t fa_rig_find_bone_idx(const fa_rig_t* rig, fc_string_hash_t name);
 	
 typedef struct fa_anim_curve_key_t
 {
@@ -260,10 +284,17 @@ typedef enum fa_curve_type_t
 	FA_CURVE_LINEAR
 } fa_curve_type_t;
 	
+typedef enum fa_ik_mode_t
+{
+	FA_IK_MODE_NONE = 0, // default
+	FA_IK_MODE_LEGS = 1,
+} fa_ik_mode_t;
+
 typedef struct fa_action_args_t
 {
 	float fadeInSec;
 	fa_curve_type_t fadeInCurve;
+	fa_ik_mode_t ikMode;
 } fa_action_args_t;
 	
 typedef struct fa_action_t

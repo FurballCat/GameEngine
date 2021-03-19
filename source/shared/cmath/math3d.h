@@ -107,6 +107,9 @@ extern "C"
 	
 	// magnitude of a vector
 	static inline float fm_vec4_mag(const fm_vec4* v);
+
+	// magniture squared of a vector
+	static inline float fm_vec4_mag2(const fm_vec4* v);
 	
 	// dot product between a and b saved to v
 	static inline float fm_vec4_dot(const fm_vec4* a, const fm_vec4* b);
@@ -123,6 +126,9 @@ extern "C"
 	// linear interpolation between a (0.0f) and b (1.0f), output to c
 	static inline void fm_vec4_lerp(const fm_vec4* a, const fm_vec4* b, float alpha, fm_vec4* c);
 	
+	// shortest rotation between vectors 'from' and 'to'
+	static inline void fm_vec4_rot_between(const fm_vec4* from, const fm_vec4* to, fm_quat* rot);
+
 	/***** MATRIX *****/
 	
 	// identity matrix
@@ -207,6 +213,9 @@ extern "C"
 	// make quaternion from euler angles (pitch - y, yaw - z, roll - x)
 	static inline void fm_quat_make_from_euler_angles_pyyzrx(const fm_euler_angles* angles, fm_quat* quat);
 	
+	// conjugate of quaternion (inverse)
+	static inline void fm_quat_conj(fm_quat* q);
+
 	/***** TRANSFORM *****/
 	
 	// set x to identity (pos 0,0,0,0 rot 0,0,0,1)
