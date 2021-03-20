@@ -1221,13 +1221,16 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 					fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
 					
 					// loop bones in IK setup
+					for(uint32_t i=2; i>=1; --i)
 					{
+						uint32_t ip = i-1;
+						
 						endEffector = chainMS[3].pos;
 						
 						fm_vec4 e_i;
-						fm_vec4_sub(&endEffector, &chainMS[2].pos, &e_i);
+						fm_vec4_sub(&endEffector, &chainMS[i].pos, &e_i);
 						fm_vec4 t_i;
-						fm_vec4_sub(&target, &chainMS[2].pos, &t_i);
+						fm_vec4_sub(&target, &chainMS[i].pos, &t_i);
 						
 						fm_vec4_normalize(&e_i);
 						fm_vec4_normalize(&t_i);
@@ -1244,18 +1247,19 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 								fm_quat rot;
 								fm_quat_rot_axis_angle(&axis, angle, &rot);
 								
-								fm_quat invMS = chainMS[1].rot;
+								fm_quat invMS = chainMS[ip].rot;
 								fm_quat_conj(&invMS);
 								
-								fm_quat rotBefore2 = chainMS[2].rot;
-								fm_quat_mul(&rot, &rotBefore2, &chainMS[2].rot);
+								fm_quat rotBefore2 = chainMS[i].rot;
+								fm_quat_mul(&rot, &rotBefore2, &chainMS[i].rot);
 								
-								fm_quat rotBefore = chainMS[2].rot;
-								fm_quat_mul(&invMS, &rotBefore, &chainLS[2].rot);
+								fm_quat rotBefore = chainMS[i].rot;
+								fm_quat_mul(&invMS, &rotBefore, &chainLS[i].rot);
 								
 								// update children
+								for(uint32_t g=i; g<3; ++g)
 								{
-									fm_xform_mul(&chainMS[2], &chainLS[3], &chainMS[3]);
+									fm_xform_mul(&chainMS[g], &chainLS[g+1], &chainMS[g+1]);
 								}
 								
 								// hinge constraint
@@ -1265,47 +1269,6 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 									fm_quat_rot(&rot, &jointAxis, &jointNewAxis);
 									fm_quat backRot;
 									fm_vec4_rot_between(&jointNewAxis, &jointAxis, &backRot);
-								}
-							}
-						}
-						
-					}
-					{
-						endEffector = chainMS[3].pos;
-						
-						fm_vec4 e_i;
-						fm_vec4_sub(&endEffector, &chainMS[1].pos, &e_i);
-						fm_vec4 t_i;
-						fm_vec4_sub(&target, &chainMS[1].pos, &t_i);
-						
-						fm_vec4_normalize(&e_i);
-						fm_vec4_normalize(&t_i);
-						const float angle = -acosf(fm_vec4_dot(&e_i, &t_i));
-						const bool canRot = fabsf(angle) > 0.0001f;
-						if(canRot)
-						{
-							fm_vec4 axis;
-							fm_vec4_cross(&e_i, &t_i, &axis);
-							if(fm_vec4_mag2(&axis) > 0.0f)
-							{
-								fm_vec4_normalize(&axis);
-								
-								fm_quat rot;
-								fm_quat_rot_axis_angle(&axis, angle, &rot);
-								
-								fm_quat invMS = chainMS[0].rot;
-								fm_quat_conj(&invMS);
-								
-								fm_quat rotBefore2 = chainMS[1].rot;
-								fm_quat_mul(&rot, &rotBefore2, &chainMS[1].rot);
-								
-								fm_quat rotBefore = chainMS[1].rot;
-								fm_quat_mul(&invMS, &rotBefore, &chainLS[1].rot);
-								
-								// update children
-								{
-									fm_xform_mul(&chainMS[1], &chainLS[2], &chainMS[2]);
-									fm_xform_mul(&chainMS[2], &chainLS[3], &chainMS[3]);
 								}
 							}
 						}
