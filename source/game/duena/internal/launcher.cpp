@@ -751,6 +751,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 	}
 	
 	// draw dangle
+#if 0
 	{
 		const float color[4] = FUR_COLOR_BLACK;
 		const float colorV[4] = FUR_COLOR_RED;
@@ -783,6 +784,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		//fc_dbg_mat4(&pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1]);
 		//fc_dbg_mat4(&pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx2]);
 	}
+#endif
 	
 	// rendering
 	{
