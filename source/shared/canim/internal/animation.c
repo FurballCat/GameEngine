@@ -1188,14 +1188,6 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 				fm_vec4 targetFixed = targetOrig;
 				targetFixed.z += 0.1f;
 				
-				float colorRed[4] = FUR_COLOR_RED;
-				float colorBlue[4] = FUR_COLOR_BLUE;
-				float colorGreen[4] = FUR_COLOR_GREEN;
-				float colorBlack[4] = FUR_COLOR_BLACK;
-				
-				fm_vec4 zeroVec = {0.0f, 0.0f, 0.0f, 0.0f};
-				fc_dbg_line(&zeroVec.x, &targetOrig.x, colorRed);
-				
 				const fa_ik_setup_t* ikSetup = &character->rig->ikLeftLeg;
 				fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
 				
@@ -1211,6 +1203,10 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 					poseMS.xforms[ikSetup->idxMid],
 					poseMS.xforms[ikSetup->idxEnd],
 				};
+				
+				const float angleMin = ikSetup->minAngle;
+				const float angleMax = ikSetup->maxAngle;
+				fm_axis_t hingeAxis = ikSetup->hingeAxisMid;
 				
 				fm_vec4 endEffector = chainMS[3].pos;
 				fm_vec4 target;
@@ -1253,7 +1249,8 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 								fm_quat_conj(&invMS);
 								
 								// take axis for hinge
-								fm_vec4 jointAxis = {0.0f, 0.0f, 1.0f, 0.0f};
+								fm_vec4 jointAxis;
+								fm_axis_to_vec4(hingeAxis, &jointAxis);
 								fm_quat_rot(&chainMS[i].rot, &jointAxis, &jointAxis);
 								
 								// rotate
@@ -1262,7 +1259,8 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 								// hinge constraint
 								if(i == 2)
 								{
-									fm_vec4 jointAxisNew = {0.0f, 0.0f, 1.0f, 0.0f};
+									fm_vec4 jointAxisNew;
+									fm_axis_to_vec4(hingeAxis, &jointAxisNew);
 									fm_quat_rot(&chainMS[i].rot, &jointAxisNew, &jointAxisNew);
 									fm_quat backRot;
 									fm_vec4_rot_between(&jointAxisNew, &jointAxis, &backRot);
@@ -1276,8 +1274,6 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 								// constrain angle
 								if(i == 2)
 								{
-									static float angleMin = 0.05f;
-									static float angleMax = 2.8f;
 									fm_vec4 rotAxis;
 									float rotAngle;
 									fm_quat_to_axis_angle(&chainLS[i].rot, &rotAxis, &rotAngle);
@@ -1289,7 +1285,8 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 											rotAngle -= 2 * FM_PI;
 										}
 										
-										fm_vec4 origRotAxis = {0.0f, 0.0f, 1.0f, 0.0f};
+										fm_vec4 origRotAxis;
+										fm_axis_to_vec4(hingeAxis, &origRotAxis);
 										if(fm_vec4_dot(&origRotAxis, &rotAxis) > 0.0f)
 											rotAngle = fm_clamp(rotAngle, angleMin, angleMax);
 										else
@@ -1585,4 +1582,18 @@ void fa_dangle_to_matrices_y_down(const fa_dangle* dangle, const fm_mat4* attach
 	matrices[count] = matrices[count-1];
 	matrices[count].w = p[count];
 	matrices[count].w.w = 1.0f;
+}
+
+void fm_axis_to_vec4(fm_axis_t axis, fm_vec4* v)
+{
+	static fm_vec4 axes[6] = {
+		{1, 0, 0, 0},
+		{0, 1, 0, 0},
+		{0, 0, 1, 0},
+		{-1, 0, 0, 0},
+		{0, -1, 0, 0},
+		{0, 0, -1, 0},
+	};
+	
+	*v = axes[axis];
 }

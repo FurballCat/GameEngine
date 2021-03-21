@@ -20,12 +20,14 @@ typedef struct fm_mat4 fm_mat4;
 typedef enum fm_axis_t
 {
 	FM_AXIS_X = 0,
-	FM_AXIS_NEG_X,
 	FM_AXIS_Y,
-	FM_AXIS_NEG_Y,
 	FM_AXIS_Z,
+	FM_AXIS_NEG_X,
+	FM_AXIS_NEG_Y,
 	FM_AXIS_NEG_Z,
 } fm_axis_t;
+
+void fm_axis_to_vec4(fm_axis_t axis, fm_vec4* v);
 
 typedef struct fa_ik_setup_t
 {
@@ -34,6 +36,8 @@ typedef struct fa_ik_setup_t
 	uint16_t idxMid;
 	uint16_t idxEnd;
 	fm_axis_t hingeAxisMid;
+	float minAngle;
+	float maxAngle;
 } fa_ik_setup_t;
 
 typedef struct fa_rig_t

@@ -396,6 +396,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 					ik->idxMid = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Calf_L"));
 					ik->idxEnd = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Foot_L"));
 					ik->hingeAxisMid = FM_AXIS_Z;
+					ik->minAngle = 0.02f;
+					ik->maxAngle = 2.8f;
 				}
 				
 				// right leg IK setup
@@ -406,6 +408,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 					ik->idxMid = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Calf_R"));
 					ik->idxEnd = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Foot_R"));
 					ik->hingeAxisMid = FM_AXIS_Z;
+					ik->minAngle = 0.02f;
+					ik->maxAngle = 2.8f;
 				}
 			}
 		}
