@@ -1308,8 +1308,10 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			
 			fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
 			
-			fm_vec4 leftTarget = {0.4f, -0.4f, 0.4f, 0.0f};
-			fm_vec4 rightTarget = {-0.4f, -0.4f, 0.4f, 0.0f};
+			fm_vec4 leftTarget = poseMS.xforms[character->rig->ikLeftLeg.idxEnd].pos;
+			leftTarget.z = 0.2f;
+			fm_vec4 rightTarget = poseMS.xforms[character->rig->ikRightLeg.idxEnd].pos;
+			rightTarget.z = 0.0f;
 			
 			fa_character_leg_ik(character, &character->rig->ikLeftLeg, &poseLS, &poseMS, &leftTarget, weightIK);
 			fa_character_leg_ik(character, &character->rig->ikRightLeg, &poseLS, &poseMS, &rightTarget, weightIK);
