@@ -895,6 +895,131 @@ void fa_action_reset(fa_action_t* action)
 	memset(action, 0, sizeof(fa_action_t));
 }
 
+void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup, fa_pose_t* poseLS, fa_pose_t* poseMS, const fm_vec4* targetArg, float weightIK)
+{
+	fm_vec4 targetFixed = *targetArg;
+	targetFixed.z += 0.1f;
+	
+	fm_xform chainLS[4] = {
+		poseLS->xforms[ikSetup->idxBeginParent],
+		poseLS->xforms[ikSetup->idxBegin],
+		poseLS->xforms[ikSetup->idxMid],
+		poseLS->xforms[ikSetup->idxEnd],
+	};
+	fm_xform chainMS[4] = {
+		poseMS->xforms[ikSetup->idxBeginParent],
+		poseMS->xforms[ikSetup->idxBegin],
+		poseMS->xforms[ikSetup->idxMid],
+		poseMS->xforms[ikSetup->idxEnd],
+	};
+	
+	const float angleMin = ikSetup->minAngle;
+	const float angleMax = ikSetup->maxAngle;
+	fm_axis_t hingeAxis = ikSetup->hingeAxisMid;
+	
+	fm_vec4 endEffector = chainMS[3].pos;
+	fm_vec4 target;
+	fm_vec4_lerp(&targetFixed, &endEffector, weightIK, &target);
+	
+	static uint32_t num_iterations = 20;
+	for(uint32_t it=0; it<num_iterations; ++it)
+	{
+		// loop bones in IK setup
+		for(uint32_t i=2; i>=1; --i)
+		{
+			const uint32_t ip = i-1;
+			
+			endEffector = chainMS[3].pos;
+			
+			fm_vec4 e_i;
+			fm_vec4_sub(&endEffector, &chainMS[i].pos, &e_i);
+			fm_vec4 t_i;
+			fm_vec4_sub(&target, &chainMS[i].pos, &t_i);
+			
+			fm_vec4_normalize(&e_i);
+			fm_vec4_normalize(&t_i);
+			const float angle = -acosf(fm_vec4_dot(&e_i, &t_i));
+			const bool canRot = fabsf(angle) > 0.0001f;
+			if(canRot)
+			{
+				fm_vec4 axis;
+				fm_vec4_cross(&e_i, &t_i, &axis);
+				if(fm_vec4_mag2(&axis) > 0.0f)
+				{
+					fm_vec4_normalize(&axis);
+					
+					fm_quat rot;
+					fm_quat_rot_axis_angle(&axis, angle, &rot);
+					
+					fm_quat invMS = chainMS[ip].rot;
+					fm_quat_conj(&invMS);
+					
+					// take axis for hinge
+					fm_vec4 jointAxis;
+					fm_axis_to_vec4(hingeAxis, &jointAxis);
+					fm_quat_rot(&chainMS[i].rot, &jointAxis, &jointAxis);
+					
+					// rotate
+					fm_quat_mul(&rot, &chainMS[i].rot, &chainMS[i].rot);
+					
+					// hinge constraint
+					if(i == 2)
+					{
+						fm_vec4 jointAxisNew;
+						fm_axis_to_vec4(hingeAxis, &jointAxisNew);
+						fm_quat_rot(&chainMS[i].rot, &jointAxisNew, &jointAxisNew);
+						fm_quat backRot;
+						fm_vec4_rot_between(&jointAxisNew, &jointAxis, &backRot);
+						fm_quat_mul(&backRot, &chainMS[i].rot, &chainMS[i].rot);
+					}
+					
+					// write back to LS
+					fm_quat_mul(&invMS, &chainMS[i].rot, &chainLS[i].rot);
+					fm_quat_norm(&chainLS[i].rot);
+					
+					// constrain angle
+					if(i == 2)
+					{
+						fm_vec4 rotAxis;
+						float rotAngle;
+						fm_quat_to_axis_angle(&chainLS[i].rot, &rotAxis, &rotAngle);
+						
+						if(fabsf(rotAngle) > 0.00001f)
+						{
+							if(rotAngle > FM_PI)
+							{
+								rotAngle -= 2 * FM_PI;
+							}
+							
+							fm_vec4 origRotAxis;
+							fm_axis_to_vec4(hingeAxis, &origRotAxis);
+							if(fm_vec4_dot(&origRotAxis, &rotAxis) > 0.0f)
+								rotAngle = fm_clamp(rotAngle, angleMin, angleMax);
+							else
+								rotAngle = fm_clamp(rotAngle, -angleMax, -angleMin);
+							
+							fm_quat_rot_axis_angle(&rotAxis, rotAngle, &chainLS[i].rot);
+							fm_xform_mul(&chainMS[ip], &chainLS[i], &chainMS[i]);	// update self MS
+						}
+					}
+					
+					// update children
+					for(uint32_t g=i; g<3; ++g)
+					{
+						fm_xform_mul(&chainMS[g], &chainLS[g+1], &chainMS[g+1]);
+					}
+				}
+			}
+			
+		}
+	}
+	
+	// write results to poseLS
+	poseLS->xforms[ikSetup->idxBegin] = chainLS[1];
+	poseLS->xforms[ikSetup->idxMid] = chainLS[2];
+	poseLS->xforms[ikSetup->idxEnd] = chainLS[3];
+}
+
 void fa_character_animate(fa_character_t* character, const fa_character_animate_ctx_t* ctx)
 {
 	// allocate pose stack and command buffer memory
@@ -1183,136 +1308,11 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			
 			fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
 			
-			{
-				static fm_vec4 targetOrig = {0.4f, -0.4f, 0.4f, 0.0f};
-				fm_vec4 targetFixed = targetOrig;
-				targetFixed.z += 0.1f;
-				
-				const fa_ik_setup_t* ikSetup = &character->rig->ikLeftLeg;
-				fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
-				
-				fm_xform chainLS[4] = {
-					poseLS.xforms[ikSetup->idxBeginParent],
-					poseLS.xforms[ikSetup->idxBegin],
-					poseLS.xforms[ikSetup->idxMid],
-					poseLS.xforms[ikSetup->idxEnd],
-				};
-				fm_xform chainMS[4] = {
-					poseMS.xforms[ikSetup->idxBeginParent],
-					poseMS.xforms[ikSetup->idxBegin],
-					poseMS.xforms[ikSetup->idxMid],
-					poseMS.xforms[ikSetup->idxEnd],
-				};
-				
-				const float angleMin = ikSetup->minAngle;
-				const float angleMax = ikSetup->maxAngle;
-				fm_axis_t hingeAxis = ikSetup->hingeAxisMid;
-				
-				fm_vec4 endEffector = chainMS[3].pos;
-				fm_vec4 target;
-				fm_vec4_lerp(&targetFixed, &endEffector, weightIK, &target);
-				
-				static uint32_t num_iterations = 20;
-				for(uint32_t it=0; it<num_iterations; ++it)
-				{
-					// recalculate model space
-					fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
-					
-					// loop bones in IK setup
-					for(uint32_t i=2; i>=1; --i)
-					{
-						const uint32_t ip = i-1;
-						
-						endEffector = chainMS[3].pos;
-						
-						fm_vec4 e_i;
-						fm_vec4_sub(&endEffector, &chainMS[i].pos, &e_i);
-						fm_vec4 t_i;
-						fm_vec4_sub(&target, &chainMS[i].pos, &t_i);
-						
-						fm_vec4_normalize(&e_i);
-						fm_vec4_normalize(&t_i);
-						const float angle = -acosf(fm_vec4_dot(&e_i, &t_i));
-						const bool canRot = fabsf(angle) > 0.0001f;
-						if(canRot)
-						{
-							fm_vec4 axis;
-							fm_vec4_cross(&e_i, &t_i, &axis);
-							if(fm_vec4_mag2(&axis) > 0.0f)
-							{
-								fm_vec4_normalize(&axis);
-								
-								fm_quat rot;
-								fm_quat_rot_axis_angle(&axis, angle, &rot);
-								
-								fm_quat invMS = chainMS[ip].rot;
-								fm_quat_conj(&invMS);
-								
-								// take axis for hinge
-								fm_vec4 jointAxis;
-								fm_axis_to_vec4(hingeAxis, &jointAxis);
-								fm_quat_rot(&chainMS[i].rot, &jointAxis, &jointAxis);
-								
-								// rotate
-								fm_quat_mul(&rot, &chainMS[i].rot, &chainMS[i].rot);
-								
-								// hinge constraint
-								if(i == 2)
-								{
-									fm_vec4 jointAxisNew;
-									fm_axis_to_vec4(hingeAxis, &jointAxisNew);
-									fm_quat_rot(&chainMS[i].rot, &jointAxisNew, &jointAxisNew);
-									fm_quat backRot;
-									fm_vec4_rot_between(&jointAxisNew, &jointAxis, &backRot);
-									fm_quat_mul(&backRot, &chainMS[i].rot, &chainMS[i].rot);
-								}
-								
-								// write back to LS
-								fm_quat_mul(&invMS, &chainMS[i].rot, &chainLS[i].rot);
-								fm_quat_norm(&chainLS[i].rot);
-								
-								// constrain angle
-								if(i == 2)
-								{
-									fm_vec4 rotAxis;
-									float rotAngle;
-									fm_quat_to_axis_angle(&chainLS[i].rot, &rotAxis, &rotAngle);
-									
-									if(fabsf(rotAngle) > 0.00001f)
-									{
-										if(rotAngle > FM_PI)
-										{
-											rotAngle -= 2 * FM_PI;
-										}
-										
-										fm_vec4 origRotAxis;
-										fm_axis_to_vec4(hingeAxis, &origRotAxis);
-										if(fm_vec4_dot(&origRotAxis, &rotAxis) > 0.0f)
-											rotAngle = fm_clamp(rotAngle, angleMin, angleMax);
-										else
-											rotAngle = fm_clamp(rotAngle, -angleMax, -angleMin);
-										
-										fm_quat_rot_axis_angle(&rotAxis, rotAngle, &chainLS[i].rot);
-										fm_xform_mul(&chainMS[ip], &chainLS[i], &chainMS[i]);	// update self MS
-									}
-								}
-								
-								// update children
-								for(uint32_t g=i; g<3; ++g)
-								{
-									fm_xform_mul(&chainMS[g], &chainLS[g+1], &chainMS[g+1]);
-								}
-							}
-						}
-						
-					}
-				}
-				
-				// write results to poseLS
-				poseLS.xforms[ikSetup->idxBegin] = chainLS[1];
-				poseLS.xforms[ikSetup->idxMid] = chainLS[2];
-				poseLS.xforms[ikSetup->idxEnd] = chainLS[3];
-			}
+			fm_vec4 leftTarget = {0.4f, -0.4f, 0.4f, 0.0f};
+			fm_vec4 rightTarget = {-0.4f, -0.4f, 0.4f, 0.0f};
+			
+			fa_character_leg_ik(character, &character->rig->ikLeftLeg, &poseLS, &poseMS, &leftTarget, weightIK);
+			fa_character_leg_ik(character, &character->rig->ikRightLeg, &poseLS, &poseMS, &rightTarget, weightIK);
 			
 			fa_pose_stack_pop(&poseStack, 1);
 		}
