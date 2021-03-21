@@ -146,15 +146,22 @@ static inline void fm_vec4_rot_between(const fm_vec4* from, const fm_vec4* to, f
 	fm_vec4_normalize(&toNorm);
 	
 	const float cosAlpha = fm_vec4_dot(&fromNorm, &toNorm);
-	const float alpha = acosf(cosAlpha);
-	fm_vec4 axis;
-	fm_vec4_cross(&fromNorm, &toNorm, &axis);
-	if(fm_vec4_mag2(&axis) > 0.0f)
+	const float alpha = -acosf(cosAlpha);
+	if(fabsf(alpha) > 0.0001f)
 	{
-		fm_vec4_normalize(&axis);
+		fm_vec4 axis;
+		fm_vec4_cross(&fromNorm, &toNorm, &axis);
+		if(fm_vec4_mag2(&axis) > 0.0f)
+		{
+			fm_vec4_normalize(&axis);
 
-		fm_quat_make_from_axis_angle(axis.x, axis.y, axis.z, alpha, rot);
-		fm_quat_norm(rot);
+			fm_quat_make_from_axis_angle(axis.x, axis.y, axis.z, alpha, rot);
+			fm_quat_norm(rot);
+		}
+		else
+		{
+			fm_quat_identity(rot);
+		}
 	}
 	else
 	{
@@ -458,10 +465,15 @@ static inline void fm_quat_add(fm_quat* v, const fm_quat* a, const fm_quat* b)
 	
 static inline void fm_quat_mul(const fm_quat* a, const fm_quat* b, fm_quat* c)
 {
-	c->i = a->r * b->i + a->k * b->j - a->j * b->k + a->i * b->r;
-	c->j = -a->k * b->i + a->r * b->j + a->i * b->k + a->j * b->r;
-	c->k = a->j * b->i - a->i * b->j + a->r * b->k + a->k * b->r;
-	c->r = -a->i * b->i - a->j * b->j - a->k * b->k + a->r * b->r;
+	const float i = a->r * b->i + a->k * b->j - a->j * b->k + a->i * b->r;
+	const float j = -a->k * b->i + a->r * b->j + a->i * b->k + a->j * b->r;
+	const float k = a->j * b->i - a->i * b->j + a->r * b->k + a->k * b->r;
+	const float r = -a->i * b->i - a->j * b->j - a->k * b->k + a->r * b->r;
+	
+	c->i = i;
+	c->j = j;
+	c->k = k;
+	c->r = r;
 }
 	
 static inline void fm_quat_mulf(fm_quat* c, const fm_quat* a, float t)
@@ -580,6 +592,26 @@ static inline void fm_quat_rot_axis_angle(const fm_vec4* axis, const float angle
 	q->j = scale * axis->y;
 	q->k = scale * axis->z;
 	q->r = cosf(angle / 2.0f);
+}
+
+static inline void fm_quat_to_axis_angle(const fm_quat* q, fm_vec4* axis, float* angle)
+{
+	*angle = acosf(q->r) * 2.0f;
+	if(fabsf(*angle) > 0.0001f)
+	{
+		const float scale = sinf(*angle / 2.0f);
+		axis->x = q->i / scale;
+		axis->y = q->j / scale;
+		axis->z = q->k / scale;
+		axis->w = 0.0f;
+	}
+	else
+	{
+		axis->x = 0.0f;
+		axis->y = 0.0f;
+		axis->z = 0.0f;
+		axis->w = 0.0f;
+	}
 }
 	
 static inline void fm_quat_make_from_axis_angle(float x, float y, float z, const float angle, fm_quat* q)

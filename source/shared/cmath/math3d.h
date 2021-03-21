@@ -200,6 +200,9 @@ extern "C"
 	
 	// make quaternion from axis and angle
 	static inline void fm_quat_rot_axis_angle(const fm_vec4* axis, const float angle, fm_quat* q);
+
+	// convert quaternion to axis and angle
+	static inline void fm_quat_to_axis_angle(const fm_quat* q, fm_vec4* axis, float* angle);
 	
 	// make quaternion from axis and angle
 	static inline void fm_quat_make_from_axis_angle(float x, float y, float z, const float angle, fm_quat* q);

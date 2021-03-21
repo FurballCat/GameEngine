@@ -1185,6 +1185,8 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			
 			{
 				static fm_vec4 targetOrig = {0.4f, -0.4f, 0.4f, 0.0f};
+				fm_vec4 targetFixed = targetOrig;
+				targetFixed.z += 0.1f;
 				
 				float colorRed[4] = FUR_COLOR_RED;
 				float colorBlue[4] = FUR_COLOR_BLUE;
@@ -1212,9 +1214,9 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 				
 				fm_vec4 endEffector = chainMS[3].pos;
 				fm_vec4 target;
-				fm_vec4_lerp(&targetOrig, &endEffector, weightIK, &target);
+				fm_vec4_lerp(&targetFixed, &endEffector, weightIK, &target);
 				
-				const uint32_t num_iterations = 4;
+				static uint32_t num_iterations = 20;
 				for(uint32_t it=0; it<num_iterations; ++it)
 				{
 					// recalculate model space
@@ -1223,7 +1225,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 					// loop bones in IK setup
 					for(uint32_t i=2; i>=1; --i)
 					{
-						uint32_t ip = i-1;
+						const uint32_t ip = i-1;
 						
 						endEffector = chainMS[3].pos;
 						
@@ -1250,25 +1252,58 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 								fm_quat invMS = chainMS[ip].rot;
 								fm_quat_conj(&invMS);
 								
-								fm_quat rotBefore2 = chainMS[i].rot;
-								fm_quat_mul(&rot, &rotBefore2, &chainMS[i].rot);
+								// take axis for hinge
+								fm_vec4 jointAxis = {0.0f, 0.0f, 1.0f, 0.0f};
+								fm_quat_rot(&chainMS[i].rot, &jointAxis, &jointAxis);
 								
-								fm_quat rotBefore = chainMS[i].rot;
-								fm_quat_mul(&invMS, &rotBefore, &chainLS[i].rot);
+								// rotate
+								fm_quat_mul(&rot, &chainMS[i].rot, &chainMS[i].rot);
+								
+								// hinge constraint
+								if(i == 2)
+								{
+									fm_vec4 jointAxisNew = {0.0f, 0.0f, 1.0f, 0.0f};
+									fm_quat_rot(&chainMS[i].rot, &jointAxisNew, &jointAxisNew);
+									fm_quat backRot;
+									fm_vec4_rot_between(&jointAxisNew, &jointAxis, &backRot);
+									fm_quat_mul(&backRot, &chainMS[i].rot, &chainMS[i].rot);
+								}
+								
+								// write back to LS
+								fm_quat_mul(&invMS, &chainMS[i].rot, &chainLS[i].rot);
+								fm_quat_norm(&chainLS[i].rot);
+								
+								// constrain angle
+								if(i == 2)
+								{
+									static float angleMin = 0.05f;
+									static float angleMax = 2.8f;
+									fm_vec4 rotAxis;
+									float rotAngle;
+									fm_quat_to_axis_angle(&chainLS[i].rot, &rotAxis, &rotAngle);
+									
+									if(fabsf(rotAngle) > 0.00001f)
+									{
+										if(rotAngle > FM_PI)
+										{
+											rotAngle -= 2 * FM_PI;
+										}
+										
+										fm_vec4 origRotAxis = {0.0f, 0.0f, 1.0f, 0.0f};
+										if(fm_vec4_dot(&origRotAxis, &rotAxis) > 0.0f)
+											rotAngle = fm_clamp(rotAngle, angleMin, angleMax);
+										else
+											rotAngle = fm_clamp(rotAngle, -angleMax, -angleMin);
+										
+										fm_quat_rot_axis_angle(&rotAxis, rotAngle, &chainLS[i].rot);
+										fm_xform_mul(&chainMS[ip], &chainLS[i], &chainMS[i]);	// update self MS
+									}
+								}
 								
 								// update children
 								for(uint32_t g=i; g<3; ++g)
 								{
 									fm_xform_mul(&chainMS[g], &chainLS[g+1], &chainMS[g+1]);
-								}
-								
-								// hinge constraint
-								{
-									const fm_vec4 jointAxis = {0.0f, 0.0f, 1.0f, 0.0f};
-									fm_vec4 jointNewAxis = {0.0f, 0.0f, 1.0f, 0.0f};
-									fm_quat_rot(&rot, &jointAxis, &jointNewAxis);
-									fm_quat backRot;
-									fm_vec4_rot_between(&jointNewAxis, &jointAxis, &backRot);
 								}
 							}
 						}
