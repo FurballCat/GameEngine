@@ -913,6 +913,8 @@ void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup
 		poseMS->xforms[ikSetup->idxEnd],
 	};
 	
+	fm_quat originalFootMS = chainMS[3].rot;
+	
 	const float angleMin = ikSetup->minAngle;
 	const float angleMax = ikSetup->maxAngle;
 	fm_axis_t hingeAxis = ikSetup->hingeAxisMid;
@@ -1013,6 +1015,13 @@ void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup
 			
 		}
 	}
+	
+	// recreate original foot MS orientation
+	fm_quat invCurrKneeMS = chainMS[2].rot;
+	fm_quat_conj(&invCurrKneeMS);
+	fm_quat footCorrection;
+	fm_quat_mul(&invCurrKneeMS, &originalFootMS, &footCorrection);
+	chainLS[3].rot = footCorrection;
 	
 	// write results to poseLS
 	poseLS->xforms[ikSetup->idxBegin] = chainLS[1];
@@ -1309,9 +1318,40 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
 			
 			fm_vec4 leftTarget = poseMS.xforms[character->rig->ikLeftLeg.idxEnd].pos;
-			leftTarget.z = 0.2f;
+			leftTarget.z = -0.2f;
 			fm_vec4 rightTarget = poseMS.xforms[character->rig->ikRightLeg.idxEnd].pos;
 			rightTarget.z = 0.0f;
+			
+			// pelvis height correction
+			{
+				fm_vec4 leftHipPos = poseMS.xforms[character->rig->ikLeftLeg.idxBeginParent].pos;
+				fm_vec4 rightHipPos = poseMS.xforms[character->rig->ikRightLeg.idxBeginParent].pos;
+				fm_vec4 leftTargetDir;
+				fm_vec4_sub(&leftTarget, &leftHipPos, &leftTargetDir);
+				fm_vec4 rightTargetDir;
+				fm_vec4_sub(&rightTarget, &rightHipPos, &rightTargetDir);
+				
+				const float leftDistance = fm_vec4_mag(&leftTargetDir);
+				const float rightDistance = fm_vec4_mag(&rightTargetDir);
+				fm_vec4 leftLegVec = poseLS.xforms[character->rig->ikLeftLeg.idxMid].pos;
+				fm_vec4_add(&leftLegVec, &poseLS.xforms[character->rig->ikLeftLeg.idxEnd].pos, &leftLegVec);
+				fm_vec4 rightLegVec = poseLS.xforms[character->rig->ikRightLeg.idxMid].pos;
+				fm_vec4_add(&rightLegVec, &poseLS.xforms[character->rig->ikRightLeg.idxEnd].pos, &rightLegVec);
+				
+				const float footCorrectionDistance = 0.1f;
+				
+				const float leftLegLength = fm_vec4_mag(&leftLegVec) + footCorrectionDistance;
+				const float rightLegLength = fm_vec4_mag(&rightLegVec) + footCorrectionDistance;
+				
+				float pelvisCorrectionHeight = 0.0f;
+				if(leftLegLength < leftDistance)
+					pelvisCorrectionHeight = leftDistance - leftLegLength;
+				if(rightLegLength < (rightDistance - pelvisCorrectionHeight))
+					pelvisCorrectionHeight = rightDistance - rightLegLength;
+				
+				poseLS.xforms[character->rig->ikLeftLeg.idxBeginParent].pos.y -= pelvisCorrectionHeight * weightIK;
+				fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
+			}
 			
 			fa_character_leg_ik(character, &character->rig->ikLeftLeg, &poseLS, &poseMS, &leftTarget, weightIK);
 			fa_character_leg_ik(character, &character->rig->ikRightLeg, &poseLS, &poseMS, &rightTarget, weightIK);
