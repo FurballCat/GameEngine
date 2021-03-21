@@ -14,6 +14,9 @@ void fa_rig_release(fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks)
 	FUR_FREE(rig->parents, pAllocCallbacks);
 	FUR_FREE(rig->refPose, pAllocCallbacks);
 	
+	if(rig->maskUpperBody)
+		FUR_FREE(rig->maskUpperBody, pAllocCallbacks);
+	
 	FUR_FREE(rig, pAllocCallbacks);
 }
 
@@ -26,6 +29,14 @@ int16_t fa_rig_find_bone_idx(const fa_rig_t* rig, fc_string_hash_t name)
 	}
 	
 	return -1;
+}
+
+const uint8_t* fa_rig_get_mask(const fa_rig_t* rig, fa_mask_t mask)
+{
+	if(mask == FA_MASK_UPPER_BODY)
+		return rig->maskUpperBody;
+	
+	return NULL;
 }
 
 void fa_anim_clip_release(fa_anim_clip_t* clip, fc_alloc_callbacks_t* pAllocCallbacks)
@@ -890,6 +901,55 @@ void fa_cmd_use_cached_pose(fa_cmd_buffer_recorder_t* recorder, uint16_t poseId)
 	recorder->poseStackSizeTracking += 1;
 }
 
+// apply mask command
+typedef struct fa_cmd_apply_mask_data_t
+{
+	uint16_t maskId;
+} fa_cmd_apply_mask_data_t;
+
+fa_cmd_status_t fa_cmd_impl_apply_mask(fa_cmd_context_t* ctx, const void* cmdData)
+{
+	fa_cmd_apply_mask_data_t* data = (fa_cmd_apply_mask_data_t*)cmdData;
+	const uint8_t* mask = fa_rig_get_mask(ctx->rig, data->maskId);
+	if(!mask)
+	{
+		if(ctx->debug)
+		{
+			const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
+			const float color[4] = FUR_COLOR_RED;
+			fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), "apply_mask id=<INNVALID>", color);
+		}
+		
+		return FA_CMD_STATUS_OK;
+	}
+	
+	fa_pose_t pose;
+	fa_pose_stack_get(ctx->poseStack, &pose, 0);
+	
+	for(uint32_t i=0; i<pose.numXforms; ++i)
+	{
+		const uint16_t weight = ((uint16_t)pose.weightsXforms[i] * (uint16_t)mask[i]) / 255;
+		pose.weightsXforms[i] = (uint8_t)weight;
+	}
+	
+	if(ctx->debug)
+	{
+		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
+		const float color[4] = FUR_COLOR_WHITE;
+		char txt[128];
+		sprintf(txt, "apply_mask id=%i", data->maskId);
+		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
+	}
+	
+	return FA_CMD_STATUS_OK;
+}
+
+void fa_cmd_apply_mask(fa_cmd_buffer_recorder_t* recorder, uint16_t maskId)
+{
+	fa_cmd_apply_mask_data_t data = { maskId };
+	fa_cmd_buffer_write(recorder, fa_cmd_impl_apply_mask, &data, sizeof(fa_cmd_apply_mask_data_t));
+}
+
 void fa_action_reset(fa_action_t* action)
 {
 	memset(action, 0, sizeof(fa_action_t));
@@ -1453,6 +1513,69 @@ void fa_character_schedule_action_simple(fa_character_t* character, fa_action_an
 	actionSlot->globalStartTime = currGlobalTime;
 	actionSlot->args = *args;
 }
+
+// -----
+
+void fa_action_animate_test_func(const fa_action_ctx_t* ctx, void* userData)
+{
+	fa_action_animate_test_t* data = (fa_action_animate_test_t*)userData;
+	
+	const float d_0 = data->anims[0]->duration;
+	const float t_0 = fmodf(ctx->localTime, d_0);
+	
+	const float d_1 = data->anims[1]->duration;
+	const float t_1 = fmodf(ctx->localTime, d_1);
+	
+	fa_cmd_anim_sample(ctx->cmdRecorder, t_0, 0);
+	fa_cmd_anim_sample(ctx->cmdRecorder, t_1, 1);
+	fa_cmd_apply_mask(ctx->cmdRecorder, FA_MASK_UPPER_BODY);
+	fa_cmd_blend2(ctx->cmdRecorder, 1.0f);
+}
+
+const fa_anim_clip_t** fa_action_animate_test_get_anims_func(const void* userData, uint32_t* numAnims)
+{
+	const fa_action_animate_test_t* data = (const fa_action_animate_test_t*)userData;
+	*numAnims = 2;
+	return (const fa_anim_clip_t**)&data->anims;	// todo: check it, is this return correct?
+}
+
+void fa_character_schedule_action_test_simple(fa_character_t* character, fa_action_animate_test_t* action, const fa_action_args_t* args, uint64_t currGlobalTime)
+{
+	fa_layer_t* layer = &character->layers[FA_CHAR_LAYER_BODY];
+	
+	fa_action_t* actionSlot = NULL;
+	
+	if(layer->currAction.userData == NULL)
+	{
+		actionSlot = &layer->currAction;
+	}
+	else if(layer->nextAction.userData == NULL)
+	{
+		actionSlot = &layer->nextAction;
+	}
+	else if(layer->scheduledActions[0].userData == NULL)
+	{
+		actionSlot = &layer->scheduledActions[0];
+	}
+	else if(layer->scheduledActions[1].userData == NULL)
+	{
+		actionSlot = &layer->scheduledActions[1];
+	}
+	else
+	{
+		layer->scheduledActions[0] = layer->scheduledActions[1];
+		fa_action_reset(&layer->scheduledActions[1]);
+		actionSlot = &layer->scheduledActions[1];
+	}
+	
+	actionSlot->userData = action;
+	actionSlot->func = fa_action_animate_test_func;
+	actionSlot->getAnimsFunc = fa_action_animate_test_get_anims_func;
+	actionSlot->globalStartTime = currGlobalTime;
+	actionSlot->args = *args;
+}
+
+// -----
 
 void fa_dangle_simulate_single_step(fa_dangle* dangle, float dt)
 {

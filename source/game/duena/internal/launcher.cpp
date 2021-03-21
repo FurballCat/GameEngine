@@ -287,6 +287,7 @@ struct FurGameEngine
 	fa_action_animate_t animSimpleAction;
 	fa_action_animate_t animSimpleAction2;
 	fa_action_animate_t animSimpleAction3;
+	fa_action_animate_test_t actionTest;
 	
 	// skinning
 	fm_mat4 skinMatrices[512];
@@ -411,6 +412,39 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 					ik->minAngle = 0.02f;
 					ik->maxAngle = 2.8f;
 				}
+				
+				// masks
+				{
+					pEngine->pRig->maskUpperBody = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+					const int16_t idxSpine = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Spine"));
+					const fc_string_hash_t hashes[9] = {
+						SID("Bip001_Pelvis"),
+						SID("Bip001_Thigh_L"),
+						SID("Bip001_Calf_L"),
+						SID("Bip001_Foot_L"),
+						SID("Bip001_Thigh_R"),
+						SID("Bip001_Calf_R"),
+						SID("Bip001_Foot_R"),
+						SID("Bip001_Spine"),
+						SID("Bip001_Spine1")
+					};
+					if(idxSpine != -1)
+					{
+						for(uint32_t i=0; i<pEngine->pRig->numBones; ++i)
+						{
+							uint8_t w = 255;
+							for(uint32_t j=0; j<9; ++j)
+							{
+								if(pEngine->pRig->boneNameHashes[i] == hashes[j])
+								{
+									w = 0;
+									break;
+								}
+							}
+							pEngine->pRig->maskUpperBody[i] = w;
+						}
+					}
+				}
 			}
 		}
 
@@ -452,6 +486,9 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		
 		pEngine->animSimpleAction.animation = pEngine->pAnimClipGesture;
 		pEngine->animSimpleAction.forceLoop = true;
+		
+		pEngine->actionTest.anims[0] = pEngine->pAnimClipIdle;
+		pEngine->actionTest.anims[1] = pEngine->pAnimClipGesture;
 		
 		fa_action_args_t args = {};
 		args.fadeInSec = 0.3f;
@@ -645,6 +682,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 	if(pEngine->inActionPressed)
 		actionRandomizer += 1;
 	
+#if 0
 	if(pEngine->inActionPressed && ((actionRandomizer % 2) == 1))
 	{
 		pEngine->animSimpleAction2.animation = pEngine->pAnimClipIdle;
@@ -655,6 +693,14 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		args.ikMode = FA_IK_MODE_LEGS;
 		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction2, &args, globalTime);
 	}
+#else
+	if(pEngine->inActionPressed && ((actionRandomizer % 2) == 1))
+	{
+		fa_action_args_t args = {};
+		args.fadeInSec = 0.5f;
+		fa_character_schedule_action_test_simple(&pEngine->animCharacterZelda, &pEngine->actionTest, &args, globalTime);
+	}
+#endif
 	
 	if(pEngine->inActionPressed &&((actionRandomizer % 2) == 0))
 	{

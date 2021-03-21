@@ -40,6 +40,12 @@ typedef struct fa_ik_setup_t
 	float maxAngle;
 } fa_ik_setup_t;
 
+typedef enum fa_mask_t
+{
+	FA_MASK_UPPER_BODY = 0,
+	FA_MASK_NONE,
+} fa_mask_t;
+
 typedef struct fa_rig_t
 {
 	fc_string_hash_t* boneNameHashes;
@@ -52,10 +58,13 @@ typedef struct fa_rig_t
 	// inverse kinematics
 	fa_ik_setup_t ikLeftLeg;
 	fa_ik_setup_t ikRightLeg;
+	
+	uint8_t* maskUpperBody;
 } fa_rig_t;
 
 CANIM_API void fa_rig_release(fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks);
 CANIM_API int16_t fa_rig_find_bone_idx(const fa_rig_t* rig, fc_string_hash_t name);
+CANIM_API const uint8_t* fa_rig_get_mask(const fa_rig_t* rig, fa_mask_t mask);
 	
 typedef struct fa_anim_curve_key_t
 {
@@ -262,6 +271,7 @@ CANIM_API void fa_cmd_blend2(fa_cmd_buffer_recorder_t* recorder, float alpha);
 CANIM_API void fa_cmd_blend_override(fa_cmd_buffer_recorder_t* recorder, float alpha, uint16_t maskId);
 CANIM_API void fa_cmd_blend_additive(fa_cmd_buffer_recorder_t* recorder, float alpha);
 CANIM_API void fa_cmd_use_cached_pose(fa_cmd_buffer_recorder_t* recorder, uint16_t poseId);
+CANIM_API void fa_cmd_apply_mask(fa_cmd_buffer_recorder_t* recorder, uint16_t maskId);
 	
 // **************** CHARACTER **************** //
 	
@@ -325,7 +335,7 @@ typedef struct fa_layer_t
 // fa_action_scheduler_t
 // - linked list of actions to schedule, you can put as many as you want, when ticked, it might cache pose of character
 // - perhaps when character is invisible, then skip to the last action?
-	
+
 typedef struct fa_character_t
 {
 	const fa_rig_t* rig;
@@ -362,6 +372,18 @@ CANIM_API void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData
 CANIM_API const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* userData, uint32_t* numAnims);
 
 CANIM_API void fa_character_schedule_action_simple(fa_character_t* character, fa_action_animate_t* action, const fa_action_args_t* args, uint64_t currGlobalTime);
+
+// test play two animations action
+typedef struct fa_action_animate_test_t
+{
+	fa_anim_clip_t* anims[2];
+	float alpha;
+} fa_action_animate_test_t;
+	
+CANIM_API void fa_action_animate_test_func(const fa_action_ctx_t* ctx, void* userData);
+CANIM_API const fa_anim_clip_t** fa_action_animate_test_get_anims_func(const void* userData, uint32_t* numAnims);
+
+CANIM_API void fa_character_schedule_action_test_simple(fa_character_t* character, fa_action_animate_test_t* action, const fa_action_args_t* args, uint64_t currGlobalTime);
 
 typedef struct fa_dangle
 {
