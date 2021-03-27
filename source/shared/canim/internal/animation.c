@@ -240,7 +240,7 @@ float fa_decompress_key_time(const uint16_t time)
 	return ((float)time) / 24.0f;
 }
 
-void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose)
+void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive, fa_pose_t* pose)
 {
 	const uint32_t numCurves = clip->numCurves;
 	
@@ -330,6 +330,18 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose
 		}
 		
 		pose->weightsXforms[idxXform] = 255;
+		
+		if(asAdditive)
+		{
+			fm_xform firstKey;
+			fa_decompress_rotation_key(&curve->keys[0], &firstKey.rot);
+			fa_decompress_position_key(&curve->posKeys[0], &firstKey.pos);
+			
+			fm_quat_conj(&firstKey.rot);
+			
+			fm_quat_mul(&firstKey.rot, &pose->xforms[idxXform].rot, &pose->xforms[idxXform].rot);
+			fm_vec4_sub(&pose->xforms[idxXform].pos, &firstKey.pos, &pose->xforms[idxXform].pos);
+		}
 	}
 	
 	for(uint32_t i=numCurves; i<pose->numXforms; ++i)
@@ -517,6 +529,50 @@ void fa_pose_blend_linear(fa_pose_t* out, const fa_pose_t* b, const fa_pose_t* a
 			a_weights++;
 			b_weights++;
 			out_weights++;
+		}
+	}
+}
+
+CANIM_API void fa_pose_apply_additive(fa_pose_t* out, const fa_pose_t* base, const fa_pose_t* add, float weight)
+{
+	// blend xforms
+	{
+		const uint32_t numXforms = out->numXforms;
+		const fm_xform* base_xforms = base->xforms;
+		const fm_xform* add_xforms = add->xforms;
+		fm_xform* out_xforms = out->xforms;
+		
+		if(weight == 1.0f)
+		{
+			for(uint32_t i=0; i<numXforms; ++i)
+			{
+				fm_xform_mul(&base_xforms[i], &add_xforms[i], &out_xforms[i]);
+			}
+		}
+		else
+		{
+			for(uint32_t i=0; i<numXforms; ++i)
+			{
+				fm_xform addXform = add_xforms[i];
+				fm_vec4_mulf(&addXform.pos, weight, &addXform.pos);
+				fm_quat identity;
+				fm_quat_identity(&identity);
+				fm_quat_slerp(&identity, &addXform.rot, weight, &addXform.rot);
+				fm_xform_mul(&base_xforms[i], &addXform, &out_xforms[i]);
+			}
+		}
+	}
+	
+	// blend tracks
+	{
+		const uint32_t numTracks = out->numTracks;
+		const float* base_tracks = base->tracks;
+		const float* add_tracks = add->tracks;
+		float* out_tracks = out->tracks;
+		
+		for(uint32_t i=0; i<numTracks; ++i)
+		{
+			out_tracks[i] = base_tracks[i] + add_tracks[i] * weight;
 		}
 	}
 }
@@ -774,6 +830,7 @@ typedef struct fa_cmd_anim_sample_data_t
 {
 	float time;
 	uint16_t animClipId;
+	bool asAdditive;
 } fa_cmd_anim_sample_data_t;
 
 fa_cmd_status_t fa_cmd_impl_anim_sample(fa_cmd_context_t* ctx, const void* cmdData)
@@ -787,24 +844,33 @@ fa_cmd_status_t fa_cmd_impl_anim_sample(fa_cmd_context_t* ctx, const void* cmdDa
 	fa_pose_t pose;
 	fa_pose_stack_get(ctx->poseStack, &pose, 0);
 	
+	FUR_ASSERT(pose.numXforms == ctx->rig->numBones);
+	
 	// temporary ref pose write - todo: remove that, this should be part of anim clip sampling function
+	if(!data->asAdditive)
 	{
-		FUR_ASSERT(pose.numXforms == ctx->rig->numBones);
-		
 		for(uint32_t i=0; i<pose.numXforms; ++i)
 		{
 			pose.xforms[i] = ctx->rig->refPose[i];
 			pose.weightsXforms[i] = 255;
 		}
-		
-		for(uint32_t i=0; i<pose.numTracks; ++i)
+	}
+	else
+	{
+		for(uint32_t i=0; i<pose.numXforms; ++i)
 		{
-			pose.tracks[i] = 0.0f;
-			pose.weightsTracks[i] = 255;
+			fm_xform_identity(&pose.xforms[i]);
+			pose.weightsXforms[i] = 255;
 		}
 	}
 	
-	fa_anim_clip_sample(clip, data->time, &pose);
+	for(uint32_t i=0; i<pose.numTracks; ++i)
+	{
+		pose.tracks[i] = 0.0f;
+		pose.weightsTracks[i] = 255;
+	}
+	
+	fa_anim_clip_sample(clip, data->time, data->asAdditive, &pose);
 	
 	if(ctx->debug)
 	{
@@ -820,7 +886,14 @@ fa_cmd_status_t fa_cmd_impl_anim_sample(fa_cmd_context_t* ctx, const void* cmdDa
 
 void fa_cmd_anim_sample(fa_cmd_buffer_recorder_t* recorder, float time, uint16_t animClipId)
 {
-	fa_cmd_anim_sample_data_t data = { time, animClipId };
+	fa_cmd_anim_sample_data_t data = { time, animClipId, false };
+	fa_cmd_buffer_write(recorder, fa_cmd_impl_anim_sample, &data, sizeof(fa_cmd_anim_sample_data_t));
+	recorder->poseStackSizeTracking += 1;
+}
+
+void fa_cmd_anim_sample_additive(fa_cmd_buffer_recorder_t* recorder, float time, uint16_t animClipId)
+{
+	fa_cmd_anim_sample_data_t data = { time, animClipId, true };
 	fa_cmd_buffer_write(recorder, fa_cmd_impl_anim_sample, &data, sizeof(fa_cmd_anim_sample_data_t));
 	recorder->poseStackSizeTracking += 1;
 }
@@ -861,6 +934,45 @@ void fa_cmd_blend2(fa_cmd_buffer_recorder_t* recorder, float alpha)
 {
 	fa_cmd_blend2_data_t data = { alpha };
 	fa_cmd_buffer_write(recorder, fa_cmd_impl_blend2, &data, sizeof(fa_cmd_blend2_data_t));
+	recorder->poseStackSizeTracking -= 1;
+}
+
+// blend additive command, pose depth-0 is additive, pose depth-1 is base
+typedef struct fa_cmd_apply_additive_data_t
+{
+	float weight;
+} fa_cmd_apply_additive_data_t;
+
+fa_cmd_status_t fa_cmd_impl_apply_additive(fa_cmd_context_t* ctx, const void* cmdData)
+{
+	fa_cmd_apply_additive_data_t* data = (fa_cmd_apply_additive_data_t*)cmdData;
+	
+	fa_pose_t poseAdd;
+	fa_pose_stack_get(ctx->poseStack, &poseAdd, 0);
+	
+	fa_pose_t poseBase;
+	fa_pose_stack_get(ctx->poseStack, &poseBase, 1);
+	
+	fa_pose_apply_additive(&poseBase, &poseBase, &poseAdd, data->weight);
+	
+	fa_pose_stack_pop(ctx->poseStack, 1);
+	
+	if(ctx->debug)
+	{
+		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
+		const float color[4] = FUR_COLOR_WHITE;
+		char txt[128];
+		sprintf(txt, "apply additive w=%1.2f", data->weight);
+		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
+	}
+	
+	return FA_CMD_STATUS_OK;
+}
+
+void fa_cmd_apply_additive(fa_cmd_buffer_recorder_t* recorder, float weight)
+{
+	fa_cmd_apply_additive_data_t data = { weight };
+	fa_cmd_buffer_write(recorder, fa_cmd_impl_apply_additive, &data, sizeof(fa_cmd_apply_additive_data_t));
 	recorder->poseStackSizeTracking -= 1;
 }
 
@@ -1398,7 +1510,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 				fm_vec4 rightLegVec = poseLS.xforms[character->rig->ikRightLeg.idxMid].pos;
 				fm_vec4_add(&rightLegVec, &poseLS.xforms[character->rig->ikRightLeg.idxEnd].pos, &rightLegVec);
 				
-				const float footCorrectionDistance = 0.1f;
+				const float footCorrectionDistance = 0.15f;
 				
 				const float leftLegLength = fm_vec4_mag(&leftLegVec) + footCorrectionDistance;
 				const float rightLegLength = fm_vec4_mag(&rightLegVec) + footCorrectionDistance;
@@ -1526,10 +1638,16 @@ void fa_action_animate_test_func(const fa_action_ctx_t* ctx, void* userData)
 	const float d_1 = data->anims[1]->duration;
 	const float t_1 = fmodf(ctx->localTime, d_1);
 	
+#if 0
 	fa_cmd_anim_sample(ctx->cmdRecorder, t_0, 0);
 	fa_cmd_anim_sample(ctx->cmdRecorder, t_1, 1);
 	fa_cmd_apply_mask(ctx->cmdRecorder, FA_MASK_UPPER_BODY);
 	fa_cmd_blend2(ctx->cmdRecorder, 1.0f);
+#else
+	fa_cmd_anim_sample(ctx->cmdRecorder, t_0, 0);
+	fa_cmd_anim_sample_additive(ctx->cmdRecorder, t_1, 1);
+	fa_cmd_apply_additive(ctx->cmdRecorder, 1.0f);
+#endif
 }
 
 const fa_anim_clip_t** fa_action_animate_test_get_anims_func(const void* userData, uint32_t* numAnims)
@@ -1600,8 +1718,6 @@ void fa_dangle_simulate_single_step(fa_dangle* dangle, float dt)
 		fm_vec4_add(&dangle->x0[i], &vel, &dangle->p[i]);
 	}
 	
-	const float inv_dt = (dt > 0.00000001f) ? 1.0f / dt : 0.0f;
-	
 	const uint32_t numIterations = 4;
 	for(uint32_t it=0; it<numIterations; ++it)
 	{
@@ -1622,9 +1738,27 @@ void fa_dangle_simulate_single_step(fa_dangle* dangle, float dt)
 			fm_vec4_mulf(&disp, constraintDist, &disp);
 			
 			fm_vec4_add(&dangle->p[i], &disp, &dangle->p[i]);
+			
+			// sphere collision constraint
+			if(dangle->spherePos)
+			{
+				const fm_vec4 spherePos = *dangle->spherePos;
+				const float sphereRadius = dangle->sphereRadius;
+				
+				fm_vec4 sphereDir;
+				fm_vec4_sub(&dangle->p[i], &spherePos, &sphereDir);
+				float sphereDist = fm_vec4_mag(&sphereDir);
+				if(sphereDist < sphereRadius)
+				{
+					fm_vec4_normalize(&sphereDir);
+					fm_vec4_mulf(&sphereDir, sphereRadius - sphereDist, &sphereDir);
+					fm_vec4_add(&dangle->p[i], &sphereDir, &dangle->p[i]);
+				}
+			}
 		}
 	}
 	
+	const float inv_dt = (dt > 0.00000001f) ? 1.0f / dt : 0.0f;
 	for(uint32_t i=1; i<count; ++i)	// start from 1, as 0 is attach point
 	{
 		fm_vec4_sub(&dangle->p[i], &dangle->x0[i], &dangle->v[i]);

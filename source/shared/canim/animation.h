@@ -167,13 +167,14 @@ CANIM_API void fa_pose_set_reference(const fa_rig_t* rig, fa_pose_t* pose);
 	
 // -----
 	
-CANIM_API void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, fa_pose_t* pose);
+CANIM_API void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive, fa_pose_t* pose);
 CANIM_API void fa_anim_clip_sample_motion(const fa_anim_clip_t* clip, float timeBegin, float timeEnd, fm_xform* motion);
 
 CANIM_API void fa_pose_copy(fa_pose_t* dest, const fa_pose_t* src);
 CANIM_API void fa_pose_local_to_model(fa_pose_t* modelPose, const fa_pose_t* localPose, const int16_t* parentIndices);
 	
 CANIM_API void fa_pose_blend_linear(fa_pose_t* out, const fa_pose_t* a, const fa_pose_t* b, float alpha);
+CANIM_API void fa_pose_apply_additive(fa_pose_t* out, const fa_pose_t* base, const fa_pose_t* add, float weight);
 
 // -----
 	
@@ -267,6 +268,7 @@ CANIM_API void fa_cmd_end(fa_cmd_buffer_recorder_t* recorder);
 CANIM_API void fa_cmd_ref_pose(fa_cmd_buffer_recorder_t* recorder);
 CANIM_API void fa_cmd_identity(fa_cmd_buffer_recorder_t* recorder);
 CANIM_API void fa_cmd_anim_sample(fa_cmd_buffer_recorder_t* recorder, float time, uint16_t animClipId);
+CANIM_API void fa_cmd_anim_sample_additive(fa_cmd_buffer_recorder_t* recorder, float time, uint16_t animClipId);
 CANIM_API void fa_cmd_blend2(fa_cmd_buffer_recorder_t* recorder, float alpha);
 CANIM_API void fa_cmd_blend_override(fa_cmd_buffer_recorder_t* recorder, float alpha, uint16_t maskId);
 CANIM_API void fa_cmd_blend_additive(fa_cmd_buffer_recorder_t* recorder, float alpha);
@@ -396,6 +398,10 @@ typedef struct fa_dangle
 	float tAcc;
 	float freq;
 	float damping;
+	
+	// collision
+	fm_vec4* spherePos;
+	float sphereRadius;
 } fa_dangle;
 
 typedef struct fa_dangle_sim_ctx

@@ -313,6 +313,7 @@ struct FurGameEngine
 	uint32_t zeldaDangleHairLeftIdx2;
 	uint32_t zeldaDangleHairRightIdx1;
 	uint32_t zeldaDangleHairRightIdx2;
+	uint32_t zeldaHeadIdx;
 };
 
 // Furball Cat - Platform
@@ -545,6 +546,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		const fc_string_hash_t hair_r2 = SID("Bip001_Hair1_R");
 		const fc_string_hash_t hair_l = SID("Bip001_Hair_L");
 		const fc_string_hash_t hair_l2 = SID("Bip001_Hair1_L");
+		const fc_string_hash_t head = SID("Bip001_Head");
 		
 		for(uint32_t i=0; i<pEngine->pRig->numBones; ++i)
 		{
@@ -556,6 +558,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 				pEngine->zeldaDangleHairLeftIdx1 = i;
 			else if(pEngine->pRig->boneNameHashes[i] == hair_l2)
 				pEngine->zeldaDangleHairLeftIdx2 = i;
+			else if(pEngine->pRig->boneNameHashes[i] == head)
+				pEngine->zeldaHeadIdx = i;
 		}
 		
 		fm_xform refPoseLeft2 = pEngine->pRig->refPose[pEngine->zeldaDangleHairLeftIdx2];
@@ -782,6 +786,13 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		fa_dangle_sim_ctx simCtx {};
 		simCtx.dt = dt;
 		
+		fm_vec4 spherePos = pEngine->skinMatrices[pEngine->zeldaHeadIdx].w;
+		const float sphereRadius = 0.08f;
+		pEngine->zeldaDangleHairLeft.spherePos = &spherePos;
+		pEngine->zeldaDangleHairLeft.sphereRadius = sphereRadius;
+		pEngine->zeldaDangleHairRight.spherePos = &spherePos;
+		pEngine->zeldaDangleHairRight.sphereRadius = sphereRadius;
+		
 		pEngine->zeldaDangleHairLeft.x0[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1].w;
 		pEngine->zeldaDangleHairRight.x0[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1].w;
 		fa_dangle_simulate(&simCtx, &pEngine->zeldaDangleHairLeft);
@@ -838,8 +849,8 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 	
 	// rendering
 	{
-		const fm_vec4 g_eye = {-3, -3, 1.55, 0};
-		const fm_vec4 g_at = {0, 0, 1, 0};
+		const fm_vec4 g_eye = {-3, -3, 1.1, 0};
+		const fm_vec4 g_at = {0, 0, 0.8, 0};
 		const fm_vec4 g_up = {0, 0, 1, 0};
 		
 		fm_vec4 eye = g_eye;

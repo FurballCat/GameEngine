@@ -105,6 +105,9 @@ extern "C"
 	// subtract b from a and save to v
 	static inline void fm_vec4_sub(const fm_vec4* a, const fm_vec4* b, fm_vec4* v);
 	
+	// negate vector (v = -v)
+	static inline void fm_vec4_neg(fm_vec4* v);
+
 	// magnitude of a vector
 	static inline float fm_vec4_mag(const fm_vec4* v);
 

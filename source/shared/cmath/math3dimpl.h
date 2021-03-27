@@ -87,6 +87,14 @@ static inline void fm_vec4_sub(const fm_vec4* a, const fm_vec4* b, fm_vec4* v)
 	v->w = a->w - b->w;
 }
 
+static inline void fm_vec4_neg(fm_vec4* v)
+{
+	v->x = -v->x;
+	v->y = -v->y;
+	v->z = -v->z;
+	v->w = -v->w;
+}
+
 static inline float fm_vec4_mag(const fm_vec4* v)
 {
 	return sqrtf(v->x * v->x + v->y * v->y + v->z * v->z + v->w * v->w);
