@@ -65,7 +65,21 @@ typedef struct fa_rig_t
 CANIM_API void fa_rig_release(fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks);
 CANIM_API int16_t fa_rig_find_bone_idx(const fa_rig_t* rig, fc_string_hash_t name);
 CANIM_API const uint8_t* fa_rig_get_mask(const fa_rig_t* rig, fa_mask_t mask);
-	
+
+typedef enum fa_anim_motion_type_t
+{
+	FA_MOTION_TYPE_2D = 0,
+	FA_MOTION_TYPE_3D = 1,
+} fa_anim_motion_type_t;
+
+typedef struct fa_anim_motion_t
+{
+	uint16_t* times;
+	float* data;	// for 2D motion it's 3x floats per key (xy + yaw)
+	uint32_t numKeys;
+	fa_anim_motion_type_t type;
+} fa_anim_motion_t;
+
 typedef struct fa_anim_curve_key_t
 {
 	uint16_t keyTime;
@@ -80,20 +94,6 @@ typedef struct fa_anim_curve_t
 	fa_anim_curve_key_t* keys;
 	fa_anim_curve_key_t* posKeys;
 } fa_anim_curve_t;
-	
-typedef enum fa_anim_motion_type_t
-{
-	FA_MOTION_TYPE_2D = 0,
-	FA_MOTION_TYPE_3D = 1,
-} fa_anim_motion_type_t;
-	
-typedef struct fa_anim_motion_t
-{
-	uint16_t* times;
-	float* data;	// for 2D motion it's 3x floats per key (xy + yaw)
-	uint32_t numKeys;
-	fa_anim_motion_type_t type;
-} fa_anim_motion_t;
 	
 typedef struct fa_anim_clip_t
 {

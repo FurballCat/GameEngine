@@ -98,6 +98,8 @@ typedef struct fr_draw_frame_context_t
 {
 	const fm_mat4* skinMatrices;
 	uint32_t numSkinMatrices;
+	
+	const fm_mat4* propMatrix;
 } fr_draw_frame_context_t;
 	
 CREND_API void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_t* ctx);

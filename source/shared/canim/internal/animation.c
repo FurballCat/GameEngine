@@ -132,25 +132,21 @@ void fa_pose_set_reference(const fa_rig_t* rig, fa_pose_t* pose)
 
 // -----
 
-const float Km  = 4.0*(0.4142135679721832275390625); // 4(sqrt(2)-1)
-const float Khf = 2.414213657379150390625;           // sqrt(2)+1 = 1/(sqrt(2)-1)
-const float Khi = 0.17157287895679473876953125;      // 3-2sqrt(2)
-
 float fa_decompress_float_minus_one_plus_one(uint16_t value)
 {
 	return (((float)value) / 65535.0f) * 2.0f - 1.0f;
 }
 
-uint16_t fa_compress_float_minus_one_plus_on(float value)
+uint16_t fa_compress_float_minus_one_plus_one(float value)
 {
 	return (uint16_t)(((value + 1.0f) / 2.0f) * 65535.0f);
 }
 
 void fm_vec3_to_16bit(const fm_vec3* v, uint16_t* b)
 {
-	b[0] = fa_compress_float_minus_one_plus_on(v->x);
-	b[1] = fa_compress_float_minus_one_plus_on(v->y);
-	b[2] = fa_compress_float_minus_one_plus_on(v->z);
+	b[0] = fa_compress_float_minus_one_plus_one(v->x);
+	b[1] = fa_compress_float_minus_one_plus_one(v->y);
+	b[2] = fa_compress_float_minus_one_plus_one(v->z);
 }
 
 void fm_16bit_to_vec3(const uint16_t* b, fm_vec3* v)
@@ -159,6 +155,10 @@ void fm_16bit_to_vec3(const uint16_t* b, fm_vec3* v)
 	v->y = fa_decompress_float_minus_one_plus_one(b[1]);
 	v->z = fa_decompress_float_minus_one_plus_one(b[2]);
 }
+
+const float Km  = 4.0*(0.4142135679721832275390625); // 4(sqrt(2)-1)
+const float Khf = 2.414213657379150390625;           // sqrt(2)+1 = 1/(sqrt(2)-1)
+const float Khi = 0.17157287895679473876953125;      // 3-2sqrt(2)
 
 void quat_fhm(fm_quat q, fm_vec3* v)
 {
@@ -201,11 +201,11 @@ fm_quat quat_ihm_16bit(const uint16_t* b)
 	return quat_ihm(&vec);
 }
 
-const float c_positionCompressionRange = 20.0f;
+const float c_posRange = 20.0f;
 
 void vec4_com_16bit(fm_vec4 v, uint16_t* b)
 {
-	fm_vec3 vec = {v.x / c_positionCompressionRange, v.y / c_positionCompressionRange, v.z / c_positionCompressionRange};
+	fm_vec3 vec = {v.x / c_posRange, v.y / c_posRange, v.z / c_posRange};
 	fm_vec3_to_16bit(&vec, b);
 }
 
@@ -215,9 +215,9 @@ fm_vec4 vec4_decom_16bit(const uint16_t* v)
 	fm_16bit_to_vec3(v, &vec);
 	
 	fm_vec4 res;
-	res.x = vec.x * c_positionCompressionRange;
-	res.y = vec.y * c_positionCompressionRange;
-	res.z = vec.z * c_positionCompressionRange;
+	res.x = vec.x * c_posRange;
+	res.y = vec.y * c_posRange;
+	res.z = vec.z * c_posRange;
 	res.w = 0.0f;
 	
 	return res;
@@ -393,7 +393,6 @@ void fa_pose_local_to_model(fa_pose_t* modelPose, const fa_pose_t* localPose, co
 		const int16_t idxParent = parentIndices[i];
 		if(idxParent >= 0)
 		{
-			//fm_xform_mul(&localXforms[i], &modelXforms[idxParent], &modelXforms[i]);
 			fm_xform_mul(&modelXforms[idxParent], &localXforms[i], &modelXforms[i]);
 		}
 		else
@@ -1643,6 +1642,24 @@ void fa_action_animate_test_func(const fa_action_ctx_t* ctx, void* userData)
 	fa_cmd_anim_sample(ctx->cmdRecorder, t_1, 1);
 	fa_cmd_apply_mask(ctx->cmdRecorder, FA_MASK_UPPER_BODY);
 	fa_cmd_blend2(ctx->cmdRecorder, 1.0f);
+#elif 1
+	const float alpha = fm_clamp(ctx->localTime - 2.0f, 0.0f, 1.0f);
+	fa_cmd_anim_sample(ctx->cmdRecorder, t_0, 0);
+	fa_cmd_anim_sample(ctx->cmdRecorder, t_1, 1);
+	fa_cmd_apply_mask(ctx->cmdRecorder, FA_MASK_UPPER_BODY);
+	fa_cmd_blend2(ctx->cmdRecorder, alpha);
+#elif 0
+	if(ctx->localTime < 2.0f)
+	{
+		fa_cmd_identity(ctx->cmdRecorder);
+	}
+	else
+	{
+		const float alpha = fm_clamp(ctx->localTime - 2.0f, 0.0f, 1.0f);
+		fa_cmd_identity(ctx->cmdRecorder);
+		fa_cmd_anim_sample(ctx->cmdRecorder, 0.0f, 0);
+		fa_cmd_blend2(ctx->cmdRecorder, alpha);
+	}
 #else
 	fa_cmd_anim_sample(ctx->cmdRecorder, t_0, 0);
 	fa_cmd_anim_sample_additive(ctx->cmdRecorder, t_1, 1);

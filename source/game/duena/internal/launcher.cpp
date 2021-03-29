@@ -274,7 +274,11 @@ struct FurGameEngine
 	// animation
 	fa_rig_t* pRig;
 	fa_anim_clip_t* pAnimClipIdle;
-	fa_anim_clip_t* pAnimClipGesture;
+	fa_anim_clip_t* pAnimClipRun;
+	fa_anim_clip_t* pAnimClipAdditive;
+	fa_anim_clip_t* pAnimClipAPose;
+	fa_anim_clip_t* pAnimClipWindProtect;
+	fa_anim_clip_t* pAnimClipHoldSword;
 	
 	// input actions
 	bool inActionPressed;
@@ -314,6 +318,7 @@ struct FurGameEngine
 	uint32_t zeldaDangleHairRightIdx1;
 	uint32_t zeldaDangleHairRightIdx2;
 	uint32_t zeldaHeadIdx;
+	uint32_t zeldaHandRightIdx;
 };
 
 // Furball Cat - Platform
@@ -378,8 +383,6 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		depot.path = depotPath;
 
 		const char* characterRigPath = "assets/characters/zelda/mesh/zelda_rig.fbx";
-		const char* anim_zelda_stand = "assets/characters/zelda/animations/zelda-idle-stand-relaxed.fbx";
-		const char* anim_zelda_look = "assets/characters/zelda/animations/zelda-loco-run-relaxed.fbx";
 
 		// import animation resources
 		{
@@ -429,17 +432,45 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 						SID("Bip001_Spine"),
 						SID("Bip001_Spine1")
 					};
+					
+					const fc_string_hash_t hashesPartial[18] = {
+						SID("Bip001_UpperArm_L"),
+						SID("Bip001_UpperArm3_L"),
+						SID("Bip001_Hand_L"),
+						SID("Bip001_Thumb1_L"),
+						SID("Bip001_Thumb2_L"),
+						SID("Bip001_Thumb3_L"),
+						SID("Bip001_Index1_L"),
+						SID("Bip001_Index2_L"),
+						SID("Bip001_Index3_L"),
+						SID("Bip001_Middle1_L"),
+						SID("Bip001_Middle2_L"),
+						SID("Bip001_Middle3_L"),
+						SID("Bip001_Ring1_L"),
+						SID("Bip001_Ring2_L"),
+						SID("Bip001_Ring3_L"),
+						SID("Bip001_Pinky1_L"),
+						SID("Bip001_Pinky2_L"),
+						SID("Bip001_Pinky3_L")
+					};
 					if(idxSpine != -1)
 					{
 						for(uint32_t i=0; i<pEngine->pRig->numBones; ++i)
 						{
-							uint8_t w = 255;
+							uint8_t w = 220;
 							for(uint32_t j=0; j<9; ++j)
 							{
 								if(pEngine->pRig->boneNameHashes[i] == hashes[j])
 								{
 									w = 0;
 									break;
+								}
+							}
+							for(uint32_t j=0; j<18; ++j)
+							{
+								if(pEngine->pRig->boneNameHashes[i] == hashesPartial[j])
+								{
+									w = 40;
 								}
 							}
 							pEngine->pRig->maskUpperBody[i] = w;
@@ -451,16 +482,44 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 
 		{
 			fi_import_anim_clip_ctx_t ctx = {};
-			ctx.path = anim_zelda_stand;
+			ctx.path = "assets/characters/zelda/animations/zelda-idle-stand-relaxed.fbx";
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipIdle, pAllocCallbacks);
 		}
 
 		{
 			fi_import_anim_clip_ctx_t ctx = {};
-			ctx.path = anim_zelda_look;
+			ctx.path = "assets/characters/zelda/animations/zelda-loco-run-relaxed.fbx";
 			
-			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipGesture, pAllocCallbacks);
+			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipRun, pAllocCallbacks);
+		}
+		
+		{
+			fi_import_anim_clip_ctx_t ctx = {};
+			ctx.path = "assets/characters/zelda/animations/zelda-additive.fbx";
+			
+			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipAdditive, pAllocCallbacks);
+		}
+		
+		{
+			fi_import_anim_clip_ctx_t ctx = {};
+			ctx.path = "assets/characters/zelda/animations/zelda-a-pose.fbx";
+			
+			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipAPose, pAllocCallbacks);
+		}
+		
+		{
+			fi_import_anim_clip_ctx_t ctx = {};
+			ctx.path = "assets/characters/zelda/animations/zelda-upper-wind-protect.fbx";
+			
+			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipWindProtect, pAllocCallbacks);
+		}
+		
+		{
+			fi_import_anim_clip_ctx_t ctx = {};
+			ctx.path = "assets/characters/zelda/animations/zelda-upper-hold-sword.fbx";
+			
+			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipHoldSword, pAllocCallbacks);
 		}
 		
 		// import script data resources
@@ -485,11 +544,11 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		pEngine->animCharacterZelda.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 		pEngine->animCharacterZelda.poseCache.tempPose.numXforms = pEngine->animCharacterZelda.rig->numBones;
 		
-		pEngine->animSimpleAction.animation = pEngine->pAnimClipGesture;
+		pEngine->animSimpleAction.animation = pEngine->pAnimClipRun;
 		pEngine->animSimpleAction.forceLoop = true;
 		
-		pEngine->actionTest.anims[0] = pEngine->pAnimClipIdle;
-		pEngine->actionTest.anims[1] = pEngine->pAnimClipGesture;
+		pEngine->actionTest.anims[0] = pEngine->pAnimClipRun;
+		pEngine->actionTest.anims[1] = pEngine->pAnimClipHoldSword;
 		
 		fa_action_args_t args = {};
 		args.fadeInSec = 0.3f;
@@ -529,6 +588,17 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		for(uint32_t i=0; i<numParticles; ++i)
 		{
 			pEngine->dangle.d[i] = segmentLength;
+		}
+	}
+	
+	// init special bone indices
+	{
+		const fc_string_hash_t handRight = SID("Bip001_Hand_R");
+		
+		for(uint32_t i=0; i<pEngine->pRig->numBones; ++i)
+		{
+			if(pEngine->pRig->boneNameHashes[i] == handRight)
+				pEngine->zeldaHandRightIdx = i;
 		}
 	}
 	
@@ -689,12 +759,12 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 #if 0
 	if(pEngine->inActionPressed && ((actionRandomizer % 2) == 1))
 	{
-		pEngine->animSimpleAction2.animation = pEngine->pAnimClipIdle;
+		pEngine->animSimpleAction2.animation = pEngine->pAnimClipRun;
 		pEngine->animSimpleAction2.forceLoop = true;
 		
 		fa_action_args_t args = {};
 		args.fadeInSec = 0.5f;
-		args.ikMode = FA_IK_MODE_LEGS;
+		//args.ikMode = FA_IK_MODE_LEGS;
 		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction2, &args, globalTime);
 	}
 #else
@@ -708,7 +778,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 	
 	if(pEngine->inActionPressed &&((actionRandomizer % 2) == 0))
 	{
-		pEngine->animSimpleAction3.animation = pEngine->pAnimClipGesture;
+		pEngine->animSimpleAction3.animation = pEngine->pAnimClipIdle;
 		pEngine->animSimpleAction3.forceLoop = true;
 		
 		fa_action_args_t args = {};
@@ -802,13 +872,13 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		
 		m[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1];
 		fa_dangle_to_matrices_y_down(&pEngine->zeldaDangleHairLeft, &m[0], m);
-		pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1] = m[0];
-		pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx2] = m[1];
+		//pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1] = m[0];
+		//pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx2] = m[1];
 		
 		m[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1];
 		fa_dangle_to_matrices_y_down(&pEngine->zeldaDangleHairRight, &m[0], m);
-		pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1] = m[0];
-		pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx2] = m[1];
+		//pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1] = m[0];
+		//pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx2] = m[1];
 	}
 	
 	// draw dangle
@@ -884,9 +954,18 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		ctx.camera.up[2] = g_up.z;
 		fr_update_renderer(pEngine->pRenderer, &ctx);
 		
+		fm_mat4 zeldaRightHand = pEngine->skinMatrices[pEngine->zeldaHandRightIdx];
+		fm_mat4 slotLS;
+		fm_mat4_identity(&slotLS);
+		slotLS.w.x -= 0.02f;
+		slotLS.w.y += 0.06f;
+		fm_mat4 slotMS;
+		fm_mat4_mul(&slotLS, &zeldaRightHand, &slotMS);
+		
 		fr_draw_frame_context_t renderCtx = {};
 		renderCtx.skinMatrices = pEngine->skinMatrices;
 		renderCtx.numSkinMatrices = pEngine->pRig->numBones;
+		renderCtx.propMatrix = &slotMS;
 		fr_draw_frame(pEngine->pRenderer, &renderCtx);
 	}
 }
@@ -928,7 +1007,11 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	FUR_FREE(pEngine->scratchpadBuffer, pAllocCallbacks);
 	fa_rig_release(pEngine->pRig, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipIdle, pAllocCallbacks);
-	fa_anim_clip_release(pEngine->pAnimClipGesture, pAllocCallbacks);
+	fa_anim_clip_release(pEngine->pAnimClipRun, pAllocCallbacks);
+	fa_anim_clip_release(pEngine->pAnimClipAdditive, pAllocCallbacks);
+	fa_anim_clip_release(pEngine->pAnimClipAPose, pAllocCallbacks);
+	fa_anim_clip_release(pEngine->pAnimClipWindProtect, pAllocCallbacks);
+	fa_anim_clip_release(pEngine->pAnimClipHoldSword, pAllocCallbacks);
 	
 	fp_physics_scene_release(pEngine->pPhysics, pEngine->pPhysicsScene, pAllocCallbacks);
 	
