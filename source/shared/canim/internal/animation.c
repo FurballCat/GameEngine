@@ -1247,7 +1247,7 @@ typedef struct fa_cross_layer_context_t
 	
 	float dt;
 	
-	float outWeightIK;
+	float outWeightLegsIK;
 } fa_cross_layer_context_t;
 
 float fa_character_action_animate(fa_character_t* character, fa_character_layer_t layerEnum, fa_action_t* action, fa_cross_layer_context_t* ctx, fa_action_blend_source_t blendSource, bool cacheResult)
@@ -1392,7 +1392,7 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 		const float nextIK = layer->nextAction.args.ikMode == FA_IK_MODE_LEGS ? 1.0f : 0.0f;
 		
 		const float weightIK = currIK * (1.0f - nextAlpha) + nextIK * nextAlpha;
-		ctx->outWeightIK = weightIK;
+		ctx->outWeightLegsIK = weightIK;
 	}
 	
 	// do action swaps
@@ -1410,6 +1410,67 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 		fa_action_reset(&layer->nextAction);
 		layer->nextAction = layer->scheduledActions[0];
 		fa_action_reset(&layer->scheduledActions[0]);
+	}
+}
+
+void fa_character_ik(fa_character_t* character, fa_cross_layer_context_t* layerCtx)
+{
+	// inverse kinematics
+	{
+		const float weightIK = layerCtx->outWeightLegsIK;
+		
+		if(weightIK > 0.0f)
+		{
+			fa_pose_stack_push(layerCtx->poseStack, 1);
+			
+			fa_pose_t poseMS;
+			fa_pose_stack_get(layerCtx->poseStack, &poseMS, 0);
+			fa_pose_t poseLS;
+			fa_pose_stack_get(layerCtx->poseStack, &poseLS, 1);
+			
+			fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
+			
+			fm_vec4 leftTarget = poseMS.xforms[character->rig->ikLeftLeg.idxEnd].pos;
+			leftTarget.z = -0.2f;
+			fm_vec4 rightTarget = poseMS.xforms[character->rig->ikRightLeg.idxEnd].pos;
+			rightTarget.z = 0.0f;
+			
+			// pelvis height correction
+			{
+				fm_vec4 leftHipPos = poseMS.xforms[character->rig->ikLeftLeg.idxBeginParent].pos;
+				fm_vec4 rightHipPos = poseMS.xforms[character->rig->ikRightLeg.idxBeginParent].pos;
+				fm_vec4 leftTargetDir;
+				fm_vec4_sub(&leftTarget, &leftHipPos, &leftTargetDir);
+				fm_vec4 rightTargetDir;
+				fm_vec4_sub(&rightTarget, &rightHipPos, &rightTargetDir);
+				
+				const float leftDistance = fm_vec4_mag(&leftTargetDir);
+				const float rightDistance = fm_vec4_mag(&rightTargetDir);
+				fm_vec4 leftLegVec = poseLS.xforms[character->rig->ikLeftLeg.idxMid].pos;
+				fm_vec4_add(&leftLegVec, &poseLS.xforms[character->rig->ikLeftLeg.idxEnd].pos, &leftLegVec);
+				fm_vec4 rightLegVec = poseLS.xforms[character->rig->ikRightLeg.idxMid].pos;
+				fm_vec4_add(&rightLegVec, &poseLS.xforms[character->rig->ikRightLeg.idxEnd].pos, &rightLegVec);
+				
+				const float footCorrectionDistance = 0.15f;
+				
+				const float leftLegLength = fm_vec4_mag(&leftLegVec) + footCorrectionDistance;
+				const float rightLegLength = fm_vec4_mag(&rightLegVec) + footCorrectionDistance;
+				
+				float pelvisCorrectionHeight = 0.0f;
+				if(leftLegLength < leftDistance)
+					pelvisCorrectionHeight = leftDistance - leftLegLength;
+				if(rightLegLength < (rightDistance - pelvisCorrectionHeight))
+					pelvisCorrectionHeight = rightDistance - rightLegLength;
+				
+				poseLS.xforms[character->rig->ikLeftLeg.idxBeginParent].pos.y -= pelvisCorrectionHeight * weightIK;
+				fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
+			}
+			
+			fa_character_leg_ik(character, &character->rig->ikLeftLeg, &poseLS, &poseMS, &leftTarget, weightIK);
+			fa_character_leg_ik(character, &character->rig->ikRightLeg, &poseLS, &poseMS, &rightTarget, weightIK);
+			
+			fa_pose_stack_pop(layerCtx->poseStack, 1);
+		}
 	}
 }
 
@@ -1470,65 +1531,11 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	layerCtx.scratchMemorySize = animCmdBufferSize;
 	layerCtx.debug = &debug;
 	
+	// body
 	fa_character_layer_animate(character, &layerCtx, FA_CHAR_LAYER_BODY);
 	
 	// inverse kinematics
-	{
-		const float weightIK = layerCtx.outWeightIK;
-		
-		if(weightIK > 0.0f)
-		{
-			fa_pose_stack_push(&poseStack, 1);
-			
-			fa_pose_t poseMS;
-			fa_pose_stack_get(&poseStack, &poseMS, 0);
-			fa_pose_t poseLS;
-			fa_pose_stack_get(&poseStack, &poseLS, 1);
-			
-			fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
-			
-			fm_vec4 leftTarget = poseMS.xforms[character->rig->ikLeftLeg.idxEnd].pos;
-			leftTarget.z = -0.2f;
-			fm_vec4 rightTarget = poseMS.xforms[character->rig->ikRightLeg.idxEnd].pos;
-			rightTarget.z = 0.0f;
-			
-			// pelvis height correction
-			{
-				fm_vec4 leftHipPos = poseMS.xforms[character->rig->ikLeftLeg.idxBeginParent].pos;
-				fm_vec4 rightHipPos = poseMS.xforms[character->rig->ikRightLeg.idxBeginParent].pos;
-				fm_vec4 leftTargetDir;
-				fm_vec4_sub(&leftTarget, &leftHipPos, &leftTargetDir);
-				fm_vec4 rightTargetDir;
-				fm_vec4_sub(&rightTarget, &rightHipPos, &rightTargetDir);
-				
-				const float leftDistance = fm_vec4_mag(&leftTargetDir);
-				const float rightDistance = fm_vec4_mag(&rightTargetDir);
-				fm_vec4 leftLegVec = poseLS.xforms[character->rig->ikLeftLeg.idxMid].pos;
-				fm_vec4_add(&leftLegVec, &poseLS.xforms[character->rig->ikLeftLeg.idxEnd].pos, &leftLegVec);
-				fm_vec4 rightLegVec = poseLS.xforms[character->rig->ikRightLeg.idxMid].pos;
-				fm_vec4_add(&rightLegVec, &poseLS.xforms[character->rig->ikRightLeg.idxEnd].pos, &rightLegVec);
-				
-				const float footCorrectionDistance = 0.15f;
-				
-				const float leftLegLength = fm_vec4_mag(&leftLegVec) + footCorrectionDistance;
-				const float rightLegLength = fm_vec4_mag(&rightLegVec) + footCorrectionDistance;
-				
-				float pelvisCorrectionHeight = 0.0f;
-				if(leftLegLength < leftDistance)
-					pelvisCorrectionHeight = leftDistance - leftLegLength;
-				if(rightLegLength < (rightDistance - pelvisCorrectionHeight))
-					pelvisCorrectionHeight = rightDistance - rightLegLength;
-				
-				poseLS.xforms[character->rig->ikLeftLeg.idxBeginParent].pos.y -= pelvisCorrectionHeight * weightIK;
-				fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
-			}
-			
-			fa_character_leg_ik(character, &character->rig->ikLeftLeg, &poseLS, &poseMS, &leftTarget, weightIK);
-			fa_character_leg_ik(character, &character->rig->ikRightLeg, &poseLS, &poseMS, &rightTarget, weightIK);
-			
-			fa_pose_stack_pop(&poseStack, 1);
-		}
-	}
+	fa_character_ik(character, &layerCtx);
 	
 	// out pose is the result of this layer
 	fa_pose_t outPose;
