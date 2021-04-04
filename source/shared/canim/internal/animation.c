@@ -532,7 +532,7 @@ void fa_pose_blend_linear(fa_pose_t* out, const fa_pose_t* b, const fa_pose_t* a
 	}
 }
 
-CANIM_API void fa_pose_apply_additive(fa_pose_t* out, const fa_pose_t* base, const fa_pose_t* add, float weight)
+void fa_pose_apply_additive(fa_pose_t* out, const fa_pose_t* base, const fa_pose_t* add, float weight)
 {
 	// blend xforms
 	{
@@ -1172,7 +1172,7 @@ void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup
 								rotAngle = fm_clamp(rotAngle, -angleMax, -angleMin);
 							
 							fm_quat_rot_axis_angle(&rotAxis, rotAngle, &chainLS[i].rot);
-							fm_xform_mul(&chainMS[ip], &chainLS[i], &chainMS[i]);	// update self MS
+							fm_xform_mul(&chainMS[ip], &chainLS[i], &chainMS[i]);
 						}
 					}
 					
@@ -1200,8 +1200,74 @@ void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup
 	poseLS->xforms[ikSetup->idxEnd] = chainLS[3];
 }
 
+float fa_action_args_get_alpha(float localTime, const fa_action_args_t* args)
+{
+	float alpha = 1.0f;
+	
+	if(args->fadeInSec > 0.0f)
+	{
+		alpha = fm_clamp(localTime / args->fadeInSec, 0.0f, 1.0f);
+		if(args->fadeInCurve == FA_CURVE_UNIFORM_S)
+		{
+			alpha = fm_curve_uniform_s(alpha);
+		}
+	}
+	
+	return alpha;
+}
+
+float fa_action_get_local_time(const fa_action_t* action, const fa_character_animate_ctx_t* ctx)
+{
+	float localTime = -1.0f;
+	
+	if(ctx->globalTime >= action->globalStartTime)
+	{
+		localTime = (float)((ctx->globalTime - action->globalStartTime) / 1000000.0);
+	}
+	FUR_ASSERT(localTime != -1.0f);
+	
+	return localTime;
+}
+
 void fa_character_animate(fa_character_t* character, const fa_character_animate_ctx_t* ctx)
 {
+	fa_character_layer_t layerEnum = FA_CHAR_LAYER_BODY;
+	fa_layer_t* layer = &character->layers[layerEnum];
+	
+	// resolve scheduled actions
+	{
+		const bool currInProgress = layer->currAction.userData != NULL;
+		const bool nextInProgress = layer->nextAction.userData != NULL;
+		const bool scheduledA = layer->scheduledActions[0].userData != NULL;
+		const bool scheduledB = layer->scheduledActions[1].userData != NULL;
+		if(scheduledA && scheduledB)
+		{
+			// cache pose
+			if(currInProgress && nextInProgress)
+			{
+				if(layer->scheduledActions[0].args.fadeInSec <= 0.0f)
+				{
+					layer->currAction = layer->scheduledActions[0];
+					fa_action_reset(&layer->scheduledActions[0]);
+				}
+				
+				if(layer->scheduledActions[1].args.fadeInSec <= 0.0f)
+				{
+					layer->currAction = layer->scheduledActions[1];	// assigning to curr, not next, just like above
+					fa_action_reset(&layer->scheduledActions[1]);
+					fa_action_reset(&layer->nextAction);
+				}
+			}
+			else
+			{
+				layer->currAction = layer->scheduledActions[0];
+				fa_action_reset(&layer->scheduledActions[0]);
+				layer->nextAction = layer->scheduledActions[1];
+				fa_action_reset(&layer->scheduledActions[1]);
+			}
+		}
+	}
+	
 	// allocate pose stack and command buffer memory
 	uint32_t scratchpadBufferSizeUsed = 0;
 	void* scratchpadBufferPtr = ctx->scratchpadBuffer;
@@ -1247,49 +1313,6 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		fa_pose_stack_init(&poseStack, &desc, animPoseStackMemory, poseStackSize);
 	}
 	
-	fa_character_layer_t layerEnum = FA_CHAR_LAYER_BODY;
-	fa_layer_t* layer = &character->layers[layerEnum];
-	
-	// resolve scheduled actions
-	{
-		const bool currInProgress = layer->currAction.userData != NULL;
-		const bool nextInProgress = layer->nextAction.userData != NULL;
-		const bool scheduledA = layer->scheduledActions[0].userData != NULL;
-		const bool scheduledB = layer->scheduledActions[1].userData != NULL;
-		if(scheduledA && scheduledB)
-		{
-			// cache pose
-			if(currInProgress && nextInProgress)
-			{
-				if(layer->scheduledActions[0].args.fadeInSec <= 0.0f)
-				{
-					layer->currAction = layer->scheduledActions[0];
-					fa_action_reset(&layer->scheduledActions[0]);
-				}
-				
-				if(layer->scheduledActions[1].args.fadeInSec <= 0.0f)
-				{
-					layer->currAction = layer->scheduledActions[1];	// assigning to curr, not next, just like above
-					fa_action_reset(&layer->scheduledActions[1]);
-					fa_action_reset(&layer->nextAction);
-				}
-			}
-			else
-			{
-				layer->currAction = layer->scheduledActions[0];
-				fa_action_reset(&layer->scheduledActions[0]);
-				layer->nextAction = layer->scheduledActions[1];
-				fa_action_reset(&layer->scheduledActions[1]);
-			}
-		}
-	}
-	
-	// if at this point we still have pending scheduled actions, then it means we need to cache the pose of current actions
-	const bool stillScheduledA = layer->scheduledActions[0].userData != NULL;
-	const bool stillScheduledB = layer->scheduledActions[1].userData != NULL;
-	
-	const bool isCachingPose = stillScheduledA || stillScheduledB;
-	
 	fa_cmd_context_debug_t debug = {};
 	
 	// animate action
@@ -1304,11 +1327,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		FUR_ASSERT(layer->currAction.func != NULL);
 		FUR_ASSERT(layer->currAction.getAnimsFunc != NULL);
 		
-		float localTime = -1.0f;
-		if(ctx->globalTime >= action->globalStartTime)
-		{
-			localTime = (float)((ctx->globalTime - action->globalStartTime) / 1000000.0);
-		}
+		const float localTime = fa_action_get_local_time(action, ctx);
 		
 		fa_action_ctx_t actionCtx = {};
 		actionCtx.dt = ctx->dt;
@@ -1320,42 +1339,24 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		
 		fa_cmd_begin(&recorder, 0);
 		
-		if(localTime != -1.0f)
+		const float alpha = fa_action_args_get_alpha(localTime, args);
+		
+		if(alpha < 1.0f)
 		{
-			if(args->fadeInSec > 0.0f)
+			if(character->transitionPoseCached)
 			{
-				float alpha = fm_clamp(localTime / args->fadeInSec, 0.0f, 1.0f);
-				if(args->fadeInCurve == FA_CURVE_UNIFORM_S)
-				{
-					alpha = fm_curve_uniform_s(alpha);
-				}
-				
-				if(alpha < 1.0f)
-				{
-					if(character->transitionPoseCached)
-					{
-						fa_cmd_use_cached_pose(&recorder, 0); // todo: set proper index in the future
-					}
-					else
-					{
-						fa_cmd_ref_pose(&recorder);
-					}
-					layer->currAction.func(&actionCtx, action->userData);
-					fa_cmd_blend2(&recorder, alpha);
-				}
-				else
-				{
-					layer->currAction.func(&actionCtx, action->userData);
-				}
+				fa_cmd_use_cached_pose(&recorder, 0); // todo: set proper index in the future
 			}
 			else
 			{
-				layer->currAction.func(&actionCtx, action->userData);
+				fa_cmd_ref_pose(&recorder);
 			}
+			action->func(&actionCtx, action->userData);
+			fa_cmd_blend2(&recorder, alpha);
 		}
 		else
 		{
-			fa_cmd_ref_pose(&recorder);
+			action->func(&actionCtx, action->userData);
 		}
 		
 		fa_cmd_end(&recorder);
@@ -1370,6 +1371,12 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		
 		fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
 	}
+	
+	// if at this point we still have pending scheduled actions, then it means we need to cache the pose of current actions
+	const bool stillScheduledA = layer->scheduledActions[0].userData != NULL;
+	const bool stillScheduledB = layer->scheduledActions[1].userData != NULL;
+	
+	const bool isCachingPose = stillScheduledA || stillScheduledB;
 	
 	// optionally cache pose
 	if(isCachingPose && stillScheduledA && !stillScheduledB)
@@ -1395,19 +1402,15 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		fa_cmd_buffer_recorder_init(&recorder, animCmdBuffer.data, animCmdBuffer.size);
 		
 		fa_layer_t* layer = &character->layers[layerEnum];
-		fa_action_t* nextAction = &layer->nextAction;
+		fa_action_t* action = &layer->nextAction;
 		
-		if(nextAction->userData != NULL)
+		if(action->userData != NULL)
 		{
 			// record commands
-			FUR_ASSERT(nextAction->func != NULL);
-			FUR_ASSERT(nextAction->getAnimsFunc != NULL);
+			FUR_ASSERT(action->func != NULL);
+			FUR_ASSERT(action->getAnimsFunc != NULL);
 			
-			float localTime = -1.0f;
-			if(ctx->globalTime >= nextAction->globalStartTime)
-			{
-				localTime = (float)((ctx->globalTime - nextAction->globalStartTime) / 1000000.0);
-			}
+			const float localTime = fa_action_get_local_time(action, ctx);
 			
 			fa_action_ctx_t actionCtx = {};
 			actionCtx.dt = ctx->dt;
@@ -1415,58 +1418,33 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			actionCtx.cmdRecorder = &recorder;
 			actionCtx.localTime = localTime;
 			
-			const fa_action_args_t* args = &nextAction->args;
+			const fa_action_args_t* args = &action->args;
 			
 			FUR_ASSERT(poseStack.bufferSize > 0);	// we need at least one pose on stack to blend with
 			
-			bool recorded = false;
+			const float alpha = fa_action_args_get_alpha(localTime, args);
 			
-			if(localTime != -1.0f)
+			fa_cmd_begin(&recorder, poseStack.numPoses);
+			action->func(&actionCtx, action->userData);
+			fa_cmd_blend2(&recorder, alpha);
+			fa_cmd_end(&recorder);
+
+			fadeInAlpha = alpha;
+			
+			if(alpha >= 1.0f)
 			{
-				if(args->fadeInSec > 0.0f)
-				{
-					float alpha = fm_clamp(localTime / args->fadeInSec, 0.0f, 1.0f);
-					if(args->fadeInCurve == FA_CURVE_UNIFORM_S)
-					{
-						alpha = fm_curve_uniform_s(alpha);
-					}
-					
-					fa_cmd_begin(&recorder, poseStack.numPoses);
-					layer->nextAction.func(&actionCtx, nextAction->userData);
-					fa_cmd_blend2(&recorder, alpha);
-					fa_cmd_end(&recorder);
-					recorded = true;
-					
-					fadeInAlpha = alpha;
-					
-					if(alpha >= 1.0f)
-					{
-						fullyBlended = true;
-					}
-				}
-				else
-				{
-					fa_cmd_begin(&recorder, poseStack.numPoses);
-					layer->nextAction.func(&actionCtx, nextAction->userData);
-					fa_cmd_blend2(&recorder, 1.0);
-					fa_cmd_end(&recorder);
-					recorded = true;
-					fullyBlended = true;
-				}
+				fullyBlended = true;
 			}
 			
-			if(recorded)
-			{
-				// evaluate commands
-				fa_cmd_context_t animCtx = {};
-				animCtx.animClips = nextAction->getAnimsFunc(nextAction->userData, &animCtx.numAnimClips);
-				animCtx.rig = character->rig;
-				animCtx.poseStack = &poseStack;
-				animCtx.poseCache = &character->poseCache;
-				animCtx.debug = &debug;
-				
-				fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
-			}
+			// evaluate commands
+			fa_cmd_context_t animCtx = {};
+			animCtx.animClips = action->getAnimsFunc(action->userData, &animCtx.numAnimClips);
+			animCtx.rig = character->rig;
+			animCtx.poseStack = &poseStack;
+			animCtx.poseCache = &character->poseCache;
+			animCtx.debug = &debug;
+			
+			fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
 		}
 	}
 	
@@ -1589,7 +1567,7 @@ const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* userData, ui
 	return (const fa_anim_clip_t**)&data->animation;	// todo: check it, is this return correct?
 }
 
-void fa_character_schedule_action_simple(fa_character_t* character, fa_action_animate_t* action, const fa_action_args_t* args, uint64_t currGlobalTime)
+void fa_character_schedule_action_simple(fa_character_t* character, fa_action_animate_t* action, const fa_action_args_t* args)
 {
 	fa_layer_t* layer = &character->layers[FA_CHAR_LAYER_BODY];
 	
@@ -1621,7 +1599,7 @@ void fa_character_schedule_action_simple(fa_character_t* character, fa_action_an
 	actionSlot->userData = action;
 	actionSlot->func = fa_action_animate_func;
 	actionSlot->getAnimsFunc = fa_action_animate_get_anims_func;
-	actionSlot->globalStartTime = currGlobalTime;
+	actionSlot->globalStartTime = character->globalTime;
 	actionSlot->args = *args;
 }
 
@@ -1643,11 +1621,16 @@ void fa_action_animate_test_func(const fa_action_ctx_t* ctx, void* userData)
 	fa_cmd_apply_mask(ctx->cmdRecorder, FA_MASK_UPPER_BODY);
 	fa_cmd_blend2(ctx->cmdRecorder, 1.0f);
 #elif 1
-	const float alpha = fm_clamp(ctx->localTime - 2.0f, 0.0f, 1.0f);
+	const float alpha = fm_clamp(ctx->localTime - data->timeToNextAnim, 0.0f, 0.5f) * 2.0f;
 	fa_cmd_anim_sample(ctx->cmdRecorder, t_0, 0);
 	fa_cmd_anim_sample(ctx->cmdRecorder, t_1, 1);
 	fa_cmd_apply_mask(ctx->cmdRecorder, FA_MASK_UPPER_BODY);
 	fa_cmd_blend2(ctx->cmdRecorder, alpha);
+	
+	if(alpha >= 0.1f)
+	{
+		data->equipWeapon = true;
+	}
 #elif 0
 	if(ctx->localTime < 2.0f)
 	{
@@ -1674,7 +1657,7 @@ const fa_anim_clip_t** fa_action_animate_test_get_anims_func(const void* userDat
 	return (const fa_anim_clip_t**)&data->anims;	// todo: check it, is this return correct?
 }
 
-void fa_character_schedule_action_test_simple(fa_character_t* character, fa_action_animate_test_t* action, const fa_action_args_t* args, uint64_t currGlobalTime)
+void fa_character_schedule_action_test_simple(fa_character_t* character, fa_action_animate_test_t* action, const fa_action_args_t* args)
 {
 	fa_layer_t* layer = &character->layers[FA_CHAR_LAYER_BODY];
 	
@@ -1706,7 +1689,7 @@ void fa_character_schedule_action_test_simple(fa_character_t* character, fa_acti
 	actionSlot->userData = action;
 	actionSlot->func = fa_action_animate_test_func;
 	actionSlot->getAnimsFunc = fa_action_animate_test_get_anims_func;
-	actionSlot->globalStartTime = currGlobalTime;
+	actionSlot->globalStartTime = character->globalTime;
 	actionSlot->args = *args;
 }
 

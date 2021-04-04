@@ -292,6 +292,7 @@ struct FurGameEngine
 	fa_action_animate_t animSimpleAction2;
 	fa_action_animate_t animSimpleAction3;
 	fa_action_animate_test_t actionTest;
+	fa_action_animate_test_t actionTest2;
 	
 	// skinning
 	fm_mat4 skinMatrices[512];
@@ -544,15 +545,23 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		pEngine->animCharacterZelda.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 		pEngine->animCharacterZelda.poseCache.tempPose.numXforms = pEngine->animCharacterZelda.rig->numBones;
 		
-		pEngine->animSimpleAction.animation = pEngine->pAnimClipRun;
+		pEngine->animSimpleAction.animation = pEngine->pAnimClipIdle;
 		pEngine->animSimpleAction.forceLoop = true;
 		
 		pEngine->actionTest.anims[0] = pEngine->pAnimClipRun;
-		pEngine->actionTest.anims[1] = pEngine->pAnimClipHoldSword;
+		pEngine->actionTest.anims[1] = pEngine->pAnimClipWindProtect;
+		pEngine->actionTest.timeToNextAnim = 1.0f;
+		
+		pEngine->actionTest2.anims[0] = pEngine->pAnimClipIdle;
+		pEngine->actionTest2.anims[1] = pEngine->pAnimClipHoldSword;
+		pEngine->actionTest2.timeToNextAnim = 0.2f;
+		
+		pEngine->animCharacterZelda.globalTime = pEngine->globalTime;
 		
 		fa_action_args_t args = {};
 		args.fadeInSec = 0.3f;
-		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction, &args, (uint64_t)(pEngine->globalTime * 1000000));
+		args.ikMode = FA_IK_MODE_LEGS;
+		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction, &args);
 		
 		pEngine->zeldaGameObject.id = SID_REG("zelda");
 		pEngine->zeldaGameObject.script = &pEngine->zeldaScript;
@@ -750,14 +759,17 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 {
 	uint64_t globalTime = (uint64_t)(pEngine->globalTime * 1000000);
+	pEngine->animCharacterZelda.globalTime = globalTime;
 	
 	static uint32_t actionRandomizer = 0;
 	
 	if(pEngine->inActionPressed)
 		actionRandomizer += 1;
 	
+	const uint32_t numStages = 4;
+	
 #if 0
-	if(pEngine->inActionPressed && ((actionRandomizer % 2) == 1))
+	if(pEngine->inActionPressed && ((actionRandomizer % numStages) == 1))
 	{
 		pEngine->animSimpleAction2.animation = pEngine->pAnimClipRun;
 		pEngine->animSimpleAction2.forceLoop = true;
@@ -765,25 +777,45 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		fa_action_args_t args = {};
 		args.fadeInSec = 0.5f;
 		//args.ikMode = FA_IK_MODE_LEGS;
-		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction2, &args, globalTime);
+		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction2, &args);
 	}
 #else
-	if(pEngine->inActionPressed && ((actionRandomizer % 2) == 1))
+	if(pEngine->inActionPressed && ((actionRandomizer % numStages) == 1))
 	{
+		pEngine->actionTest.anims[1] = pEngine->pAnimClipWindProtect;
+		
 		fa_action_args_t args = {};
 		args.fadeInSec = 0.5f;
-		fa_character_schedule_action_test_simple(&pEngine->animCharacterZelda, &pEngine->actionTest, &args, globalTime);
+		fa_character_schedule_action_test_simple(&pEngine->animCharacterZelda, &pEngine->actionTest, &args);
 	}
 #endif
 	
-	if(pEngine->inActionPressed &&((actionRandomizer % 2) == 0))
+	if(pEngine->inActionPressed && ((actionRandomizer % numStages) == 2))
+	{
+		fa_action_args_t args = {};
+		args.fadeInSec = 0.5f;
+		args.ikMode = FA_IK_MODE_LEGS;
+		fa_character_schedule_action_test_simple(&pEngine->animCharacterZelda, &pEngine->actionTest2, &args);
+	}
+	
+	if(pEngine->inActionPressed && ((actionRandomizer % numStages) == 3))
+	{
+		pEngine->actionTest.anims[1] = pEngine->pAnimClipHoldSword;
+		pEngine->actionTest.timeToNextAnim = -1.0f;
+		
+		fa_action_args_t args = {};
+		args.fadeInSec = 0.5f;
+		fa_character_schedule_action_test_simple(&pEngine->animCharacterZelda, &pEngine->actionTest, &args);
+	}
+	
+	if(pEngine->inActionPressed &&((actionRandomizer % numStages) == 4))
 	{
 		pEngine->animSimpleAction3.animation = pEngine->pAnimClipIdle;
 		pEngine->animSimpleAction3.forceLoop = true;
 		
 		fa_action_args_t args = {};
 		args.fadeInSec = 0.5f;
-		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction3, &args, globalTime);
+		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction3, &args);
 	}
 }
 
@@ -872,13 +904,13 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		
 		m[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1];
 		fa_dangle_to_matrices_y_down(&pEngine->zeldaDangleHairLeft, &m[0], m);
-		//pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1] = m[0];
-		//pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx2] = m[1];
+		pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1] = m[0];
+		pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx2] = m[1];
 		
 		m[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1];
 		fa_dangle_to_matrices_y_down(&pEngine->zeldaDangleHairRight, &m[0], m);
-		//pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1] = m[0];
-		//pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx2] = m[1];
+		pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1] = m[0];
+		pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx2] = m[1];
 	}
 	
 	// draw dangle
@@ -961,6 +993,12 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		slotLS.w.y += 0.06f;
 		fm_mat4 slotMS;
 		fm_mat4_mul(&slotLS, &zeldaRightHand, &slotMS);
+		
+		if(!pEngine->actionTest2.equipWeapon)
+		{
+			fm_mat4_identity(&slotMS);
+			slotMS.w.x = 4.0f;
+		}
 		
 		fr_draw_frame_context_t renderCtx = {};
 		renderCtx.skinMatrices = pEngine->skinMatrices;

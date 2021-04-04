@@ -349,6 +349,8 @@ typedef struct fa_character_t
 	
 	fa_pose_cache_t poseCache;
 	bool transitionPoseCached;
+	
+	uint64_t globalTime;
 } fa_character_t;
 
 typedef struct fa_character_animate_ctx_t
@@ -373,19 +375,22 @@ typedef struct fa_action_animate_t
 CANIM_API void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData);
 CANIM_API const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* userData, uint32_t* numAnims);
 
-CANIM_API void fa_character_schedule_action_simple(fa_character_t* character, fa_action_animate_t* action, const fa_action_args_t* args, uint64_t currGlobalTime);
+CANIM_API void fa_character_schedule_action_simple(fa_character_t* character, fa_action_animate_t* action, const fa_action_args_t* args);
 
 // test play two animations action
 typedef struct fa_action_animate_test_t
 {
 	fa_anim_clip_t* anims[2];
 	float alpha;
+	float timeToNextAnim;
+	
+	bool equipWeapon;
 } fa_action_animate_test_t;
 	
 CANIM_API void fa_action_animate_test_func(const fa_action_ctx_t* ctx, void* userData);
 CANIM_API const fa_anim_clip_t** fa_action_animate_test_get_anims_func(const void* userData, uint32_t* numAnims);
 
-CANIM_API void fa_character_schedule_action_test_simple(fa_character_t* character, fa_action_animate_test_t* action, const fa_action_args_t* args, uint64_t currGlobalTime);
+CANIM_API void fa_character_schedule_action_test_simple(fa_character_t* character, fa_action_animate_test_t* action, const fa_action_args_t* args);
 
 typedef struct fa_dangle
 {
