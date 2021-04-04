@@ -50,7 +50,7 @@ void fa_anim_clip_release(fa_anim_clip_t* clip, fc_alloc_callbacks_t* pAllocCall
 
 // -----
 
-void fa_pose_set_identity(fa_pose_t* pose)
+void fa_pose_set_identity(fa_pose_t* pose, const uint8_t* mask)
 {
 	fm_xform* xforms = pose->xforms;
 	float* tracks = pose->tracks;
@@ -63,7 +63,8 @@ void fa_pose_set_identity(fa_pose_t* pose)
 	
 	for(uint32_t i=0; i<pose->numXforms; ++i)
 	{
-		const uint8_t weight = weightsXformsBegin ? *weightsXforms : 255;
+		const uint8_t maskValue = mask ? mask[i] : 255;
+		const uint8_t weight = weightsXformsBegin ? *weightsXforms : maskValue;
 		
 		if(weight != 0)
 		{
@@ -88,7 +89,7 @@ void fa_pose_set_identity(fa_pose_t* pose)
 	}
 }
 
-void fa_pose_set_reference(const fa_rig_t* rig, fa_pose_t* pose)
+void fa_pose_set_reference(const fa_rig_t* rig, fa_pose_t* pose, const uint8_t* mask)
 {
 	FUR_ASSERT(rig->numBones == pose->numXforms);
 	
@@ -104,7 +105,8 @@ void fa_pose_set_reference(const fa_rig_t* rig, fa_pose_t* pose)
 	
 	for(uint32_t i=0; i<pose->numXforms; ++i)
 	{
-		const uint8_t weight = weightsXformsBegin ? *weightsXforms : 255;
+		const uint8_t maskValue = mask ? mask[i] : 255;
+		const uint8_t weight = weightsXformsBegin ? *weightsXforms : maskValue;
 		
 		if(weight != 0)
 		{
@@ -240,7 +242,7 @@ float fa_decompress_key_time(const uint16_t time)
 	return ((float)time) / 24.0f;
 }
 
-void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive, fa_pose_t* pose)
+void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive, fa_pose_t* pose, const uint8_t* mask)
 {
 	const uint32_t numCurves = clip->numCurves;
 	
@@ -329,7 +331,14 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive
 			pose->xforms[idxXform].pos = pos;
 		}
 		
-		pose->weightsXforms[idxXform] = 255;
+		if(mask)
+		{
+			pose->weightsXforms[idxXform] = mask[idxXform];
+		}
+		else
+		{
+			pose->weightsXforms[idxXform] = 255;
+		}
 		
 		if(asAdditive)
 		{
@@ -758,19 +767,7 @@ fa_cmd_status_t fa_cmd_impl_ref_pose(fa_cmd_context_t* ctx, const void* cmdData)
 	fa_pose_t pose;
 	fa_pose_stack_get(ctx->poseStack, &pose, 0);
 	
-	FUR_ASSERT(pose.numXforms == ctx->rig->numBones);
-	
-	for(uint32_t i=0; i<pose.numXforms; ++i)
-	{
-		pose.xforms[i] = ctx->rig->refPose[i];
-		pose.weightsXforms[i] = 255;
-	}
-	
-	for(uint32_t i=0; i<pose.numTracks; ++i)
-	{
-		pose.tracks[i] = 0.0f;
-		pose.weightsTracks[i] = 255;
-	}
+	fa_pose_set_reference(ctx->rig, &pose, ctx->mask);
 	
 	if(ctx->debug)
 	{
@@ -796,17 +793,7 @@ fa_cmd_status_t fa_cmd_impl_identity(fa_cmd_context_t* ctx, const void* cmdData)
 	fa_pose_t pose;
 	fa_pose_stack_get(ctx->poseStack, &pose, 0);
 	
-	for(uint32_t i=0; i<pose.numXforms; ++i)
-	{
-		fm_xform_identity(&pose.xforms[i]);
-		pose.weightsXforms[i] = 255;
-	}
-	
-	for(uint32_t i=0; i<pose.numTracks; ++i)
-	{
-		pose.tracks[i] = 0.0f;
-		pose.weightsTracks[i] = 255;
-	}
+	fa_pose_set_identity(&pose, ctx->mask);
 	
 	if(ctx->debug)
 	{
@@ -845,7 +832,7 @@ fa_cmd_status_t fa_cmd_impl_anim_sample(fa_cmd_context_t* ctx, const void* cmdDa
 	
 	FUR_ASSERT(pose.numXforms == ctx->rig->numBones);
 	
-	fa_anim_clip_sample(clip, data->time, data->asAdditive, &pose);
+	fa_anim_clip_sample(clip, data->time, data->asAdditive, &pose, ctx->mask);
 	
 	if(ctx->debug)
 	{
@@ -1252,6 +1239,8 @@ float fa_character_action_animate(fa_character_t* character, fa_character_layer_
 		fa_cmd_end(&recorder);
 	}
 	
+	fa_layer_t* layer = &character->layers[layerEnum];
+	
 	// evaluate commands
 	fa_cmd_context_t animCtx = {};
 	animCtx.animClips = action->getAnimsFunc(action->userData, &animCtx.numAnimClips);
@@ -1259,6 +1248,7 @@ float fa_character_action_animate(fa_character_t* character, fa_character_layer_
 	animCtx.poseStack = ctx->poseStack;
 	animCtx.poseCache = &character->poseCache;
 	animCtx.debug = ctx->debug;
+	animCtx.mask = fa_rig_get_mask(character->rig, layer->maskID);
 	
 	fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
 	
@@ -1345,6 +1335,7 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 		fullyBlended = true;
 	}
 	
+	// only body layer can affect legs IK
 	if(layerEnum == FA_CHAR_LAYER_BODY)
 	{
 		const float currIK = layer->currAction.args.ikMode == FA_IK_MODE_LEGS ? currAlpha : 0.0f;
@@ -1513,6 +1504,9 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	// body
 	fa_character_layer_animate(character, &layerCtx, FA_CHAR_LAYER_BODY);
 	
+	// upper body
+	fa_character_layer_animate(character, &layerCtx, FA_CHAR_LAYER_UPPER_BODY);
+	
 	// inverse kinematics
 	fa_character_ik(character, &layerCtx);
 
@@ -1544,7 +1538,7 @@ const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* userData, ui
 
 void fa_character_schedule_action_simple(fa_character_t* character, fa_action_animate_t* action, const fa_action_args_t* args)
 {
-	fa_layer_t* layer = &character->layers[FA_CHAR_LAYER_BODY];
+	fa_layer_t* layer = &character->layers[args->layer];
 	
 	fa_action_t* actionSlot = NULL;
 	

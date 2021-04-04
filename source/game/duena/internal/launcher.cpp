@@ -282,17 +282,16 @@ struct FurGameEngine
 	
 	// input actions
 	bool inActionPressed;
+	bool inActionEquipWeaponPressed;
 	float actionRotationLeftX;
 	float actionZoomIn;
 	float actionZoomOut;
 	
 	// gameplay animation states
 	fa_character_t animCharacterZelda;
-	fa_action_animate_t animSimpleAction;
-	fa_action_animate_t animSimpleAction2;
-	fa_action_animate_t animSimpleAction3;
-	fa_action_animate_test_t actionTest;
-	fa_action_animate_test_t actionTest2;
+	fa_action_animate_t actionIdle;
+	fa_action_animate_t actionLoco;
+	fa_action_animate_t actionWeaponEquipped;
 	
 	// skinning
 	fm_mat4 skinMatrices[512];
@@ -545,16 +544,16 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		pEngine->animCharacterZelda.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 		pEngine->animCharacterZelda.poseCache.tempPose.numXforms = pEngine->animCharacterZelda.rig->numBones;
 		
-		pEngine->animSimpleAction.animation = pEngine->pAnimClipIdle;
-		pEngine->animSimpleAction.forceLoop = true;
+		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_UPPER_BODY].maskID = FA_MASK_UPPER_BODY;
 		
-		pEngine->actionTest.anims[0] = pEngine->pAnimClipRun;
-		pEngine->actionTest.anims[1] = pEngine->pAnimClipWindProtect;
-		pEngine->actionTest.timeToNextAnim = 1.0f;
+		pEngine->actionIdle.animation = pEngine->pAnimClipIdle;
+		pEngine->actionIdle.forceLoop = true;
 		
-		pEngine->actionTest2.anims[0] = pEngine->pAnimClipIdle;
-		pEngine->actionTest2.anims[1] = pEngine->pAnimClipHoldSword;
-		pEngine->actionTest2.timeToNextAnim = 0.2f;
+		pEngine->actionLoco.animation = pEngine->pAnimClipRun;
+		pEngine->actionLoco.forceLoop = true;
+		
+		pEngine->actionWeaponEquipped.animation = pEngine->pAnimClipHoldSword;
+		pEngine->actionWeaponEquipped.forceLoop = true;
 		
 		pEngine->animCharacterZelda.globalTime = pEngine->globalTime;
 		
@@ -723,6 +722,9 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 	bool actionPressed = false;
 	static bool actionWasPressed = false;
 	
+	bool actionWeaponPressed = false;
+	static bool actionWeaponWasPressed = false;
+	
 	fi_input_event_t inputEvents[10];
 	const uint32_t numEventsCollected = fi_get_input_events(pEngine->pInputManager, inputEvents, 10, 0);
 	for(uint32_t i=0; i<numEventsCollected; ++i)
@@ -730,6 +732,10 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 		if(inputEvents[i].eventID == Gamepad_faceButtonLeft)
 		{
 			actionPressed = true;
+		}
+		else if(inputEvents[i].eventID == Gamepad_faceButtonTop)
+		{
+			actionWeaponPressed = true;
 		}
 		else if(inputEvents[i].eventID == Gamepad_rightAnalogX)
 		{
@@ -754,6 +760,16 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 	{
 		pEngine->inActionPressed = false;
 	}
+	
+	if(actionWeaponWasPressed != actionWeaponPressed)
+	{
+		pEngine->inActionEquipWeaponPressed = actionWeaponPressed;
+		actionWeaponWasPressed = actionWeaponPressed;
+	}
+	else
+	{
+		pEngine->inActionEquipWeaponPressed = false;
+	}
 }
 
 void fg_gameplay_update(FurGameEngine* pEngine, float dt)
@@ -766,56 +782,29 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 	if(pEngine->inActionPressed)
 		actionRandomizer += 1;
 	
-	const uint32_t numStages = 4;
+	const uint32_t numStages = 2;
 	
-#if 0
 	if(pEngine->inActionPressed && ((actionRandomizer % numStages) == 1))
 	{
-		pEngine->animSimpleAction2.animation = pEngine->pAnimClipRun;
-		pEngine->animSimpleAction2.forceLoop = true;
-		
 		fa_action_args_t args = {};
 		args.fadeInSec = 0.5f;
-		//args.ikMode = FA_IK_MODE_LEGS;
-		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction2, &args);
+		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionLoco, &args);
 	}
-#else
-	if(pEngine->inActionPressed && ((actionRandomizer % numStages) == 1))
-	{
-		pEngine->actionTest.anims[1] = pEngine->pAnimClipWindProtect;
-		
-		fa_action_args_t args = {};
-		args.fadeInSec = 0.5f;
-		fa_character_schedule_action_test_simple(&pEngine->animCharacterZelda, &pEngine->actionTest, &args);
-	}
-#endif
 	
-	if(pEngine->inActionPressed && ((actionRandomizer % numStages) == 2))
+	if(pEngine->inActionPressed && ((actionRandomizer % numStages) == 0))
 	{
 		fa_action_args_t args = {};
 		args.fadeInSec = 0.5f;
 		args.ikMode = FA_IK_MODE_LEGS;
-		fa_character_schedule_action_test_simple(&pEngine->animCharacterZelda, &pEngine->actionTest2, &args);
+		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionIdle, &args);
 	}
 	
-	if(pEngine->inActionPressed && ((actionRandomizer % numStages) == 3))
+	if(pEngine->inActionEquipWeaponPressed)
 	{
-		pEngine->actionTest.anims[1] = pEngine->pAnimClipHoldSword;
-		pEngine->actionTest.timeToNextAnim = -1.0f;
-		
 		fa_action_args_t args = {};
 		args.fadeInSec = 0.5f;
-		fa_character_schedule_action_test_simple(&pEngine->animCharacterZelda, &pEngine->actionTest, &args);
-	}
-	
-	if(pEngine->inActionPressed &&((actionRandomizer % numStages) == 4))
-	{
-		pEngine->animSimpleAction3.animation = pEngine->pAnimClipIdle;
-		pEngine->animSimpleAction3.forceLoop = true;
-		
-		fa_action_args_t args = {};
-		args.fadeInSec = 0.5f;
-		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction3, &args);
+		args.layer = FA_CHAR_LAYER_UPPER_BODY;
+		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionWeaponEquipped, &args);
 	}
 }
 
@@ -993,7 +982,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		fm_mat4 slotMS;
 		fm_mat4_mul(&slotLS, &zeldaRightHand, &slotMS);
 		
-		if(!pEngine->actionTest2.equipWeapon)
+		//if(!pEngine->actionTest2.equipWeapon)
 		{
 			fm_mat4_identity(&slotMS);
 			slotMS.w.x = 4.0f;

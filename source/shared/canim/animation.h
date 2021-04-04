@@ -42,8 +42,8 @@ typedef struct fa_ik_setup_t
 
 typedef enum fa_mask_t
 {
-	FA_MASK_UPPER_BODY = 0,
-	FA_MASK_NONE,
+	FA_MASK_NONE = 0,
+	FA_MASK_UPPER_BODY,
 } fa_mask_t;
 
 typedef struct fa_rig_t
@@ -162,12 +162,12 @@ typedef struct fa_pose_t
 	
 // -----
 
-CANIM_API void fa_pose_set_identity(fa_pose_t* pose);
-CANIM_API void fa_pose_set_reference(const fa_rig_t* rig, fa_pose_t* pose);
+CANIM_API void fa_pose_set_identity(fa_pose_t* pose, const uint8_t* mask /* optional */);
+CANIM_API void fa_pose_set_reference(const fa_rig_t* rig, fa_pose_t* pose, const uint8_t* mask /* optional */);
 	
 // -----
 	
-CANIM_API void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive, fa_pose_t* pose);
+CANIM_API void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive, fa_pose_t* pose, const uint8_t* mask /* optional */);
 CANIM_API void fa_anim_clip_sample_motion(const fa_anim_clip_t* clip, float timeBegin, float timeEnd, fm_xform* motion);
 
 CANIM_API void fa_pose_copy(fa_pose_t* dest, const fa_pose_t* src);
@@ -232,6 +232,8 @@ typedef struct fa_cmd_context_t
 	const fa_anim_clip_t** animClips;
 	uint32_t numAnimClips;
 	
+	const uint8_t* mask;	// optional, default is NULL
+	
 	fa_cmd_context_debug_t* debug;	// if NULL, don't use debug
 } fa_cmd_context_t;
 
@@ -280,6 +282,7 @@ CANIM_API void fa_cmd_apply_mask(fa_cmd_buffer_recorder_t* recorder, uint16_t ma
 typedef enum fa_character_layer_t
 {
 	FA_CHAR_LAYER_BODY = 0,
+	FA_CHAR_LAYER_UPPER_BODY,
 	FA_CHAR_LAYER_COUNT
 } fa_character_layer_t;
 	
@@ -312,6 +315,7 @@ typedef struct fa_action_args_t
 	float fadeInSec;
 	fa_curve_type_t fadeInCurve;
 	fa_ik_mode_t ikMode;
+	fa_character_layer_t layer;
 } fa_action_args_t;
 	
 typedef struct fa_action_t
@@ -327,12 +331,13 @@ typedef struct fa_action_t
 	
 typedef struct fa_layer_t
 {
-	//const uint8_t* mask;
 	// optional cached pose - caching result of currAction, so we can move nextAction to currAction, then use nextAction for 3rd action
 	fa_action_t currAction;
 	fa_action_t nextAction;	// if 3rd action scheduled, then if fade-in is 0 - jump to 3rd, if fade-in is >0, then we have 1 frame of old stuff so we cache the pose
 	
 	fa_action_t scheduledActions[2];
+	
+	fa_mask_t maskID;	// mask for this layer, refers to rig masks
 } fa_layer_t;
 
 // fa_action_scheduler_t
