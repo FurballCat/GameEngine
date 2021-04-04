@@ -824,7 +824,6 @@ void fg_animation_update(FurGameEngine* pEngine, float dt)
 	// animation states update
 	fa_character_animate_ctx_t animateCtx = {};
 	animateCtx.dt = dt;
-	animateCtx.globalTime = (uint64_t)(pEngine->globalTime * 1000000.0);
 	animateCtx.scratchpadBuffer = pEngine->scratchpadBuffer;
 	animateCtx.scratchpadBufferSize = pEngine->scratchpadBufferSize;
 	

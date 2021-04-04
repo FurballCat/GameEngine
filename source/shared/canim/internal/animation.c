@@ -1216,13 +1216,13 @@ float fa_action_args_get_alpha(float localTime, const fa_action_args_t* args)
 	return alpha;
 }
 
-float fa_action_get_local_time(const fa_action_t* action, const fa_character_animate_ctx_t* ctx)
+float fa_action_get_local_time(const fa_action_t* action, const fa_character_t* character)
 {
 	float localTime = -1.0f;
 	
-	if(ctx->globalTime >= action->globalStartTime)
+	if(character->globalTime >= action->globalStartTime)
 	{
-		localTime = (float)((ctx->globalTime - action->globalStartTime) / 1000000.0);
+		localTime = (float)((character->globalTime - action->globalStartTime) / 1000000.0);
 	}
 	FUR_ASSERT(localTime != -1.0f);
 	
@@ -1327,7 +1327,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		FUR_ASSERT(layer->currAction.func != NULL);
 		FUR_ASSERT(layer->currAction.getAnimsFunc != NULL);
 		
-		const float localTime = fa_action_get_local_time(action, ctx);
+		const float localTime = fa_action_get_local_time(action, character);
 		
 		fa_action_ctx_t actionCtx = {};
 		actionCtx.dt = ctx->dt;
@@ -1410,7 +1410,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			FUR_ASSERT(action->func != NULL);
 			FUR_ASSERT(action->getAnimsFunc != NULL);
 			
-			const float localTime = fa_action_get_local_time(action, ctx);
+			const float localTime = fa_action_get_local_time(action, character);
 			
 			fa_action_ctx_t actionCtx = {};
 			actionCtx.dt = ctx->dt;

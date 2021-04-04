@@ -356,7 +356,6 @@ typedef struct fa_character_t
 typedef struct fa_character_animate_ctx_t
 {
 	float dt;
-	uint64_t globalTime;
 	
 	void* scratchpadBuffer;
 	uint32_t scratchpadBufferSize;
