@@ -289,6 +289,7 @@ typedef struct fa_action_ctx_t
 	float localTime;
 	fa_character_layer_t layer;
 	fa_cmd_buffer_recorder_t* cmdRecorder;
+	fa_cmd_context_debug_t* debug;
 } fa_action_ctx_t;
 	
 typedef void (*fa_action_func_t)(const fa_action_ctx_t* ctx, void* userData);

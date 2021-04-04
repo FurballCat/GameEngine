@@ -1229,9 +1229,108 @@ float fa_action_get_local_time(const fa_action_t* action, const fa_character_t* 
 	return localTime;
 }
 
-void fa_character_animate(fa_character_t* character, const fa_character_animate_ctx_t* ctx)
+typedef enum fa_action_blend_source_t
 {
-	fa_character_layer_t layerEnum = FA_CHAR_LAYER_BODY;
+	FA_SOURCE_REF_POSE = 0,
+	FA_SOURCE_CACHED_POSE,
+	FA_SOURCE_POSE_STACK
+} fa_action_blend_source_t;
+
+typedef struct fa_cross_layer_context_t
+{
+	fa_pose_stack_t* poseStack;
+	
+	void* scratchMemory;
+	uint32_t scratchMemorySize;
+	
+	fa_cmd_context_debug_t* debug;
+	
+	float dt;
+	
+	float outWeightIK;
+} fa_cross_layer_context_t;
+
+float fa_character_action_animate(fa_character_t* character, fa_character_layer_t layerEnum, fa_action_t* action, fa_cross_layer_context_t* ctx, fa_action_blend_source_t blendSource, bool cacheResult)
+{
+	if(action->func == NULL)
+		return 0.0f;
+	
+	fa_cmd_buffer_t animCmdBuffer = { ctx->scratchMemory, ctx->scratchMemorySize };
+	fa_cmd_buffer_recorder_t recorder = {};
+	fa_cmd_buffer_recorder_init(&recorder, animCmdBuffer.data, animCmdBuffer.size);
+	
+	// record commands
+	FUR_ASSERT(action->func != NULL);
+	FUR_ASSERT(action->getAnimsFunc != NULL);
+	
+	const float localTime = fa_action_get_local_time(action, character);
+	
+	fa_action_ctx_t actionCtx = {};
+	actionCtx.dt = ctx->dt;
+	actionCtx.layer = layerEnum;
+	actionCtx.cmdRecorder = &recorder;
+	actionCtx.localTime = localTime;
+	actionCtx.debug = ctx->debug;
+	
+	const fa_action_args_t* args = &action->args;
+	const float alpha = fa_action_args_get_alpha(localTime, args);
+	
+	// record commands
+	{
+		fa_cmd_begin(&recorder, blendSource == FA_SOURCE_POSE_STACK ? 1 : 0);
+		
+		if(blendSource == FA_SOURCE_REF_POSE)
+		{
+			fa_cmd_ref_pose(&recorder);
+		}
+		else if(blendSource == FA_SOURCE_CACHED_POSE)
+		{
+			fa_cmd_use_cached_pose(&recorder, 0); // todo: set proper index in the future
+		}
+		else if(blendSource == FA_SOURCE_POSE_STACK)
+		{
+			FUR_ASSERT(ctx->poseStack->numPoses >= 1);	// we need at least one pose on stack to blend with
+		}
+		else
+		{
+			FUR_ASSERT(false);	// unknownn source pose
+		}
+		action->func(&actionCtx, action->userData);
+		fa_cmd_blend2(&recorder, alpha);
+		
+		fa_cmd_end(&recorder);
+	}
+	
+	// evaluate commands
+	fa_cmd_context_t animCtx = {};
+	animCtx.animClips = action->getAnimsFunc(action->userData, &animCtx.numAnimClips);
+	animCtx.rig = character->rig;
+	animCtx.poseStack = ctx->poseStack;
+	animCtx.poseCache = &character->poseCache;
+	animCtx.debug = ctx->debug;
+	
+	fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
+	
+	if(cacheResult)
+	{
+		fa_pose_t outPose;
+		fa_pose_stack_get(ctx->poseStack, &outPose, 0);
+		
+		fa_pose_copy(&character->poseCache.tempPose, &outPose);
+		character->transitionPoseCached = true;
+		
+		if(ctx->debug)
+		{
+			const float color[4] = FUR_COLOR_RED;
+			fc_dbg_text(-450.0f, 1.0f, "caching_pose", color);
+		}
+	}
+	
+	return alpha;
+}
+
+void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_context_t* ctx, fa_character_layer_t layerEnum)
+{
 	fa_layer_t* layer = &character->layers[layerEnum];
 	
 	// resolve scheduled actions
@@ -1268,6 +1367,54 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		}
 	}
 	
+	// if at this point we still have pending scheduled actions, then it means we need to cache the pose of current actions
+	const bool stillScheduledA = layer->scheduledActions[0].userData != NULL;
+	const bool stillScheduledB = layer->scheduledActions[1].userData != NULL;
+	const bool isCachingPose = stillScheduledA || stillScheduledB;
+	
+	// animate current action
+	const bool cacheCurrAction = isCachingPose && stillScheduledA && !stillScheduledB;
+	const float currAlpha = fa_character_action_animate(character, layerEnum, &layer->currAction, ctx, character->transitionPoseCached ? FA_SOURCE_CACHED_POSE : FA_SOURCE_REF_POSE, cacheCurrAction);
+	
+	bool fullyBlended = false;
+	
+	// animate next action
+	const bool cacheNextAction = isCachingPose && stillScheduledA && stillScheduledB;
+	const float nextAlpha = fa_character_action_animate(character, layerEnum, &layer->nextAction, ctx, FA_SOURCE_POSE_STACK, cacheNextAction);
+	if(nextAlpha >= 1.0f)
+	{
+		fullyBlended = true;
+	}
+	
+	if(layerEnum == FA_CHAR_LAYER_BODY)
+	{
+		const float currIK = layer->currAction.args.ikMode == FA_IK_MODE_LEGS ? currAlpha : 0.0f;
+		const float nextIK = layer->nextAction.args.ikMode == FA_IK_MODE_LEGS ? 1.0f : 0.0f;
+		
+		const float weightIK = currIK * (1.0f - nextAlpha) + nextIK * nextAlpha;
+		ctx->outWeightIK = weightIK;
+	}
+	
+	// do action swaps
+	if(fullyBlended)
+	{
+		layer->currAction = layer->nextAction;
+		fa_action_reset(&layer->nextAction);
+		character->transitionPoseCached = false;
+	}
+	
+	if(stillScheduledA && !stillScheduledB)
+	{
+		FUR_ASSERT(!stillScheduledB);
+		layer->currAction = layer->nextAction;
+		fa_action_reset(&layer->nextAction);
+		layer->nextAction = layer->scheduledActions[0];
+		fa_action_reset(&layer->scheduledActions[0]);
+	}
+}
+
+void fa_character_animate(fa_character_t* character, const fa_character_animate_ctx_t* ctx)
+{
 	// allocate pose stack and command buffer memory
 	uint32_t scratchpadBufferSizeUsed = 0;
 	void* scratchpadBufferPtr = ctx->scratchpadBuffer;
@@ -1315,145 +1462,19 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	
 	fa_cmd_context_debug_t debug = {};
 	
-	// animate action
-	{
-		fa_cmd_buffer_t animCmdBuffer = { animCmdBufferMemory, animCmdBufferSize };
-		fa_cmd_buffer_recorder_t recorder = {};
-		fa_cmd_buffer_recorder_init(&recorder, animCmdBuffer.data, animCmdBuffer.size);
-		
-		fa_action_t* action = &layer->currAction;
-		
-		// record commands
-		FUR_ASSERT(layer->currAction.func != NULL);
-		FUR_ASSERT(layer->currAction.getAnimsFunc != NULL);
-		
-		const float localTime = fa_action_get_local_time(action, character);
-		
-		fa_action_ctx_t actionCtx = {};
-		actionCtx.dt = ctx->dt;
-		actionCtx.layer = layerEnum;
-		actionCtx.cmdRecorder = &recorder;
-		actionCtx.localTime = localTime;
-		
-		const fa_action_args_t* args = &action->args;
-		
-		fa_cmd_begin(&recorder, 0);
-		
-		const float alpha = fa_action_args_get_alpha(localTime, args);
-		
-		if(alpha < 1.0f)
-		{
-			if(character->transitionPoseCached)
-			{
-				fa_cmd_use_cached_pose(&recorder, 0); // todo: set proper index in the future
-			}
-			else
-			{
-				fa_cmd_ref_pose(&recorder);
-			}
-			action->func(&actionCtx, action->userData);
-			fa_cmd_blend2(&recorder, alpha);
-		}
-		else
-		{
-			action->func(&actionCtx, action->userData);
-		}
-		
-		fa_cmd_end(&recorder);
-		
-		// evaluate commands
-		fa_cmd_context_t animCtx = {};
-		animCtx.animClips = action->getAnimsFunc(action->userData, &animCtx.numAnimClips);
-		animCtx.rig = character->rig;
-		animCtx.poseStack = &poseStack;
-		animCtx.poseCache = &character->poseCache;
-		animCtx.debug = &debug;
-		
-		fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
-	}
+	// update layers
+	fa_cross_layer_context_t layerCtx = {};
+	layerCtx.dt = ctx->dt;
+	layerCtx.poseStack = &poseStack;
+	layerCtx.scratchMemory = animCmdBufferMemory;
+	layerCtx.scratchMemorySize = animCmdBufferSize;
+	layerCtx.debug = &debug;
 	
-	// if at this point we still have pending scheduled actions, then it means we need to cache the pose of current actions
-	const bool stillScheduledA = layer->scheduledActions[0].userData != NULL;
-	const bool stillScheduledB = layer->scheduledActions[1].userData != NULL;
-	
-	const bool isCachingPose = stillScheduledA || stillScheduledB;
-	
-	// optionally cache pose
-	if(isCachingPose && stillScheduledA && !stillScheduledB)
-	{
-		fa_pose_t outPose;
-		fa_pose_stack_get(&poseStack, &outPose, 0);
-		
-		fa_pose_copy(&character->poseCache.tempPose, &outPose);
-		character->transitionPoseCached = true;
-		const float color[4] = FUR_COLOR_RED;
-		fc_dbg_text(-450.0f, 1.0f, "caching_pose", color);
-	}
-	
-	float fadeInAlpha = 0.0f;
-	bool fullyBlended = false;
-	
-	// animate next action
-	{
-		fa_character_layer_t layerEnum = FA_CHAR_LAYER_BODY;
-		
-		fa_cmd_buffer_t animCmdBuffer = { animCmdBufferMemory, animCmdBufferSize };
-		fa_cmd_buffer_recorder_t recorder = {};
-		fa_cmd_buffer_recorder_init(&recorder, animCmdBuffer.data, animCmdBuffer.size);
-		
-		fa_layer_t* layer = &character->layers[layerEnum];
-		fa_action_t* action = &layer->nextAction;
-		
-		if(action->userData != NULL)
-		{
-			// record commands
-			FUR_ASSERT(action->func != NULL);
-			FUR_ASSERT(action->getAnimsFunc != NULL);
-			
-			const float localTime = fa_action_get_local_time(action, character);
-			
-			fa_action_ctx_t actionCtx = {};
-			actionCtx.dt = ctx->dt;
-			actionCtx.layer = layerEnum;
-			actionCtx.cmdRecorder = &recorder;
-			actionCtx.localTime = localTime;
-			
-			const fa_action_args_t* args = &action->args;
-			
-			FUR_ASSERT(poseStack.bufferSize > 0);	// we need at least one pose on stack to blend with
-			
-			const float alpha = fa_action_args_get_alpha(localTime, args);
-			
-			fa_cmd_begin(&recorder, poseStack.numPoses);
-			action->func(&actionCtx, action->userData);
-			fa_cmd_blend2(&recorder, alpha);
-			fa_cmd_end(&recorder);
-
-			fadeInAlpha = alpha;
-			
-			if(alpha >= 1.0f)
-			{
-				fullyBlended = true;
-			}
-			
-			// evaluate commands
-			fa_cmd_context_t animCtx = {};
-			animCtx.animClips = action->getAnimsFunc(action->userData, &animCtx.numAnimClips);
-			animCtx.rig = character->rig;
-			animCtx.poseStack = &poseStack;
-			animCtx.poseCache = &character->poseCache;
-			animCtx.debug = &debug;
-			
-			fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
-		}
-	}
+	fa_character_layer_animate(character, &layerCtx, FA_CHAR_LAYER_BODY);
 	
 	// inverse kinematics
 	{
-		const float currIK = layer->currAction.args.ikMode == FA_IK_MODE_LEGS ? 1.0f : 0.0f;
-		const float nextIK = layer->nextAction.args.ikMode == FA_IK_MODE_LEGS ? 1.0f : 0.0f;
-		
-		const float weightIK = currIK * (1.0f - fadeInAlpha) + nextIK * fadeInAlpha;
+		const float weightIK = layerCtx.outWeightIK;
 		
 		if(weightIK > 0.0f)
 		{
@@ -1509,37 +1530,9 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		}
 	}
 	
-	if(fullyBlended)
-	{
-		layer->currAction = layer->nextAction;
-		fa_action_reset(&layer->nextAction);
-		character->transitionPoseCached = false;
-	}
-	
 	// out pose is the result of this layer
 	fa_pose_t outPose;
 	fa_pose_stack_get(&poseStack, &outPose, 0);
-	
-	// optionally cache pose
-	if(isCachingPose && stillScheduledA && stillScheduledB)
-	{
-		fa_pose_copy(&character->poseCache.tempPose, &outPose);
-		character->transitionPoseCached = true;
-		
-		layer->currAction = layer->scheduledActions[0];
-		fa_action_reset(&layer->scheduledActions[0]);
-		layer->nextAction = layer->scheduledActions[1];
-		fa_action_reset(&layer->scheduledActions[1]);
-	}
-	
-	if(stillScheduledA && !stillScheduledB)
-	{
-		FUR_ASSERT(!stillScheduledB);
-		layer->currAction = layer->nextAction;
-		fa_action_reset(&layer->nextAction);
-		layer->nextAction = layer->scheduledActions[0];
-		fa_action_reset(&layer->scheduledActions[0]);
-	}
 	
 	// convert to model space
 	{
