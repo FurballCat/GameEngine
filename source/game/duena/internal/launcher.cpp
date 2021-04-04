@@ -383,7 +383,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		fi_depot_t depot;
 		depot.path = depotPath;
 
-		const char* characterRigPath = "assets/characters/zelda/mesh/zelda_rig.fbx";
+		const char* characterRigPath = "assets/characters/zelda/animations/zelda-a-pose.fbx";
 
 		// import animation resources
 		{
@@ -561,7 +561,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		fa_action_args_t args = {};
 		args.fadeInSec = 0.3f;
 		args.ikMode = FA_IK_MODE_LEGS;
-		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction, &args);
+		//fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction, &args);
 		
 		pEngine->zeldaGameObject.id = SID_REG("zelda");
 		pEngine->zeldaGameObject.script = &pEngine->zeldaScript;

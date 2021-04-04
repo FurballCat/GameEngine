@@ -845,30 +845,6 @@ fa_cmd_status_t fa_cmd_impl_anim_sample(fa_cmd_context_t* ctx, const void* cmdDa
 	
 	FUR_ASSERT(pose.numXforms == ctx->rig->numBones);
 	
-	// temporary ref pose write - todo: remove that, this should be part of anim clip sampling function
-	if(!data->asAdditive)
-	{
-		for(uint32_t i=0; i<pose.numXforms; ++i)
-		{
-			pose.xforms[i] = ctx->rig->refPose[i];
-			pose.weightsXforms[i] = 255;
-		}
-	}
-	else
-	{
-		for(uint32_t i=0; i<pose.numXforms; ++i)
-		{
-			fm_xform_identity(&pose.xforms[i]);
-			pose.weightsXforms[i] = 255;
-		}
-	}
-	
-	for(uint32_t i=0; i<pose.numTracks; ++i)
-	{
-		pose.tracks[i] = 0.0f;
-		pose.weightsTracks[i] = 255;
-	}
-	
 	fa_anim_clip_sample(clip, data->time, data->asAdditive, &pose);
 	
 	if(ctx->debug)
@@ -1229,13 +1205,6 @@ float fa_action_get_local_time(const fa_action_t* action, const fa_character_t* 
 	return localTime;
 }
 
-typedef enum fa_action_blend_source_t
-{
-	FA_SOURCE_REF_POSE = 0,
-	FA_SOURCE_CACHED_POSE,
-	FA_SOURCE_POSE_STACK
-} fa_action_blend_source_t;
-
 typedef struct fa_cross_layer_context_t
 {
 	fa_pose_stack_t* poseStack;
@@ -1250,7 +1219,7 @@ typedef struct fa_cross_layer_context_t
 	float outWeightLegsIK;
 } fa_cross_layer_context_t;
 
-float fa_character_action_animate(fa_character_t* character, fa_character_layer_t layerEnum, fa_action_t* action, fa_cross_layer_context_t* ctx, fa_action_blend_source_t blendSource, bool cacheResult)
+float fa_character_action_animate(fa_character_t* character, fa_character_layer_t layerEnum, fa_action_t* action, fa_cross_layer_context_t* ctx, bool cacheResult)
 {
 	if(action->func == NULL)
 		return 0.0f;
@@ -1277,27 +1246,9 @@ float fa_character_action_animate(fa_character_t* character, fa_character_layer_
 	
 	// record commands
 	{
-		fa_cmd_begin(&recorder, blendSource == FA_SOURCE_POSE_STACK ? 1 : 0);
-		
-		if(blendSource == FA_SOURCE_REF_POSE)
-		{
-			fa_cmd_ref_pose(&recorder);
-		}
-		else if(blendSource == FA_SOURCE_CACHED_POSE)
-		{
-			fa_cmd_use_cached_pose(&recorder, 0); // todo: set proper index in the future
-		}
-		else if(blendSource == FA_SOURCE_POSE_STACK)
-		{
-			FUR_ASSERT(ctx->poseStack->numPoses >= 1);	// we need at least one pose on stack to blend with
-		}
-		else
-		{
-			FUR_ASSERT(false);	// unknownn source pose
-		}
+		fa_cmd_begin(&recorder, ctx->poseStack->numPoses);
 		action->func(&actionCtx, action->userData);
 		fa_cmd_blend2(&recorder, alpha);
-		
 		fa_cmd_end(&recorder);
 	}
 	
@@ -1372,15 +1323,23 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 	const bool stillScheduledB = layer->scheduledActions[1].userData != NULL;
 	const bool isCachingPose = stillScheduledA || stillScheduledB;
 	
+	// copy cached pose if required
+	if(character->transitionPoseCached)
+	{
+		fa_pose_t outPose;
+		fa_pose_stack_get(ctx->poseStack, &outPose, 0);
+		fa_pose_blend_linear(&outPose, &outPose, &character->poseCache.tempPose, 1.0f);		// blend to include pose weights/mask
+	}
+	
 	// animate current action
 	const bool cacheCurrAction = isCachingPose && stillScheduledA && !stillScheduledB;
-	const float currAlpha = fa_character_action_animate(character, layerEnum, &layer->currAction, ctx, character->transitionPoseCached ? FA_SOURCE_CACHED_POSE : FA_SOURCE_REF_POSE, cacheCurrAction);
+	const float currAlpha = fa_character_action_animate(character, layerEnum, &layer->currAction, ctx, cacheCurrAction);
 	
 	bool fullyBlended = false;
 	
 	// animate next action
 	const bool cacheNextAction = isCachingPose && stillScheduledA && stillScheduledB;
-	const float nextAlpha = fa_character_action_animate(character, layerEnum, &layer->nextAction, ctx, FA_SOURCE_POSE_STACK, cacheNextAction);
+	const float nextAlpha = fa_character_action_animate(character, layerEnum, &layer->nextAction, ctx, cacheNextAction);
 	if(nextAlpha >= 1.0f)
 	{
 		fullyBlended = true;
@@ -1531,23 +1490,39 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	layerCtx.scratchMemorySize = animCmdBufferSize;
 	layerCtx.debug = &debug;
 	
+	// reset pose to ref pose
+	fa_pose_stack_push(&poseStack, 1);
+	fa_pose_t poseLS;
+	fa_pose_stack_get(&poseStack, &poseLS, 0);
+	{
+		FUR_ASSERT(poseLS.numXforms == character->rig->numBones);
+		
+		for(uint32_t i=0; i<poseLS.numXforms; ++i)
+		{
+			poseLS.xforms[i] = character->rig->refPose[i];
+			poseLS.weightsXforms[i] = 255;
+		}
+		
+		for(uint32_t i=0; i<poseLS.numTracks; ++i)
+		{
+			poseLS.tracks[i] = 0.0f;
+			poseLS.weightsTracks[i] = 255;
+		}
+	}
+	
 	// body
 	fa_character_layer_animate(character, &layerCtx, FA_CHAR_LAYER_BODY);
 	
 	// inverse kinematics
 	fa_character_ik(character, &layerCtx);
-	
-	// out pose is the result of this layer
-	fa_pose_t outPose;
-	fa_pose_stack_get(&poseStack, &outPose, 0);
-	
+
 	// convert to model space
 	{
 		const int16_t* parentIndices = character->rig->parents;
 		fa_pose_t poseMS = {};
 		poseMS.xforms = character->poseMS;
 		poseMS.numXforms = character->rig->numBones;
-		fa_pose_local_to_model(&poseMS, &outPose, parentIndices);
+		fa_pose_local_to_model(&poseMS, &poseLS, parentIndices);
 	}
 }
 
