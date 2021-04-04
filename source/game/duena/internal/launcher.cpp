@@ -292,6 +292,7 @@ struct FurGameEngine
 	fa_action_animate_t actionIdle;
 	fa_action_animate_t actionLoco;
 	fa_action_animate_t actionWeaponEquipped;
+	fa_action_animate_t actionWindProtect;
 	
 	// skinning
 	fm_mat4 skinMatrices[512];
@@ -555,6 +556,9 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		pEngine->actionWeaponEquipped.animation = pEngine->pAnimClipHoldSword;
 		pEngine->actionWeaponEquipped.forceLoop = true;
 		
+		pEngine->actionWindProtect.animation = pEngine->pAnimClipWindProtect;
+		pEngine->actionWindProtect.forceLoop = true;
+		
 		pEngine->animCharacterZelda.globalTime = pEngine->globalTime;
 		
 		fa_action_args_t args = {};
@@ -778,9 +782,13 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 	pEngine->animCharacterZelda.globalTime = globalTime;
 	
 	static uint32_t actionRandomizer = 0;
+	static uint32_t actionRandomizer2 = 0;
 	
 	if(pEngine->inActionPressed)
 		actionRandomizer += 1;
+	
+	if(pEngine->inActionEquipWeaponPressed)
+		actionRandomizer2 += 1;
 	
 	const uint32_t numStages = 2;
 	
@@ -799,12 +807,20 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionIdle, &args);
 	}
 	
-	if(pEngine->inActionEquipWeaponPressed)
+	if(pEngine->inActionEquipWeaponPressed && ((actionRandomizer2 % 2) == 1))
 	{
 		fa_action_args_t args = {};
 		args.fadeInSec = 0.5f;
 		args.layer = FA_CHAR_LAYER_UPPER_BODY;
 		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionWeaponEquipped, &args);
+	}
+	
+	if(pEngine->inActionEquipWeaponPressed && ((actionRandomizer2 % 2) == 0))
+	{
+		fa_action_args_t args = {};
+		args.fadeInSec = 0.5f;
+		args.layer = FA_CHAR_LAYER_UPPER_BODY;
+		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionWindProtect, &args);
 	}
 }
 
