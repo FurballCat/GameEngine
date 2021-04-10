@@ -1163,22 +1163,6 @@ void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup
 	poseLS->xforms[ikSetup->idxEnd] = chainLS[3];
 }
 
-float fa_action_args_get_alpha(float localTime, const fa_action_args_t* args)
-{
-	float alpha = 1.0f;
-	
-	if(args->fadeInSec > 0.0f)
-	{
-		alpha = fm_clamp(localTime / args->fadeInSec, 0.0f, 1.0f);
-		if(args->fadeInCurve == FA_CURVE_UNIFORM_S)
-		{
-			alpha = fm_curve_uniform_s(alpha);
-		}
-	}
-	
-	return alpha;
-}
-
 float fa_action_get_local_time(const fa_action_t* action, const fa_character_t* character)
 {
 	float localTime = -1.0f;
@@ -1190,6 +1174,28 @@ float fa_action_get_local_time(const fa_action_t* action, const fa_character_t* 
 	FUR_ASSERT(localTime != -1.0f);
 	
 	return localTime;
+}
+
+float fa_action_get_alpha(fa_character_t* character, const fa_action_t* action)
+{
+	if(!action->func)
+		return 0.0f;
+	
+	float alpha = 1.0f;
+	
+	const fa_action_args_t* args = &action->args;
+	const float localTime = fa_action_get_local_time(action, character);
+	
+	if(args->fadeInSec > 0.0f)
+	{
+		alpha = fm_clamp(localTime / args->fadeInSec, 0.0f, 1.0f);
+		if(args->fadeInCurve == FA_CURVE_UNIFORM_S)
+		{
+			alpha = fm_curve_uniform_s(alpha);
+		}
+	}
+	
+	return alpha;
 }
 
 typedef struct fa_cross_layer_context_t
@@ -1206,10 +1212,25 @@ typedef struct fa_cross_layer_context_t
 	float outWeightLegsIK;
 } fa_cross_layer_context_t;
 
-float fa_character_action_animate(fa_character_t* character, fa_character_layer_t layerEnum, fa_action_t* action, fa_cross_layer_context_t* ctx, bool cacheResult)
+void fa_character_layer_cache_pose(fa_character_t* character, fa_character_layer_t layerEnum, fa_cross_layer_context_t* ctx)
+{
+	fa_pose_t outPose;
+	fa_pose_stack_get(ctx->poseStack, &outPose, 0);
+	
+	fa_pose_copy(&character->poseCache.tempPose, &outPose);
+	character->transitionPoseCached = true;
+	
+	if(ctx->debug)
+	{
+		const float color[4] = FUR_COLOR_RED;
+		fc_dbg_text(-450.0f, 1.0f, "caching_pose", color);
+	}
+}
+
+void fa_character_action_animate(fa_character_t* character, fa_character_layer_t layerEnum, fa_action_t* action, fa_cross_layer_context_t* ctx, float alpha)
 {
 	if(action->func == NULL)
-		return 0.0f;
+		return;
 	
 	fa_cmd_buffer_t animCmdBuffer = { ctx->scratchMemory, ctx->scratchMemorySize };
 	fa_cmd_buffer_recorder_t recorder = {};
@@ -1227,9 +1248,6 @@ float fa_character_action_animate(fa_character_t* character, fa_character_layer_
 	actionCtx.cmdRecorder = &recorder;
 	actionCtx.localTime = localTime;
 	actionCtx.debug = ctx->debug;
-	
-	const fa_action_args_t* args = &action->args;
-	const float alpha = fa_action_args_get_alpha(localTime, args);
 	
 	// record commands
 	{
@@ -1251,23 +1269,6 @@ float fa_character_action_animate(fa_character_t* character, fa_character_layer_
 	animCtx.mask = fa_rig_get_mask(character->rig, layer->maskID);
 	
 	fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
-	
-	if(cacheResult)
-	{
-		fa_pose_t outPose;
-		fa_pose_stack_get(ctx->poseStack, &outPose, 0);
-		
-		fa_pose_copy(&character->poseCache.tempPose, &outPose);
-		character->transitionPoseCached = true;
-		
-		if(ctx->debug)
-		{
-			const float color[4] = FUR_COLOR_RED;
-			fc_dbg_text(-450.0f, 1.0f, "caching_pose", color);
-		}
-	}
-	
-	return alpha;
 }
 
 void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_context_t* ctx, fa_character_layer_t layerEnum)
@@ -1321,18 +1322,32 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 		fa_pose_blend_linear(&outPose, &outPose, &character->poseCache.tempPose, 1.0f);		// blend to include pose weights/mask
 	}
 	
+	const float nextAlpha = fa_action_get_alpha(character, &layer->nextAction);
+	const float currAlpha = fa_action_get_alpha(character, &layer->currAction) * (1.0f - nextAlpha);
 	// animate current action
-	const bool cacheCurrAction = isCachingPose && stillScheduledA && !stillScheduledB;
-	const float currAlpha = fa_character_action_animate(character, layerEnum, &layer->currAction, ctx, cacheCurrAction);
+	{
+		fa_action_t* action = &layer->currAction;
+		fa_character_action_animate(character, layerEnum, action, ctx, currAlpha);
+		if(isCachingPose && stillScheduledA && !stillScheduledB)
+		{
+			fa_character_layer_cache_pose(character, layerEnum, ctx);
+		}
+	}
 	
 	bool fullyBlended = false;
 	
 	// animate next action
-	const bool cacheNextAction = isCachingPose && stillScheduledA && stillScheduledB;
-	const float nextAlpha = fa_character_action_animate(character, layerEnum, &layer->nextAction, ctx, cacheNextAction);
-	if(nextAlpha >= 1.0f)
 	{
-		fullyBlended = true;
+		fa_action_t* action = &layer->nextAction;
+		fa_character_action_animate(character, layerEnum, action, ctx, nextAlpha);
+		if(isCachingPose && stillScheduledA && stillScheduledB)
+		{
+			fa_character_layer_cache_pose(character, layerEnum, ctx);
+		}
+		if(nextAlpha >= 1.0f)
+		{
+			fullyBlended = true;
+		}
 	}
 	
 	// only body layer can affect legs IK
