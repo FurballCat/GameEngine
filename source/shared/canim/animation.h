@@ -137,7 +137,7 @@ typedef struct fa_anim_clip_block_t
 	
 typedef struct fa_anim_clip_2_t
 {
-	// ranges for entire anim clip
+	uint32_t r; // ranges for entire anim clip
 } fa_anim_clip_2_t;
 	
 // -----

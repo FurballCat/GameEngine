@@ -1514,7 +1514,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		fa_pose_stack_init(&poseStack, &desc, animPoseStackMemory, poseStackSize);
 	}
 	
-	fa_cmd_context_debug_t debug = {};
+	//fa_cmd_context_debug_t debug = {};
 	
 	// update layers
 	fa_cross_layer_context_t layerCtx = {};
