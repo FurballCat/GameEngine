@@ -15,6 +15,8 @@
 #include "ccore/textParsing.h"
 #include "cinput/public.h"
 
+#include "camera.h"
+
 /**************** FURBALL CAT GAME ENGINE ****************/
 
 typedef union fs_variant_t
@@ -291,6 +293,9 @@ struct FurGameEngine
 	
 	fm_vec4 playerMove;
 	
+	// camera
+	fg_camera_t* camera;
+	
 	// gameplay animation states
 	fa_character_t animCharacterZelda;
 	fa_action_animate_t actionIdle;
@@ -375,6 +380,9 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	{
 		fp_physics_scene_create(pEngine->pPhysics, &pEngine->pPhysicsScene, pAllocCallbacks);
 	}
+	
+	// init camera
+	fg_camera_create(&pEngine->camera, pAllocCallbacks);
 	
 	// init scratchpad buffer
 	pEngine->scratchpadBufferSize = 256 * 1024;
@@ -993,67 +1001,40 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		fm_mat4_mul(&slotMS, &zeldaMat, &slotMS);
 		
 		// camera
-		const fm_vec4 g_eye = {-3, -3, 1.7, 0};
-		fm_vec4 camera_at = {0, 0, 1.2, 0};
-		const fm_vec4 g_up = {0, 0, 1, 0};
-		
-		fm_vec4 eye = g_eye;
-		
-		fm_vec4 dir_forward = {};
-		fm_vec4 dir_left = {};
-		
-		static float cameraRotation = 0.0f;
-		const float rotationSpeed = 0.02f;
-		cameraRotation += rotationSpeed * (pEngine->actionRotationLeftX);
-		const float sinRot = sinf(cameraRotation);
-		const float cosRot = cosf(cameraRotation);
-		eye.x = g_eye.x * sinRot;
-		eye.y = g_eye.y * cosRot;
-		
-		static float cameraZoom = 1.0f;
-		const float zoomSpeed = 0.02f;
-		cameraZoom += zoomSpeed * (pEngine->actionZoomOut - pEngine->actionZoomIn);
-		
-		fm_vec4_sub(&eye, &camera_at, &eye);
-		
-		dir_forward = eye;
-		fm_vec4_normalize(&dir_forward);
-		
-		fm_vec4_mulf(&eye, cameraZoom, &eye);
-		fm_vec4_add(&eye, &camera_at, &eye);
-		
-		fm_vec4_cross(&dir_forward, &g_up, &dir_left);
-		fm_vec4_cross(&g_up, &dir_left, &dir_forward);
-		fm_vec4_normalize(&dir_left);
+		{
+			fg_camera_update_orbit_ctx cameraCtx = {};
+			cameraCtx.dt = dt;
+			cameraCtx.rotationX = pEngine->actionRotationLeftX;
+			cameraCtx.zoom = pEngine->actionZoomOut - pEngine->actionZoomIn;
+			
+			fg_camera_update_orbit(pEngine->camera, &cameraCtx);
+		}
 		
 		// player movement
 		const float maxSpeed = 5.0f * dt;
+		
+		fm_vec4 dirForward = {};
+		fm_vec4 dirLeft = {};
+		fg_camera_get_directions(pEngine->camera, &dirForward, &dirLeft);
+		
 		fm_vec4 playerMoveForward;
-		fm_vec4_mulf(&dir_forward, maxSpeed * pEngine->actionMoveY, &playerMoveForward);
+		fm_vec4_mulf(&dirForward, maxSpeed * pEngine->actionMoveY, &playerMoveForward);
 		fm_vec4 playerMoveLeft;
-		fm_vec4_mulf(&dir_left, maxSpeed * pEngine->actionMoveX, &playerMoveLeft);
+		fm_vec4_mulf(&dirLeft, maxSpeed * pEngine->actionMoveX, &playerMoveLeft);
 		fm_vec4 playerMove;
 		fm_vec4_add(&playerMoveForward, &playerMoveLeft, &playerMove);
 		pEngine->playerMove = playerMove;
 		
 		// adjust camera by player position
-		fm_vec4_add(&camera_at, &zeldaMat.w, &camera_at);
-		camera_at.w = 0.0f;
-		fm_vec4_add(&eye, &zeldaMat.w, &eye);
-		eye.w = 0.0f;
+		fg_camera_adjust_by_player_movement(pEngine->camera, &zeldaMat);
+		
+		fm_mat4 cameraMatrix;
+		fg_camera_view_matrix(pEngine->camera, &cameraMatrix);
 		
 		// update rendering
 		fr_update_context_t ctx = {};
 		ctx.dt = dt;
-		ctx.camera.eye[0] = eye.x;
-		ctx.camera.eye[1] = eye.y;
-		ctx.camera.eye[2] = eye.z;
-		ctx.camera.at[0] = camera_at.x;
-		ctx.camera.at[1] = camera_at.y;
-		ctx.camera.at[2] = camera_at.z;
-		ctx.camera.up[0] = g_up.x;
-		ctx.camera.up[1] = g_up.y;
-		ctx.camera.up[2] = g_up.z;
+		ctx.cameraMatrix = &cameraMatrix;
 		fr_update_renderer(pEngine->pRenderer, &ctx);
 		
 		//if(!pEngine->actionTest2.equipWeapon)
@@ -1122,6 +1103,8 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	fa_anim_clip_release(pEngine->pAnimClipHoldSword, pAllocCallbacks);
 	
 	fp_physics_scene_release(pEngine->pPhysics, pEngine->pPhysicsScene, pAllocCallbacks);
+	
+	fg_camera_release(pEngine->camera, pAllocCallbacks);
 	
 	fp_release_physics(pEngine->pPhysics, pAllocCallbacks);
 	fr_release_renderer(pEngine->pRenderer, pAllocCallbacks);

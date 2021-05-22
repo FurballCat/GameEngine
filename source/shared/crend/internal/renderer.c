@@ -768,9 +768,7 @@ struct fr_renderer_t
 	fr_buffer_t aPropUniformBuffer[NUM_SWAP_CHAIN_IMAGES];
 	VkDescriptorSet aPropDescriptorSets[NUM_SWAP_CHAIN_IMAGES];
 	
-	fm_vec4 cameraEye;
-	fm_vec4 cameraAt;
-	fm_vec4 cameraUp;
+	fm_mat4 cameraMatrix;
 };
 
 void fr_pixels_free_func(void* pData, size_t size, void* pUserData)
@@ -2693,12 +2691,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	
 	if(res == FR_RESULT_OK)
 	{
-		const fm_vec4 g_eye = {0, -3, 1.4, 0};
-		const fm_vec4 g_at = {0, 0, 1.5, 0};
-		const fm_vec4 g_up = {0, 0, 1, 0};
-		pRenderer->cameraEye = g_eye;
-		pRenderer->cameraAt = g_at;
-		pRenderer->cameraUp = g_up;
+		fm_mat4_identity(&pRenderer->cameraMatrix);
 	}
 	
 	// create skinning mapping
@@ -2883,20 +2876,7 @@ void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_
 	g_time += g_timeDelta;
 	
 	// update camera
-	pRenderer->cameraEye.x = ctx->camera.eye[0];
-	pRenderer->cameraEye.y = ctx->camera.eye[1];
-	pRenderer->cameraEye.z = ctx->camera.eye[2];
-	pRenderer->cameraEye.w = 0.0f;
-	
-	pRenderer->cameraAt.x = ctx->camera.at[0];
-	pRenderer->cameraAt.y = ctx->camera.at[1];
-	pRenderer->cameraAt.z = ctx->camera.at[2];
-	pRenderer->cameraAt.w = 0.0f;
-	
-	pRenderer->cameraUp.x = ctx->camera.up[0];
-	pRenderer->cameraUp.y = ctx->camera.up[1];
-	pRenderer->cameraUp.z = ctx->camera.up[2];
-	pRenderer->cameraUp.w = 0.0f;
+	pRenderer->cameraMatrix = *ctx->cameraMatrix;
 	
 	g_blend = fm_clamp((sinf(g_time / 5.0f) + 1.0f) / 2.0f, 0.0f, 1.0f);
 };
@@ -2978,12 +2958,11 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 	{
 		const float aspectRatio = pRenderer->swapChainExtent.width / (float)pRenderer->swapChainExtent.height;
 		
-		fm_mat4_t tempView;
+		fm_mat4 tempView = pRenderer->cameraMatrix;
 		
 		fr_uniform_buffer_t ubo = {};
 		fm_mat4_identity(&ubo.model);
 		
-		fm_mat4_lookat_lh(&pRenderer->cameraEye, &pRenderer->cameraAt, &pRenderer->cameraUp, &tempView);
 		fm_mat4_projection_fov(45.0f, aspectRatio, 0.1f, 1000.0f, &ubo.proj);
 		
 		fm_mat4_t rot_x_vulkan_correction;
