@@ -601,6 +601,7 @@ class PBXProjectBuilder:
         self._write_line( "CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;" )
         self._write_line( "CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;" )
         self._write_line( "CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;" )
+        self._write_line( "CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;" )
         self._write_line( "CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;" )
         self._write_line( "CLANG_WARN_STRICT_PROTOTYPES = YES;" )
         self._write_line( "CLANG_WARN_SUSPICIOUS_MOVE = YES;" )
@@ -674,6 +675,7 @@ class PBXProjectBuilder:
             self._write_line( "EXECUTABLE_PREFIX = lib;" )
         elif configuration.product_type == ProductType.App:
             self._write_line( "ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;" )
+            self._write_line( "CODE_SIGN_IDENTITY = \"-\";" )
             self._write_line( "COMBINE_HIDPI_IMAGES = YES;" )
             self._write_line( "INFOPLIST_FILE = \"%(n)s\";" % {'n': configuration.plist_file_relative_path} )
             self._write_line( "LD_RUNPATH_SEARCH_PATHS = \"$(inherited) @executable_path\";" )
