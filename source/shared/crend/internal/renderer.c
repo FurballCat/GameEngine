@@ -2485,7 +2485,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			// debug draw triangles
 			vkCmdBindPipeline(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugTrianglesPSO);
 			vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 1, &pRenderer->debugTrianglesVertexBuffer[i].buffer, offsets);
-			//vkCmdDraw(pRenderer->aCommandBuffers[i], fc_dbg_triangles_num_total_vertices(), 1, 0, 0);
+			vkCmdDraw(pRenderer->aCommandBuffers[i], fc_dbg_triangles_num_total_vertices(), 1, 0, 0);
 			
 			// debug draw text
 			vkCmdBindPipeline(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugTextPSO);
