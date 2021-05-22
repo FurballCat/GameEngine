@@ -124,7 +124,7 @@ void fp_physics_update(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, const
 {
 	// character controller update
 	{
-		PxVec3 disp = {-0.5f * pCtx->dt, 0.0f, 0.0f};
+		PxVec3 disp = {pCtx->playerDisplacement->x, pCtx->playerDisplacement->y, pCtx->playerDisplacement->z};
 		PxControllerFilters filters;
 		pPhysics->controller->move(disp, 0.00001f, pCtx->dt, filters);
 	}
@@ -161,11 +161,28 @@ void fp_physics_update(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, const
 	
 	// plane collider
 	{
-		const float planeCenter[3] = {0.0f, 0.0f, 0.0f};
-		const float planeHalfLength = 10.0f;
-		const float planeColor[4] = FUR_COLOR_DARK_GREY;
+		const float planeHalfLength = 1.0f;
+		const float spacing = planeHalfLength / 0.5f;
+		const uint32_t gridSize = 20;
 		
-		fc_dbg_plane(planeCenter, planeHalfLength, planeColor);
+		for(uint32_t x=0; x<gridSize; ++x)
+		{
+			for(uint32_t y=0; y<gridSize; ++y)
+			{
+				const float planeCenter[3] = {spacing * x - spacing * gridSize * 0.5f, spacing * y - spacing * gridSize * 0.5f, 0.0f};
+				float planeColor[4] = FUR_COLOR_DARK_GREY;
+				
+				if((x + y) % 2)
+				{
+					planeColor[0] = 0.4f;
+					planeColor[1] = 0.4f;
+					planeColor[2] = 0.4f;
+					planeColor[3] = 0.4f;
+				}
+				
+				fc_dbg_plane(planeCenter, planeHalfLength, planeColor);
+			}
+		}
 	}
 	
 	// character controller

@@ -286,6 +286,10 @@ struct FurGameEngine
 	float actionRotationLeftX;
 	float actionZoomIn;
 	float actionZoomOut;
+	float actionMoveX;
+	float actionMoveY;
+	
+	fm_vec4 playerMove;
 	
 	// gameplay animation states
 	fa_character_t animCharacterZelda;
@@ -749,6 +753,14 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 		{
 			pEngine->actionRotationLeftX = fm_snap_near_zero(inputEvents[i].value, 0.05f);
 		}
+		else if(inputEvents[i].eventID == Gamepad_leftAnalogX)
+		{
+			pEngine->actionMoveX = -fm_snap_near_zero(inputEvents[i].value, 0.05f);
+		}
+		else if(inputEvents[i].eventID == Gamepad_leftAnalogY)
+		{
+			pEngine->actionMoveY = fm_snap_near_zero(inputEvents[i].value, 0.05f);
+		}
 		else if(inputEvents[i].eventID == Gamepad_rightTrigger)
 		{
 			pEngine->actionZoomIn = fm_snap_near_zero(inputEvents[i].value, 0.05f);
@@ -883,6 +895,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 	// physics
 	fp_physics_update_ctx_t physicsCtx = {};
 	physicsCtx.dt = dt;
+	physicsCtx.playerDisplacement = &pEngine->playerMove;
 	fp_physics_update(pEngine->pPhysics, pEngine->pPhysicsScene, &physicsCtx);
 	
 	{
@@ -986,6 +999,9 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		
 		fm_vec4 eye = g_eye;
 		
+		fm_vec4 dir_forward = {};
+		fm_vec4 dir_left = {};
+		
 		static float cameraRotation = 0.0f;
 		const float rotationSpeed = 0.02f;
 		cameraRotation += rotationSpeed * (pEngine->actionRotationLeftX);
@@ -999,8 +1015,26 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		cameraZoom += zoomSpeed * (pEngine->actionZoomOut - pEngine->actionZoomIn);
 		
 		fm_vec4_sub(&eye, &camera_at, &eye);
+		
+		dir_forward = eye;
+		fm_vec4_normalize(&dir_forward);
+		
 		fm_vec4_mulf(&eye, cameraZoom, &eye);
 		fm_vec4_add(&eye, &camera_at, &eye);
+		
+		fm_vec4_cross(&dir_forward, &g_up, &dir_left);
+		fm_vec4_cross(&g_up, &dir_left, &dir_forward);
+		fm_vec4_normalize(&dir_left);
+		
+		// player movement
+		const float maxSpeed = 5.0f * dt;
+		fm_vec4 playerMoveForward;
+		fm_vec4_mulf(&dir_forward, maxSpeed * pEngine->actionMoveY, &playerMoveForward);
+		fm_vec4 playerMoveLeft;
+		fm_vec4_mulf(&dir_left, maxSpeed * pEngine->actionMoveX, &playerMoveLeft);
+		fm_vec4 playerMove;
+		fm_vec4_add(&playerMoveForward, &playerMoveLeft, &playerMove);
+		pEngine->playerMove = playerMove;
 		
 		// adjust camera by player position
 		fm_vec4_add(&camera_at, &zeldaMat.w, &camera_at);

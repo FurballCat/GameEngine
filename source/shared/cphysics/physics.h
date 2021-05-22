@@ -13,6 +13,7 @@ extern "C"
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 	
 typedef struct fm_xform fm_xform;
+typedef struct fm_vec4 fm_vec4;
 	
 typedef struct fp_physics_t fp_physics_t;
 typedef struct fp_physics_scene_t fp_physics_scene_t;
@@ -26,6 +27,7 @@ CPHYSICS_API void fp_physics_scene_release(fp_physics_t* pPhysics, fp_physics_sc
 typedef struct fp_physics_update_ctx_t
 {
 	float dt;
+	fm_vec4* playerDisplacement;
 } fp_physics_update_ctx_t;
 	
 CPHYSICS_API void fp_physics_update(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, const fp_physics_update_ctx_t* pCtx);
