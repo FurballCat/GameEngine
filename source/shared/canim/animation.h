@@ -383,6 +383,14 @@ CANIM_API const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* us
 
 CANIM_API void fa_character_schedule_action_simple(fa_character_t* character, fa_action_animate_t* action, const fa_action_args_t* args);
 
+typedef struct fa_action_schedule_data_t
+{
+	fa_action_get_anims_func_t fnGetAnims;
+	fa_action_func_t fnUpdate;
+	void* userData;
+} fa_action_schedule_data_t;
+CANIM_API void fa_character_schedule_action(fa_character_t* character, fa_action_schedule_data_t* data, const fa_action_args_t* args);
+
 // test play two animations action
 typedef struct fa_action_animate_test_t
 {
@@ -398,6 +406,34 @@ CANIM_API const fa_anim_clip_t** fa_action_animate_test_get_anims_func(const voi
 
 CANIM_API void fa_character_schedule_action_test_simple(fa_character_t* character, fa_action_animate_test_t* action, const fa_action_args_t* args);
 
+// player locomotion action
+typedef enum fa_action_player_loco_anims_t
+{
+	FA_ACTION_PLAYER_LOCO_ANIM_IDLE = 0,
+	FA_ACTION_PLAYER_LOCO_ANIM_RUN,
+	
+	FA_ACTION_PLAYER_LOCO_ANIM_COUNT
+} fa_action_player_loco_anims_t;
+
+typedef struct fa_action_player_loco_t
+{
+	fa_anim_clip_t* anims[FA_ACTION_PLAYER_LOCO_ANIM_COUNT];
+	
+	// will of player movement direction
+	float moveX;
+	float moveY;
+	
+	// anim state
+	float idleLocalTime;
+	float runLocalTime;
+	float blendState;	// idle 0..1 run
+	
+} fa_action_player_loco_t;
+
+CANIM_API void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData);
+CANIM_API const fa_anim_clip_t** fa_action_player_loco_get_anims_func(const void* userData, uint32_t* numAnims);
+
+// dangles
 typedef struct fa_dangle
 {
 	fm_vec4* x0;

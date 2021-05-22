@@ -1619,6 +1619,42 @@ void fa_character_schedule_action_simple(fa_character_t* character, fa_action_an
 	actionSlot->args = *args;
 }
 
+CANIM_API void fa_character_schedule_action(fa_character_t* character, fa_action_schedule_data_t* data, const fa_action_args_t* args)
+{
+	fa_layer_t* layer = &character->layers[args->layer];
+	
+	fa_action_t* actionSlot = NULL;
+	
+	if(layer->currAction.userData == NULL)
+	{
+		actionSlot = &layer->currAction;
+	}
+	else if(layer->nextAction.userData == NULL)
+	{
+		actionSlot = &layer->nextAction;
+	}
+	else if(layer->scheduledActions[0].userData == NULL)
+	{
+		actionSlot = &layer->scheduledActions[0];
+	}
+	else if(layer->scheduledActions[1].userData == NULL)
+	{
+		actionSlot = &layer->scheduledActions[1];
+	}
+	else
+	{
+		layer->scheduledActions[0] = layer->scheduledActions[1];
+		fa_action_reset(&layer->scheduledActions[1]);
+		actionSlot = &layer->scheduledActions[1];
+	}
+	
+	actionSlot->userData = data->userData;
+	actionSlot->func = data->fnUpdate;
+	actionSlot->getAnimsFunc = data->fnGetAnims;
+	actionSlot->globalStartTime = character->globalTime;
+	actionSlot->args = *args;
+}
+
 // -----
 
 void fa_action_animate_test_func(const fa_action_ctx_t* ctx, void* userData)
@@ -1707,6 +1743,73 @@ void fa_character_schedule_action_test_simple(fa_character_t* character, fa_acti
 	actionSlot->getAnimsFunc = fa_action_animate_test_get_anims_func;
 	actionSlot->globalStartTime = character->globalTime;
 	actionSlot->args = *args;
+}
+
+// -----
+
+void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData)
+{
+	fa_action_player_loco_t* data = (fa_action_player_loco_t*)userData;
+	
+	
+	const bool doMove = fabs(data->moveX) > 0.05f || fabs(data->moveY) > 0.05f;
+	if(doMove)
+	{
+		if(data->blendState == 0.0f)
+		{
+			data->runLocalTime = 0.0f;
+		}
+		else
+		{
+			const float d_0 = data->anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN]->duration;
+			data->runLocalTime = fmodf(data->runLocalTime + ctx->dt, d_0);
+		}
+		
+		if(data->blendState < 1.0f)
+		{
+			data->blendState = fm_clamp(data->blendState + ctx->dt / 0.3f, 0.0f, 1.0f);
+		}
+	}
+	else
+	{
+		if(data->blendState == 1.0f)
+		{
+			data->idleLocalTime = 0.0f;
+		}
+		else
+		{
+			const float d_0 = data->anims[FA_ACTION_PLAYER_LOCO_ANIM_IDLE]->duration;
+			data->idleLocalTime = fmodf(data->idleLocalTime + ctx->dt, d_0);
+		}
+		
+		if(data->blendState > 0.0f)
+		{
+			data->blendState = fm_clamp(data->blendState - ctx->dt / 0.3f, 0.0f, 1.0f);
+		}
+	}
+	
+	if(0.0f < data->blendState && data->blendState < 1.0f)
+	{
+		fa_cmd_anim_sample(ctx->cmdRecorder, data->idleLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_IDLE);
+		fa_cmd_anim_sample(ctx->cmdRecorder, data->runLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN);
+		fa_cmd_blend2(ctx->cmdRecorder, fm_curve_uniform_s(data->blendState));
+	}
+	else if(data->blendState == 1.0f)
+	{
+		fa_cmd_anim_sample(ctx->cmdRecorder, data->runLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN);
+	}
+	else
+	{
+		fa_cmd_anim_sample(ctx->cmdRecorder, data->idleLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_IDLE);
+	}
+	
+}
+
+const fa_anim_clip_t** fa_action_player_loco_get_anims_func(const void* userData, uint32_t* numAnims)
+{
+	const fa_action_player_loco_t* data = (const fa_action_player_loco_t*)userData;
+	*numAnims = FA_ACTION_PLAYER_LOCO_ANIM_COUNT;
+	return (const fa_anim_clip_t**)&data->anims;	// todo: check it, is this return correct?
 }
 
 // -----

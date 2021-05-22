@@ -302,6 +302,7 @@ struct FurGameEngine
 	fa_action_animate_t actionLoco;
 	fa_action_animate_t actionWeaponEquipped;
 	fa_action_animate_t actionWindProtect;
+	fa_action_player_loco_t actionPlayerLoco;
 	
 	// skinning
 	fm_mat4 skinMatrices[512];
@@ -588,6 +589,10 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		pEngine->zeldaGameObject.scriptTicked = false;
 		pEngine->zeldaGameObject.animToPlay = 0;
 		
+		// action player loco
+		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_IDLE] = pEngine->pAnimClipIdle;
+		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN] = pEngine->pAnimClipRun;
+		
 		// register Zelda (player) game object
 		pEngine->gameObjectRegister.objects[pEngine->gameObjectRegister.numObjects] = &pEngine->zeldaGameObject;
 		pEngine->gameObjectRegister.ids[pEngine->gameObjectRegister.numObjects] = pEngine->zeldaGameObject.id;
@@ -820,7 +825,12 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 	{
 		fa_action_args_t args = {};
 		args.fadeInSec = 0.5f;
-		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionLoco, &args);
+		fa_action_schedule_data_t data = {};
+		data.fnUpdate = fa_action_player_loco_update;
+		data.fnGetAnims = fa_action_player_loco_get_anims_func;
+		data.userData = &pEngine->actionPlayerLoco;
+		
+		fa_character_schedule_action(&pEngine->animCharacterZelda, &data, &args);
 	}
 	
 	if(pEngine->inActionPressed && ((actionRandomizer % numStages) == 0))
@@ -1011,7 +1021,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		}
 		
 		// player movement
-		const float maxSpeed = 5.0f * dt;
+		const float maxSpeed = 5.0f;
 		
 		fm_vec4 dirForward = {};
 		fm_vec4 dirLeft = {};
@@ -1023,6 +1033,11 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		fm_vec4_mulf(&dirLeft, maxSpeed * pEngine->actionMoveX, &playerMoveLeft);
 		fm_vec4 playerMove;
 		fm_vec4_add(&playerMoveForward, &playerMoveLeft, &playerMove);
+		
+		pEngine->actionPlayerLoco.moveX = playerMove.x;
+		pEngine->actionPlayerLoco.moveY = playerMove.y;
+		
+		fm_vec4_mulf(&playerMove, dt, &playerMove);
 		pEngine->playerMove = playerMove;
 		
 		// adjust camera by player position
