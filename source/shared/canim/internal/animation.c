@@ -772,7 +772,7 @@ fa_cmd_status_t fa_cmd_impl_ref_pose(fa_cmd_context_t* ctx, const void* cmdData)
 	if(ctx->debug)
 	{
 		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
-		const float color[4] = FUR_COLOR_WHITE;
+		const float color[4] = FUR_COLOR_DARK_GREY;
 		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), "ref_pose", color);
 	}
 	
@@ -798,7 +798,7 @@ fa_cmd_status_t fa_cmd_impl_identity(fa_cmd_context_t* ctx, const void* cmdData)
 	if(ctx->debug)
 	{
 		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
-		const float color[4] = FUR_COLOR_WHITE;
+		const float color[4] = FUR_COLOR_DARK_GREY;
 		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), "identity", color);
 	}
 	
@@ -837,7 +837,7 @@ fa_cmd_status_t fa_cmd_impl_anim_sample(fa_cmd_context_t* ctx, const void* cmdDa
 	if(ctx->debug)
 	{
 		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
-		const float color[4] = FUR_COLOR_WHITE;
+		const float color[4] = FUR_COLOR_DARK_GREY;
 		char txt[256];
 		sprintf(txt, "anim_sample %s t=%1.2f", fc_string_hash_as_cstr_debug(clip->name), data->time);
 		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
@@ -883,7 +883,7 @@ fa_cmd_status_t fa_cmd_impl_blend2(fa_cmd_context_t* ctx, const void* cmdData)
 	if(ctx->debug)
 	{
 		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
-		const float color[4] = FUR_COLOR_WHITE;
+		const float color[4] = FUR_COLOR_DARK_GREY;
 		char txt[128];
 		sprintf(txt, "blend2 a=%1.2f", data->alpha);
 		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
@@ -922,7 +922,7 @@ fa_cmd_status_t fa_cmd_impl_apply_additive(fa_cmd_context_t* ctx, const void* cm
 	if(ctx->debug)
 	{
 		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
-		const float color[4] = FUR_COLOR_WHITE;
+		const float color[4] = FUR_COLOR_DARK_GREY;
 		char txt[128];
 		sprintf(txt, "apply additive w=%1.2f", data->weight);
 		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
@@ -959,7 +959,7 @@ fa_cmd_status_t fa_cmd_impl_use_cached_pose(fa_cmd_context_t* ctx, const void* c
 	if(ctx->debug)
 	{
 		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
-		const float color[4] = FUR_COLOR_WHITE;
+		const float color[4] = FUR_COLOR_DARK_GREY;
 		char txt[128];
 		sprintf(txt, "use_cached_pose id=%i", data->poseId);
 		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
@@ -1009,7 +1009,7 @@ fa_cmd_status_t fa_cmd_impl_apply_mask(fa_cmd_context_t* ctx, const void* cmdDat
 	if(ctx->debug)
 	{
 		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
-		const float color[4] = FUR_COLOR_WHITE;
+		const float color[4] = FUR_COLOR_DARK_GREY;
 		char txt[128];
 		sprintf(txt, "apply_mask id=%i", data->maskId);
 		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
@@ -1212,13 +1212,14 @@ typedef struct fa_cross_layer_context_t
 	float outWeightLegsIK;
 } fa_cross_layer_context_t;
 
-void fa_character_layer_cache_pose(fa_character_t* character, fa_character_layer_t layerEnum, fa_cross_layer_context_t* ctx)
+void fa_character_layer_cache_pose(fa_layer_t* layer, fa_cross_layer_context_t* ctx, float alpha)
 {
 	fa_pose_t outPose;
 	fa_pose_stack_get(ctx->poseStack, &outPose, 0);
 	
-	fa_pose_copy(&character->poseCache.tempPose, &outPose);
-	character->transitionPoseCached = true;
+	fa_pose_copy(&layer->poseCache.tempPose, &outPose);
+	layer->transitionPoseCached = true;
+	layer->poseCache.alpha = alpha;
 	
 	if(ctx->debug)
 	{
@@ -1227,10 +1228,9 @@ void fa_character_layer_cache_pose(fa_character_t* character, fa_character_layer
 	}
 }
 
-void fa_character_action_animate(fa_character_t* character, fa_character_layer_t layerEnum, fa_action_t* action, fa_cross_layer_context_t* ctx, float alpha)
+void fa_character_action_animate(fa_character_t* character, fa_character_layer_t layerEnum, fa_action_t* action, fa_cross_layer_context_t* ctx)
 {
-	if(action->func == NULL)
-		return;
+	FUR_ASSERT(action->func != NULL);
 	
 	fa_cmd_buffer_t animCmdBuffer = { ctx->scratchMemory, ctx->scratchMemorySize };
 	fa_cmd_buffer_recorder_t recorder = {};
@@ -1253,7 +1253,6 @@ void fa_character_action_animate(fa_character_t* character, fa_character_layer_t
 	{
 		fa_cmd_begin(&recorder, ctx->poseStack->numPoses);
 		action->func(&actionCtx, action->userData);
-		fa_cmd_blend2(&recorder, alpha);
 		fa_cmd_end(&recorder);
 	}
 	
@@ -1264,7 +1263,7 @@ void fa_character_action_animate(fa_character_t* character, fa_character_layer_t
 	animCtx.animClips = action->getAnimsFunc(action->userData, &animCtx.numAnimClips);
 	animCtx.rig = character->rig;
 	animCtx.poseStack = ctx->poseStack;
-	animCtx.poseCache = &character->poseCache;
+	animCtx.poseCache = &layer->poseCache;
 	animCtx.debug = ctx->debug;
 	animCtx.mask = fa_rig_get_mask(character->rig, layer->maskID);
 	
@@ -1314,36 +1313,67 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 	const bool stillScheduledB = layer->scheduledActions[1].userData != NULL;
 	const bool isCachingPose = stillScheduledA || stillScheduledB;
 	
+	const float nextAlpha = fa_action_get_alpha(character, &layer->nextAction);
+	const float currAlpha = fa_action_get_alpha(character, &layer->currAction) * (1.0f - nextAlpha);
+	const float cachedPoseAlpha = layer->poseCache.alpha * (1.0f - currAlpha);
+	
 	// copy cached pose if required
-	if(character->transitionPoseCached)
+	if(layer->transitionPoseCached && cachedPoseAlpha > 0.0f)
 	{
 		fa_pose_t outPose;
 		fa_pose_stack_get(ctx->poseStack, &outPose, 0);
-		fa_pose_blend_linear(&outPose, &outPose, &character->poseCache.tempPose, 1.0f);		// blend to include pose weights/mask
+		fa_pose_blend_linear(&outPose, &layer->poseCache.tempPose, &outPose, cachedPoseAlpha);		// blend to include pose weights/mask
+	}
+	else
+	{
+		layer->transitionPoseCached = false;
 	}
 	
-	const float nextAlpha = fa_action_get_alpha(character, &layer->nextAction);
-	const float currAlpha = fa_action_get_alpha(character, &layer->currAction) * (1.0f - nextAlpha);
 	// animate current action
+	if(layer->currAction.func != NULL)
 	{
 		fa_action_t* action = &layer->currAction;
-		fa_character_action_animate(character, layerEnum, action, ctx, currAlpha);
+		fa_character_action_animate(character, layerEnum, action, ctx);
+		
 		if(isCachingPose && stillScheduledA && !stillScheduledB)
 		{
-			fa_character_layer_cache_pose(character, layerEnum, ctx);
+			fa_character_layer_cache_pose(layer, ctx, currAlpha);
+		}
+		
+		// blend in result
+		{
+			fa_pose_t actionPose;
+			fa_pose_t outPose;
+			fa_pose_stack_get(ctx->poseStack, &actionPose, 0);
+			fa_pose_stack_get(ctx->poseStack, &outPose, 1);
+			fa_pose_blend_linear(&outPose, &actionPose, &outPose, currAlpha);
+			fa_pose_stack_pop(ctx->poseStack, 1);
 		}
 	}
 	
 	bool fullyBlended = false;
 	
 	// animate next action
+	if(layer->nextAction.func != NULL)
 	{
 		fa_action_t* action = &layer->nextAction;
-		fa_character_action_animate(character, layerEnum, action, ctx, nextAlpha);
+		fa_character_action_animate(character, layerEnum, action, ctx);
+		
 		if(isCachingPose && stillScheduledA && stillScheduledB)
 		{
-			fa_character_layer_cache_pose(character, layerEnum, ctx);
+			fa_character_layer_cache_pose(layer, ctx, nextAlpha);
 		}
+		
+		// blend in result
+		{
+			fa_pose_t actionPose;
+			fa_pose_t outPose;
+			fa_pose_stack_get(ctx->poseStack, &actionPose, 0);
+			fa_pose_stack_get(ctx->poseStack, &outPose, 1);
+			fa_pose_blend_linear(&outPose, &actionPose, &outPose, nextAlpha);
+			fa_pose_stack_pop(ctx->poseStack, 1);
+		}
+		
 		if(nextAlpha >= 1.0f)
 		{
 			fullyBlended = true;
@@ -1360,12 +1390,10 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 		ctx->outWeightLegsIK = weightIK;
 	}
 	
-	// do action swaps
 	if(fullyBlended)
 	{
 		layer->currAction = layer->nextAction;
 		fa_action_reset(&layer->nextAction);
-		character->transitionPoseCached = false;
 	}
 	
 	if(stillScheduledA && !stillScheduledB)
@@ -1494,7 +1522,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	layerCtx.poseStack = &poseStack;
 	layerCtx.scratchMemory = animCmdBufferMemory;
 	layerCtx.scratchMemorySize = animCmdBufferSize;
-	layerCtx.debug = &debug;
+	layerCtx.debug = NULL;	// pass &debug to show debug text
 	
 	// reset pose to ref pose
 	fa_pose_stack_push(&poseStack, 1);
@@ -1522,8 +1550,12 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	// upper body
 	fa_character_layer_animate(character, &layerCtx, FA_CHAR_LAYER_UPPER_BODY);
 	
+	// look-at
+	
 	// inverse kinematics
 	fa_character_ik(character, &layerCtx);
+	
+	// ragdoll
 
 	// convert to model space
 	{

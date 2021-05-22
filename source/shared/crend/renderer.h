@@ -99,6 +99,7 @@ typedef struct fr_draw_frame_context_t
 	const fm_mat4* skinMatrices;
 	uint32_t numSkinMatrices;
 	
+	const fm_mat4* zeldaMatrix;
 	const fm_mat4* propMatrix;
 } fr_draw_frame_context_t;
 	

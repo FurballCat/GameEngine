@@ -2494,7 +2494,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 									pRenderer->textPipelineLayout, 0, 1, &pRenderer->aTextDescriptorSets[i], 0, NULL);
 			
 			vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 1, &pRenderer->textVertexBuffer[i].buffer, offsets);
-			//vkCmdDraw(pRenderer->aCommandBuffers[i], fc_dbg_text_num_total_characters() * 6, 1, 0, 0);	// 6 - number of vertices per glyph
+			vkCmdDraw(pRenderer->aCommandBuffers[i], fc_dbg_text_num_total_characters() * 6, 1, 0, 0);	// 6 - number of vertices per glyph
 			
 			vkCmdEndRenderPass(pRenderer->aCommandBuffers[i]);
 			
@@ -2996,6 +2996,15 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		fm_mat4_transpose(&ubo.view);
 		fm_mat4_transpose(&ubo.proj);
 		
+		// set player position and orientation
+		if(ctx->zeldaMatrix)
+		{
+			ubo.model = *ctx->zeldaMatrix;
+		}
+		else
+		{
+			fm_mat4_identity(&ubo.model);
+		}
 		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(fr_uniform_buffer_t));
 		
 		// set prop position and orientation

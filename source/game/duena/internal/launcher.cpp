@@ -541,9 +541,13 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		// create Zelda
 		pEngine->animCharacterZelda.rig = pEngine->pRig;
 		pEngine->animCharacterZelda.poseMS = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		pEngine->animCharacterZelda.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		pEngine->animCharacterZelda.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		pEngine->animCharacterZelda.poseCache.tempPose.numXforms = pEngine->animCharacterZelda.rig->numBones;
+		pEngine->animCharacterZelda.layers[0].poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		pEngine->animCharacterZelda.layers[0].poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		pEngine->animCharacterZelda.layers[0].poseCache.tempPose.numXforms = pEngine->animCharacterZelda.rig->numBones;
+		
+		pEngine->animCharacterZelda.layers[1].poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		pEngine->animCharacterZelda.layers[1].poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		pEngine->animCharacterZelda.layers[1].poseCache.tempPose.numXforms = pEngine->animCharacterZelda.rig->numBones;
 		
 		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_UPPER_BODY].maskID = FA_MASK_UPPER_BODY;
 		
@@ -955,8 +959,29 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 	
 	// rendering
 	{
-		const fm_vec4 g_eye = {-3, -3, 1.1, 0};
-		const fm_vec4 g_at = {0, 0, 0.8, 0};
+		// get zelda position
+		fm_xform playerLocator;
+		fp_physics_player_info_t playerPhysics;
+		playerPhysics.locator = &playerLocator;
+		fp_physics_get_player_info(pEngine->pPhysics, pEngine->pPhysicsScene, &playerPhysics);
+		
+		fm_mat4 zeldaMat;
+		fm_mat4_identity(&zeldaMat);
+		zeldaMat.w = playerLocator.pos;
+		
+		// get zelda right hand slot
+		fm_mat4 zeldaRightHand = pEngine->skinMatrices[pEngine->zeldaHandRightIdx];
+		fm_mat4 slotLS;
+		fm_mat4_identity(&slotLS);
+		slotLS.w.x -= 0.02f;
+		slotLS.w.y += 0.06f;
+		fm_mat4 slotMS;
+		fm_mat4_mul(&slotLS, &zeldaRightHand, &slotMS);
+		fm_mat4_mul(&slotMS, &zeldaMat, &slotMS);
+		
+		// camera
+		const fm_vec4 g_eye = {-3, -3, 1.7, 0};
+		fm_vec4 camera_at = {0, 0, 1.2, 0};
 		const fm_vec4 g_up = {0, 0, 1, 0};
 		
 		fm_vec4 eye = g_eye;
@@ -973,38 +998,41 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		const float zoomSpeed = 0.02f;
 		cameraZoom += zoomSpeed * (pEngine->actionZoomOut - pEngine->actionZoomIn);
 		
-		fm_vec4_sub(&eye, &g_at, &eye);
+		fm_vec4_sub(&eye, &camera_at, &eye);
 		fm_vec4_mulf(&eye, cameraZoom, &eye);
-		fm_vec4_add(&eye, &g_at, &eye);
+		fm_vec4_add(&eye, &camera_at, &eye);
 		
+		// adjust camera by player position
+		fm_vec4_add(&camera_at, &zeldaMat.w, &camera_at);
+		camera_at.w = 0.0f;
+		fm_vec4_add(&eye, &zeldaMat.w, &eye);
+		eye.w = 0.0f;
+		
+		// update rendering
 		fr_update_context_t ctx = {};
 		ctx.dt = dt;
 		ctx.camera.eye[0] = eye.x;
 		ctx.camera.eye[1] = eye.y;
 		ctx.camera.eye[2] = eye.z;
-		ctx.camera.at[0] = g_at.x;
-		ctx.camera.at[1] = g_at.y;
-		ctx.camera.at[2] = g_at.z;
+		ctx.camera.at[0] = camera_at.x;
+		ctx.camera.at[1] = camera_at.y;
+		ctx.camera.at[2] = camera_at.z;
 		ctx.camera.up[0] = g_up.x;
 		ctx.camera.up[1] = g_up.y;
 		ctx.camera.up[2] = g_up.z;
 		fr_update_renderer(pEngine->pRenderer, &ctx);
 		
-		fm_mat4 zeldaRightHand = pEngine->skinMatrices[pEngine->zeldaHandRightIdx];
-		fm_mat4 slotLS;
-		fm_mat4_identity(&slotLS);
-		slotLS.w.x -= 0.02f;
-		slotLS.w.y += 0.06f;
-		fm_mat4 slotMS;
-		fm_mat4_mul(&slotLS, &zeldaRightHand, &slotMS);
-		
 		//if(!pEngine->actionTest2.equipWeapon)
+#if 0
 		{
 			fm_mat4_identity(&slotMS);
 			slotMS.w.x = 4.0f;
 		}
+#endif
 		
+		// draw frame
 		fr_draw_frame_context_t renderCtx = {};
+		renderCtx.zeldaMatrix = &zeldaMat;
 		renderCtx.skinMatrices = pEngine->skinMatrices;
 		renderCtx.numSkinMatrices = pEngine->pRig->numBones;
 		renderCtx.propMatrix = &slotMS;
@@ -1040,8 +1068,12 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	fa_dangle_release(&pEngine->zeldaDangleHairRight, pAllocCallbacks);
 	
 	FUR_FREE(pEngine->animCharacterZelda.poseMS, pAllocCallbacks);
-	FUR_FREE(pEngine->animCharacterZelda.poseCache.tempPose.xforms, pAllocCallbacks);
-	FUR_FREE(pEngine->animCharacterZelda.poseCache.tempPose.weightsXforms, pAllocCallbacks);
+	
+	FUR_FREE(pEngine->animCharacterZelda.layers[0].poseCache.tempPose.xforms, pAllocCallbacks);
+	FUR_FREE(pEngine->animCharacterZelda.layers[0].poseCache.tempPose.weightsXforms, pAllocCallbacks);
+	
+	FUR_FREE(pEngine->animCharacterZelda.layers[1].poseCache.tempPose.xforms, pAllocCallbacks);
+	FUR_FREE(pEngine->animCharacterZelda.layers[1].poseCache.tempPose.weightsXforms, pAllocCallbacks);
 	
 	FUR_FREE(pEngine->gameObjectRegister.objects, pAllocCallbacks);
 	FUR_FREE(pEngine->gameObjectRegister.ids, pAllocCallbacks);

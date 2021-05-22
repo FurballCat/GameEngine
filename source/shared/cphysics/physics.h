@@ -30,6 +30,13 @@ typedef struct fp_physics_update_ctx_t
 	
 CPHYSICS_API void fp_physics_update(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, const fp_physics_update_ctx_t* pCtx);
 	
+typedef struct fp_physics_player_info_t
+{
+	fm_xform* locator;
+} fp_physics_player_info_t;
+
+CPHYSICS_API void fp_physics_get_player_info(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, fp_physics_player_info_t* playerInfo);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

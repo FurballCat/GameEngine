@@ -194,3 +194,18 @@ void fp_physics_update(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, const
 		 */
 	}
 }
+
+void fp_physics_get_player_info(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, fp_physics_player_info_t* playerInfo)
+{
+	const PxExtendedVec3 footPos = pPhysics->controller->getFootPosition();
+	playerInfo->locator->pos.x = footPos.x;
+	playerInfo->locator->pos.y = footPos.y;
+	playerInfo->locator->pos.z = footPos.z;
+	playerInfo->locator->pos.w = 1.0f;
+	
+	//const PxTransform t = pPhysics->controller->getActor()->getGlobalPose();
+	//const PxVec3 x = t.q.getBasisVector0();
+	//const PxVec3 y = t.q.getBasisVector1();
+	//const PxVec3 z = t.q.getBasisVector2();
+	fm_quat_identity(&playerInfo->locator->rot);
+}

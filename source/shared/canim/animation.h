@@ -215,6 +215,7 @@ CANIM_API void fa_pose_stack_get(const fa_pose_stack_t* pStack, fa_pose_t* pPose
 typedef struct fa_pose_cache_t
 {
 	fa_pose_t tempPose;
+	float alpha;
 } fa_pose_cache_t;
 	
 // **************** COMMANDS **************** //
@@ -337,6 +338,9 @@ typedef struct fa_layer_t
 	
 	fa_action_t scheduledActions[2];
 	
+	fa_pose_cache_t poseCache;
+	bool transitionPoseCached;
+	
 	fa_mask_t maskID;	// mask for this layer, refers to rig masks
 } fa_layer_t;
 
@@ -352,9 +356,6 @@ typedef struct fa_character_t
 	// resulting pose
 	fm_xform* poseMS;
 	float* tracks;
-	
-	fa_pose_cache_t poseCache;
-	bool transitionPoseCached;
 	
 	uint64_t globalTime;
 } fa_character_t;
