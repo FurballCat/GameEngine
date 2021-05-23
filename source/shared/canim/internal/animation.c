@@ -1751,10 +1751,11 @@ void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData)
 {
 	fa_action_player_loco_t* data = (fa_action_player_loco_t*)userData;
 	
-	
 	const bool doMove = fabs(data->moveX) > 0.05f || fabs(data->moveY) > 0.05f;
 	if(doMove)
 	{
+		data->isStopping = false;
+		
 		if(data->blendState == 0.0f)
 		{
 			data->runLocalTime = 0.0f;
@@ -1782,11 +1783,12 @@ void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData)
 		if(data->blendState == 1.0f)
 		{
 			data->idleLocalTime = 0.0f;
+			data->isStopping = true;
 		}
 		else
 		{
-			const float d_0 = data->anims[FA_ACTION_PLAYER_LOCO_ANIM_IDLE]->duration;
-			data->idleLocalTime = fmodf(data->idleLocalTime + ctx->dt, d_0);
+			const float d_0 = data->anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN_TO_IDLE_SHARP]->duration;
+			data->idleLocalTime = fm_clamp(data->idleLocalTime + ctx->dt, 0.0f, d_0);
 		}
 		
 		if(data->blendState > 0.0f)
@@ -1797,7 +1799,15 @@ void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData)
 	
 	if(0.0f < data->blendState && data->blendState < 1.0f)
 	{
-		fa_cmd_anim_sample(ctx->cmdRecorder, data->idleLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_IDLE);
+		if(!data->isStopping)
+		{
+			fa_cmd_anim_sample(ctx->cmdRecorder, data->idleLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_IDLE);
+		}
+		else
+		{
+			fa_cmd_anim_sample(ctx->cmdRecorder, data->idleLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN_TO_IDLE_SHARP);
+		}
+		
 		fa_cmd_anim_sample(ctx->cmdRecorder, data->runLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN);
 		fa_cmd_blend2(ctx->cmdRecorder, fm_curve_uniform_s(data->blendState));
 	}
@@ -1807,7 +1817,7 @@ void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData)
 	}
 	else
 	{
-		fa_cmd_anim_sample(ctx->cmdRecorder, data->idleLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_IDLE);
+		fa_cmd_anim_sample(ctx->cmdRecorder, data->idleLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN_TO_IDLE_SHARP);
 	}
 	
 }

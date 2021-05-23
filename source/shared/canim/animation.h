@@ -411,6 +411,7 @@ typedef enum fa_action_player_loco_anims_t
 {
 	FA_ACTION_PLAYER_LOCO_ANIM_IDLE = 0,
 	FA_ACTION_PLAYER_LOCO_ANIM_RUN,
+	FA_ACTION_PLAYER_LOCO_ANIM_RUN_TO_IDLE_SHARP,
 	
 	FA_ACTION_PLAYER_LOCO_ANIM_COUNT
 } fa_action_player_loco_anims_t;
@@ -429,6 +430,7 @@ typedef struct fa_action_player_loco_t
 	float blendState;	// idle 0..1 run
 	
 	float yawOrientation;
+	bool isStopping;
 } fa_action_player_loco_t;
 
 CANIM_API void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData);

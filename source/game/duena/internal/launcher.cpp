@@ -277,6 +277,7 @@ struct FurGameEngine
 	fa_rig_t* pRig;
 	fa_anim_clip_t* pAnimClipIdle;
 	fa_anim_clip_t* pAnimClipRun;
+	fa_anim_clip_t* pAnimClipRunToIdleSharp;
 	fa_anim_clip_t* pAnimClipAdditive;
 	fa_anim_clip_t* pAnimClipAPose;
 	fa_anim_clip_t* pAnimClipWindProtect;
@@ -510,6 +511,13 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		
 		{
 			fi_import_anim_clip_ctx_t ctx = {};
+			ctx.path = "assets/characters/zelda/animations/zelda-run-to-idle-sharp.fbx";
+			
+			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipRunToIdleSharp, pAllocCallbacks);
+		}
+		
+		{
+			fi_import_anim_clip_ctx_t ctx = {};
 			ctx.path = "assets/characters/zelda/animations/zelda-additive.fbx";
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipAdditive, pAllocCallbacks);
@@ -592,6 +600,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		// action player loco
 		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_IDLE] = pEngine->pAnimClipIdle;
 		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN] = pEngine->pAnimClipRun;
+		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN_TO_IDLE_SHARP] = pEngine->pAnimClipRunToIdleSharp;
 		
 		// register Zelda (player) game object
 		pEngine->gameObjectRegister.objects[pEngine->gameObjectRegister.numObjects] = &pEngine->zeldaGameObject;
@@ -1112,6 +1121,7 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	fa_rig_release(pEngine->pRig, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipIdle, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipRun, pAllocCallbacks);
+	fa_anim_clip_release(pEngine->pAnimClipRunToIdleSharp, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipAdditive, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipAPose, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipWindProtect, pAllocCallbacks);
