@@ -997,7 +997,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		fp_physics_get_player_info(pEngine->pPhysics, pEngine->pPhysicsScene, &playerPhysics);
 		
 		fm_mat4 zeldaMat;
-		fm_mat4_identity(&zeldaMat);
+		fm_mat4_rot_z(pEngine->actionPlayerLoco.yawOrientation, &zeldaMat);
 		zeldaMat.w = playerLocator.pos;
 		
 		// get zelda right hand slot

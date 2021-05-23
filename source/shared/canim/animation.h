@@ -428,6 +428,7 @@ typedef struct fa_action_player_loco_t
 	float runLocalTime;
 	float blendState;	// idle 0..1 run
 	
+	float yawOrientation;
 } fa_action_player_loco_t;
 
 CANIM_API void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData);

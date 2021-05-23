@@ -1769,6 +1769,13 @@ void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData)
 		{
 			data->blendState = fm_clamp(data->blendState + ctx->dt / 0.3f, 0.0f, 1.0f);
 		}
+		
+		// calc yaw
+		const float dirMag = sqrtf(data->moveX * data->moveX + data->moveY * data->moveY);
+		const float dirX = data->moveX / dirMag;
+		const float dirY = data->moveY / dirMag;
+		const float angle = -fm_sign(dirY) * acosf(dirX) - FM_PI / 2.0f;
+		data->yawOrientation = angle;
 	}
 	else
 	{

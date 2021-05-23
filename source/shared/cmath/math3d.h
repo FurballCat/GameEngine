@@ -172,6 +172,9 @@ extern "C"
 	// snap to 0.0f when absolute value is lower than threashold
 	static inline float fm_snap_near_zero(const float value, const float threshold);
 	
+	// return -1 if < 0, 1 if >= 0
+	static inline float fm_sign(const float value);
+
 	/***** QUATERNION *****/
 	
 	// quaternion identity
