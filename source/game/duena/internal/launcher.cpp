@@ -922,6 +922,13 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		{
 			pEngine->playerState = FG_PLAYER_STATE_LOCO_RUN;
 		}
+		
+		const float moveX = pEngine->actionMoveX;
+		const float moveY = pEngine->actionMoveY;
+		if(fabsf(moveX) < 0.2f && fabsf(moveY) < 0.2f)
+		{
+			pEngine->playerState = FG_PLAYER_STATE_STOP_LOCO;
+		}
 	}
 	
 	if(pEngine->playerState == FG_PLAYER_STATE_LOCO_RUN)
