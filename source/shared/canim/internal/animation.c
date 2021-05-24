@@ -1246,6 +1246,7 @@ void fa_character_action_animate(fa_character_t* character, fa_character_layer_t
 	actionCtx.dt = ctx->dt;
 	actionCtx.layer = layerEnum;
 	actionCtx.cmdRecorder = &recorder;
+	actionCtx.animInfo = &character->animInfo;
 	actionCtx.localTime = localTime;
 	actionCtx.debug = ctx->debug;
 	
@@ -1751,9 +1752,21 @@ void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData)
 {
 	fa_action_player_loco_t* data = (fa_action_player_loco_t*)userData;
 	
-	const bool doMove = fabs(data->moveX) > 0.05f || fabs(data->moveY) > 0.05f;
+	// update player motion
+	fa_character_anim_info_t* animInfo = ctx->animInfo;
+	
+	const bool doMove = fabs(animInfo->desiredMoveX) > 0.05f || fabs(animInfo->desiredMoveY) > 0.05f;
 	if(doMove)
 	{
+		const float dirMag = sqrtf(animInfo->desiredMoveX * animInfo->desiredMoveX + animInfo->desiredMoveY * animInfo->desiredMoveY);
+		const float dirX = animInfo->desiredMoveX / dirMag;
+		const float dirY = animInfo->desiredMoveY / dirMag;
+		const float angle = -fm_sign(dirY) * acosf(dirX) - FM_PI / 2.0f;
+		animInfo->rootMotionDeltaYaw = angle - animInfo->currentYaw;
+		animInfo->currentYaw = angle;
+		animInfo->rootMotionDeltaX = animInfo->desiredMoveX;
+		animInfo->rootMotionDeltaY = animInfo->desiredMoveY;
+		
 		data->isStopping = false;
 		
 		if(data->blendState == 0.0f)
@@ -1770,13 +1783,6 @@ void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData)
 		{
 			data->blendState = fm_clamp(data->blendState + ctx->dt / 0.3f, 0.0f, 1.0f);
 		}
-		
-		// calc yaw
-		const float dirMag = sqrtf(data->moveX * data->moveX + data->moveY * data->moveY);
-		const float dirX = data->moveX / dirMag;
-		const float dirY = data->moveY / dirMag;
-		const float angle = -fm_sign(dirY) * acosf(dirX) - FM_PI / 2.0f;
-		data->yawOrientation = angle;
 	}
 	else
 	{
@@ -1826,6 +1832,44 @@ const fa_anim_clip_t** fa_action_player_loco_get_anims_func(const void* userData
 {
 	const fa_action_player_loco_t* data = (const fa_action_player_loco_t*)userData;
 	*numAnims = FA_ACTION_PLAYER_LOCO_ANIM_COUNT;
+	return (const fa_anim_clip_t**)&data->anims;	// todo: check it, is this return correct?
+}
+
+// -----
+
+void fa_action_player_loco_start_update(const fa_action_ctx_t* ctx, void* userData)
+{
+	// update player motion
+	fa_character_anim_info_t* animInfo = ctx->animInfo;
+	
+	const bool doMove = fabs(animInfo->desiredMoveX) > 0.05f || fabs(animInfo->desiredMoveY) > 0.05f;
+	if(doMove)
+	{
+		const float dirMag = sqrtf(animInfo->desiredMoveX * animInfo->desiredMoveX + animInfo->desiredMoveY * animInfo->desiredMoveY);
+		const float dirX = animInfo->desiredMoveX / dirMag;
+		const float dirY = animInfo->desiredMoveY / dirMag;
+		const float angle = -fm_sign(dirY) * acosf(dirX) - FM_PI / 2.0f;
+		animInfo->rootMotionDeltaYaw = angle - animInfo->currentYaw;
+		animInfo->currentYaw = angle;
+		animInfo->rootMotionDeltaX = animInfo->desiredMoveX;
+		animInfo->rootMotionDeltaY = animInfo->desiredMoveY;
+	}
+	
+	// animate start
+	fa_action_player_loco_start_t* data = (fa_action_player_loco_start_t*)userData;
+	const float t = ctx->localTime;
+	const float d = data->anims[0]->duration;
+	const float t_anim = fm_clamp(t, 0.0f, d);
+	
+	data->isFinished = t > (d - 0.2f);
+	
+	fa_cmd_anim_sample(ctx->cmdRecorder, t_anim, 0);
+}
+
+const fa_anim_clip_t** fa_action_player_loco_start_get_anims_func(const void* userData, uint32_t* numAnims)
+{
+	const fa_action_player_loco_start_t* data = (const fa_action_player_loco_start_t*)userData;
+	*numAnims = 1;
 	return (const fa_anim_clip_t**)&data->anims;	// todo: check it, is this return correct?
 }
 

@@ -46,6 +46,7 @@ typedef struct fa_anim_clip_t fa_anim_clip_t;
 typedef struct fi_import_anim_clip_ctx_t
 {
 	const char* path;
+	bool extractRootMotion;
 } fi_import_anim_clip_ctx_t;
 
 CIMPORT_API fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_clip_ctx_t* ctx, fa_anim_clip_t** ppAnimClip, fc_alloc_callbacks_t* pAllocCallbacks);

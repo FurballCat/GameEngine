@@ -745,6 +745,23 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 		}
 	}
 	
+	if(ctx->extractRootMotion)
+	{
+		fa_anim_clip_t* animClip = *ppAnimClip;
+		FUR_ASSERT(animClip);	// can't extract root motion on null anim
+		
+		fa_anim_curve_t* rootCurve = &animClip->curves[1];	// 1 - hips
+		const uint32_t numPosKeys = rootCurve->numPosKeys;
+		for(uint32_t k=0; k<numPosKeys; ++k)
+		{
+			// zero out horizontal movement, leave only vertical movement
+			fm_vec4 pos = vec4_decom_16bit(rootCurve->posKeys[k].keyData);
+			pos.x = 0.0f;
+			pos.z = 0.0f;
+			vec4_com_16bit(pos, rootCurve->posKeys[k].keyData);
+		}
+	}
+	
 	return FI_RESULT_OK;
 }
 

@@ -286,12 +286,28 @@ typedef enum fa_character_layer_t
 	FA_CHAR_LAYER_UPPER_BODY,
 	FA_CHAR_LAYER_COUNT
 } fa_character_layer_t;
+
+typedef struct fa_character_anim_info_t
+{
+	// desired movement
+	float desiredMoveX;
+	float desiredMoveY;
+	
+	// current state
+	float currentYaw;
+	
+	// output motion
+	float rootMotionDeltaX;
+	float rootMotionDeltaY;
+	float rootMotionDeltaYaw;
+} fa_character_anim_info_t;
 	
 typedef struct fa_action_ctx_t
 {
 	float dt;
 	float localTime;
 	fa_character_layer_t layer;
+	fa_character_anim_info_t* animInfo;
 	fa_cmd_buffer_recorder_t* cmdRecorder;
 	fa_cmd_context_debug_t* debug;
 } fa_action_ctx_t;
@@ -358,6 +374,8 @@ typedef struct fa_character_t
 	float* tracks;
 	
 	uint64_t globalTime;
+	
+	fa_character_anim_info_t animInfo;
 } fa_character_t;
 
 typedef struct fa_character_animate_ctx_t
@@ -412,6 +430,7 @@ typedef enum fa_action_player_loco_anims_t
 	FA_ACTION_PLAYER_LOCO_ANIM_IDLE = 0,
 	FA_ACTION_PLAYER_LOCO_ANIM_RUN,
 	FA_ACTION_PLAYER_LOCO_ANIM_RUN_TO_IDLE_SHARP,
+	FA_ACTION_PLAYER_LOCO_ANIM_IDLE_TO_RUN_0,
 	
 	FA_ACTION_PLAYER_LOCO_ANIM_COUNT
 } fa_action_player_loco_anims_t;
@@ -427,7 +446,11 @@ typedef struct fa_action_player_loco_t
 	// anim state
 	float idleLocalTime;
 	float runLocalTime;
+	float idleToRunState;
 	float blendState;	// idle 0..1 run
+	
+	uint32_t stateCurr;
+	uint32_t stateNext;
 	
 	float yawOrientation;
 	bool isStopping;
@@ -435,6 +458,16 @@ typedef struct fa_action_player_loco_t
 
 CANIM_API void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData);
 CANIM_API const fa_anim_clip_t** fa_action_player_loco_get_anims_func(const void* userData, uint32_t* numAnims);
+
+typedef struct fa_action_player_loco_start_t
+{
+	fa_anim_clip_t* anims[1];	// 0: idle-to-run-0
+	
+	bool isFinished;
+} fa_action_player_loco_start_t;
+
+CANIM_API void fa_action_player_loco_start_update(const fa_action_ctx_t* ctx, void* userData);
+CANIM_API const fa_anim_clip_t** fa_action_player_loco_start_get_anims_func(const void* userData, uint32_t* numAnims);
 
 // dangles
 typedef struct fa_dangle

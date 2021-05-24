@@ -259,6 +259,16 @@ typedef struct fg_game_object_t
 	
 } fg_game_object_t;
 
+typedef enum fg_player_state_t
+{
+	FG_PLAYER_STATE_IDLE = 0,
+	FG_PLAYER_STATE_START_LOCO,
+	FG_PLAYER_STATE_LOCO_RUN,
+	FG_PLAYER_STATE_STOP_LOCO,
+	
+	FG_PLAYER_STATE_NONE,
+} fg_player_state_t;
+
 struct FurGameEngine
 {
 	struct fr_app_t* pApp;
@@ -278,6 +288,7 @@ struct FurGameEngine
 	fa_anim_clip_t* pAnimClipIdle;
 	fa_anim_clip_t* pAnimClipRun;
 	fa_anim_clip_t* pAnimClipRunToIdleSharp;
+	fa_anim_clip_t* pAnimClipIdleToRun0;
 	fa_anim_clip_t* pAnimClipAdditive;
 	fa_anim_clip_t* pAnimClipAPose;
 	fa_anim_clip_t* pAnimClipWindProtect;
@@ -304,6 +315,11 @@ struct FurGameEngine
 	fa_action_animate_t actionWeaponEquipped;
 	fa_action_animate_t actionWindProtect;
 	fa_action_player_loco_t actionPlayerLoco;
+	
+	fa_action_player_loco_start_t actionLocoStart;
+	fa_action_player_loco_start_t actionLocoStop;
+	
+	fg_player_state_t playerState;
 	
 	// skinning
 	fm_mat4 skinMatrices[512];
@@ -518,6 +534,14 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		
 		{
 			fi_import_anim_clip_ctx_t ctx = {};
+			ctx.path = "assets/characters/zelda/animations/zelda-loco-idle-to-run-0.fbx";
+			ctx.extractRootMotion = true;
+			
+			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipIdleToRun0, pAllocCallbacks);
+		}
+		
+		{
+			fi_import_anim_clip_ctx_t ctx = {};
 			ctx.path = "assets/characters/zelda/animations/zelda-additive.fbx";
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipAdditive, pAllocCallbacks);
@@ -601,6 +625,10 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_IDLE] = pEngine->pAnimClipIdle;
 		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN] = pEngine->pAnimClipRun;
 		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN_TO_IDLE_SHARP] = pEngine->pAnimClipRunToIdleSharp;
+		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_IDLE_TO_RUN_0] = pEngine->pAnimClipIdleToRun0;
+		
+		pEngine->actionLocoStart.anims[0] = pEngine->pAnimClipIdleToRun0;
+		pEngine->actionLocoStop.anims[0] = pEngine->pAnimClipRunToIdleSharp;
 		
 		// register Zelda (player) game object
 		pEngine->gameObjectRegister.objects[pEngine->gameObjectRegister.numObjects] = &pEngine->zeldaGameObject;
@@ -828,42 +856,126 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 	if(pEngine->inActionEquipWeaponPressed)
 		actionRandomizer2 += 1;
 	
-	const uint32_t numStages = 2;
-	
-	if(pEngine->inActionPressed && ((actionRandomizer % numStages) == 1))
+	// inital player state
+	static bool isInit = true;
+	if(isInit)
 	{
-		fa_action_args_t args = {};
-		args.fadeInSec = 0.5f;
-		fa_action_schedule_data_t data = {};
-		data.fnUpdate = fa_action_player_loco_update;
-		data.fnGetAnims = fa_action_player_loco_get_anims_func;
-		data.userData = &pEngine->actionPlayerLoco;
+		isInit = false;
 		
-		fa_character_schedule_action(&pEngine->animCharacterZelda, &data, &args);
-	}
-	
-	if(pEngine->inActionPressed && ((actionRandomizer % numStages) == 0))
-	{
+		pEngine->playerState = FG_PLAYER_STATE_IDLE;
+		
 		fa_action_args_t args = {};
-		args.fadeInSec = 0.5f;
-		args.ikMode = FA_IK_MODE_LEGS;
+		args.fadeInSec = 0.0f;
 		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionIdle, &args);
-	}
-	
-	if(pEngine->inActionEquipWeaponPressed && ((actionRandomizer2 % 2) == 1))
-	{
-		fa_action_args_t args = {};
+		
 		args.fadeInSec = 0.5f;
 		args.layer = FA_CHAR_LAYER_UPPER_BODY;
 		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionWeaponEquipped, &args);
 	}
 	
-	if(pEngine->inActionEquipWeaponPressed && ((actionRandomizer2 % 2) == 0))
+	static fg_player_state_t prevState = FG_PLAYER_STATE_IDLE;
+	
+	if(pEngine->playerState == FG_PLAYER_STATE_IDLE)
 	{
-		fa_action_args_t args = {};
-		args.fadeInSec = 0.5f;
-		args.layer = FA_CHAR_LAYER_UPPER_BODY;
-		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionWindProtect, &args);
+		// on enter
+		if(prevState != pEngine->playerState)
+		{
+			fa_action_args_t args = {};
+			args.fadeInSec = 0.3f;
+			fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionIdle, &args);
+			
+			prevState = pEngine->playerState;
+		}
+		
+		// on update
+		const float moveX = pEngine->actionMoveX;
+		const float moveY = pEngine->actionMoveY;
+		
+		if(fabsf(moveX) > 0.2f || fabsf(moveY) > 0.2f)
+		{
+			pEngine->playerState = FG_PLAYER_STATE_START_LOCO;
+		}
+	}
+	
+	if(pEngine->playerState == FG_PLAYER_STATE_START_LOCO)
+	{
+		// on enter
+		if(prevState != pEngine->playerState)
+		{
+			fa_action_args_t args = {};
+			args.fadeInSec = 0.2f;
+			
+			pEngine->actionLocoStart.isFinished = false;
+			
+			fa_action_schedule_data_t data;
+			data.userData = &pEngine->actionLocoStart;
+			data.fnGetAnims = fa_action_player_loco_start_get_anims_func;
+			data.fnUpdate = fa_action_player_loco_start_update;
+			
+			fa_character_schedule_action(&pEngine->animCharacterZelda, &data, &args);
+			
+			prevState = pEngine->playerState;
+		}
+		
+		// on update
+		if(pEngine->actionLocoStart.isFinished)
+		{
+			pEngine->playerState = FG_PLAYER_STATE_LOCO_RUN;
+		}
+	}
+	
+	if(pEngine->playerState == FG_PLAYER_STATE_LOCO_RUN)
+	{
+		// on enter
+		if(prevState != pEngine->playerState)
+		{
+			fa_action_args_t args = {};
+			args.fadeInSec = 0.2f;
+			
+			fa_action_schedule_data_t data;
+			data.userData = &pEngine->actionPlayerLoco;
+			data.fnGetAnims = fa_action_player_loco_get_anims_func;
+			data.fnUpdate = fa_action_player_loco_update;
+			
+			fa_character_schedule_action(&pEngine->animCharacterZelda, &data, &args);
+			
+			prevState = pEngine->playerState;
+		}
+		
+		// on update
+		const float moveX = pEngine->actionMoveX;
+		const float moveY = pEngine->actionMoveY;
+		
+		if(fabsf(moveX) < 0.2f && fabsf(moveY) < 0.2f)
+		{
+			pEngine->playerState = FG_PLAYER_STATE_STOP_LOCO;
+		}
+	}
+	
+	if(pEngine->playerState == FG_PLAYER_STATE_STOP_LOCO)
+	{
+		// on enter
+		if(prevState != pEngine->playerState)
+		{
+			fa_action_args_t args = {};
+			args.fadeInSec = 0.2f;
+			
+			pEngine->actionLocoStop.isFinished = false;
+			
+			fa_action_schedule_data_t data;
+			data.userData = &pEngine->actionLocoStop;
+			data.fnGetAnims = fa_action_player_loco_start_get_anims_func;
+			data.fnUpdate = fa_action_player_loco_start_update;
+			
+			fa_character_schedule_action(&pEngine->animCharacterZelda, &data, &args);
+			
+			prevState = pEngine->playerState;
+		}
+		
+		if(pEngine->actionLocoStop.isFinished)
+		{
+			pEngine->playerState = FG_PLAYER_STATE_IDLE;
+		}
 	}
 }
 
@@ -1006,7 +1118,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		fp_physics_get_player_info(pEngine->pPhysics, pEngine->pPhysicsScene, &playerPhysics);
 		
 		fm_mat4 zeldaMat;
-		fm_mat4_rot_z(pEngine->actionPlayerLoco.yawOrientation, &zeldaMat);
+		fm_mat4_rot_z(pEngine->animCharacterZelda.animInfo.currentYaw, &zeldaMat);
 		zeldaMat.w = playerLocator.pos;
 		
 		// get zelda right hand slot
@@ -1043,8 +1155,8 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		fm_vec4 playerMove;
 		fm_vec4_add(&playerMoveForward, &playerMoveLeft, &playerMove);
 		
-		pEngine->actionPlayerLoco.moveX = playerMove.x;
-		pEngine->actionPlayerLoco.moveY = playerMove.y;
+		pEngine->animCharacterZelda.animInfo.desiredMoveX = playerMove.x;
+		pEngine->animCharacterZelda.animInfo.desiredMoveY = playerMove.y;
 		
 		fm_vec4_mulf(&playerMove, dt, &playerMove);
 		pEngine->playerMove = playerMove;
@@ -1122,6 +1234,7 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	fa_anim_clip_release(pEngine->pAnimClipIdle, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipRun, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipRunToIdleSharp, pAllocCallbacks);
+	fa_anim_clip_release(pEngine->pAnimClipIdleToRun0, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipAdditive, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipAPose, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipWindProtect, pAllocCallbacks);
