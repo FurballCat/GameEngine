@@ -56,7 +56,7 @@ void fg_camera_update_orbit(fg_camera_t* camera, const fg_camera_update_orbit_ct
 	fm_vec4 dir_left = {};
 	
 	static float cameraRotation = 0.0f;
-	const float rotationSpeed = 1.0f * ctx->dt;
+	const float rotationSpeed = 2.5f * ctx->dt;
 	cameraRotation += rotationSpeed * ctx->rotationX;
 	const float sinRot = sinf(cameraRotation);
 	const float cosRot = cosf(cameraRotation);
