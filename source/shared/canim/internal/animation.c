@@ -1570,6 +1570,15 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 
 void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData)
 {
+	// player motion update
+	fa_character_anim_info_t* animInfo = ctx->animInfo;
+	if(ctx->layer == FA_CHAR_LAYER_BODY)
+	{
+		animInfo->rootMotionDeltaX = 0.0f;
+		animInfo->rootMotionDeltaY = 0.0f;
+	}
+	
+	// animation update
 	fa_action_animate_t* data = (fa_action_animate_t*)userData;
 	
 	const float animDuration = data->animation->duration;
@@ -1764,8 +1773,8 @@ void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData)
 		const float angle = -fm_sign(dirY) * acosf(dirX) - FM_PI / 2.0f;
 		animInfo->rootMotionDeltaYaw = angle - animInfo->currentYaw;
 		animInfo->currentYaw = angle;
-		animInfo->rootMotionDeltaX = animInfo->desiredMoveX;
-		animInfo->rootMotionDeltaY = animInfo->desiredMoveY;
+		animInfo->rootMotionDeltaX = animInfo->desiredMoveX * ctx->dt;
+		animInfo->rootMotionDeltaY = animInfo->desiredMoveY * ctx->dt;
 		
 		data->isStopping = false;
 		
@@ -1839,6 +1848,10 @@ const fa_anim_clip_t** fa_action_player_loco_get_anims_func(const void* userData
 
 void fa_action_player_loco_start_update(const fa_action_ctx_t* ctx, void* userData)
 {
+	fa_action_player_loco_start_t* data = (fa_action_player_loco_start_t*)userData;
+	const float t = ctx->localTime;
+	const float d = data->anims[0]->duration;
+	
 	// update player motion
 	fa_character_anim_info_t* animInfo = ctx->animInfo;
 	
@@ -1851,14 +1864,13 @@ void fa_action_player_loco_start_update(const fa_action_ctx_t* ctx, void* userDa
 		const float angle = -fm_sign(dirY) * acosf(dirX) - FM_PI / 2.0f;
 		animInfo->rootMotionDeltaYaw = angle - animInfo->currentYaw;
 		animInfo->currentYaw = angle;
-		animInfo->rootMotionDeltaX = animInfo->desiredMoveX;
-		animInfo->rootMotionDeltaY = animInfo->desiredMoveY;
+		
+		const float motionCurve = fm_curve_uniform_s(fm_clamp(2.0f * t / d, 0.0f, 1.0f));
+		animInfo->rootMotionDeltaX = animInfo->desiredMoveX * ctx->dt * motionCurve;
+		animInfo->rootMotionDeltaY = animInfo->desiredMoveY * ctx->dt * motionCurve;
 	}
 	
 	// animate start
-	fa_action_player_loco_start_t* data = (fa_action_player_loco_start_t*)userData;
-	const float t = ctx->localTime;
-	const float d = data->anims[0]->duration;
 	const float t_anim = fm_clamp(t, 0.0f, d);
 	
 	data->isFinished = t > (d - 0.2f);

@@ -1041,7 +1041,13 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 	// physics
 	fp_physics_update_ctx_t physicsCtx = {};
 	physicsCtx.dt = dt;
-	physicsCtx.playerDisplacement = &pEngine->playerMove;
+	
+	fm_vec4 playerDisplacement;
+	playerDisplacement.x = pEngine->animCharacterZelda.animInfo.rootMotionDeltaX;
+	playerDisplacement.y = pEngine->animCharacterZelda.animInfo.rootMotionDeltaY;
+	playerDisplacement.z = 0.0f;
+	playerDisplacement.w = 0.0f;
+	physicsCtx.playerDisplacement = &playerDisplacement;
 	fp_physics_update(pEngine->pPhysics, pEngine->pPhysicsScene, &physicsCtx);
 	
 	{
