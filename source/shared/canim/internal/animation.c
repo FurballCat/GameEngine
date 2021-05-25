@@ -1584,6 +1584,8 @@ void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData)
 	const float animDuration = data->animation->duration;
 	const float time = fmodf(ctx->localTime, animDuration);
 	fa_cmd_anim_sample(ctx->cmdRecorder, time, 0);
+	
+	data->progress = time / animDuration;
 }
 
 const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* userData, uint32_t* numAnims)

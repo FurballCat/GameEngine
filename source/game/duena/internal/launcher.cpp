@@ -265,6 +265,7 @@ typedef enum fg_player_state_t
 	FG_PLAYER_STATE_START_LOCO,
 	FG_PLAYER_STATE_LOCO_RUN,
 	FG_PLAYER_STATE_STOP_LOCO,
+	FG_PLAYER_STATE_JUMP,
 	
 	FG_PLAYER_STATE_NONE,
 } fg_player_state_t;
@@ -293,6 +294,7 @@ struct FurGameEngine
 	fa_anim_clip_t* pAnimClipAPose;
 	fa_anim_clip_t* pAnimClipWindProtect;
 	fa_anim_clip_t* pAnimClipHoldSword;
+	fa_anim_clip_t* pAnimClipJumpInPlace;
 	
 	// input actions
 	bool inActionPressed;
@@ -314,6 +316,7 @@ struct FurGameEngine
 	fa_action_animate_t actionLoco;
 	fa_action_animate_t actionWeaponEquipped;
 	fa_action_animate_t actionWindProtect;
+	fa_action_animate_t actionJump;
 	fa_action_player_loco_t actionPlayerLoco;
 	
 	fa_action_player_loco_start_t actionLocoStart;
@@ -542,6 +545,13 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		
 		{
 			fi_import_anim_clip_ctx_t ctx = {};
+			ctx.path = "assets/characters/zelda/animations/zelda-loco-jump-in-place.fbx";
+			
+			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipJumpInPlace, pAllocCallbacks);
+		}
+		
+		{
+			fi_import_anim_clip_ctx_t ctx = {};
 			ctx.path = "assets/characters/zelda/animations/zelda-additive.fbx";
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipAdditive, pAllocCallbacks);
@@ -621,17 +631,21 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		pEngine->zeldaGameObject.scriptTicked = false;
 		pEngine->zeldaGameObject.animToPlay = 0;
 		
-		// action player loco
+		// run
 		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_IDLE] = pEngine->pAnimClipIdle;
 		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN] = pEngine->pAnimClipRun;
 		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN_TO_IDLE_SHARP] = pEngine->pAnimClipRunToIdleSharp;
 		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_IDLE_TO_RUN_0] = pEngine->pAnimClipIdleToRun0;
 		
+		// start/stop
 		pEngine->actionLocoStart.anims[0] = pEngine->pAnimClipIdleToRun0;
 		pEngine->actionLocoStart.finishFromEnd = 0.62f;
 		pEngine->actionLocoStop.anims[0] = pEngine->pAnimClipRunToIdleSharp;
 		pEngine->actionLocoStop.finishFromEnd = 0.3f;
 		pEngine->actionLocoStop.ignoreYaw = true;
+		
+		// jump
+		pEngine->actionJump.animation = pEngine->pAnimClipJumpInPlace;
 		
 		// register Zelda (player) game object
 		pEngine->gameObjectRegister.objects[pEngine->gameObjectRegister.numObjects] = &pEngine->zeldaGameObject;
@@ -898,6 +912,11 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		{
 			pEngine->playerState = FG_PLAYER_STATE_START_LOCO;
 		}
+		
+		if(pEngine->inActionPressed)
+		{
+			pEngine->playerState = FG_PLAYER_STATE_JUMP;
+		}
 	}
 	
 	if(pEngine->playerState == FG_PLAYER_STATE_START_LOCO)
@@ -983,6 +1002,24 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		}
 		
 		if(pEngine->actionLocoStop.isFinished)
+		{
+			pEngine->playerState = FG_PLAYER_STATE_IDLE;
+		}
+	}
+	
+	if(pEngine->playerState == FG_PLAYER_STATE_JUMP)
+	{
+		// on enter
+		if(prevState != pEngine->playerState)
+		{
+			fa_action_args_t args = {};
+			args.fadeInSec = 0.3f;
+			fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionJump, &args);
+			
+			prevState = pEngine->playerState;
+		}
+		
+		if(pEngine->actionJump.progress >= 0.8f)
 		{
 			pEngine->playerState = FG_PLAYER_STATE_IDLE;
 		}
@@ -1255,6 +1292,7 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	fa_anim_clip_release(pEngine->pAnimClipAPose, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipWindProtect, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipHoldSword, pAllocCallbacks);
+	fa_anim_clip_release(pEngine->pAnimClipJumpInPlace, pAllocCallbacks);
 	
 	fp_physics_scene_release(pEngine->pPhysics, pEngine->pPhysicsScene, pAllocCallbacks);
 	

@@ -394,6 +394,7 @@ typedef struct fa_action_animate_t
 	fa_anim_clip_t* animation;
 	bool forceLoop;
 	bool forceNoLoop;
+	float progress;
 } fa_action_animate_t;
 	
 CANIM_API void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData);
