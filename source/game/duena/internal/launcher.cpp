@@ -794,7 +794,7 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 	const uint32_t numEventsCollected = fi_get_input_events(pEngine->pInputManager, inputEvents, 10, 0);
 	for(uint32_t i=0; i<numEventsCollected; ++i)
 	{
-		if(inputEvents[i].eventID == Gamepad_faceButtonLeft)
+		if(inputEvents[i].eventID == Gamepad_faceButtonBottom)
 		{
 			actionPressed = true;
 		}

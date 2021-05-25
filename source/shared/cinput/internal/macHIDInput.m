@@ -32,6 +32,11 @@ void fi_device_info_setup_mappings(fi_device_info_t* pInfo)
 	const int32_t vendorID = fi_get_device_property_as_int32(pInfo->m_deviceRef, CFSTR(kIOHIDVendorIDKey));
 	const int32_t productID = fi_get_device_property_as_int32(pInfo->m_deviceRef, CFSTR(kIOHIDProductIDKey));
 	
+	for(uint32_t i=0; i<MAX_CONTROLLER_BUTTON_MAPPINGS; ++i)
+	{
+		pInfo->m_buttonMappings[i] = -1;
+	}
+	
 	if (vendorID == 0x54c && productID == 0x5c4)
 	{
 		pInfo->m_buttonMappings[1]	= 2;	// Square		->	X
