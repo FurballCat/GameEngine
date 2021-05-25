@@ -1862,10 +1862,15 @@ void fa_action_player_loco_start_update(const fa_action_ctx_t* ctx, void* userDa
 		const float dirX = animInfo->desiredMoveX / dirMag;
 		const float dirY = animInfo->desiredMoveY / dirMag;
 		const float angle = -fm_sign(dirY) * acosf(dirX) - FM_PI / 2.0f;
-		animInfo->rootMotionDeltaYaw = angle - animInfo->currentYaw;
-		animInfo->currentYaw = angle;
 		
 		const float motionCurve = fm_curve_uniform_s(fm_clamp(2.0f * t / d, 0.0f, 1.0f));
+		
+		if(!data->ignoreYaw)
+		{
+			animInfo->rootMotionDeltaYaw = angle - animInfo->currentYaw;
+			animInfo->currentYaw = animInfo->currentYaw * (1.0f - motionCurve) + motionCurve * angle;
+		}
+		
 		animInfo->rootMotionDeltaX = animInfo->desiredMoveX * ctx->dt * motionCurve;
 		animInfo->rootMotionDeltaY = animInfo->desiredMoveY * ctx->dt * motionCurve;
 	}
@@ -1873,7 +1878,7 @@ void fa_action_player_loco_start_update(const fa_action_ctx_t* ctx, void* userDa
 	// animate start
 	const float t_anim = fm_clamp(t, 0.0f, d);
 	
-	data->isFinished = t > (d - 0.2f);
+	data->isFinished = t > (d - data->finishFromEnd);
 	
 	fa_cmd_anim_sample(ctx->cmdRecorder, t_anim, 0);
 }

@@ -628,7 +628,10 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_IDLE_TO_RUN_0] = pEngine->pAnimClipIdleToRun0;
 		
 		pEngine->actionLocoStart.anims[0] = pEngine->pAnimClipIdleToRun0;
+		pEngine->actionLocoStart.finishFromEnd = 0.62f;
 		pEngine->actionLocoStop.anims[0] = pEngine->pAnimClipRunToIdleSharp;
+		pEngine->actionLocoStop.finishFromEnd = 0.3f;
+		pEngine->actionLocoStop.ignoreYaw = true;
 		
 		// register Zelda (player) game object
 		pEngine->gameObjectRegister.objects[pEngine->gameObjectRegister.numObjects] = &pEngine->zeldaGameObject;
@@ -870,7 +873,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		
 		args.fadeInSec = 0.5f;
 		args.layer = FA_CHAR_LAYER_UPPER_BODY;
-		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionWeaponEquipped, &args);
+		//fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionWeaponEquipped, &args);
 	}
 	
 	static fg_player_state_t prevState = FG_PLAYER_STATE_IDLE;
@@ -937,7 +940,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		if(prevState != pEngine->playerState)
 		{
 			fa_action_args_t args = {};
-			args.fadeInSec = 0.2f;
+			args.fadeInSec = 0.5f;
 			
 			fa_action_schedule_data_t data;
 			data.userData = &pEngine->actionPlayerLoco;
@@ -965,7 +968,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		if(prevState != pEngine->playerState)
 		{
 			fa_action_args_t args = {};
-			args.fadeInSec = 0.2f;
+			args.fadeInSec = 0.5f;
 			
 			pEngine->actionLocoStop.isFinished = false;
 			
@@ -1187,7 +1190,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		fr_update_renderer(pEngine->pRenderer, &ctx);
 		
 		//if(!pEngine->actionTest2.equipWeapon)
-#if 0
+#if 1
 		{
 			fm_mat4_identity(&slotMS);
 			slotMS.w.x = 4.0f;

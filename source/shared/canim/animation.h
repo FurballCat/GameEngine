@@ -463,7 +463,9 @@ typedef struct fa_action_player_loco_start_t
 {
 	fa_anim_clip_t* anims[1];	// 0: idle-to-run-0
 	
+	float finishFromEnd;
 	bool isFinished;
+	bool ignoreYaw;
 } fa_action_player_loco_start_t;
 
 CANIM_API void fa_action_player_loco_start_update(const fa_action_ctx_t* ctx, void* userData);
