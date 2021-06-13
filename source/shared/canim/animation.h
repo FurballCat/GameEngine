@@ -460,6 +460,16 @@ typedef struct fa_action_player_loco_t
 CANIM_API void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData);
 CANIM_API const fa_anim_clip_t** fa_action_player_loco_get_anims_func(const void* userData, uint32_t* numAnims);
 
+typedef struct fa_action_player_jump_t
+{
+	fa_anim_clip_t* anims[2];	// 0: jump-in-place, 1: jump
+	float progress;
+	int32_t jumpType;
+} fa_action_player_jump_t;
+
+CANIM_API void fa_action_player_jump_update(const fa_action_ctx_t* ctx, void* userData);
+CANIM_API const fa_anim_clip_t** fa_action_player_jump_get_anims_func(const void* userData, uint32_t* numAnims);
+
 typedef struct fa_action_player_loco_start_t
 {
 	fa_anim_clip_t* anims[1];	// 0: idle-to-run-0

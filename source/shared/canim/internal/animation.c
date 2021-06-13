@@ -1848,6 +1848,64 @@ const fa_anim_clip_t** fa_action_player_loco_get_anims_func(const void* userData
 
 // -----
 
+void fa_action_player_jump_update(const fa_action_ctx_t* ctx, void* userData)
+{
+	fa_action_player_jump_t* data = (fa_action_player_jump_t*)userData;
+	
+	// update player motion
+	fa_character_anim_info_t* animInfo = ctx->animInfo;
+	
+	const float t = ctx->localTime;
+	const bool doMove = fabs(animInfo->desiredMoveX) > 0.05f || fabs(animInfo->desiredMoveY) > 0.05f;
+	
+	if(data->jumpType == 0)
+	{
+		data->jumpType = doMove ? 2 : 1;
+	}
+	
+	if(data->jumpType == 1) // jump in place
+	{
+		const float d = data->anims[0]->duration;
+		const float t_anim = fm_clamp(t, 0.0f, d);
+		
+		data->progress = t / d;
+		
+		fa_cmd_anim_sample(ctx->cmdRecorder, t_anim, 0);
+	}
+	else // jump in run
+	{
+		const float d = data->anims[1]->duration;
+		const float t_anim = fm_clamp(t, 0.0f, d);
+		
+		data->progress = t / d;
+		
+		if(doMove)
+		{
+			const float dirMag = sqrtf(animInfo->desiredMoveX * animInfo->desiredMoveX + animInfo->desiredMoveY * animInfo->desiredMoveY);
+			const float dirX = animInfo->desiredMoveX / dirMag;
+			const float dirY = animInfo->desiredMoveY / dirMag;
+			
+			const float angle = -fm_sign(dirY) * acosf(dirX) - FM_PI / 2.0f;
+			const float yawNewPercentage = 0.05f;
+			animInfo->currentYaw = angle;
+			
+			animInfo->rootMotionDeltaX = animInfo->rootMotionDeltaX * (1.0f - yawNewPercentage) + animInfo->desiredMoveX * yawNewPercentage * ctx->dt;
+			animInfo->rootMotionDeltaY = animInfo->rootMotionDeltaY * (1.0f - yawNewPercentage) + animInfo->desiredMoveY * yawNewPercentage * ctx->dt;
+		}
+		
+		fa_cmd_anim_sample(ctx->cmdRecorder, t_anim, 1);
+	}
+}
+
+const fa_anim_clip_t** fa_action_player_jump_get_anims_func(const void* userData, uint32_t* numAnims)
+{
+	const fa_action_player_jump_t* data = (const fa_action_player_jump_t*)userData;
+	*numAnims = 2;
+	return (const fa_anim_clip_t**)&data->anims;	// todo: check it, is this return correct?
+}
+
+// -----
+
 void fa_action_player_loco_start_update(const fa_action_ctx_t* ctx, void* userData)
 {
 	fa_action_player_loco_start_t* data = (fa_action_player_loco_start_t*)userData;
