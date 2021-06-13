@@ -1360,6 +1360,9 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	FUR_FREE(pEngine->scratchpadBuffer, pAllocCallbacks);
 	fa_rig_release(pEngine->pRig, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipIdle, pAllocCallbacks);
+	fa_anim_clip_release(pEngine->pAnimClipIdle2, pAllocCallbacks);
+	fa_anim_clip_release(pEngine->pAnimClipIdle3, pAllocCallbacks);
+	fa_anim_clip_release(pEngine->pAnimClipIdle4, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipRun, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipRunToIdleSharp, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipIdleToRun0, pAllocCallbacks);
