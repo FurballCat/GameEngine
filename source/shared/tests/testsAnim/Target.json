@@ -1,0 +1,9 @@
+{
+	"dependecies":
+	[
+        "unitTests",
+        "canim"
+    ],
+    
+    "type": "console_application"
+}
