@@ -29,6 +29,9 @@ bool fc_bit_stream_write(fc_bit_stream* stream, uint32_t bits)
 	if(stream->numDataLeft > 1)
 		data = ((uint64_t)(stream->dataPtr[1]) << 32) | data;
 	
+	// clear bits that we're about to write to
+	data = data & (~1llu >> stream->bitPos);
+	
 	// write to 64 bit cache
 	data = data | (((uint64_t)bits) << stream->bitPos);
 	
@@ -469,3 +472,29 @@ UNITTEST(AnimQuantCompression, compress_data_1)
 		Assert::AreEqual(keyData[i], decompressedKeys[i], 0.1f);
 	}
 }
+
+UNITTEST(AnimQuantCompression, compress_data_2)
+{
+	const float keyData[] = {8.0f, 20.0f, 2.0f, 14.0f, -8.0f, -5.0f, -2.0f, -4.0f, 8.0f, 7.0f, 6.0f, 7.2f, 8.0f, 20.0f, 2.0f, 14.0f};
+	const uint32_t numKeyData = sizeof(keyData) / sizeof(float);
+	
+	fa_quant_compression_clip_extents clip = {};
+	fa_quant_compression_bucket_extents bucket = {};
+	fa_quant_compression_calc_clip_extents(&clip, keyData, numKeyData);
+	fa_quant_compression_calc_bucket_extents(clip, &bucket, keyData, numKeyData);
+	
+	bucket.bitrate = 16;
+	
+	uint32_t dataCompressed[8] = {};
+	
+	fa_quant_compress(clip, bucket, keyData, numKeyData, dataCompressed);
+	
+	float decompressedKeys[numKeyData] = {};
+	fa_quant_decompress(clip, bucket, dataCompressed, numKeyData, decompressedKeys);
+	
+	for(uint32_t i=0; i<numKeyData; ++i)
+	{
+		Assert::AreEqual(keyData[i], decompressedKeys[i], 0.1f);
+	}
+}
+
