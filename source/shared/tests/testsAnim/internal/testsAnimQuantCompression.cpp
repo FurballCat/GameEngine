@@ -150,34 +150,38 @@ void fa_quant_compression_calc_bucket_extents(fa_quant_compression_clip_extents 
 	bucketOpts->extent = (maximum - minimum) / clipExtents.extent;
 }
 
-void fa_quant_compress(fa_quant_compression_clip_extents clipExtents, fa_quant_compression_bucket_extents bucketExtents,
-								   const float* data, uint32_t numData, uint32_t* outData)
+bool fa_quant_compress(fa_quant_compression_clip_extents clipExtents, fa_quant_compression_bucket_extents bucketExtents,
+								   const float* data, uint32_t numData, uint32_t* outData, uint32_t numOutData)
 {
 	const uint32_t intMax = (1 << bucketExtents.bitrate) - 1;
 	
 	fc_bit_stream bitStream = {};
 	bitStream.bitrate = bucketExtents.bitrate;
 	bitStream.dataPtr = outData;
-	bitStream.numDataLeft = numData * bucketExtents.bitrate / 32;
+	bitStream.numDataLeft = numOutData;
 	
 	uint32_t value = 0;
 	for(uint32_t i=0; i<numData; ++i)
 	{
 		fa_quant_compression_compress_single(clipExtents.minimum, clipExtents.extent, bucketExtents.minimum, bucketExtents.extent, data[i], intMax, &value);
 		
-		fc_bit_stream_write(&bitStream, value);
+		const bool result = fc_bit_stream_write(&bitStream, value);
+		if(result == false)
+			return false;
 	}
+	
+	return true;
 }
 
 void fa_quant_decompress(fa_quant_compression_clip_extents clipExtents, fa_quant_compression_bucket_extents bucketExtents,
-								   const uint32_t* data, uint32_t numOutData, float* outData)
+								   const uint32_t* data, uint32_t numData, float* outData, uint32_t numOutData)
 {
 	const uint32_t intMax = (1 << bucketExtents.bitrate) - 1;
 	
 	fc_bit_stream_const bitStream = {};
 	bitStream.bitrate = bucketExtents.bitrate;
 	bitStream.dataPtr = data;
-	bitStream.numDataLeft = numOutData * bucketExtents.bitrate / 32;
+	bitStream.numDataLeft = numData;
 	
 	uint32_t value;
 	for(uint32_t i=0; i<numOutData; ++i)
@@ -462,10 +466,10 @@ UNITTEST(AnimQuantCompression, compress_data_1)
 	
 	uint32_t dataCompressed = 0;
 	
-	fa_quant_compress(clip, bucket, keyData, numKeyData, &dataCompressed);
+	fa_quant_compress(clip, bucket, keyData, numKeyData, &dataCompressed, 1);
 	
 	float decompressedKeys[numKeyData] = {};
-	fa_quant_decompress(clip, bucket, &dataCompressed, numKeyData, decompressedKeys);
+	fa_quant_decompress(clip, bucket, &dataCompressed, 1, decompressedKeys, numKeyData);
 	
 	for(uint32_t i=0; i<numKeyData; ++i)
 	{
@@ -485,12 +489,13 @@ UNITTEST(AnimQuantCompression, compress_data_2)
 	
 	bucket.bitrate = 16;
 	
-	uint32_t dataCompressed[8] = {};
+	const uint32_t dataSize = 8;
+	uint32_t dataCompressed[dataSize] = {};
 	
-	fa_quant_compress(clip, bucket, keyData, numKeyData, dataCompressed);
+	fa_quant_compress(clip, bucket, keyData, numKeyData, dataCompressed, dataSize);
 	
 	float decompressedKeys[numKeyData] = {};
-	fa_quant_decompress(clip, bucket, dataCompressed, numKeyData, decompressedKeys);
+	fa_quant_decompress(clip, bucket, dataCompressed, dataSize, decompressedKeys, numKeyData);
 	
 	for(uint32_t i=0; i<numKeyData; ++i)
 	{
@@ -498,3 +503,28 @@ UNITTEST(AnimQuantCompression, compress_data_2)
 	}
 }
 
+UNITTEST(AnimQuantCompression, compress_data_3)
+{
+	const float keyData[] = {8.0f, 20.0f, 2.0f, 14.0f, -8.0f, -5.0f, -2.0f, -4.0f, 8.0f, 7.0f, 6.0f, 7.2f, 8.0f, 20.0f, 2.0f, 14.0f};
+	const uint32_t numKeyData = sizeof(keyData) / sizeof(float);
+	
+	fa_quant_compression_clip_extents clip = {};
+	fa_quant_compression_bucket_extents bucket = {};
+	fa_quant_compression_calc_clip_extents(&clip, keyData, numKeyData);
+	fa_quant_compression_calc_bucket_extents(clip, &bucket, keyData, numKeyData);
+	
+	bucket.bitrate = 11;
+	
+	const uint32_t dataSize = 8;
+	uint32_t dataCompressed[dataSize] = {};
+	
+	fa_quant_compress(clip, bucket, keyData, numKeyData, dataCompressed, dataSize);
+	
+	float decompressedKeys[numKeyData] = {};
+	fa_quant_decompress(clip, bucket, dataCompressed, dataSize, decompressedKeys, numKeyData);
+	
+	for(uint32_t i=0; i<numKeyData; ++i)
+	{
+		Assert::AreEqual(keyData[i], decompressedKeys[i], 0.1f);
+	}
+}
