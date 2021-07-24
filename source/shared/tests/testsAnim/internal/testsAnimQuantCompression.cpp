@@ -1,4 +1,5 @@
 #include "unitTests/unitTestsFramework.h"
+#include "cmath/public.h"
 #include <xmmintrin.h>
 #include <immintrin.h>
 
@@ -123,7 +124,7 @@ void fa_quant_compression_decompress_4(float clipMin, float clipExtent, float bu
 	_mm_store_ps(outValues, finalValue);
 }
 
-void fa_quant_compression_decompress_16(float clipMin, float clipExtent, float bucketMin, float bucketExtent, uint32_t values[16], uint32_t maxInt, float* outValues)
+/*void fa_quant_compression_decompress_16(float clipMin, float clipExtent, float bucketMin, float bucketExtent, uint32_t values[16], uint32_t maxInt, float* outValues)
 {
 	__m512 valuesQuad = _mm512_load_ps(outValues);
 	__m512 maxIntQuad = _mm512_set1_ps((float)maxInt);
@@ -137,7 +138,7 @@ void fa_quant_compression_decompress_16(float clipMin, float clipExtent, float b
 	__m512 finalValue = _mm512_add_ps(_mm512_mul_ps(normValue, clipExtentQuad), clipMinQuad);
 	
 	_mm512_store_ps(outValues, finalValue);
-}
+}*/
 
 void fa_quant_compression_get_min_max(const float* keyData, uint32_t numKeyData, float* outMinimum, float* outMaximum)
 {
@@ -560,5 +561,42 @@ UNITTEST(AnimQuantCompression, compress_data_3)
 	for(uint32_t i=0; i<numKeyData; ++i)
 	{
 		Assert::AreEqual(keyData[i], decompressedKeys[i], 0.1f);
+	}
+}
+
+UNITTEST(AnimQuantCompression, compress_quaternions_1)
+{
+	const uint32_t numKeyData = 16;
+	fm_quat keyData[numKeyData] = {};
+	
+	// init key data
+	const fm_vec4 axis[3] = {FM_VEC4_AXIS_X, FM_VEC4_AXIS_Y, FM_VEC4_AXIS_Z};
+	for(uint32_t i=0; i<numKeyData; ++i)
+	{
+		fm_quat_rot_axis_angle(&axis[i % 3], i * 3.14f / 24.0f, &keyData[i]);
+	}
+	
+	const float* uncompressedData = &keyData[0].i;
+	const uint32_t numUncompressedData = numKeyData * 4;
+	
+	fa_quant_compression_clip_extents clip = {};
+	fa_quant_compression_bucket_extents bucket = {};
+	fa_quant_compression_calc_clip_extents(&clip, uncompressedData, numUncompressedData);
+	fa_quant_compression_calc_bucket_extents(clip, &bucket, uncompressedData, numUncompressedData);
+	
+	const uint32_t bitrate = 7;
+	bucket.bitrate = bitrate;
+	
+	const uint32_t bufferSize = 1 + numUncompressedData * (bitrate) / 32;
+	uint32_t buffer[bufferSize] = {};
+	
+	fa_quant_compress(clip, bucket, uncompressedData, numUncompressedData, buffer, bufferSize);
+	
+	float decompressedKeys[numUncompressedData] = {};
+	fa_quant_decompress(clip, bucket, buffer, bufferSize, decompressedKeys, numUncompressedData);
+	
+	for(uint32_t i=0; i<numUncompressedData; ++i)
+	{
+		Assert::AreEqual(uncompressedData[i], decompressedKeys[i], 0.01f);
 	}
 }

@@ -3,6 +3,7 @@
 	[
         "unitTests",
         "canim"
+		"cmath"
     ],
     
     "type": "console_application"
