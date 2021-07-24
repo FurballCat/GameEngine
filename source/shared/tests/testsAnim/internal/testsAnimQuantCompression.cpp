@@ -1,4 +1,6 @@
 #include "unitTests/unitTestsFramework.h"
+#include <xmmintrin.h>
+#include <immintrin.h>
 
 using namespace test;
 
@@ -98,11 +100,43 @@ void fa_quant_compression_compress_single(float clipMin, float clipExtent, float
 	*outValue = normValue2 * maxInt;
 }
 
-void fa_quant_compression_decompress_single(float clipMin, float clipExtent, float bucketMin, float bucketExtent, uint32_t value, uint32_t maxInt, float* outValue)
+void fa_quant_compression_decompress_1(float clipMin, float clipExtent, float bucketMin, float bucketExtent, uint32_t value, uint32_t maxInt, float* outValue)
 {
 	const float normValue2 = (float)value / (float)maxInt;
 	const float normValue = normValue2 * bucketExtent + bucketMin;
 	*outValue = normValue * clipExtent + clipMin;
+}
+
+void fa_quant_compression_decompress_4(float clipMin, float clipExtent, float bucketMin, float bucketExtent, uint32_t values[4], uint32_t maxInt, float* outValues)
+{
+	__m128 valuesQuad = _mm_load_ps(outValues);
+	__m128 maxIntQuad = _mm_set_ps1((float)maxInt);
+	__m128 clipMinQuad = _mm_set_ps1(clipMin);
+	__m128 clipExtentQuad = _mm_set_ps1(clipExtent);
+	__m128 bucketMinQuad = _mm_set_ps1(bucketMin);
+	__m128 bucketExtentQuad = _mm_set_ps1(bucketExtent);
+	
+	__m128 normValue2 = _mm_div_ps(valuesQuad, maxIntQuad);
+	__m128 normValue = _mm_add_ps(_mm_mul_ps(normValue2, bucketExtentQuad), bucketMinQuad);
+	__m128 finalValue = _mm_add_ps(_mm_mul_ps(normValue, clipExtentQuad), clipMinQuad);
+	
+	_mm_store_ps(outValues, finalValue);
+}
+
+void fa_quant_compression_decompress_16(float clipMin, float clipExtent, float bucketMin, float bucketExtent, uint32_t values[16], uint32_t maxInt, float* outValues)
+{
+	__m512 valuesQuad = _mm512_load_ps(outValues);
+	__m512 maxIntQuad = _mm512_set1_ps((float)maxInt);
+	__m512 clipMinQuad = _mm512_set1_ps(clipMin);
+	__m512 clipExtentQuad = _mm512_set1_ps(clipExtent);
+	__m512 bucketMinQuad = _mm512_set1_ps(bucketMin);
+	__m512 bucketExtentQuad = _mm512_set1_ps(bucketExtent);
+	
+	__m512 normValue2 = _mm512_div_ps(valuesQuad, maxIntQuad);
+	__m512 normValue = _mm512_add_ps(_mm512_mul_ps(normValue2, bucketExtentQuad), bucketMinQuad);
+	__m512 finalValue = _mm512_add_ps(_mm512_mul_ps(normValue, clipExtentQuad), clipMinQuad);
+	
+	_mm512_store_ps(outValues, finalValue);
 }
 
 void fa_quant_compression_get_min_max(const float* keyData, uint32_t numKeyData, float* outMinimum, float* outMaximum)
@@ -187,7 +221,7 @@ void fa_quant_decompress(fa_quant_compression_clip_extents clipExtents, fa_quant
 	for(uint32_t i=0; i<numOutData; ++i)
 	{
 		fc_bit_stream_read(&bitStream, &value);
-		fa_quant_compression_decompress_single(clipExtents.minimum, clipExtents.extent, bucketExtents.minimum, bucketExtents.extent, value, intMax, &outData[i]);
+		fa_quant_compression_decompress_1(clipExtents.minimum, clipExtents.extent, bucketExtents.minimum, bucketExtents.extent, value, intMax, &outData[i]);
 	}
 }
 
@@ -204,7 +238,7 @@ UNITTEST(AnimQuantCompression, simple_1)
 	float valueOut = 0.0f;
 	
 	fa_quant_compression_compress_single(clipMin, clipExtent, bucketMin, bucketExtent, valueIn, maxInt, &valueCompressed);
-	fa_quant_compression_decompress_single(clipMin, clipExtent, bucketMin, bucketExtent, valueCompressed, maxInt, &valueOut);
+	fa_quant_compression_decompress_1(clipMin, clipExtent, bucketMin, bucketExtent, valueCompressed, maxInt, &valueOut);
 	
 	return Assert::AreEqual(valueIn, valueOut, 0.001f);
 }
@@ -222,7 +256,7 @@ UNITTEST(AnimQuantCompression, simple_2)
 	float valueOut = 0.0f;
 	
 	fa_quant_compression_compress_single(clipMin, clipExtent, bucketMin, bucketExtent, valueIn, maxInt, &valueCompressed);
-	fa_quant_compression_decompress_single(clipMin, clipExtent, bucketMin, bucketExtent, valueCompressed, maxInt, &valueOut);
+	fa_quant_compression_decompress_1(clipMin, clipExtent, bucketMin, bucketExtent, valueCompressed, maxInt, &valueOut);
 	
 	return Assert::AreEqual(valueIn, valueOut, 0.01f);
 }
@@ -240,7 +274,7 @@ UNITTEST(AnimQuantCompression, simple_3)
 	float valueOut = 0.0f;
 	
 	fa_quant_compression_compress_single(clipMin, clipExtent, bucketMin, bucketExtent, valueIn, maxInt, &valueCompressed);
-	fa_quant_compression_decompress_single(clipMin, clipExtent, bucketMin, bucketExtent, valueCompressed, maxInt, &valueOut);
+	fa_quant_compression_decompress_1(clipMin, clipExtent, bucketMin, bucketExtent, valueCompressed, maxInt, &valueOut);
 	
 	Assert::AreEqual(valueIn, valueOut, 0.1f);
 }
