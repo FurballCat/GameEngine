@@ -587,7 +587,7 @@ UNITTEST(AnimQuantCompression, compress_quaternions_1)
 	const uint32_t bitrate = 7;
 	bucket.bitrate = bitrate;
 	
-	const uint32_t bufferSize = 1 + numUncompressedData * (bitrate) / 32;
+	const uint32_t bufferSize = 1 + numUncompressedData * bitrate / 32;
 	uint32_t buffer[bufferSize] = {};
 	
 	fa_quant_compress(clip, bucket, uncompressedData, numUncompressedData, buffer, bufferSize);
