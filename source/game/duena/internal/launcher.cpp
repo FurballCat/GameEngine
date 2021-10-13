@@ -286,6 +286,7 @@ struct FurGameEngine
 	
 	// animation
 	fa_rig_t* pRig;
+	fa_anim_clip_t* pAnimClipIdleStand;
 	fa_anim_clip_t* pAnimClipIdle;
 	fa_anim_clip_t* pAnimClipIdle2;
 	fa_anim_clip_t* pAnimClipIdle3;
@@ -327,6 +328,7 @@ struct FurGameEngine
 	fa_action_player_loco_start_t actionLocoStop;
 	
 	fg_player_state_t playerState;
+	bool playerWeaponEquipped;
 	
 	// skinning
 	fm_mat4 skinMatrices[512];
@@ -520,6 +522,13 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 
 		{
 			fi_import_anim_clip_ctx_t ctx = {};
+			ctx.path = "assets/characters/zelda/animations/zelda-idle-stand-relaxed.fbx";
+			
+			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipIdleStand, pAllocCallbacks);
+		}
+		
+		{
+			fi_import_anim_clip_ctx_t ctx = {};
 			ctx.path = "assets/characters/zelda/animations/zelda-funny-poses.fbx";
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipIdle, pAllocCallbacks);
@@ -639,7 +648,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		
 		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_UPPER_BODY].maskID = FA_MASK_UPPER_BODY;
 		
-		pEngine->actionIdle.animation = pEngine->pAnimClipIdle;
+		pEngine->actionIdle.animation = pEngine->pAnimClipIdleStand;
 		pEngine->actionIdle.forceLoop = true;
 		
 		pEngine->actionLoco.animation = pEngine->pAnimClipRun;
@@ -665,7 +674,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		pEngine->zeldaGameObject.animToPlay = 0;
 		
 		// run
-		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_IDLE] = pEngine->pAnimClipIdle;
+		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_IDLE] = pEngine->pAnimClipIdleStand;
 		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN] = pEngine->pAnimClipRun;
 		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN_TO_IDLE_SHARP] = pEngine->pAnimClipRunToIdleSharp;
 		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_IDLE_TO_RUN_0] = pEngine->pAnimClipIdleToRun0;
@@ -924,8 +933,8 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		//fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionWeaponEquipped, &args);
 	}
 	
+#if 0
 	static float time = 0.0f;
-	
 	time += dt;
 	static float interval = 1.0f;
 	if(time < interval)
@@ -938,6 +947,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		pEngine->actionIdle.animation = pEngine->pAnimClipIdle4;
 	else
 		time = 0.0f;
+#endif
 	
 	static fg_player_state_t prevState = FG_PLAYER_STATE_IDLE;
 	
@@ -965,6 +975,28 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		if(pEngine->inActionPressed)
 		{
 			pEngine->playerState = FG_PLAYER_STATE_JUMP;
+		}
+		
+		if(pEngine->inActionEquipWeaponPressed)
+		{
+			if(pEngine->playerWeaponEquipped)
+			{
+				fa_action_args_t args = {};
+				args.fadeInSec = 0.5f;
+				args.layer = FA_CHAR_LAYER_UPPER_BODY;
+				fa_character_schedule_none_action(&pEngine->animCharacterZelda, &args);
+				
+				pEngine->playerWeaponEquipped = false;
+			}
+			else
+			{
+				fa_action_args_t args = {};
+				args.fadeInSec = 0.5f;
+				args.layer = FA_CHAR_LAYER_UPPER_BODY;
+				fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionWeaponEquipped, &args);
+				
+				pEngine->playerWeaponEquipped = true;
+			}
 		}
 	}
 	
@@ -1301,13 +1333,12 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		ctx.cameraMatrix = &cameraMatrix;
 		fr_update_renderer(pEngine->pRenderer, &ctx);
 		
-		//if(!pEngine->actionTest2.equipWeapon)
-#if 1
+		if(!pEngine->playerWeaponEquipped)
 		{
 			fm_mat4_identity(&slotMS);
 			slotMS.w.x = 4.0f;
+			slotMS.w.z = -4.0f;
 		}
-#endif
 		
 		// draw frame
 		fr_draw_frame_context_t renderCtx = {};
@@ -1359,6 +1390,7 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	
 	FUR_FREE(pEngine->scratchpadBuffer, pAllocCallbacks);
 	fa_rig_release(pEngine->pRig, pAllocCallbacks);
+	fa_anim_clip_release(pEngine->pAnimClipIdleStand, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipIdle, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipIdle2, pAllocCallbacks);
 	fa_anim_clip_release(pEngine->pAnimClipIdle3, pAllocCallbacks);

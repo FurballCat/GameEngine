@@ -244,8 +244,17 @@ float fa_decompress_key_time(const uint16_t time)
 
 void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive, fa_pose_t* pose, const uint8_t* mask)
 {
-	const uint32_t numCurves = clip->numCurves;
+	for(uint32_t i=0; i<pose->numXforms; ++i)
+	{
+		pose->weightsXforms[i] = 0;
+	}
 	
+	for(uint32_t i=0; i<pose->numTracks; ++i)
+	{
+		pose->weightsTracks[i] = 0;
+	}
+	
+	const uint32_t numCurves = clip->numCurves;
 	for(uint32_t i_c=0; i_c<numCurves; ++i_c)
 	{
 		const fa_anim_curve_t* curve = &clip->curves[i_c];
@@ -254,12 +263,12 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive
 		
 		// rotation
 		{
-			const uint16_t numKeys = curve->numKeys;
+			const uint16_t numKeys = curve->numRotKeys;
 		
 			uint16_t idx = 0;
 			
-			// todo: make it a binary search (or a binary-guess search, check weekly links)
-			while(idx < (numKeys-1) && fa_decompress_key_time(curve->keys[idx].keyTime) < time)
+			// this could be a binary search
+			while(idx < (numKeys-1) && fa_decompress_key_time(curve->rotKeys[idx].keyTime) < time)
 			{
 				++idx;
 			}
@@ -271,18 +280,18 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive
 			
 			if(lowerIdx == upperIdx)
 			{
-				fa_decompress_rotation_key(&curve->keys[idx], &rot);
+				fa_decompress_rotation_key(&curve->rotKeys[idx], &rot);
 			}
 			else
 			{
 				fm_quat rot1;
-				fa_decompress_rotation_key(&curve->keys[lowerIdx], &rot1);
+				fa_decompress_rotation_key(&curve->rotKeys[lowerIdx], &rot1);
 				
 				fm_quat rot2;
-				fa_decompress_rotation_key(&curve->keys[upperIdx], &rot2);
+				fa_decompress_rotation_key(&curve->rotKeys[upperIdx], &rot2);
 				
-				const float time1 = fa_decompress_key_time(curve->keys[lowerIdx].keyTime);
-				const float time2 = fa_decompress_key_time(curve->keys[upperIdx].keyTime);
+				const float time1 = fa_decompress_key_time(curve->rotKeys[lowerIdx].keyTime);
+				const float time2 = fa_decompress_key_time(curve->rotKeys[upperIdx].keyTime);
 				
 				float alpha = (time - time1) / (time2 - time1);
 				fm_quat_lerp(&rot1, &rot2, alpha, &rot);
@@ -298,7 +307,7 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive
 		
 			uint16_t idx = 0;
 			
-			// todo: make it a binary search (or a binary-guess search, check weekly links)
+			// this could be a binary search
 			while(idx < (numKeys-1) && fa_decompress_key_time(curve->posKeys[idx].keyTime) < time)
 			{
 				++idx;
@@ -343,7 +352,7 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive
 		if(asAdditive)
 		{
 			fm_xform firstKey;
-			fa_decompress_rotation_key(&curve->keys[0], &firstKey.rot);
+			fa_decompress_rotation_key(&curve->rotKeys[0], &firstKey.rot);
 			fa_decompress_position_key(&curve->posKeys[0], &firstKey.pos);
 			
 			fm_quat_conj(&firstKey.rot);
@@ -351,16 +360,6 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive
 			fm_quat_mul(&firstKey.rot, &pose->xforms[idxXform].rot, &pose->xforms[idxXform].rot);
 			fm_vec4_sub(&pose->xforms[idxXform].pos, &firstKey.pos, &pose->xforms[idxXform].pos);
 		}
-	}
-	
-	for(uint32_t i=numCurves; i<pose->numXforms; ++i)
-	{
-		pose->weightsXforms[i] = 0;
-	}
-	
-	for(uint32_t i=0; i<pose->numTracks; ++i)
-	{
-		pose->weightsTracks[i] = 0;
 	}
 }
 
@@ -1178,7 +1177,7 @@ float fa_action_get_local_time(const fa_action_t* action, const fa_character_t* 
 
 float fa_action_get_alpha(fa_character_t* character, const fa_action_t* action)
 {
-	if(!action->func)
+	if(!action->isUsed)
 		return 0.0f;
 	
 	float alpha = 1.0f;
@@ -1277,10 +1276,10 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 	
 	// resolve scheduled actions
 	{
-		const bool currInProgress = layer->currAction.userData != NULL;
-		const bool nextInProgress = layer->nextAction.userData != NULL;
-		const bool scheduledA = layer->scheduledActions[0].userData != NULL;
-		const bool scheduledB = layer->scheduledActions[1].userData != NULL;
+		const bool currInProgress = layer->currAction.isUsed;
+		const bool nextInProgress = layer->nextAction.isUsed;
+		const bool scheduledA = layer->scheduledActions[0].isUsed;
+		const bool scheduledB = layer->scheduledActions[1].isUsed;
 		if(scheduledA && scheduledB)
 		{
 			// cache pose
@@ -1310,8 +1309,8 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 	}
 	
 	// if at this point we still have pending scheduled actions, then it means we need to cache the pose of current actions
-	const bool stillScheduledA = layer->scheduledActions[0].userData != NULL;
-	const bool stillScheduledB = layer->scheduledActions[1].userData != NULL;
+	const bool stillScheduledA = layer->scheduledActions[0].isUsed;
+	const bool stillScheduledB = layer->scheduledActions[1].isUsed;
 	const bool isCachingPose = stillScheduledA || stillScheduledB;
 	
 	const float nextAlpha = fa_action_get_alpha(character, &layer->nextAction);
@@ -1374,7 +1373,11 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 			fa_pose_blend_linear(&outPose, &actionPose, &outPose, nextAlpha);
 			fa_pose_stack_pop(ctx->poseStack, 1);
 		}
-		
+	}
+	
+	// next action might be NONE, so need to check isUsed only, but we still want the fullyBlended to happen
+	if(layer->nextAction.isUsed)
+	{
 		if(nextAlpha >= 1.0f)
 		{
 			fullyBlended = true;
@@ -1628,6 +1631,44 @@ void fa_character_schedule_action_simple(fa_character_t* character, fa_action_an
 	actionSlot->func = fa_action_animate_func;
 	actionSlot->getAnimsFunc = fa_action_animate_get_anims_func;
 	actionSlot->globalStartTime = character->globalTime;
+	actionSlot->isUsed = true;
+	actionSlot->args = *args;
+}
+
+CANIM_API void fa_character_schedule_none_action(fa_character_t* character, const fa_action_args_t* args)
+{
+	fa_layer_t* layer = &character->layers[args->layer];
+	
+	fa_action_t* actionSlot = NULL;
+	
+	if(layer->currAction.userData == NULL)
+	{
+		actionSlot = &layer->currAction;
+	}
+	else if(layer->nextAction.userData == NULL)
+	{
+		actionSlot = &layer->nextAction;
+	}
+	else if(layer->scheduledActions[0].userData == NULL)
+	{
+		actionSlot = &layer->scheduledActions[0];
+	}
+	else if(layer->scheduledActions[1].userData == NULL)
+	{
+		actionSlot = &layer->scheduledActions[1];
+	}
+	else
+	{
+		layer->scheduledActions[0] = layer->scheduledActions[1];
+		fa_action_reset(&layer->scheduledActions[1]);
+		actionSlot = &layer->scheduledActions[1];
+	}
+	
+	actionSlot->userData = NULL;
+	actionSlot->func = NULL;
+	actionSlot->getAnimsFunc = NULL;
+	actionSlot->globalStartTime = character->globalTime;
+	actionSlot->isUsed = true;
 	actionSlot->args = *args;
 }
 
@@ -1664,6 +1705,7 @@ CANIM_API void fa_character_schedule_action(fa_character_t* character, fa_action
 	actionSlot->func = data->fnUpdate;
 	actionSlot->getAnimsFunc = data->fnGetAnims;
 	actionSlot->globalStartTime = character->globalTime;
+	actionSlot->isUsed = true;
 	actionSlot->args = *args;
 }
 
