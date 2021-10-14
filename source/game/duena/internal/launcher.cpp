@@ -303,7 +303,8 @@ struct FurGameEngine
 	
 	// input actions
 	bool inActionPressed;
-	bool inActionEquipWeaponPressed;
+	bool inputTriangleActionPressed;
+	bool inputCircleActionPressed;
 	float actionRotationLeftX;
 	float actionZoomIn;
 	float actionZoomOut;
@@ -329,6 +330,7 @@ struct FurGameEngine
 	
 	fg_player_state_t playerState;
 	bool playerWeaponEquipped;
+	bool playerWindProtecting;
 	
 	// skinning
 	fm_mat4 skinMatrices[512];
@@ -844,8 +846,10 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 	bool actionPressed = false;
 	static bool actionWasPressed = false;
 	
-	bool actionWeaponPressed = false;
-	static bool actionWeaponWasPressed = false;
+	bool triangleActionPressed = false;
+	static bool triangleActionWasPressed = false;
+	bool circleActionPressed = false;
+	static bool circleActionWasPressed = false;
 	
 	fi_input_event_t inputEvents[10];
 	const uint32_t numEventsCollected = fi_get_input_events(pEngine->pInputManager, inputEvents, 10, 0);
@@ -855,9 +859,13 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 		{
 			actionPressed = true;
 		}
+		else if(inputEvents[i].eventID == Gamepad_faceButtonRight)
+		{
+			circleActionPressed = true;
+		}
 		else if(inputEvents[i].eventID == Gamepad_faceButtonTop)
 		{
-			actionWeaponPressed = true;
+			triangleActionPressed = true;
 		}
 		else if(inputEvents[i].eventID == Gamepad_rightAnalogX)
 		{
@@ -891,14 +899,24 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 		pEngine->inActionPressed = false;
 	}
 	
-	if(actionWeaponWasPressed != actionWeaponPressed)
+	if(triangleActionWasPressed != triangleActionPressed)
 	{
-		pEngine->inActionEquipWeaponPressed = actionWeaponPressed;
-		actionWeaponWasPressed = actionWeaponPressed;
+		pEngine->inputTriangleActionPressed = triangleActionPressed;
+		triangleActionWasPressed = triangleActionPressed;
 	}
 	else
 	{
-		pEngine->inActionEquipWeaponPressed = false;
+		pEngine->inputTriangleActionPressed = false;
+	}
+	
+	if(circleActionWasPressed != circleActionPressed)
+	{
+		pEngine->inputCircleActionPressed = circleActionPressed;
+		circleActionWasPressed = circleActionPressed;
+	}
+	else
+	{
+		pEngine->inputCircleActionPressed = false;
 	}
 }
 
@@ -913,7 +931,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 	if(pEngine->inActionPressed)
 		actionRandomizer += 1;
 	
-	if(pEngine->inActionEquipWeaponPressed)
+	if(pEngine->inputTriangleActionPressed)
 		actionRandomizer2 += 1;
 	
 	// inital player state
@@ -963,22 +981,14 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			prevState = pEngine->playerState;
 		}
 		
-		// on update
-		const float moveX = pEngine->actionMoveX;
-		const float moveY = pEngine->actionMoveY;
-		
-		if(fabsf(moveX) > 0.2f || fabsf(moveY) > 0.2f)
+		// on update - upper-body layer in this case
+		if(pEngine->inputTriangleActionPressed)
 		{
-			pEngine->playerState = FG_PLAYER_STATE_START_LOCO;
-		}
-		
-		if(pEngine->inActionPressed)
-		{
-			pEngine->playerState = FG_PLAYER_STATE_JUMP;
-		}
-		
-		if(pEngine->inActionEquipWeaponPressed)
-		{
+			if(pEngine->playerWindProtecting)
+			{
+				pEngine->playerWindProtecting = false;
+			}
+			
 			if(pEngine->playerWeaponEquipped)
 			{
 				fa_action_args_t args = {};
@@ -997,6 +1007,47 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 				
 				pEngine->playerWeaponEquipped = true;
 			}
+		}
+		
+		// transitions
+		const float moveX = pEngine->actionMoveX;
+		const float moveY = pEngine->actionMoveY;
+		
+		if(fabsf(moveX) > 0.2f || fabsf(moveY) > 0.2f)
+		{
+			pEngine->playerState = FG_PLAYER_STATE_START_LOCO;
+		}
+		
+		if(pEngine->inActionPressed)
+		{
+			pEngine->playerState = FG_PLAYER_STATE_JUMP;
+		}
+	}
+	
+	if(pEngine->inputCircleActionPressed)
+	{
+		if(pEngine->playerWeaponEquipped)
+		{
+			pEngine->playerWeaponEquipped = false;
+		}
+		
+		if(pEngine->playerWindProtecting)
+		{
+			fa_action_args_t args = {};
+			args.fadeInSec = 0.5f;
+			args.layer = FA_CHAR_LAYER_UPPER_BODY;
+			fa_character_schedule_none_action(&pEngine->animCharacterZelda, &args);
+			
+			pEngine->playerWindProtecting = false;
+		}
+		else
+		{
+			fa_action_args_t args = {};
+			args.fadeInSec = 0.5f;
+			args.layer = FA_CHAR_LAYER_UPPER_BODY;
+			fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionWindProtect, &args);
+			
+			pEngine->playerWindProtecting = true;
 		}
 	}
 	
@@ -1026,6 +1077,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			pEngine->playerState = FG_PLAYER_STATE_LOCO_RUN;
 		}
 		
+		// transitions
 		const float moveX = pEngine->actionMoveX;
 		const float moveY = pEngine->actionMoveY;
 		if(fabsf(moveX) < 0.2f && fabsf(moveY) < 0.2f)
@@ -1061,6 +1113,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		const float moveX = pEngine->actionMoveX;
 		const float moveY = pEngine->actionMoveY;
 		
+		// transitions
 		if(fabsf(moveX) < 0.2f && fabsf(moveY) < 0.2f)
 		{
 			pEngine->playerState = FG_PLAYER_STATE_STOP_LOCO;
@@ -1092,6 +1145,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			prevState = pEngine->playerState;
 		}
 		
+		// transitions
 		if(pEngine->actionLocoStop.isFinished)
 		{
 			pEngine->playerState = FG_PLAYER_STATE_IDLE;
@@ -1119,6 +1173,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			prevState = pEngine->playerState;
 		}
 		
+		// transitions
 		if(pEngine->actionJump.progress >= 0.8f)
 		{
 			if(pEngine->actionJump.jumpType == 1)
@@ -1189,6 +1244,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 	fp_physics_update_ctx_t physicsCtx = {};
 	physicsCtx.dt = dt;
 	
+	// apply root motion from anim info to physics
 	fm_vec4 playerDisplacement;
 	playerDisplacement.x = pEngine->animCharacterZelda.animInfo.rootMotionDeltaX;
 	playerDisplacement.y = pEngine->animCharacterZelda.animInfo.rootMotionDeltaY;
@@ -1196,13 +1252,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 	playerDisplacement.w = 0.0f;
 	physicsCtx.playerDisplacement = &playerDisplacement;
 	fp_physics_update(pEngine->pPhysics, pEngine->pPhysicsScene, &physicsCtx);
-	
-	{
-		fa_dangle_sim_ctx simCtx {};
-		simCtx.dt = dt;
-		fa_dangle_simulate(&simCtx, &pEngine->dangle);
-	}
-	
+
 	// simulate hair dangles
 	{
 		fa_dangle_sim_ctx simCtx {};
