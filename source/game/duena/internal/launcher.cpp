@@ -38,6 +38,8 @@ typedef struct fg_game_object_register_t
 
 typedef struct fs_script_ctx_t
 {
+	fc_string_hash_t lastOp;
+	fs_variant_t lastResult;
 	fg_game_object_t* self;
 	fg_game_object_register_t* gameObjectRegister;
 } fs_script_ctx_t;
@@ -54,9 +56,11 @@ typedef struct fs_native_func_entry_t
 	uint32_t numArgs;
 } fs_native_func_entry_t;
 
+fc_string_hash_t g_scriptNullOpCode = SID("__null");
+
 fs_native_func_entry_t g_nativeFuncLookUp[] = {
 	{ SID("animate"), fs_native_animate, 2 },
-	{ SID("__null"), NULL, 0 }
+	{ g_scriptNullOpCode, NULL, 0 }
 };
 
 typedef struct fs_script_op_t
@@ -86,6 +90,72 @@ enum fs_script_parsing_stage_t
 	SPS_READING,
 	SPS_END,
 };
+
+typedef struct fs_script_op_header
+{
+	fc_string_hash_t opCode;
+	uint32_t flags;
+	uint32_t numArgs;
+} fs_script_op_header;
+
+typedef struct fs_script_execution_ctx_t
+{
+	fc_binary_buffer_stream_t scriptBufferStream;
+	fs_script_ctx_t* scriptCtx;
+} fs_script_execution_ctx_t;
+
+void fs_execute_script_step(fs_script_execution_ctx_t* ctx)
+{
+	fc_binary_buffer_stream_t* stream = &ctx->scriptBufferStream;
+	
+	// read operation header
+	fs_script_op_header opHeader = {};
+	uint32_t bytesRead = fc_read_binary_buffer(stream, sizeof(fs_script_op_header), &opHeader);
+	FUR_ASSERT(bytesRead);
+	
+	// read arguments
+	FUR_ASSERT(opHeader.numArgs < 20);
+	fs_variant_t args[20];
+	
+	for(uint32_t i=0; i<opHeader.numArgs; ++i)
+	{
+		bytesRead = fc_read_binary_buffer(stream, sizeof(fs_variant_t), &args[i]);
+		FUR_ASSERT(bytesRead);
+	}
+	
+	// execute operation
+	{
+		// find operation/function pointer - todo: implement simple cache
+		const uint32_t numFuncs = FUR_ARRAY_SIZE(g_nativeFuncLookUp);
+		uint32_t idxFunc = 0;
+		for(idxFunc=0; idxFunc<numFuncs; ++idxFunc)
+		{
+			if(opHeader.opCode == g_nativeFuncLookUp[idxFunc].name)
+			{
+				break;
+			}
+		}
+		
+		FUR_ASSERT(idxFunc < numFuncs);	// op code not found
+		
+		// call function
+		ctx->scriptCtx->lastResult = g_nativeFuncLookUp[idxFunc].func(ctx->scriptCtx, opHeader.numArgs, args);
+		ctx->scriptCtx->lastOp = opHeader.opCode;
+	}
+}
+
+void fs_execute_script(const fc_binary_buffer_t* scriptBuffer, fs_script_ctx_t* scriptCtx)
+{
+	fs_script_execution_ctx_t ctx = {};
+	ctx.scriptCtx = scriptCtx;
+	fc_init_binary_buffer_stream(scriptBuffer, &ctx.scriptBufferStream);
+	
+	do
+	{
+		fs_execute_script_step(&ctx);
+	}
+	while(scriptCtx->lastOp != g_scriptNullOpCode);
+}
 
 void fs_script_release(fs_script_data_t* script, fc_alloc_callbacks_t* pAllocCallbacks)
 {
@@ -410,6 +480,17 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		fp_physics_scene_create(pEngine->pPhysics, &pEngine->pPhysicsScene, pAllocCallbacks);
 	}
 	
+	if(0)	// turn off testing scripts for now
+	{
+		fc_binary_buffer_t scriptBuffer;
+		fc_load_binary_file_into_binary_buffer("../../../../../scripts/idle.fs", &scriptBuffer, pAllocCallbacks);
+		
+		fs_script_ctx_t scriptCtx = {};
+		fs_execute_script(&scriptBuffer, &scriptCtx);
+		
+		fc_release_binary_buffer(&scriptBuffer, pAllocCallbacks);
+	}
+	
 	// init camera
 	fg_camera_create(&pEngine->camera, pAllocCallbacks);
 	
@@ -621,11 +702,6 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipHoldSword, pAllocCallbacks);
 		}
-		
-		// import script data resources
-		{
-			fs_script_data_load(&depot, "scripts/zelda.txt", &pEngine->zeldaScript, pAllocCallbacks);
-		}
 	}
 	
 	fr_temp_create_skinning_mapping(pEngine->pRenderer, pEngine->pRig->boneNameHashes, pEngine->pRig->numBones, pAllocCallbacks);
@@ -816,29 +892,7 @@ fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_
 
 void fg_scripts_update(FurGameEngine* pEngine, float dt)
 {
-	for(uint32_t idxGO=0; idxGO<pEngine->gameObjectRegister.numObjects; ++idxGO)
-	{
-		fg_game_object_t* gameObj = pEngine->gameObjectRegister.objects[idxGO];
-		
-		// temp
-		if(gameObj->scriptTicked)
-		{
-			break;
-		}
-		
-		fs_script_ctx_t ctx = {};
-		ctx.gameObjectRegister = &pEngine->gameObjectRegister;
-		ctx.self = gameObj;
-		
-		uint32_t idxOp = gameObj->scriptState.idxOp;
-		const fs_script_op_t* ops = gameObj->script->ops;
-		while(ops[idxOp].func != NULL)
-		{
-			const fs_script_op_t op = gameObj->script->ops[idxOp];
-			op.func(&ctx, op.numArgs, op.args);
-			++idxOp;
-		}
-	}
+	// todo
 }
 
 void fg_input_actions_update(FurGameEngine* pEngine, float dt)
@@ -1463,8 +1517,6 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	fr_release_renderer(pEngine->pRenderer, pAllocCallbacks);
 	
 	fi_input_manager_release(pEngine->pInputManager, pAllocCallbacks);
-	
-	fs_script_release(&pEngine->zeldaScript, pAllocCallbacks);
 	
 	fc_string_hash_register_release(pAllocCallbacks);
 	

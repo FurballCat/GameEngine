@@ -32,6 +32,25 @@ void fc_release_binary_buffer(fc_binary_buffer_t* pBuffer, fc_alloc_callbacks_t*
 	FUR_FREE(pBuffer->pData, pAllocCallbacks);
 }
 
+void fc_init_binary_buffer_stream(const fc_binary_buffer_t* buffer, fc_binary_buffer_stream_t* outStream)
+{
+	outStream->buffer = buffer;
+	outStream->pos = buffer->pData;
+	outStream->endPos = buffer->pData + buffer->size;
+}
+
+uint32_t fc_read_binary_buffer(fc_binary_buffer_stream_t* stream, uint32_t numBytes, void* output)
+{
+	if(stream->pos + numBytes <= stream->endPos)
+	{
+		memcpy(output, stream->pos, numBytes);
+		stream->pos += numBytes;
+		return numBytes;
+	}
+	
+	return 0;
+}
+
 bool fc_load_text_file_into_text_buffer(const char* path, fc_text_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	FILE* pFile = fopen(path, "r");
