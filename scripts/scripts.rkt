@@ -101,7 +101,7 @@
    (printf "compiled state script ~a.txt\n" name)
   )
 
-(define (simple-script name data)
+(define (simple-script name . data)
   (let ((f (open-output-file (string-append name ".fs") #:mode 'binary #:exists 'replace)))
     (for/list ([e (in-list (flatten data))])
       (write-bytes e f))
@@ -121,9 +121,9 @@
          )
   )
 
-(simple-script "idle" (list
+(simple-script "idle"
                    [animate "self" "zelda-idle-stand-01"]
-                  )
+                   [animate "self" "zelda-idle-stand-01"]
 )
 
 ;; end of the script
