@@ -68,6 +68,44 @@
     )
  )
 
+(define-syntax define-c-function-variadic
+  (syntax-rules ()
+     ;; 1 arg + variadic args
+     [(_ func-name (arg0 type0))
+     (define (func-name arg0 . var-args)
+      (list
+       ;; header
+       (script-op-header
+        (quote func-name)
+        (if (equal? arg0 'self) 1 0) ;; mark calls for 'self objects for quicker look-up
+        (+ 1 (length var-args)))
+
+       ;; args
+       (variant (type0 arg0))
+       (for/list ([e (in-list var-args)])
+        (variant e))
+       )
+      )]
+     ;; 2 args + variadic args
+     [(_ func-name (arg0 type0) (arg1 type1))
+     (define (func-name arg0 arg1 . var-args)
+      (list
+       ;; header
+       (script-op-header
+        (quote func-name)
+        (if (equal? arg0 'self) 1 0) ;; mark calls for 'self objects for quicker look-up
+        (+ 2 (length var-args)))
+
+       ;; args
+       (variant (type0 arg0))
+       (variant (type1 arg1))
+       (for/list ([e (in-list var-args)])
+        (variant e))
+       )
+      )]
+    )
+ )
+
 ;; simple script buffer saved to single *.fs file
 (define (simple-script name . data)
   (let ((f (open-output-file (string-append (symbol->string name) ".fs") #:mode 'binary #:exists 'replace)))
@@ -82,7 +120,7 @@
 ;; write script here
 
 ;; import native c functions
-(define-c-function animate (object-name string-hash) (anim-name string-hash))
+(define-c-function-variadic animate (object-name string-hash) (anim-name string-hash))
 
 ;; simple script example
 (simple-script 'idle
