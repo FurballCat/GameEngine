@@ -12,24 +12,13 @@
 
 (define (string-hash name)
   (define result 2166136261)
-  (for ([i name])
+  (for ([i (if (symbol? name) (symbol->string name) name)])
     (set! result (bitwise-and (* (bitwise-xor result (char->integer i)) hash-fnv-multiple) 0xFFFFFFFF))
     )
   (if use-debug-compilation name result)
   )
 
 ;; data writing - result is a list
-(define data-function-begin-id "__funcbegin")
-(define data-function-end-id "__funcend")
-
-(define (write-data-name-single param)
-  (string-hash param)
-  )
-
-(define (write-data-name-pair param value)
-  (list (string-hash param) (string-hash value))
-  )
-
 (define (variant value)
   (to-bytes-4 value)
   )
@@ -51,8 +40,8 @@
   (list
    ;; header
    (script-op-header
-    "animate"
-    (if (equal? object-name "self") 1 0)
+    'animate
+    (if (equal? object-name 'self) 1 0) ;; mark calls for 'self objects for quicker look-up
     2)
 
    ;; args
@@ -61,48 +50,8 @@
    )
   )
 
-;; simple script
-(define data-script-begin-id "__scriptbegin")
-(define data-script-end-id "__scriptend")
-
-;; state
-(define begin (write-data-name-single "__begin"))
-
-(define (on handle code)
-  (list
-   (write-data-name-single "__eventhandlebegin")
-   handle
-   code
-   (write-data-name-single "__eventhandleend")
-   )
-  )
-
-(define (state name event-handlers)
-  (list
-   (write-data-name-pair "__statebegin" name)
-   event-handlers
-   (write-data-name-single "__stateend")
-   )
-  )
-
-;; state script
-(define (define-state-script name states)
-  (write-to-file
-   (flatten (list
-             (write-data-name-pair "__statescriptbegin" name)
-             states
-             (write-data-name-single "__statescriptend")
-             )
-    )
-   (string-append name ".txt")
-   #:mode 'text
-   #:exists 'replace
-   )
-   (printf "compiled state script ~a.txt\n" name)
-  )
-
 (define (simple-script name . data)
-  (let ((f (open-output-file (string-append name ".fs") #:mode 'binary #:exists 'replace)))
+  (let ((f (open-output-file (string-append (symbol->string name) ".fs") #:mode 'binary #:exists 'replace)))
     (for/list ([e (in-list (flatten data))])
       (write-bytes e f))
     (close-output-port f)
@@ -113,17 +62,9 @@
 ;; =================
 ;; write script here
 
-(define-state-script "test"
-  (state "init"
-         (on begin
-             [animate "zelda" "zelda-idle-stand-01"]
-             )
-         )
-  )
-
-(simple-script "idle"
-                   [animate "self" "zelda-idle-stand-01"]
-                   [animate "self" "zelda-idle-stand-01"]
+(simple-script 'idle
+                   [animate 'self 'zelda-idle-stand-01]
+                   [animate 'self 'zelda-idle-stand-01]
 )
 
 ;; end of the script
