@@ -317,10 +317,18 @@ typedef struct fa_action_begin_end_ctx_t
 	fa_character_anim_info_t* animInfo;
 	fa_character_layer_t layer;
 } fa_action_begin_end_ctx_t;
-	
-typedef void (*fa_action_func_t)(const fa_action_ctx_t* ctx, void* userData);
-typedef void (*fa_action_begin_end_func_t)(const fa_action_begin_end_ctx_t* ctx, void* userData);
+
+// update is called every frame once action is active (if fade-in-sec is 0.0, then it will be active instantly, otherwise next frame)
+typedef void (*fa_action_update_func_t)(const fa_action_ctx_t* ctx, void* userData);
+
+// provides animations to animation system used for the action
 typedef const fa_anim_clip_t** (*fa_action_get_anims_func_t)(const void* userData, uint32_t* numAnims);
+
+// called on begin and end of action when it's activated/deactivated, however, might not be called when action is cancelled (see below)
+typedef void (*fa_action_begin_end_func_t)(const fa_action_begin_end_ctx_t* ctx, void* userData);
+
+// called in rare case when too many actions are scheduled or the last action is instant blend-in (fade-in-sec 0.0), we need to eat some of actions before activating
+typedef void (*fa_action_cancel_func_t)(void* userData);
 	
 typedef enum fa_curve_type_t
 {
@@ -347,7 +355,8 @@ typedef struct fa_action_t
 	void* userData;
 	fa_action_begin_end_func_t fnBegin;	// optional, called before the first Update
 	fa_action_begin_end_func_t fnEnd;	// optional, called after the last Update
-	fa_action_func_t fnUpdate;	// required, called every frame
+	fa_action_cancel_func_t fnCancel;	// optional, called instead of begin/end when action was eaten by other actions, rare case, but happens
+	fa_action_update_func_t fnUpdate;	// required, called every frame
 	fa_action_get_anims_func_t fnGetAnims;	// optional
 	
 	uint64_t globalStartTime; // todo: this shouldn't be an input, global start time should be set once action is started/scheduled
@@ -412,14 +421,19 @@ CANIM_API void fa_character_animate(fa_character_t* character, const fa_characte
 // simple play animation action
 typedef struct fa_action_animate_t
 {
-	fa_anim_clip_t* animation;
+	const fa_anim_clip_t* animation;
 	bool forceLoop;
 	bool forceNoLoop;
 	float progress;
+	
+	bool reserved;
 } fa_action_animate_t;
 	
 CANIM_API void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData);
 CANIM_API const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* userData, uint32_t* numAnims);
+CANIM_API void fa_action_animate_begin_func(const fa_action_begin_end_ctx_t* ctx, void* userData);
+CANIM_API void fa_action_animate_end_func(const fa_action_begin_end_ctx_t* ctx, void* userData);
+CANIM_API void fa_action_animate_cancel_func(void* userData);
 
 CANIM_API void fa_character_schedule_action_simple(fa_character_t* character, fa_action_animate_t* action, const fa_action_args_t* args);
 CANIM_API void fa_character_schedule_none_action(fa_character_t* character, const fa_action_args_t* args);
@@ -427,7 +441,7 @@ CANIM_API void fa_character_schedule_none_action(fa_character_t* character, cons
 typedef struct fa_action_schedule_data_t
 {
 	fa_action_get_anims_func_t fnGetAnims;
-	fa_action_func_t fnUpdate;
+	fa_action_update_func_t fnUpdate;
 	void* userData;
 } fa_action_schedule_data_t;
 CANIM_API void fa_character_schedule_action(fa_character_t* character, fa_action_schedule_data_t* data, const fa_action_args_t* args);

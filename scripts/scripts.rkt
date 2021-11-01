@@ -120,6 +120,8 @@
   (printf "compiled simple script ~a.fs\n" name)
  )
 
+
+
 ;; =================
 ;; write script here
 
@@ -132,8 +134,7 @@
 
 ;; simple script example
 (simple-script 'idle
-                   [animate 'self 'zelda-idle-stand-01]
-                   [animate 'self 'zelda-run-0]
+                   [animate 'self 'zelda-funny-pose-4]
 )
 
 ;; end of the script

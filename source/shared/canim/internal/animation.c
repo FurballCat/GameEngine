@@ -1270,6 +1270,14 @@ void fa_character_action_animate(fa_character_t* character, fa_character_layer_t
 	fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
 }
 
+void fa_action_safely_cancel(fa_action_t* action)
+{
+	if(action->isUsed && action->fnCancel)
+	{
+		action->fnCancel(action->userData);
+	}
+}
+
 fa_action_t* fa_action_queue_get_current(fa_action_queue_t* queue)
 {
 	if(queue->actions[0].isUsed)
@@ -1302,9 +1310,11 @@ fa_action_t* fa_action_queue_get_free_slot(fa_action_queue_t* queue)
 	}
 	
 	// if not found, make some slot free
-	queue->actions[2] = queue->actions[3];
+	fa_action_safely_cancel(&queue->actions[2]); // cancel action [2]
+	queue->actions[2] = queue->actions[3];	// move action [3] to [2]
+	fa_action_reset(&queue->actions[3]);	// clear unused slot
 	
-	return &queue->actions[3];
+	return &queue->actions[3];	// return free, unused slot
 }
 
 void fa_action_safely_begin(fa_action_begin_end_ctx_t* ctx, fa_action_t* action)
@@ -1335,6 +1345,9 @@ void fa_action_queue_resolve_pre_animate(fa_character_t* character, fa_character
 		// end old actions
 		fa_action_safely_end(&ctx, &queue->actions[0]);
 		fa_action_safely_end(&ctx, &queue->actions[1]);
+		
+		// rare case when we need to cancel action [2], as it's eaten up by action [3]
+		fa_action_safely_cancel(&queue->actions[2]);
 		
 		// begin new actions
 		fa_action_safely_begin(&ctx, &queue->actions[3]);
@@ -1711,6 +1724,23 @@ const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* userData, ui
 	return (const fa_anim_clip_t**)&data->animation;	// todo: check it, is this return correct?
 }
 
+void fa_action_animate_begin_func(const fa_action_begin_end_ctx_t* ctx, void* userData)
+{
+	// ...
+}
+
+void fa_action_animate_end_func(const fa_action_begin_end_ctx_t* ctx, void* userData)
+{
+	fa_action_animate_t* data = (fa_action_animate_t*)userData;
+	data->reserved = false;
+}
+
+void fa_action_animate_cancel_func(void* userData)
+{
+	fa_action_animate_t* data = (fa_action_animate_t*)userData;
+	data->reserved = false;
+}
+
 void fa_character_schedule_action_simple(fa_character_t* character, fa_action_animate_t* action, const fa_action_args_t* args)
 {
 	fa_layer_t* layer = &character->layers[args->layer];
@@ -1719,6 +1749,9 @@ void fa_character_schedule_action_simple(fa_character_t* character, fa_action_an
 	actionSlot->userData = action;
 	actionSlot->fnUpdate = fa_action_animate_func;
 	actionSlot->fnGetAnims = fa_action_animate_get_anims_func;
+	actionSlot->fnBegin = fa_action_animate_begin_func;
+	actionSlot->fnEnd = fa_action_animate_end_func;
+	actionSlot->fnCancel = fa_action_animate_cancel_func;
 	actionSlot->globalStartTime = character->globalTime;
 	actionSlot->isUsed = true;
 	actionSlot->args = *args;

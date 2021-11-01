@@ -36,12 +36,45 @@ typedef struct fg_game_object_register_t
 	uint32_t capacity;
 } fg_game_object_register_t;
 
+typedef struct fg_animations_register_t
+{
+	fc_string_hash_t animNames[128];
+	const fa_anim_clip_t* animClips[128];
+	
+	uint32_t numAnims;
+} fg_animations_register_t;
+
+void fg_animations_register_add_anim(fg_animations_register_t* reg, const fa_anim_clip_t* clip)
+{
+	FUR_ASSERT(reg->numAnims < 128);
+	
+	const uint32_t idx = reg->numAnims;
+	reg->numAnims += 1;
+	
+	reg->animNames[idx] = clip->name;
+	reg->animClips[idx] = clip;
+}
+
+const fa_anim_clip_t* fg_animations_register_find_anim(const fg_animations_register_t* reg, fc_string_hash_t name)
+{
+	for(uint32_t i=0; i<reg->numAnims; ++i)
+	{
+		if(reg->animClips[i]->name == name)
+		{
+			return reg->animClips[i];
+		}
+	}
+	
+	return NULL;
+}
+
 typedef struct fs_script_ctx_t
 {
 	fc_string_hash_t lastOp;
 	fs_variant_t lastResult;
 	fg_game_object_t* self;
 	fg_game_object_register_t* gameObjectRegister;
+	fg_animations_register_t* allAnimations;
 } fs_script_ctx_t;
 
 // todo: move it somewhere else
@@ -154,7 +187,7 @@ void fs_execute_script(const fc_binary_buffer_t* scriptBuffer, fs_script_ctx_t* 
 	{
 		fs_execute_script_step(&ctx);
 	}
-	while(scriptCtx->lastOp != g_scriptNullOpCode);
+	while(ctx.scriptBufferStream.pos != ctx.scriptBufferStream.endPos);
 }
 
 // ******************* //
@@ -188,15 +221,13 @@ const char* FurGetLastError()
 typedef struct fg_animate_action_slots_t
 {
 	fa_action_animate_t slot[32];
-	uint32_t isUsed;
 } fg_animate_action_slots_t;
 
 fa_action_animate_t* fg_animate_action_slots_get_free(fg_animate_action_slots_t* slots)
 {
-	FUR_ASSERT(~slots->isUsed);
 	for(uint32_t i=0; i<32; ++i)
 	{
-		if((slots->isUsed & (1<<i)) == 0)
+		if(slots->slot[i].reserved == false)
 		{
 			return &slots->slot[i];
 		}
@@ -205,14 +236,12 @@ fa_action_animate_t* fg_animate_action_slots_get_free(fg_animate_action_slots_t*
 	return NULL;
 }
 
-void fg_animate_action_slots_set_free(fa_action_animate_t* slot)
-{
-	
-}
-
 typedef struct fg_game_object_t
 {
 	fc_string_hash_t name;	// access in scripts example: 'zelda
+	fg_animate_action_slots_t animateActionSlots;
+	
+	fa_character_t* animCharacter;
 	
 } fg_game_object_t;
 
@@ -299,8 +328,11 @@ struct FurGameEngine
 	// game objects
 	fg_game_object_register_t gameObjectRegister;
 	
+	// all animations register
+	fg_animations_register_t gameAnimationsRegister;
+	
 	// scripts temp
-	fs_script_data_t zeldaScript;
+	fc_binary_buffer_t zeldaInitScript;
 	fg_game_object_t zeldaGameObject;
 	
 	// test dangle
@@ -367,15 +399,9 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		fp_physics_scene_create(pEngine->pPhysics, &pEngine->pPhysicsScene, pAllocCallbacks);
 	}
 	
-	if(0)	// turn off testing scripts for now
+	// load scripts
 	{
-		fc_binary_buffer_t scriptBuffer;
-		fc_load_binary_file_into_binary_buffer("../../../../../scripts/idle.fs", &scriptBuffer, pAllocCallbacks);
-		
-		fs_script_ctx_t scriptCtx = {};
-		fs_execute_script(&scriptBuffer, &scriptCtx);
-		
-		fc_release_binary_buffer(&scriptBuffer, pAllocCallbacks);
+		fc_load_binary_file_into_binary_buffer("../../../../../scripts/idle.fs", &pEngine->zeldaInitScript, pAllocCallbacks);
 	}
 	
 	// init camera
@@ -495,6 +521,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			ctx.path = "assets/characters/zelda/animations/zelda-idle-stand-relaxed.fbx";
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipIdleStand, pAllocCallbacks);
+			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipIdleStand);
 		}
 		
 		{
@@ -502,6 +529,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			ctx.path = "assets/characters/zelda/animations/zelda-funny-poses.fbx";
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipIdle, pAllocCallbacks);
+			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipIdle);
 		}
 		
 		{
@@ -509,6 +537,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			ctx.path = "assets/characters/zelda/animations/zelda-funny-pose-2.fbx";
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipIdle2, pAllocCallbacks);
+			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipIdle2);
 		}
 		
 		{
@@ -516,6 +545,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			ctx.path = "assets/characters/zelda/animations/zelda-funny-pose-3.fbx";
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipIdle3, pAllocCallbacks);
+			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipIdle3);
 		}
 		
 		{
@@ -523,6 +553,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			ctx.path = "assets/characters/zelda/animations/zelda-funny-pose-4.fbx";
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipIdle4, pAllocCallbacks);
+			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipIdle4);
 		}
 
 		{
@@ -530,6 +561,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			ctx.path = "assets/characters/zelda/animations/zelda-loco-run-relaxed.fbx";
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipRun, pAllocCallbacks);
+			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipRun);
 		}
 		
 		{
@@ -537,6 +569,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			ctx.path = "assets/characters/zelda/animations/zelda-run-to-idle-sharp.fbx";
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipRunToIdleSharp, pAllocCallbacks);
+			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipRunToIdleSharp);
 		}
 		
 		{
@@ -545,6 +578,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			ctx.extractRootMotion = true;
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipIdleToRun0, pAllocCallbacks);
+			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipIdleToRun0);
 		}
 		
 		{
@@ -552,6 +586,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			ctx.path = "assets/characters/zelda/animations/zelda-loco-jump-in-place.fbx";
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipJumpInPlace, pAllocCallbacks);
+			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipJumpInPlace);
 		}
 		
 		{
@@ -560,6 +595,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			ctx.extractRootMotion = true;
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipJump, pAllocCallbacks);
+			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipJump);
 		}
 		
 		{
@@ -567,6 +603,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			ctx.path = "assets/characters/zelda/animations/zelda-additive.fbx";
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipAdditive, pAllocCallbacks);
+			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipAdditive);
 		}
 		
 		{
@@ -574,6 +611,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			ctx.path = "assets/characters/zelda/animations/zelda-a-pose.fbx";
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipAPose, pAllocCallbacks);
+			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipAPose);
 		}
 		
 		{
@@ -581,6 +619,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			ctx.path = "assets/characters/zelda/animations/zelda-upper-wind-protect.fbx";
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipWindProtect, pAllocCallbacks);
+			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipWindProtect);
 		}
 		
 		{
@@ -588,6 +627,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			ctx.path = "assets/characters/zelda/animations/zelda-upper-hold-sword.fbx";
 			
 			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipHoldSword, pAllocCallbacks);
+			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipHoldSword);
 		}
 	}
 	
@@ -633,6 +673,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		//fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction, &args);
 		
 		pEngine->zeldaGameObject.name = SID_REG("zelda");
+		pEngine->zeldaGameObject.animCharacter = &pEngine->animCharacterZelda;
 		
 		// run
 		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_IDLE] = pEngine->pAnimClipIdleStand;
@@ -766,6 +807,20 @@ fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_
 		}
 	}
 	FUR_ASSERT(gameObj);
+	
+	fa_action_animate_t* animateSlot = fg_animate_action_slots_get_free(&gameObj->animateActionSlots);
+	FUR_ASSERT(animateSlot);
+	
+	const fa_anim_clip_t* animClip = fg_animations_register_find_anim(ctx->allAnimations, animName);
+	FUR_ASSERT(animClip);
+	
+	animateSlot->animation = animClip;
+	animateSlot->forceLoop = true;
+	animateSlot->reserved = true;
+	
+	fa_action_args_t animArgs = {};
+	animArgs.fadeInSec = 0.3f;	// todo: take from script args
+	fa_character_schedule_action_simple(gameObj->animCharacter, animateSlot, &animArgs);
 	
 	fs_variant_t result = {};
 	return result;
@@ -909,9 +964,15 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		// on enter
 		if(prevState != pEngine->playerState)
 		{
-			fa_action_args_t args = {};
-			args.fadeInSec = 0.3f;
-			fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionIdle, &args);
+			//fa_action_args_t args = {};
+			//args.fadeInSec = 0.3f;
+			//fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionIdle, &args);
+			
+			fs_script_ctx_t scriptCtx = {};
+			scriptCtx.allAnimations = &pEngine->gameAnimationsRegister;
+			scriptCtx.gameObjectRegister = &pEngine->gameObjectRegister;
+			scriptCtx.self = &pEngine->zeldaGameObject;
+			fs_execute_script(&pEngine->zeldaInitScript, &scriptCtx);
 			
 			prevState = pEngine->playerState;
 		}
@@ -1357,6 +1418,9 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 {
 	// check for memory leaks
 	//FUR_ASSERT(furValidateAllocatorGeneral(&pEngine->m_memory._defaultInternals));
+	
+	// release scripts
+	fc_release_binary_buffer(&pEngine->zeldaInitScript, pAllocCallbacks);
 	
 	fa_dangle_release(&pEngine->dangle, pAllocCallbacks);
 	fa_dangle_release(&pEngine->zeldaDangleHairLeft, pAllocCallbacks);
