@@ -157,137 +157,6 @@ void fs_execute_script(const fc_binary_buffer_t* scriptBuffer, fs_script_ctx_t* 
 	while(scriptCtx->lastOp != g_scriptNullOpCode);
 }
 
-void fs_script_release(fs_script_data_t* script, fc_alloc_callbacks_t* pAllocCallbacks)
-{
-	FUR_FREE(script->ops, pAllocCallbacks);
-	FUR_FREE(script->allArgs, pAllocCallbacks);
-}
-
-bool fs_script_data_load(const fi_depot_t* depot, const char* path, fs_script_data_t* pOutScript, fc_alloc_callbacks_t* pAllocCallbacks)
-{
-	const uint32_t maxPathLen = 256;
-	char absolutePath[maxPathLen] = {};
-	uint32_t depotPathLen = (uint32_t)strlen(depot->path);
-	uint32_t pathLen = (uint32_t)strlen(path);
-	
-	FUR_ASSERT(depotPathLen + pathLen < maxPathLen);
-	
-	memcpy(absolutePath, depot->path, depotPathLen);
-	memcpy(absolutePath + depotPathLen, path, pathLen);
-	
-	// todo: alloc proper number of ops and args
-	const uint32_t tempMaxOpsAndArgs = 128;
-	pOutScript->allArgs = FUR_ALLOC_ARRAY_AND_ZERO(fs_variant_t, tempMaxOpsAndArgs, 0, FC_MEMORY_SCOPE_SCRIPT, pAllocCallbacks);
-	pOutScript->ops = FUR_ALLOC_ARRAY_AND_ZERO(fs_script_op_t, tempMaxOpsAndArgs, 0, FC_MEMORY_SCOPE_SCRIPT, pAllocCallbacks);
-	
-	fc_text_buffer_t buffer {};
-	if(!fc_load_text_file_into_text_buffer(absolutePath, &buffer, pAllocCallbacks))
-	{
-		char txt[512];
-		sprintf(txt, "Can't load script file %s", path);
-		// todo: report error here
-		return false;
-	}
-	
-	enum fs_script_parsing_stage_t stage = SPS_NONE;
-	uint32_t idxDataOp = 0;
-	uint32_t idxDataArg = 0;
-	
-	fc_text_stream_ro_t stream {buffer.pData, buffer.pData + buffer.size};
-	fc_text_parse_keyword(&stream, "(");
-	while(!fc_text_parse_keyword(&stream, ")"))
-	{
-		fc_string_hash_t hash;
-		bool parseRes = fc_text_parse_uint32(&stream, &hash);
-		FUR_ASSERT(parseRes);
-		
-		if(hash == SID("__scriptbegin"))
-		{
-			fc_string_hash_t selfObjectName;
-			parseRes = fc_text_parse_uint32(&stream, &selfObjectName);
-			FUR_ASSERT(parseRes);
-			stage = SPS_READING;
-		}
-		else if(stage == SPS_READING)
-		{
-			if(hash == SID("__funcbegin"))
-			{
-				fc_string_hash_t funcName;
-				parseRes = fc_text_parse_uint32(&stream, &funcName);
-				FUR_ASSERT(parseRes);
-				
-				const uint32_t numFuncs = FUR_ARRAY_SIZE(g_nativeFuncLookUp);
-				
-				uint32_t idxFunc = 0;
-				for(idxFunc=0; idxFunc<numFuncs; ++idxFunc)
-				{
-					if(funcName == g_nativeFuncLookUp[idxFunc].name)
-					{
-						fs_script_op_t* op = &pOutScript->ops[idxDataOp];
-						idxDataOp += 1;
-						
-						op->func = g_nativeFuncLookUp[idxFunc].func;
-						
-						const uint32_t numArgs = g_nativeFuncLookUp[idxFunc].numArgs;
-						
-						FUR_ASSERT(idxDataOp + 1 < tempMaxOpsAndArgs);	// we need +1 for NULL end op
-						FUR_ASSERT(idxDataArg + numArgs < tempMaxOpsAndArgs);
-						
-						if(numArgs > 0)
-						{
-							op->args = &pOutScript->allArgs[idxDataArg];
-							op->numArgs = numArgs;
-						}
-						else
-						{
-							op->args = NULL;
-							op->numArgs = 0;
-						}
-						
-						idxDataArg += numArgs;
-						
-						for(uint32_t idxArg=0; idxArg<numArgs; ++idxArg)
-						{
-							fc_string_hash_t argValue;
-							parseRes = fc_text_parse_uint32(&stream, &argValue);
-							FUR_ASSERT(parseRes);
-							
-							op->args[idxArg].asStringHash = argValue;
-						}
-						
-						fc_string_hash_t fundEndValue = 0;
-						parseRes = fc_text_parse_uint32(&stream, &fundEndValue);
-						FUR_ASSERT(parseRes && fundEndValue == SID("__funcend"));
-						break;
-					}
-				}
-				FUR_ASSERT(idxFunc < numFuncs);	// if false, function was not found
-			}
-			else if(hash == SID("__scriptend"))
-			{
-				FUR_ASSERT(idxDataOp < tempMaxOpsAndArgs);
-				pOutScript->ops[idxDataOp].func = NULL;
-				pOutScript->ops[idxDataOp].args = NULL;
-				pOutScript->ops[idxDataOp].numArgs = 0;
-				stage = SPS_END;
-				
-				pOutScript->numOps = idxDataOp;
-				pOutScript->numAllArgs = idxDataArg;
-			}
-			else
-			{
-				FUR_ASSERT(false);	// unknown operation
-			}
-		}
-	}
-	
-	FUR_ASSERT(stage == SPS_END);
-	
-	fc_release_text_buffer(&buffer, pAllocCallbacks);
-	
-	return true;
-}
-
 // ******************* //
 
 struct FurMainAppDesc
@@ -316,16 +185,34 @@ const char* FurGetLastError()
 	return g_furLastDetailedError;
 }
 
+typedef struct fg_animate_action_slots_t
+{
+	fa_action_animate_t slot[32];
+	uint32_t isUsed;
+} fg_animate_action_slots_t;
+
+fa_action_animate_t* fg_animate_action_slots_get_free(fg_animate_action_slots_t* slots)
+{
+	FUR_ASSERT(~slots->isUsed);
+	for(uint32_t i=0; i<32; ++i)
+	{
+		if((slots->isUsed & (1<<i)) == 0)
+		{
+			return &slots->slot[i];
+		}
+	}
+	
+	return NULL;
+}
+
+void fg_animate_action_slots_set_free(fa_action_animate_t* slot)
+{
+	
+}
+
 typedef struct fg_game_object_t
 {
-	fc_string_hash_t id;	// name: like "zelda"
-	fs_script_data_t* script;
-	fs_script_state_t scriptState;
-	
-	// temp
-	bool scriptTicked;
-	
-	fc_string_hash_t animToPlay;
+	fc_string_hash_t name;	// access in scripts example: 'zelda
 	
 } fg_game_object_t;
 
@@ -745,11 +632,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		args.ikMode = FA_IK_MODE_LEGS;
 		//fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction, &args);
 		
-		pEngine->zeldaGameObject.id = SID_REG("zelda");
-		pEngine->zeldaGameObject.script = &pEngine->zeldaScript;
-		pEngine->zeldaGameObject.scriptState.idxOp = 0;
-		pEngine->zeldaGameObject.scriptTicked = false;
-		pEngine->zeldaGameObject.animToPlay = 0;
+		pEngine->zeldaGameObject.name = SID_REG("zelda");
 		
 		// run
 		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_IDLE] = pEngine->pAnimClipIdleStand;
@@ -770,7 +653,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		
 		// register Zelda (player) game object
 		pEngine->gameObjectRegister.objects[pEngine->gameObjectRegister.numObjects] = &pEngine->zeldaGameObject;
-		pEngine->gameObjectRegister.ids[pEngine->gameObjectRegister.numObjects] = pEngine->zeldaGameObject.id;
+		pEngine->gameObjectRegister.ids[pEngine->gameObjectRegister.numObjects] = pEngine->zeldaGameObject.name;
 		pEngine->gameObjectRegister.numObjects += 1;
 	}
 	
@@ -883,8 +766,6 @@ fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_
 		}
 	}
 	FUR_ASSERT(gameObj);
-	
-	gameObj->animToPlay = animName;
 	
 	fs_variant_t result = {};
 	return result;

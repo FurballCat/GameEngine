@@ -311,8 +311,15 @@ typedef struct fa_action_ctx_t
 	fa_cmd_buffer_recorder_t* cmdRecorder;
 	fa_cmd_context_debug_t* debug;
 } fa_action_ctx_t;
+
+typedef struct fa_action_begin_end_ctx_t
+{
+	fa_character_anim_info_t* animInfo;
+	fa_character_layer_t layer;
+} fa_action_begin_end_ctx_t;
 	
 typedef void (*fa_action_func_t)(const fa_action_ctx_t* ctx, void* userData);
+typedef void (*fa_action_begin_end_func_t)(const fa_action_begin_end_ctx_t* ctx, void* userData);
 typedef const fa_anim_clip_t** (*fa_action_get_anims_func_t)(const void* userData, uint32_t* numAnims);
 	
 typedef enum fa_curve_type_t
@@ -338,8 +345,10 @@ typedef struct fa_action_args_t
 typedef struct fa_action_t
 {
 	void* userData;
-	fa_action_func_t func;	// if this is NULL, then action is NULL
-	fa_action_get_anims_func_t getAnimsFunc;
+	fa_action_begin_end_func_t fnBegin;	// optional, called before the first Update
+	fa_action_begin_end_func_t fnEnd;	// optional, called after the last Update
+	fa_action_func_t fnUpdate;	// required, called every frame
+	fa_action_get_anims_func_t fnGetAnims;	// optional
 	
 	uint64_t globalStartTime; // todo: this shouldn't be an input, global start time should be set once action is started/scheduled
 	bool isUsed;
@@ -347,13 +356,21 @@ typedef struct fa_action_t
 	fa_action_args_t args;
 } fa_action_t;
 	
+typedef struct fa_action_queue_t
+{
+	fa_action_t actions[4];		// 0 and 1 are current and next actions, the rest are pending, begin/end are called only for 0 and 1
+	
+	bool cachePoseAfterCurrAction;
+	bool cachePoseAfterNextAction;
+} fa_action_queue_t;
+
+fa_action_t* fa_action_queue_get_current(fa_action_queue_t* queue);
+fa_action_t* fa_action_queue_get_next(fa_action_queue_t* queue);
+fa_action_t* fa_action_queue_get_free_slot(fa_action_queue_t* queue);
+
 typedef struct fa_layer_t
 {
-	// optional cached pose - caching result of currAction, so we can move nextAction to currAction, then use nextAction for 3rd action
-	fa_action_t currAction;
-	fa_action_t nextAction;	// if 3rd action scheduled, then if fade-in is 0 - jump to 3rd, if fade-in is >0, then we have 1 frame of old stuff so we cache the pose
-	
-	fa_action_t scheduledActions[2];
+	fa_action_queue_t actionQueue;
 	
 	fa_pose_cache_t poseCache;
 	bool transitionPoseCached;
@@ -378,6 +395,9 @@ typedef struct fa_character_t
 	
 	fa_character_anim_info_t animInfo;
 } fa_character_t;
+
+void fa_action_queue_resolve_pre_animate(fa_character_t* character, fa_character_layer_t layer, fa_action_queue_t* queue);
+void fa_action_queue_resolve_post_animate(fa_character_t* character, fa_character_layer_t layer, fa_action_queue_t* queue);
 
 typedef struct fa_character_animate_ctx_t
 {

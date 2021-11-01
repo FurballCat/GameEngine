@@ -1229,15 +1229,15 @@ void fa_character_layer_cache_pose(fa_layer_t* layer, fa_cross_layer_context_t* 
 
 void fa_character_action_animate(fa_character_t* character, fa_character_layer_t layerEnum, fa_action_t* action, fa_cross_layer_context_t* ctx)
 {
-	FUR_ASSERT(action->func != NULL);
+	FUR_ASSERT(action->fnUpdate != NULL);
 	
 	fa_cmd_buffer_t animCmdBuffer = { ctx->scratchMemory, ctx->scratchMemorySize };
 	fa_cmd_buffer_recorder_t recorder = {};
 	fa_cmd_buffer_recorder_init(&recorder, animCmdBuffer.data, animCmdBuffer.size);
 	
 	// record commands
-	FUR_ASSERT(action->func != NULL);
-	FUR_ASSERT(action->getAnimsFunc != NULL);
+	FUR_ASSERT(action->fnUpdate != NULL);
+	FUR_ASSERT(action->fnGetAnims != NULL);
 	
 	const float localTime = fa_action_get_local_time(action, character);
 	
@@ -1252,7 +1252,7 @@ void fa_character_action_animate(fa_character_t* character, fa_character_layer_t
 	// record commands
 	{
 		fa_cmd_begin(&recorder, ctx->poseStack->numPoses);
-		action->func(&actionCtx, action->userData);
+		action->fnUpdate(&actionCtx, action->userData);
 		fa_cmd_end(&recorder);
 	}
 	
@@ -1260,7 +1260,7 @@ void fa_character_action_animate(fa_character_t* character, fa_character_layer_t
 	
 	// evaluate commands
 	fa_cmd_context_t animCtx = {};
-	animCtx.animClips = action->getAnimsFunc(action->userData, &animCtx.numAnimClips);
+	animCtx.animClips = action->fnGetAnims(action->userData, &animCtx.numAnimClips);
 	animCtx.rig = character->rig;
 	animCtx.poseStack = ctx->poseStack;
 	animCtx.poseCache = &layer->poseCache;
@@ -1270,51 +1270,188 @@ void fa_character_action_animate(fa_character_t* character, fa_character_layer_t
 	fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
 }
 
+fa_action_t* fa_action_queue_get_current(fa_action_queue_t* queue)
+{
+	if(queue->actions[0].isUsed)
+	{
+		return &queue->actions[0];
+	}
+	
+	return NULL;
+}
+
+fa_action_t* fa_action_queue_get_next(fa_action_queue_t* queue)
+{
+	if(queue->actions[1].isUsed)
+	{
+		return &queue->actions[1];
+	}
+	
+	return NULL;
+}
+
+fa_action_t* fa_action_queue_get_free_slot(fa_action_queue_t* queue)
+{
+	// find free slot
+	for(uint32_t i=0; i<4; ++i)
+	{
+		if(queue->actions[i].isUsed == false)
+		{
+			return &queue->actions[i];
+		}
+	}
+	
+	// if not found, make some slot free
+	queue->actions[2] = queue->actions[3];
+	
+	return &queue->actions[3];
+}
+
+void fa_action_safely_begin(fa_action_begin_end_ctx_t* ctx, fa_action_t* action)
+{
+	if(action->isUsed && action->fnBegin)
+	{
+		action->fnBegin(ctx, action->userData);
+	}
+}
+
+void fa_action_safely_end(fa_action_begin_end_ctx_t* ctx, fa_action_t* action)
+{
+	if(action->isUsed && action->fnEnd)
+	{
+		action->fnEnd(ctx, action->userData);
+	}
+}
+
+void fa_action_queue_resolve_pre_animate(fa_character_t* character, fa_character_layer_t layer, fa_action_queue_t* queue)
+{
+	fa_action_begin_end_ctx_t ctx = {};
+	ctx.animInfo = &character->animInfo;
+	ctx.layer = layer;
+	
+	// check if any of the pending actions should be instantly activated
+	if(fa_action_get_alpha(character, &queue->actions[3]) >= 1.0)
+	{
+		// end old actions
+		fa_action_safely_end(&ctx, &queue->actions[0]);
+		fa_action_safely_end(&ctx, &queue->actions[1]);
+		
+		// begin new actions
+		fa_action_safely_begin(&ctx, &queue->actions[3]);
+		
+		// move pending actions
+		queue->actions[0] = queue->actions[3];
+		
+		// clear unused slots
+		fa_action_reset(&queue->actions[1]);
+		fa_action_reset(&queue->actions[2]);
+		fa_action_reset(&queue->actions[3]);
+	}
+	else if(fa_action_get_alpha(character, &queue->actions[2]) >= 1.0)
+	{
+		// end old actions
+		fa_action_safely_end(&ctx, &queue->actions[0]);
+		fa_action_safely_end(&ctx, &queue->actions[1]);
+		
+		// begin new actions
+		fa_action_safely_begin(&ctx, &queue->actions[2]);
+		fa_action_safely_begin(&ctx, &queue->actions[3]);
+		
+		// move pending actions
+		queue->actions[0] = queue->actions[2];
+		queue->actions[1] = queue->actions[3];
+		
+		// clear unused slots
+		fa_action_reset(&queue->actions[2]);
+		fa_action_reset(&queue->actions[3]);
+	}
+	else if(queue->actions[2].isUsed && queue->actions[3].isUsed)
+	{
+		queue->cachePoseAfterNextAction = true;
+	}
+	else if(queue->actions[2].isUsed)
+	{
+		queue->cachePoseAfterCurrAction = true;
+	}
+}
+
+void fa_action_queue_resolve_post_animate(fa_character_t* character, fa_character_layer_t layer, fa_action_queue_t* queue)
+{
+	fa_action_begin_end_ctx_t ctx = {};
+	ctx.animInfo = &character->animInfo;
+	ctx.layer = layer;
+	
+	if(queue->cachePoseAfterNextAction) // case of cache for 2 actions
+	{
+		// end old actions
+		fa_action_safely_end(&ctx, &queue->actions[0]);
+		fa_action_safely_end(&ctx, &queue->actions[1]);
+		
+		// begin new actions
+		fa_action_safely_begin(&ctx, &queue->actions[2]);
+		fa_action_safely_begin(&ctx, &queue->actions[3]);
+		
+		// move pending actions
+		queue->actions[0] = queue->actions[2];
+		queue->actions[1] = queue->actions[3];
+		
+		// clear unused slots
+		fa_action_reset(&queue->actions[2]);
+		fa_action_reset(&queue->actions[3]);
+		
+		queue->cachePoseAfterNextAction = false;
+	}
+	else if(queue->cachePoseAfterCurrAction)	// case of cache for 1 action
+	{
+		// end old actions
+		fa_action_safely_end(&ctx, &queue->actions[0]);
+		
+		// begin new actions
+		fa_action_safely_begin(&ctx, &queue->actions[2]);
+		
+		// move pending actions
+		queue->actions[0] = queue->actions[1];
+		queue->actions[1] = queue->actions[2];
+		
+		// clear unused slots
+		fa_action_reset(&queue->actions[2]);
+		fa_action_reset(&queue->actions[3]);
+		
+		queue->cachePoseAfterCurrAction = false;
+	}
+	else if(fa_action_get_alpha(character, &queue->actions[1]) >= 1.0)	// normal case, just next action
+	{
+		// end old actions
+		fa_action_safely_end(&ctx, &queue->actions[0]);
+		
+		// begin new actions
+		// 'next' action [1] was already begun
+		fa_action_safely_begin(&ctx, &queue->actions[2]);
+		
+		// move actions
+		queue->actions[0] = queue->actions[1];
+		queue->actions[1] = queue->actions[2];
+		queue->actions[2] = queue->actions[3];
+		
+		// clear unused slots
+		fa_action_reset(&queue->actions[1]);
+		fa_action_reset(&queue->actions[2]);
+		fa_action_reset(&queue->actions[3]);
+	}
+}
+
 void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_context_t* ctx, fa_character_layer_t layerEnum)
 {
 	fa_layer_t* layer = &character->layers[layerEnum];
 	
 	// resolve scheduled actions
-	{
-		const bool currInProgress = layer->currAction.isUsed;
-		const bool nextInProgress = layer->nextAction.isUsed;
-		const bool scheduledA = layer->scheduledActions[0].isUsed;
-		const bool scheduledB = layer->scheduledActions[1].isUsed;
-		if(scheduledA && scheduledB)
-		{
-			// cache pose
-			if(currInProgress && nextInProgress)
-			{
-				if(layer->scheduledActions[0].args.fadeInSec <= 0.0f)
-				{
-					layer->currAction = layer->scheduledActions[0];
-					fa_action_reset(&layer->scheduledActions[0]);
-				}
-				
-				if(layer->scheduledActions[1].args.fadeInSec <= 0.0f)
-				{
-					layer->currAction = layer->scheduledActions[1];	// assigning to curr, not next, just like above
-					fa_action_reset(&layer->scheduledActions[1]);
-					fa_action_reset(&layer->nextAction);
-				}
-			}
-			else
-			{
-				layer->currAction = layer->scheduledActions[0];
-				fa_action_reset(&layer->scheduledActions[0]);
-				layer->nextAction = layer->scheduledActions[1];
-				fa_action_reset(&layer->scheduledActions[1]);
-			}
-		}
-	}
+	fa_action_queue_resolve_pre_animate(character, layerEnum, &layer->actionQueue);
 	
-	// if at this point we still have pending scheduled actions, then it means we need to cache the pose of current actions
-	const bool stillScheduledA = layer->scheduledActions[0].isUsed;
-	const bool stillScheduledB = layer->scheduledActions[1].isUsed;
-	const bool isCachingPose = stillScheduledA || stillScheduledB;
+	fa_action_t* currAction = &layer->actionQueue.actions[0];
+	fa_action_t* nextAction = &layer->actionQueue.actions[1];
 	
-	const float nextAlpha = fa_action_get_alpha(character, &layer->nextAction);
-	const float currAlpha = fa_action_get_alpha(character, &layer->currAction) * (1.0f - nextAlpha);
+	const float nextAlpha = fa_action_get_alpha(character, nextAction);
+	const float currAlpha = fa_action_get_alpha(character, currAction) * (1.0f - nextAlpha);
 	const float cachedPoseAlpha = layer->poseCache.alpha * (1.0f - currAlpha);
 	
 	// copy cached pose if required
@@ -1330,12 +1467,12 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 	}
 	
 	// animate current action
-	if(layer->currAction.func != NULL)
+	if(currAction->fnUpdate != NULL)
 	{
-		fa_action_t* action = &layer->currAction;
+		fa_action_t* action = currAction;
 		fa_character_action_animate(character, layerEnum, action, ctx);
 		
-		if(isCachingPose && stillScheduledA && !stillScheduledB)
+		if(layer->actionQueue.cachePoseAfterCurrAction)
 		{
 			fa_character_layer_cache_pose(layer, ctx, currAlpha);
 		}
@@ -1351,15 +1488,13 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 		}
 	}
 	
-	bool fullyBlended = false;
-	
 	// animate next action
-	if(layer->nextAction.func != NULL)
+	if(nextAction->fnUpdate != NULL)
 	{
-		fa_action_t* action = &layer->nextAction;
+		fa_action_t* action = nextAction;
 		fa_character_action_animate(character, layerEnum, action, ctx);
 		
-		if(isCachingPose && stillScheduledA && stillScheduledB)
+		if(layer->actionQueue.cachePoseAfterNextAction)
 		{
 			fa_character_layer_cache_pose(layer, ctx, nextAlpha);
 		}
@@ -1375,39 +1510,17 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 		}
 	}
 	
-	// next action might be NONE, so need to check isUsed only, but we still want the fullyBlended to happen
-	if(layer->nextAction.isUsed)
-	{
-		if(nextAlpha >= 1.0f)
-		{
-			fullyBlended = true;
-		}
-	}
-	
 	// only body layer can affect legs IK
 	if(layerEnum == FA_CHAR_LAYER_BODY)
 	{
-		const float currIK = layer->currAction.args.ikMode == FA_IK_MODE_LEGS ? currAlpha : 0.0f;
-		const float nextIK = layer->nextAction.args.ikMode == FA_IK_MODE_LEGS ? 1.0f : 0.0f;
+		const float currIK = currAction->args.ikMode == FA_IK_MODE_LEGS ? currAlpha : 0.0f;
+		const float nextIK = nextAction->args.ikMode == FA_IK_MODE_LEGS ? 1.0f : 0.0f;
 		
 		const float weightIK = currIK * (1.0f - nextAlpha) + nextIK * nextAlpha;
 		ctx->outWeightLegsIK = weightIK;
 	}
 	
-	if(fullyBlended)
-	{
-		layer->currAction = layer->nextAction;
-		fa_action_reset(&layer->nextAction);
-	}
-	
-	if(stillScheduledA && !stillScheduledB)
-	{
-		FUR_ASSERT(!stillScheduledB);
-		layer->currAction = layer->nextAction;
-		fa_action_reset(&layer->nextAction);
-		layer->nextAction = layer->scheduledActions[0];
-		fa_action_reset(&layer->scheduledActions[0]);
-	}
+	fa_action_queue_resolve_post_animate(character, layerEnum, &layer->actionQueue);
 }
 
 void fa_character_ik(fa_character_t* character, fa_cross_layer_context_t* layerCtx)
@@ -1602,34 +1715,10 @@ void fa_character_schedule_action_simple(fa_character_t* character, fa_action_an
 {
 	fa_layer_t* layer = &character->layers[args->layer];
 	
-	fa_action_t* actionSlot = NULL;
-	
-	if(layer->currAction.userData == NULL)
-	{
-		actionSlot = &layer->currAction;
-	}
-	else if(layer->nextAction.userData == NULL)
-	{
-		actionSlot = &layer->nextAction;
-	}
-	else if(layer->scheduledActions[0].userData == NULL)
-	{
-		actionSlot = &layer->scheduledActions[0];
-	}
-	else if(layer->scheduledActions[1].userData == NULL)
-	{
-		actionSlot = &layer->scheduledActions[1];
-	}
-	else
-	{
-		layer->scheduledActions[0] = layer->scheduledActions[1];
-		fa_action_reset(&layer->scheduledActions[1]);
-		actionSlot = &layer->scheduledActions[1];
-	}
-	
+	fa_action_t* actionSlot = fa_action_queue_get_free_slot(&layer->actionQueue);
 	actionSlot->userData = action;
-	actionSlot->func = fa_action_animate_func;
-	actionSlot->getAnimsFunc = fa_action_animate_get_anims_func;
+	actionSlot->fnUpdate = fa_action_animate_func;
+	actionSlot->fnGetAnims = fa_action_animate_get_anims_func;
 	actionSlot->globalStartTime = character->globalTime;
 	actionSlot->isUsed = true;
 	actionSlot->args = *args;
@@ -1639,34 +1728,10 @@ CANIM_API void fa_character_schedule_none_action(fa_character_t* character, cons
 {
 	fa_layer_t* layer = &character->layers[args->layer];
 	
-	fa_action_t* actionSlot = NULL;
-	
-	if(layer->currAction.userData == NULL)
-	{
-		actionSlot = &layer->currAction;
-	}
-	else if(layer->nextAction.userData == NULL)
-	{
-		actionSlot = &layer->nextAction;
-	}
-	else if(layer->scheduledActions[0].userData == NULL)
-	{
-		actionSlot = &layer->scheduledActions[0];
-	}
-	else if(layer->scheduledActions[1].userData == NULL)
-	{
-		actionSlot = &layer->scheduledActions[1];
-	}
-	else
-	{
-		layer->scheduledActions[0] = layer->scheduledActions[1];
-		fa_action_reset(&layer->scheduledActions[1]);
-		actionSlot = &layer->scheduledActions[1];
-	}
-	
+	fa_action_t* actionSlot = fa_action_queue_get_free_slot(&layer->actionQueue);
 	actionSlot->userData = NULL;
-	actionSlot->func = NULL;
-	actionSlot->getAnimsFunc = NULL;
+	actionSlot->fnUpdate = NULL;
+	actionSlot->fnGetAnims = NULL;
 	actionSlot->globalStartTime = character->globalTime;
 	actionSlot->isUsed = true;
 	actionSlot->args = *args;
@@ -1676,34 +1741,10 @@ CANIM_API void fa_character_schedule_action(fa_character_t* character, fa_action
 {
 	fa_layer_t* layer = &character->layers[args->layer];
 	
-	fa_action_t* actionSlot = NULL;
-	
-	if(layer->currAction.userData == NULL)
-	{
-		actionSlot = &layer->currAction;
-	}
-	else if(layer->nextAction.userData == NULL)
-	{
-		actionSlot = &layer->nextAction;
-	}
-	else if(layer->scheduledActions[0].userData == NULL)
-	{
-		actionSlot = &layer->scheduledActions[0];
-	}
-	else if(layer->scheduledActions[1].userData == NULL)
-	{
-		actionSlot = &layer->scheduledActions[1];
-	}
-	else
-	{
-		layer->scheduledActions[0] = layer->scheduledActions[1];
-		fa_action_reset(&layer->scheduledActions[1]);
-		actionSlot = &layer->scheduledActions[1];
-	}
-	
+	fa_action_t* actionSlot = fa_action_queue_get_free_slot(&layer->actionQueue);
 	actionSlot->userData = data->userData;
-	actionSlot->func = data->fnUpdate;
-	actionSlot->getAnimsFunc = data->fnGetAnims;
+	actionSlot->fnUpdate = data->fnUpdate;
+	actionSlot->fnGetAnims = data->fnGetAnims;
 	actionSlot->globalStartTime = character->globalTime;
 	actionSlot->isUsed = true;
 	actionSlot->args = *args;
@@ -1767,34 +1808,10 @@ void fa_character_schedule_action_test_simple(fa_character_t* character, fa_acti
 {
 	fa_layer_t* layer = &character->layers[FA_CHAR_LAYER_BODY];
 	
-	fa_action_t* actionSlot = NULL;
-	
-	if(layer->currAction.userData == NULL)
-	{
-		actionSlot = &layer->currAction;
-	}
-	else if(layer->nextAction.userData == NULL)
-	{
-		actionSlot = &layer->nextAction;
-	}
-	else if(layer->scheduledActions[0].userData == NULL)
-	{
-		actionSlot = &layer->scheduledActions[0];
-	}
-	else if(layer->scheduledActions[1].userData == NULL)
-	{
-		actionSlot = &layer->scheduledActions[1];
-	}
-	else
-	{
-		layer->scheduledActions[0] = layer->scheduledActions[1];
-		fa_action_reset(&layer->scheduledActions[1]);
-		actionSlot = &layer->scheduledActions[1];
-	}
-	
+	fa_action_t* actionSlot = fa_action_queue_get_free_slot(&layer->actionQueue);
 	actionSlot->userData = action;
-	actionSlot->func = fa_action_animate_test_func;
-	actionSlot->getAnimsFunc = fa_action_animate_test_get_anims_func;
+	actionSlot->fnUpdate = fa_action_animate_test_func;
+	actionSlot->fnGetAnims = fa_action_animate_test_get_anims_func;
 	actionSlot->globalStartTime = character->globalTime;
 	actionSlot->args = *args;
 }
