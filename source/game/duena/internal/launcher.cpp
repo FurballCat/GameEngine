@@ -236,15 +236,6 @@ fa_action_animate_t* fg_animate_action_slots_get_free(fg_animate_action_slots_t*
 	return NULL;
 }
 
-typedef struct fg_game_object_t
-{
-	fc_string_hash_t name;	// access in scripts example: 'zelda
-	fg_animate_action_slots_t animateActionSlots;
-	
-	fa_character_t* animCharacter;
-	
-} fg_game_object_t;
-
 typedef enum fg_player_state_t
 {
 	FG_PLAYER_STATE_IDLE = 0,
@@ -255,6 +246,19 @@ typedef enum fg_player_state_t
 	
 	FG_PLAYER_STATE_NONE,
 } fg_player_state_t;
+
+typedef struct fg_game_object_t
+{
+	fc_string_hash_t name;	// access in scripts example: 'zelda
+	fg_animate_action_slots_t animateActionSlots;
+	
+	fa_character_t* animCharacter;
+	
+	fg_player_state_t playerState;
+	bool playerWeaponEquipped;
+	bool playerWindProtecting;
+	
+} fg_game_object_t;
 
 struct FurGameEngine
 {
@@ -313,10 +317,6 @@ struct FurGameEngine
 	
 	fa_action_player_loco_start_t actionLocoStart;
 	fa_action_player_loco_start_t actionLocoStop;
-	
-	fg_player_state_t playerState;
-	bool playerWeaponEquipped;
-	bool playerWindProtecting;
 	
 	// skinning
 	fm_mat4 skinMatrices[512];
@@ -930,7 +930,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 	{
 		isInit = false;
 		
-		pEngine->playerState = FG_PLAYER_STATE_IDLE;
+		pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_IDLE;
 		
 		fa_action_args_t args = {};
 		args.fadeInSec = 0.0f;
@@ -959,10 +959,10 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 	
 	static fg_player_state_t prevState = FG_PLAYER_STATE_IDLE;
 	
-	if(pEngine->playerState == FG_PLAYER_STATE_IDLE)
+	if(pEngine->zeldaGameObject.playerState == FG_PLAYER_STATE_IDLE)
 	{
 		// on enter
-		if(prevState != pEngine->playerState)
+		if(prevState != pEngine->zeldaGameObject.playerState)
 		{
 			//fa_action_args_t args = {};
 			//args.fadeInSec = 0.3f;
@@ -974,25 +974,25 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			scriptCtx.self = &pEngine->zeldaGameObject;
 			fs_execute_script(&pEngine->zeldaInitScript, &scriptCtx);
 			
-			prevState = pEngine->playerState;
+			prevState = pEngine->zeldaGameObject.playerState;
 		}
 		
 		// on update - upper-body layer in this case
 		if(pEngine->inputTriangleActionPressed)
 		{
-			if(pEngine->playerWindProtecting)
+			if(pEngine->zeldaGameObject.playerWindProtecting)
 			{
-				pEngine->playerWindProtecting = false;
+				pEngine->zeldaGameObject.playerWindProtecting = false;
 			}
 			
-			if(pEngine->playerWeaponEquipped)
+			if(pEngine->zeldaGameObject.playerWeaponEquipped)
 			{
 				fa_action_args_t args = {};
 				args.fadeInSec = 0.5f;
 				args.layer = FA_CHAR_LAYER_UPPER_BODY;
 				fa_character_schedule_none_action(&pEngine->animCharacterZelda, &args);
 				
-				pEngine->playerWeaponEquipped = false;
+				pEngine->zeldaGameObject.playerWeaponEquipped = false;
 			}
 			else
 			{
@@ -1001,7 +1001,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 				args.layer = FA_CHAR_LAYER_UPPER_BODY;
 				fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionWeaponEquipped, &args);
 				
-				pEngine->playerWeaponEquipped = true;
+				pEngine->zeldaGameObject.playerWeaponEquipped = true;
 			}
 		}
 		
@@ -1011,30 +1011,30 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		
 		if(fabsf(moveX) > 0.2f || fabsf(moveY) > 0.2f)
 		{
-			pEngine->playerState = FG_PLAYER_STATE_START_LOCO;
+			pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_START_LOCO;
 		}
 		
 		if(pEngine->inActionPressed)
 		{
-			pEngine->playerState = FG_PLAYER_STATE_JUMP;
+			pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_JUMP;
 		}
 	}
 	
 	if(pEngine->inputCircleActionPressed)
 	{
-		if(pEngine->playerWeaponEquipped)
+		if(pEngine->zeldaGameObject.playerWeaponEquipped)
 		{
-			pEngine->playerWeaponEquipped = false;
+			pEngine->zeldaGameObject.playerWeaponEquipped = false;
 		}
 		
-		if(pEngine->playerWindProtecting)
+		if(pEngine->zeldaGameObject.playerWindProtecting)
 		{
 			fa_action_args_t args = {};
 			args.fadeInSec = 0.5f;
 			args.layer = FA_CHAR_LAYER_UPPER_BODY;
 			fa_character_schedule_none_action(&pEngine->animCharacterZelda, &args);
 			
-			pEngine->playerWindProtecting = false;
+			pEngine->zeldaGameObject.playerWindProtecting = false;
 		}
 		else
 		{
@@ -1043,14 +1043,14 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			args.layer = FA_CHAR_LAYER_UPPER_BODY;
 			fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionWindProtect, &args);
 			
-			pEngine->playerWindProtecting = true;
+			pEngine->zeldaGameObject.playerWindProtecting = true;
 		}
 	}
 	
-	if(pEngine->playerState == FG_PLAYER_STATE_START_LOCO)
+	if(pEngine->zeldaGameObject.playerState == FG_PLAYER_STATE_START_LOCO)
 	{
 		// on enter
-		if(prevState != pEngine->playerState)
+		if(prevState != pEngine->zeldaGameObject.playerState)
 		{
 			fa_action_args_t args = {};
 			args.fadeInSec = 0.2f;
@@ -1064,13 +1064,13 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			
 			fa_character_schedule_action(&pEngine->animCharacterZelda, &data, &args);
 			
-			prevState = pEngine->playerState;
+			prevState = pEngine->zeldaGameObject.playerState;
 		}
 		
 		// on update
 		if(pEngine->actionLocoStart.isFinished)
 		{
-			pEngine->playerState = FG_PLAYER_STATE_LOCO_RUN;
+			pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_LOCO_RUN;
 		}
 		
 		// transitions
@@ -1078,19 +1078,19 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		const float moveY = pEngine->actionMoveY;
 		if(fabsf(moveX) < 0.2f && fabsf(moveY) < 0.2f)
 		{
-			pEngine->playerState = FG_PLAYER_STATE_STOP_LOCO;
+			pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_STOP_LOCO;
 		}
 		
 		if(pEngine->inActionPressed)
 		{
-			pEngine->playerState = FG_PLAYER_STATE_JUMP;
+			pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_JUMP;
 		}
 	}
 	
-	if(pEngine->playerState == FG_PLAYER_STATE_LOCO_RUN)
+	if(pEngine->zeldaGameObject.playerState == FG_PLAYER_STATE_LOCO_RUN)
 	{
 		// on enter
-		if(prevState != pEngine->playerState)
+		if(prevState != pEngine->zeldaGameObject.playerState)
 		{
 			fa_action_args_t args = {};
 			args.fadeInSec = 0.5f;
@@ -1102,7 +1102,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			
 			fa_character_schedule_action(&pEngine->animCharacterZelda, &data, &args);
 			
-			prevState = pEngine->playerState;
+			prevState = pEngine->zeldaGameObject.playerState;
 		}
 		
 		// on update
@@ -1112,19 +1112,19 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		// transitions
 		if(fabsf(moveX) < 0.2f && fabsf(moveY) < 0.2f)
 		{
-			pEngine->playerState = FG_PLAYER_STATE_STOP_LOCO;
+			pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_STOP_LOCO;
 		}
 		
 		if(pEngine->inActionPressed)
 		{
-			pEngine->playerState = FG_PLAYER_STATE_JUMP;
+			pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_JUMP;
 		}
 	}
 	
-	if(pEngine->playerState == FG_PLAYER_STATE_STOP_LOCO)
+	if(pEngine->zeldaGameObject.playerState == FG_PLAYER_STATE_STOP_LOCO)
 	{
 		// on enter
-		if(prevState != pEngine->playerState)
+		if(prevState != pEngine->zeldaGameObject.playerState)
 		{
 			fa_action_args_t args = {};
 			args.fadeInSec = 0.5f;
@@ -1138,20 +1138,20 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			
 			fa_character_schedule_action(&pEngine->animCharacterZelda, &data, &args);
 			
-			prevState = pEngine->playerState;
+			prevState = pEngine->zeldaGameObject.playerState;
 		}
 		
 		// transitions
 		if(pEngine->actionLocoStop.isFinished)
 		{
-			pEngine->playerState = FG_PLAYER_STATE_IDLE;
+			pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_IDLE;
 		}
 	}
 	
-	if(pEngine->playerState == FG_PLAYER_STATE_JUMP)
+	if(pEngine->zeldaGameObject.playerState == FG_PLAYER_STATE_JUMP)
 	{
 		// on enter
-		if(prevState != pEngine->playerState)
+		if(prevState != pEngine->zeldaGameObject.playerState)
 		{
 			pEngine->actionJump.progress = 0.0f;
 			pEngine->actionJump.jumpType = 0;
@@ -1166,7 +1166,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			
 			fa_character_schedule_action(&pEngine->animCharacterZelda, &data, &args);
 			
-			prevState = pEngine->playerState;
+			prevState = pEngine->zeldaGameObject.playerState;
 		}
 		
 		// transitions
@@ -1174,11 +1174,11 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		{
 			if(pEngine->actionJump.jumpType == 1)
 			{
-				pEngine->playerState = FG_PLAYER_STATE_IDLE;
+				pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_IDLE;
 			}
 			else
 			{
-				pEngine->playerState = FG_PLAYER_STATE_LOCO_RUN;
+				pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_LOCO_RUN;
 			}
 		}
 	}
@@ -1379,7 +1379,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 		ctx.cameraMatrix = &cameraMatrix;
 		fr_update_renderer(pEngine->pRenderer, &ctx);
 		
-		if(!pEngine->playerWeaponEquipped)
+		if(!pEngine->zeldaGameObject.playerWeaponEquipped)
 		{
 			fm_mat4_identity(&slotMS);
 			slotMS.w.x = 4.0f;
