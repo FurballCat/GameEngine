@@ -79,6 +79,7 @@ typedef struct fs_script_ctx_t
 
 // todo: move it somewhere else
 fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
+fs_variant_t fs_native_equip_item(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 
 typedef fs_variant_t (*fs_script_navitve_func_t)(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 
@@ -93,6 +94,7 @@ fc_string_hash_t g_scriptNullOpCode = SID("__null");
 
 fs_native_func_entry_t g_nativeFuncLookUp[] = {
 	{ SID("animate"), fs_native_animate, 2 },
+	{ SID("equip-item"), fs_native_equip_item, 2 },
 	{ g_scriptNullOpCode, NULL, 0 }
 };
 
@@ -123,6 +125,17 @@ enum fs_script_parsing_stage_t
 	SPS_READING,
 	SPS_END,
 };
+
+/*
+ 
+ Header
+ Arg1
+ Arg2
+ Header
+ Arg1
+ ...
+ 
+ **/
 
 typedef struct fs_script_op_header
 {
@@ -257,6 +270,7 @@ typedef struct fg_game_object_t
 	fg_player_state_t playerState;
 	bool playerWeaponEquipped;
 	bool playerWindProtecting;
+	bool equipItemNow;
 	
 } fg_game_object_t;
 
@@ -826,10 +840,45 @@ fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_
 	return result;
 };
 
+fs_variant_t fs_native_equip_item(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+{
+	FUR_ASSERT(numArgs == 2);
+	const fc_string_hash_t objectName = args[0].asStringHash;
+	//const fc_string_hash_t itemName = args[1].asStringHash;
+	
+	// find game object
+	fg_game_object_t* gameObj = NULL;
+	if(objectName == SID("self"))
+	{
+		gameObj = ctx->self;
+	}
+	else
+	{
+		for(uint32_t i=0; i<ctx->gameObjectRegister->numObjects; ++i)
+		{
+			if(ctx->gameObjectRegister->ids[i] == objectName)
+			{
+				gameObj = ctx->gameObjectRegister->objects[i];
+				break;
+			}
+		}
+	}
+	FUR_ASSERT(gameObj);
+	
+	gameObj->equipItemNow = true;
+	
+	fs_variant_t result = {};
+	return result;
+}
+
 void fg_scripts_update(FurGameEngine* pEngine, float dt)
 {
 	// todo
 }
+
+bool g_drawDevMenu = false;
+int32_t g_devMenuOption = 0;
+bool g_devMenuOptionClick = false;
 
 void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 {
@@ -841,11 +890,39 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 	bool circleActionPressed = false;
 	static bool circleActionWasPressed = false;
 	
+	static bool wasLeftThumbPressed = false;
+	bool leftThumbPressed = false;
+	static bool wasStartPressed = false;
+	bool startPressed = false;
+	
+	static bool wasDpadUpPressed = false;
+	bool dpadUpPressed = false;
+	static bool wasDpadDownPressed = false;
+	bool dpadDownPressed = false;
+	
+	g_devMenuOptionClick = false;
+	
 	fi_input_event_t inputEvents[10];
 	const uint32_t numEventsCollected = fi_get_input_events(pEngine->pInputManager, inputEvents, 10, 0);
 	for(uint32_t i=0; i<numEventsCollected; ++i)
 	{
-		if(inputEvents[i].eventID == Gamepad_faceButtonBottom)
+		if(inputEvents[i].eventID == Gamepad_leftThumb)
+		{
+			leftThumbPressed = true;
+		}
+		else if(inputEvents[i].eventID == Gamepad_specialRight)
+		{
+			startPressed = true;
+		}
+		else if(inputEvents[i].eventID == Gamepad_dpadUp)
+		{
+			dpadUpPressed = true;
+		}
+		else if(inputEvents[i].eventID == Gamepad_dpadDown)
+		{
+			dpadDownPressed = true;
+		}
+		else if(inputEvents[i].eventID == Gamepad_faceButtonBottom)
 		{
 			actionPressed = true;
 		}
@@ -879,34 +956,138 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 		}
 	}
 	
-	if(actionWasPressed != actionPressed)
+	bool leftThumbPressedThisFrame = false;
+	bool startPressedThisFrame = false;
+	
+	if(wasLeftThumbPressed != leftThumbPressed)
 	{
-		pEngine->inActionPressed = actionPressed;
-		actionWasPressed = actionPressed;
-	}
-	else
-	{
-		pEngine->inActionPressed = false;
+		wasLeftThumbPressed = leftThumbPressed;
+		leftThumbPressedThisFrame = leftThumbPressed;
 	}
 	
-	if(triangleActionWasPressed != triangleActionPressed)
+	if(wasStartPressed != startPressed)
 	{
-		pEngine->inputTriangleActionPressed = triangleActionPressed;
-		triangleActionWasPressed = triangleActionPressed;
-	}
-	else
-	{
-		pEngine->inputTriangleActionPressed = false;
+		wasStartPressed = startPressed;
+		startPressedThisFrame = startPressed;
 	}
 	
-	if(circleActionWasPressed != circleActionPressed)
+	if((wasLeftThumbPressed && startPressedThisFrame) || (wasStartPressed && leftThumbPressedThisFrame))
 	{
-		pEngine->inputCircleActionPressed = circleActionPressed;
-		circleActionWasPressed = circleActionPressed;
+		g_drawDevMenu = !g_drawDevMenu;
 	}
-	else
+	
+	if(g_drawDevMenu)
 	{
-		pEngine->inputCircleActionPressed = false;
+		if(wasDpadDownPressed != dpadDownPressed)
+		{
+			wasDpadDownPressed = dpadDownPressed;
+			if(dpadDownPressed)
+			{
+				g_devMenuOption += 1;
+			}
+		}
+
+		if(wasDpadUpPressed != dpadUpPressed)
+		{
+			wasDpadUpPressed = dpadUpPressed;
+			if(dpadUpPressed)
+			{
+				g_devMenuOption -= 1;
+			}
+		}
+		
+		if(actionWasPressed != actionPressed)
+		{
+			g_devMenuOptionClick = actionPressed;
+			actionWasPressed = actionPressed;
+		}
+	}
+	else // block all the actions when debug menu is enabled
+	{
+		if(actionWasPressed != actionPressed)
+		{
+			pEngine->inActionPressed = actionPressed;
+			actionWasPressed = actionPressed;
+		}
+		else
+		{
+			pEngine->inActionPressed = false;
+		}
+		
+		if(triangleActionWasPressed != triangleActionPressed)
+		{
+			pEngine->inputTriangleActionPressed = triangleActionPressed;
+			triangleActionWasPressed = triangleActionPressed;
+		}
+		else
+		{
+			pEngine->inputTriangleActionPressed = false;
+		}
+		
+		if(circleActionWasPressed != circleActionPressed)
+		{
+			pEngine->inputCircleActionPressed = circleActionPressed;
+			circleActionWasPressed = circleActionPressed;
+		}
+		else
+		{
+			pEngine->inputCircleActionPressed = false;
+		}
+	}
+}
+
+void fc_dev_menu_reload_scripts(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	fc_release_binary_buffer(&pEngine->zeldaInitScript, pAllocCallbacks);
+	fc_load_binary_file_into_binary_buffer("../../../../../scripts/idle.fs", &pEngine->zeldaInitScript, pAllocCallbacks);
+}
+
+typedef struct fc_dev_menu_option_t
+{
+	const char* name;
+	void (*func)(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks);
+} fc_dev_menu_option_t;
+
+void fc_draw_debug_menu(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	const float color[4] = {0.8f, 0.8f, 0.8f, 1.0f};
+	const float colorSelected[4] = FUR_COLOR_WHITE;
+	
+	if(g_drawDevMenu)
+	{
+		const float x = -1000.0f;
+		const float y = 440;
+		const float lineHeight = 28.0f;
+		const float ident = 28.0f;
+		
+		fc_dev_menu_option_t options[] = {
+			{"reload-scripts", fc_dev_menu_reload_scripts},
+			{"Option-2", NULL},
+			{"Option-3", NULL}
+		};
+		
+		if(g_devMenuOption < 0)
+			g_devMenuOption = FUR_ARRAY_SIZE(options)-1;
+		else if(g_devMenuOption >= FUR_ARRAY_SIZE(options))
+			g_devMenuOption = 0;
+		
+		fc_dbg_text(x, y, "Dev Menu:", color);
+		
+		for(uint32_t i=0; i<FUR_ARRAY_SIZE(options); ++i)
+		{
+			const bool isSelected = (i == g_devMenuOption);
+			
+			fc_dbg_text(x + ident, y - lineHeight * (1+i), options[i].name, isSelected ? colorSelected : color);
+			
+			// execute option
+			if(isSelected && g_devMenuOptionClick)
+			{
+				if(options[i].func)
+				{
+					(*options[i].func)(pEngine, pAllocCallbacks);
+				}
+			}
+		}
 	}
 }
 
@@ -978,8 +1159,10 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		}
 		
 		// on update - upper-body layer in this case
-		if(pEngine->inputTriangleActionPressed)
+		if(pEngine->inputTriangleActionPressed || pEngine->zeldaGameObject.equipItemNow)
 		{
+			pEngine->zeldaGameObject.equipItemNow = false;
+			
 			if(pEngine->zeldaGameObject.playerWindProtecting)
 			{
 				pEngine->zeldaGameObject.playerWindProtecting = false;
@@ -1220,7 +1403,7 @@ void fc_dbg_mat4(const fm_mat4* m)
 	fc_dbg_line(pos, axisZ, blue);
 }
 
-void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
+void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	pEngine->globalTime += dt;
 	pEngine->blendAlpha = fm_clamp(((sinf(pEngine->globalTime * 0.4f) + 1.0f) / 2.0f), 0.0f, 1.0f);
@@ -1228,6 +1411,9 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 	// input
 	fi_update_input_manager(pEngine->pInputManager, pEngine->globalTime);
 	fg_input_actions_update(pEngine, dt);
+	
+	// debug/dev menu
+	fc_draw_debug_menu(pEngine, pAllocCallbacks);
 	
 	// game
 	fg_scripts_update(pEngine, dt);
@@ -1396,7 +1582,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt)
 	}
 }
 
-void furMainEngineLoop(FurGameEngine* pEngine)
+void furMainEngineLoop(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	pEngine->prevTimePoint = std::chrono::system_clock::now();
 	
@@ -1408,7 +1594,7 @@ void furMainEngineLoop(FurGameEngine* pEngine)
 		
 		const float dt = dtOrig.count();
 		
-		furMainEngineGameUpdate(pEngine, dt);
+		furMainEngineGameUpdate(pEngine, dt, pAllocCallbacks);
 	}
 	
 	fr_wait_for_device(pEngine->pRenderer);
@@ -1493,7 +1679,7 @@ int main()
 	}
 	
 	// main engine loop
-	furMainEngineLoop(pEngine);
+	furMainEngineLoop(pEngine, pAllocCallbacks);
 	
 	// terminate most basic engine components
 	bool result = furMainEngineTerminate(pEngine, pAllocCallbacks);

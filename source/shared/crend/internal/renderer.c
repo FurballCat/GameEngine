@@ -1653,8 +1653,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		fr_font_desc_t desc = {};
-		desc.atlasPath = "../../../../../assets/fonts/debug-font.png";
-		desc.glyphsInfoPath = "../../../../../assets/fonts/debug-font-data.txt";
+		desc.atlasPath = "../../../../../assets/fonts/debug-font-2.png";
+		desc.glyphsInfoPath = "../../../../../assets/fonts/debug-font-data-2.txt";
 		
 		res = fr_font_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->textFont, pAllocCallbacks);
 	}
@@ -3032,11 +3032,19 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[imageIndex].memory, 0, desc.linesDataSize);
 			fr_copy_data_to_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[imageIndex].memory, desc.linesData, 0, desc.linesDataSize);
 		}
+		else
+		{
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[imageIndex].memory, 0, desc.linesDataSize);
+		}
 		
 		if(desc.trianglesDataSize > 0)
 		{
 			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[imageIndex].memory, 0, desc.trianglesDataSize);
 			fr_copy_data_to_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[imageIndex].memory, desc.trianglesData, 0, desc.trianglesDataSize);
+		}
+		else
+		{
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[imageIndex].memory, 0, desc.trianglesDataSize);
 		}
 		
 		if(desc.textLinesCount > 0)
@@ -3074,6 +3082,12 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 			}
 			
 			vkUnmapMemory(pRenderer->device, dst);
+		}
+		else
+		{
+			const uint32_t numFloatsCapacity = fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6;
+			const uint32_t dataSize = numFloatsCapacity * sizeof(float);
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->textVertexBuffer[imageIndex].memory, 0, dataSize);
 		}
 		
 		fc_dbg_buffers_clear();	// clear the buffer for next frame

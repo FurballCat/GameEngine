@@ -129,12 +129,14 @@
 
 ;; (animate 'object-name 'anim-name ...), add variadic args (...) by: (animate-arg enum1) value1 (animate-arg enum2) value2
 (define-c-function-variadic animate (object-name string-hash) (anim-name string-hash))
+(define-c-function-variadic equip-item (object-name string-hash) (item-name string-hash))
 
 ;; --- end of import ---
 
 ;; simple script example
 (simple-script 'idle
                    [animate 'self 'zelda-funny-pose-4]
+                   [equip-item 'self 'sword]
 )
 
 ;; end of the script
