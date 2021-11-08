@@ -22,6 +22,9 @@
 typedef union fs_variant_t
 {
 	fc_string_hash_t asStringHash;
+	int32_t asInt32;
+	bool asBool;
+	float asFloat;
 } fs_variant_t;
 
 // ***** scripts core ***** //
@@ -72,6 +75,9 @@ typedef struct fs_script_ctx_t
 {
 	fc_string_hash_t lastOp;
 	fs_variant_t lastResult;
+	float waitSeconds;
+	uint32_t numSkipOps;
+	
 	fg_game_object_t* self;
 	fg_game_object_register_t* gameObjectRegister;
 	fg_animations_register_t* allAnimations;
@@ -79,7 +85,9 @@ typedef struct fs_script_ctx_t
 
 // todo: move it somewhere else
 fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
+fs_variant_t fs_native_wait_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 fs_variant_t fs_native_equip_item(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
+fs_variant_t fs_native_wait_seconds(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 
 typedef fs_variant_t (*fs_script_navitve_func_t)(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 
@@ -94,7 +102,9 @@ fc_string_hash_t g_scriptNullOpCode = SID("__null");
 
 fs_native_func_entry_t g_nativeFuncLookUp[] = {
 	{ SID("animate"), fs_native_animate, 2 },
+	{ SID("wait-animate"), fs_native_wait_animate, 2 },
 	{ SID("equip-item"), fs_native_equip_item, 2 },
+	{ SID("wait-seconds"), fs_native_wait_seconds, 1 },
 	{ g_scriptNullOpCode, NULL, 0 }
 };
 
@@ -148,6 +158,7 @@ typedef struct fs_script_execution_ctx_t
 {
 	fc_binary_buffer_stream_t scriptBufferStream;
 	fs_script_ctx_t* scriptCtx;
+	uint32_t numOpsExecuted;
 } fs_script_execution_ctx_t;
 
 void fs_execute_script_step(fs_script_execution_ctx_t* ctx)
@@ -170,6 +181,7 @@ void fs_execute_script_step(fs_script_execution_ctx_t* ctx)
 	}
 	
 	// execute operation
+	if(ctx->scriptCtx->numSkipOps == 0)
 	{
 		// find operation/function pointer - todo: implement simple cache
 		const uint32_t numFuncs = FUR_ARRAY_SIZE(g_nativeFuncLookUp);
@@ -188,6 +200,10 @@ void fs_execute_script_step(fs_script_execution_ctx_t* ctx)
 		ctx->scriptCtx->lastResult = g_nativeFuncLookUp[idxFunc].func(ctx->scriptCtx, opHeader.numArgs, args);
 		ctx->scriptCtx->lastOp = opHeader.opCode;
 	}
+	else if(ctx->scriptCtx->numSkipOps > 0)
+	{
+		ctx->scriptCtx->numSkipOps -= 1;
+	}
 }
 
 void fs_execute_script(const fc_binary_buffer_t* scriptBuffer, fs_script_ctx_t* scriptCtx)
@@ -199,6 +215,14 @@ void fs_execute_script(const fc_binary_buffer_t* scriptBuffer, fs_script_ctx_t* 
 	do
 	{
 		fs_execute_script_step(&ctx);
+		
+		ctx.numOpsExecuted += 1;
+		
+		if(scriptCtx->waitSeconds > 0.0f)
+		{
+			scriptCtx->numSkipOps = ctx.numOpsExecuted;
+			break;
+		}
 	}
 	while(ctx.scriptBufferStream.pos != ctx.scriptBufferStream.endPos);
 }
@@ -840,6 +864,19 @@ fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_
 	return result;
 };
 
+fs_variant_t fs_native_wait_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+{
+	FUR_ASSERT(numArgs == 2);
+	const fc_string_hash_t animName = args[1].asStringHash;
+	
+	const fa_anim_clip_t* animClip = fg_animations_register_find_anim(ctx->allAnimations, animName);
+	FUR_ASSERT(animClip);
+	
+	ctx->waitSeconds = animClip->duration;
+	
+	return fs_native_animate(ctx, numArgs, args);
+}
+
 fs_variant_t fs_native_equip_item(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
 {
 	FUR_ASSERT(numArgs == 2);
@@ -866,6 +903,17 @@ fs_variant_t fs_native_equip_item(fs_script_ctx_t* ctx, uint32_t numArgs, const 
 	FUR_ASSERT(gameObj);
 	
 	gameObj->equipItemNow = true;
+	
+	fs_variant_t result = {};
+	return result;
+}
+
+fs_variant_t fs_native_wait_seconds(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+{
+	FUR_ASSERT(numArgs == 1);
+	const float timeInSeconds = args[0].asFloat;
+	
+	ctx->waitSeconds = timeInSeconds;
 	
 	fs_variant_t result = {};
 	return result;
@@ -1140,6 +1188,32 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 	
 	static fg_player_state_t prevState = FG_PLAYER_STATE_IDLE;
 	
+	static float waitSeconds = 0.0f;
+	static uint32_t numSkipOps = 0;
+	
+	if(waitSeconds > 0.0f)
+	{
+		waitSeconds -= dt;
+		
+		if(waitSeconds <= 0.0f)
+		{
+			waitSeconds = 0.0f;
+			
+			fs_script_ctx_t scriptCtx = {};
+			scriptCtx.allAnimations = &pEngine->gameAnimationsRegister;
+			scriptCtx.gameObjectRegister = &pEngine->gameObjectRegister;
+			scriptCtx.self = &pEngine->zeldaGameObject;
+			scriptCtx.numSkipOps = numSkipOps;
+			fs_execute_script(&pEngine->zeldaInitScript, &scriptCtx);
+			
+			if(scriptCtx.waitSeconds > 0.0f)
+			{
+				waitSeconds = scriptCtx.waitSeconds;
+				numSkipOps = scriptCtx.numSkipOps;
+			}
+		}
+	}
+	
 	if(pEngine->zeldaGameObject.playerState == FG_PLAYER_STATE_IDLE)
 	{
 		// on enter
@@ -1154,6 +1228,12 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			scriptCtx.gameObjectRegister = &pEngine->gameObjectRegister;
 			scriptCtx.self = &pEngine->zeldaGameObject;
 			fs_execute_script(&pEngine->zeldaInitScript, &scriptCtx);
+			
+			if(scriptCtx.waitSeconds > 0.0f)
+			{
+				waitSeconds = scriptCtx.waitSeconds;
+				numSkipOps = scriptCtx.numSkipOps;
+			}
 			
 			prevState = pEngine->zeldaGameObject.playerState;
 		}

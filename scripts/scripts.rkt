@@ -3,6 +3,10 @@
 ;; global compilation flags
 (define use-debug-compilation #f)
 
+;; byte representation of basic types
+(define (int32 value) (integer->integer-bytes value 4 #f))
+(define (float value) (real->floating-point-bytes value 4 #f))
+
 ;; hashing function, same as on c side
 (define hash-initial-fnv 2166136261)
 (define hash-fnv-multiple 16777619)
@@ -13,26 +17,21 @@
   (for ([i (if (symbol? name) (symbol->string name) name)])
     (set! result (bitwise-and (* (bitwise-xor result (char->integer i)) hash-fnv-multiple) 0xFFFFFFFF))
     )
-  (if use-debug-compilation name result)
-  )
-
-;; data writing for script buffer
-(define (to-bytes-4 value)
-  (integer->integer-bytes value 4 #f) ;; convert integer value to 4 byte representation
+  (if use-debug-compilation name (int32 result))
   )
 
 ;; variant - any variable with allowed type, allows for easy communication with c, limited to 4 bytes for now
 (define (variant value)
-  (to-bytes-4 value)
+  value
   )
 
 ;; script callback header (call to function from look-up table of native functions)
 ;; always the same size (12 bytes at the moment)
 (define (script-op-header op-code flags num-args)
   (list
-   (to-bytes-4 (string-hash op-code)) ;; hash of the function name in look-up table on c-side
-   (to-bytes-4 flags) ;; use flags for some stuff like calling function on 'self
-   (to-bytes-4 num-args) ;; number of arguments is limited on c side (20 when I last wrote that)
+   (string-hash op-code) ;; hash of the function name in look-up table on c-side
+   (int32 flags) ;; use flags for some stuff like calling function on 'self
+   (int32 num-args) ;; number of arguments is limited on c side (20 when I last wrote that)
    )
   )
 
@@ -129,13 +128,17 @@
 
 ;; (animate 'object-name 'anim-name ...), add variadic args (...) by: (animate-arg enum1) value1 (animate-arg enum2) value2
 (define-c-function-variadic animate (object-name string-hash) (anim-name string-hash))
+(define-c-function-variadic wait-animate (object-name string-hash) (anim-name string-hash))
 (define-c-function-variadic equip-item (object-name string-hash) (item-name string-hash))
+(define-c-function wait-seconds (num-seconds float))
 
 ;; --- end of import ---
 
 ;; simple script example
 (simple-script 'idle
+                   [wait-animate 'self 'zelda-loco-jump-in-place]
                    [animate 'self 'zelda-funny-pose-4]
+                   [wait-seconds 0.5]
                    [equip-item 'self 'sword]
 )
 
