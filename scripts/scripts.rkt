@@ -94,29 +94,43 @@
  )
 
 ;; write list of pairs of (type value) code into file - recursive iteration
-(define (write-code code file)
+(define (lambda-to-bytecode code file)
   (cond
     ;; if this is the leaf pair - write to file
     [(and (pair? code) (not (pair? (car code)))) (write-bytes (c-type-to-bytes code) file)]
     ;; otherwise - keep iterating
     [else
      (cond
-       [(empty? (cdr code)) (write-code (car code) file)]
+       [(empty? (cdr code)) (lambda-to-bytecode (car code) file)]
        [else
-        (write-code (car code) file)
-        (write-code (cdr code) file)
+        (lambda-to-bytecode (car code) file)
+        (lambda-to-bytecode (cdr code) file)
         ]
        )
      ]
     )
   )
 
-;; simple script buffer saved to single *.fs file
-(define (simple-script name . code) ;; data is already in form of bytecode
-  (let ((f (open-output-file (string-append (symbol->string name) ".fs") #:mode 'binary #:exists 'replace)))
-    (write-code code f) ;; write code bytes into f file
+;; convert code to lambda bytecode
+(define (fs-lambda code)
+  (let ((p (open-output-bytes)))
+    (lambda-to-bytecode code p)
+    (close-output-port p)
+    (get-output-bytes p)
+    )
+  )
+
+;; save data to file
+(define (bytes-to-file path bytes)
+  (let ((f (open-output-file path #:mode 'binary #:exists 'replace)))
+    (write-bytes bytes f) ;; write bytes into file f
     (close-output-port f)
     )
+  )
+
+;; simple script buffer saved to single *.fs file
+(define (simple-script name . code) ;; data is already in form of bytecode
+  (bytes-to-file (string-append (symbol->string name) ".fs") (fs-lambda code))
   (printf "compiled simple script ~a.fs\n" name)
  )
 
