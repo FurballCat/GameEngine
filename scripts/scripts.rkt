@@ -1,8 +1,6 @@
 #lang racket
 
-;; global compilation flags
-(define use-debug-compilation #f)
-
+;; assert triggered while running racket program
 (define (assert value message)
   (if value #t (error (string-append "FurScript Error: " message))))
 
@@ -35,7 +33,7 @@
   (for ([i (if (symbol? name) (symbol->string name) name)])
     (set! result (bitwise-and (* (bitwise-xor result (char->integer i)) hash-fnv-multiple) 0xFFFFFFFF))
     )
-  (if use-debug-compilation name (int32 result))
+  (int32 result)
   )
 
 ;; variant - any variable with allowed type, allows for easy communication with c, limited to 4 bytes for now
