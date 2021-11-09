@@ -98,6 +98,7 @@ fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_
 fs_variant_t fs_native_wait_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 fs_variant_t fs_native_equip_item(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 fs_variant_t fs_native_wait_seconds(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
+fs_variant_t fs_native_get_variable(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 
 typedef fs_variant_t (*fs_script_navitve_func_t)(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 
@@ -115,6 +116,7 @@ fs_native_func_entry_t g_nativeFuncLookUp[] = {
 	{ SID("wait-animate"), fs_native_wait_animate, 2 },
 	{ SID("equip-item"), fs_native_equip_item, 2 },
 	{ SID("wait-seconds"), fs_native_wait_seconds, 1 },
+	{ SID("get-variable"), fs_native_get_variable, 2 },
 	{ g_scriptNullOpCode, NULL, 0 }
 };
 
@@ -171,49 +173,72 @@ typedef struct fs_script_execution_ctx_t
 	uint32_t numOpsExecuted;
 } fs_script_execution_ctx_t;
 
-void fs_execute_script_step(fs_script_execution_ctx_t* ctx)
+enum fs_op_pre_flag_t
+{
+	FS_OP_PRE_FLAG_FUNC_CALL = 0,
+	FS_OP_PRE_FLAG_FUNC_ARG = 1,
+} fs_op_pre_flag_t;
+
+fs_variant_t fs_execute_script_step(fs_script_execution_ctx_t* ctx)
 {
 	fc_binary_buffer_stream_t* stream = &ctx->scriptBufferStream;
 	
-	// read operation header
-	fs_script_op_header opHeader = {};
-	uint32_t bytesRead = fc_read_binary_buffer(stream, sizeof(fs_script_op_header), &opHeader);
+	// read what's next in buffer
+	uint8_t op_pre_flag = 0;
+	uint32_t bytesRead = fc_read_binary_buffer(stream, sizeof(uint8_t), &op_pre_flag);
 	FUR_ASSERT(bytesRead);
 	
-	// read arguments
-	FUR_ASSERT(opHeader.numArgs < 20);
-	fs_variant_t args[20];
+	fs_variant_t result = {};
 	
-	for(uint32_t i=0; i<opHeader.numArgs; ++i)
+	if(op_pre_flag == FS_OP_PRE_FLAG_FUNC_CALL)
 	{
-		bytesRead = fc_read_binary_buffer(stream, sizeof(fs_variant_t), &args[i]);
+		ctx->numOpsExecuted += 1;
+		
+		// read operation header
+		fs_script_op_header opHeader = {};
+		bytesRead = fc_read_binary_buffer(stream, sizeof(fs_script_op_header), &opHeader);
+		FUR_ASSERT(bytesRead);
+		
+		// read arguments
+		FUR_ASSERT(opHeader.numArgs < 20);
+		fs_variant_t args[20];
+		
+		for(uint32_t i=0; i<opHeader.numArgs; ++i)
+		{
+			args[i] = fs_execute_script_step(ctx);
+		}
+		
+		// execute operation
+		if(ctx->scriptCtx->numSkipOps == 0)
+		{
+			// find operation/function pointer - todo: implement simple cache
+			const uint32_t numFuncs = FUR_ARRAY_SIZE(g_nativeFuncLookUp);
+			uint32_t idxFunc = 0;
+			for(idxFunc=0; idxFunc<numFuncs; ++idxFunc)
+			{
+				if(opHeader.opCode == g_nativeFuncLookUp[idxFunc].name)
+				{
+					break;
+				}
+			}
+			
+			FUR_ASSERT(idxFunc < numFuncs);	// op code not found
+			
+			// call function
+			result = g_nativeFuncLookUp[idxFunc].func(ctx->scriptCtx, opHeader.numArgs, args);
+		}
+		else if(ctx->scriptCtx->numSkipOps > 0)
+		{
+			ctx->scriptCtx->numSkipOps -= 1;
+		}
+	}
+	else if(op_pre_flag == FS_OP_PRE_FLAG_FUNC_ARG)
+	{
+		bytesRead = fc_read_binary_buffer(stream, sizeof(fs_variant_t), &result);
 		FUR_ASSERT(bytesRead);
 	}
 	
-	// execute operation
-	if(ctx->scriptCtx->numSkipOps == 0)
-	{
-		// find operation/function pointer - todo: implement simple cache
-		const uint32_t numFuncs = FUR_ARRAY_SIZE(g_nativeFuncLookUp);
-		uint32_t idxFunc = 0;
-		for(idxFunc=0; idxFunc<numFuncs; ++idxFunc)
-		{
-			if(opHeader.opCode == g_nativeFuncLookUp[idxFunc].name)
-			{
-				break;
-			}
-		}
-		
-		FUR_ASSERT(idxFunc < numFuncs);	// op code not found
-		
-		// call function
-		ctx->scriptCtx->lastResult = g_nativeFuncLookUp[idxFunc].func(ctx->scriptCtx, opHeader.numArgs, args);
-		ctx->scriptCtx->lastOp = opHeader.opCode;
-	}
-	else if(ctx->scriptCtx->numSkipOps > 0)
-	{
-		ctx->scriptCtx->numSkipOps -= 1;
-	}
+	return result;
 }
 
 void fs_execute_script(const fc_binary_buffer_t* scriptBuffer, fs_script_ctx_t* scriptCtx)
@@ -225,8 +250,6 @@ void fs_execute_script(const fc_binary_buffer_t* scriptBuffer, fs_script_ctx_t* 
 	do
 	{
 		fs_execute_script_step(&ctx);
-		
-		ctx.numOpsExecuted += 1;
 		
 		if(scriptCtx->waitSeconds > 0.0f)
 		{
@@ -852,6 +875,49 @@ fs_variant_t fs_native_wait_seconds(fs_script_ctx_t* ctx, uint32_t numArgs, cons
 	ctx->waitSeconds = timeInSeconds;
 	
 	fs_variant_t result = {};
+	return result;
+}
+
+fs_variant_t fs_native_get_variable(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+{
+	FUR_ASSERT(numArgs == 2);
+	const fc_string_hash_t objectName = args[0].asStringHash;
+	const fc_string_hash_t varName = args[1].asStringHash;
+	
+	// find game object
+	fg_game_object_t* gameObj = NULL;
+	if(objectName == SID("self"))
+	{
+		gameObj = ctx->self;
+	}
+	else
+	{
+		for(uint32_t i=0; i<ctx->gameObjectRegister->numObjects; ++i)
+		{
+			if(ctx->gameObjectRegister->ids[i] == objectName)
+			{
+				gameObj = ctx->gameObjectRegister->objects[i];
+				break;
+			}
+		}
+	}
+	FUR_ASSERT(gameObj);
+	
+	fs_variant_t result = {};
+	
+	if(varName == SID("wind-protecting"))
+	{
+		result.asBool = gameObj->playerWindProtecting;
+	}
+	else if(varName == SID("weapon-equipped"))
+	{
+		result.asBool = gameObj->playerWeaponEquipped;
+	}
+	else if(varName == SID("idle-anim-name"))
+	{
+		result.asStringHash = SID("zelda-funny-pose-4");
+	}
+	
 	return result;
 }
 
