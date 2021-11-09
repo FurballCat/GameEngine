@@ -42,12 +42,12 @@ typedef struct fg_game_object_register_t
 typedef struct fg_animations_register_t
 {
 	fc_string_hash_t animNames[128];
-	const fa_anim_clip_t* animClips[128];
+	fa_anim_clip_t* animClips[128];
 	
 	uint32_t numAnims;
 } fg_animations_register_t;
 
-void fg_animations_register_add_anim(fg_animations_register_t* reg, const fa_anim_clip_t* clip)
+void fg_animations_register_add_anim(fg_animations_register_t* reg, fa_anim_clip_t* clip)
 {
 	FUR_ASSERT(reg->numAnims < 128);
 	
@@ -56,6 +56,16 @@ void fg_animations_register_add_anim(fg_animations_register_t* reg, const fa_ani
 	
 	reg->animNames[idx] = clip->name;
 	reg->animClips[idx] = clip;
+}
+
+void fg_animations_register_release_anims(fg_animations_register_t* reg, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	for(uint32_t i=0; i<reg->numAnims; ++i)
+	{
+		fa_anim_clip_release(reg->animClips[i], pAllocCallbacks);
+	}
+	
+	memset(reg, 0, sizeof(fg_animations_register_t));
 }
 
 const fa_anim_clip_t* fg_animations_register_find_anim(const fg_animations_register_t* reg, fc_string_hash_t name)
@@ -387,6 +397,30 @@ struct FurGameEngine
 	uint32_t zeldaHandRightIdx;
 };
 
+fa_anim_clip_t* fe_load_anim_clip(const fi_depot_t* depot, const char* name, FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	const char* directory = "assets/characters/zelda/animations/";
+	const char* extension = ".fbx";
+	const size_t dirLength = strlen(directory);
+	const size_t nameLenght = strlen(name);
+	
+	char path[256] = {};
+	memcpy(path, directory, dirLength);
+	memcpy(path + dirLength, name, nameLenght);
+	memcpy(path + dirLength + nameLenght, extension, strlen(extension));
+	
+	fi_import_anim_clip_ctx_t ctx = {};
+	ctx.path = path;
+	ctx.extractRootMotion = true;
+	
+	fa_anim_clip_t* animClip = NULL;
+	
+	fi_import_anim_clip(depot, &ctx, &animClip, pAllocCallbacks);
+	fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, animClip);
+	
+	return animClip;
+}
+
 // Furball Cat - Platform
 bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, fc_alloc_callbacks_t* pAllocCallbacks)
 {
@@ -554,119 +588,21 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			}
 		}
 
-		{
-			fi_import_anim_clip_ctx_t ctx = {};
-			ctx.path = "assets/characters/zelda/animations/zelda-idle-stand-relaxed.fbx";
-			
-			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipIdleStand, pAllocCallbacks);
-			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipIdleStand);
-		}
-		
-		{
-			fi_import_anim_clip_ctx_t ctx = {};
-			ctx.path = "assets/characters/zelda/animations/zelda-funny-poses.fbx";
-			
-			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipIdle, pAllocCallbacks);
-			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipIdle);
-		}
-		
-		{
-			fi_import_anim_clip_ctx_t ctx = {};
-			ctx.path = "assets/characters/zelda/animations/zelda-funny-pose-2.fbx";
-			
-			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipIdle2, pAllocCallbacks);
-			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipIdle2);
-		}
-		
-		{
-			fi_import_anim_clip_ctx_t ctx = {};
-			ctx.path = "assets/characters/zelda/animations/zelda-funny-pose-3.fbx";
-			
-			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipIdle3, pAllocCallbacks);
-			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipIdle3);
-		}
-		
-		{
-			fi_import_anim_clip_ctx_t ctx = {};
-			ctx.path = "assets/characters/zelda/animations/zelda-funny-pose-4.fbx";
-			
-			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipIdle4, pAllocCallbacks);
-			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipIdle4);
-		}
+		pEngine->pAnimClipIdleStand = fe_load_anim_clip(&depot, "zelda-idle-stand-relaxed", pEngine, pAllocCallbacks);
+		pEngine->pAnimClipIdle = fe_load_anim_clip(&depot, "zelda-funny-poses", pEngine, pAllocCallbacks);
+		pEngine->pAnimClipIdle2 = fe_load_anim_clip(&depot, "zelda-funny-pose-2", pEngine, pAllocCallbacks);
+		pEngine->pAnimClipIdle3 = fe_load_anim_clip(&depot, "zelda-funny-pose-3", pEngine, pAllocCallbacks);
+		pEngine->pAnimClipIdle4 = fe_load_anim_clip(&depot, "zelda-funny-pose-4", pEngine, pAllocCallbacks);
+		pEngine->pAnimClipRun = fe_load_anim_clip(&depot, "zelda-loco-run-relaxed", pEngine, pAllocCallbacks);
+		pEngine->pAnimClipRunToIdleSharp = fe_load_anim_clip(&depot, "zelda-run-to-idle-sharp", pEngine, pAllocCallbacks);
+		pEngine->pAnimClipIdleToRun0 = fe_load_anim_clip(&depot, "zelda-loco-idle-to-run-0", pEngine, pAllocCallbacks);
+		pEngine->pAnimClipJumpInPlace = fe_load_anim_clip(&depot, "zelda-loco-jump-in-place", pEngine, pAllocCallbacks);
+		pEngine->pAnimClipJump = fe_load_anim_clip(&depot, "zelda-loco-jump", pEngine, pAllocCallbacks);
+		pEngine->pAnimClipAdditive = fe_load_anim_clip(&depot, "zelda-additive", pEngine, pAllocCallbacks);
+		pEngine->pAnimClipAPose = fe_load_anim_clip(&depot, "zelda-a-pose", pEngine, pAllocCallbacks);
+		pEngine->pAnimClipWindProtect = fe_load_anim_clip(&depot, "zelda-upper-wind-protect", pEngine, pAllocCallbacks);
+		pEngine->pAnimClipHoldSword = fe_load_anim_clip(&depot, "zelda-upper-hold-sword", pEngine, pAllocCallbacks);
 
-		{
-			fi_import_anim_clip_ctx_t ctx = {};
-			ctx.path = "assets/characters/zelda/animations/zelda-loco-run-relaxed.fbx";
-			
-			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipRun, pAllocCallbacks);
-			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipRun);
-		}
-		
-		{
-			fi_import_anim_clip_ctx_t ctx = {};
-			ctx.path = "assets/characters/zelda/animations/zelda-run-to-idle-sharp.fbx";
-			
-			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipRunToIdleSharp, pAllocCallbacks);
-			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipRunToIdleSharp);
-		}
-		
-		{
-			fi_import_anim_clip_ctx_t ctx = {};
-			ctx.path = "assets/characters/zelda/animations/zelda-loco-idle-to-run-0.fbx";
-			ctx.extractRootMotion = true;
-			
-			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipIdleToRun0, pAllocCallbacks);
-			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipIdleToRun0);
-		}
-		
-		{
-			fi_import_anim_clip_ctx_t ctx = {};
-			ctx.path = "assets/characters/zelda/animations/zelda-loco-jump-in-place.fbx";
-			
-			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipJumpInPlace, pAllocCallbacks);
-			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipJumpInPlace);
-		}
-		
-		{
-			fi_import_anim_clip_ctx_t ctx = {};
-			ctx.path = "assets/characters/zelda/animations/zelda-loco-jump.fbx";
-			ctx.extractRootMotion = true;
-			
-			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipJump, pAllocCallbacks);
-			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipJump);
-		}
-		
-		{
-			fi_import_anim_clip_ctx_t ctx = {};
-			ctx.path = "assets/characters/zelda/animations/zelda-additive.fbx";
-			
-			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipAdditive, pAllocCallbacks);
-			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipAdditive);
-		}
-		
-		{
-			fi_import_anim_clip_ctx_t ctx = {};
-			ctx.path = "assets/characters/zelda/animations/zelda-a-pose.fbx";
-			
-			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipAPose, pAllocCallbacks);
-			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipAPose);
-		}
-		
-		{
-			fi_import_anim_clip_ctx_t ctx = {};
-			ctx.path = "assets/characters/zelda/animations/zelda-upper-wind-protect.fbx";
-			
-			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipWindProtect, pAllocCallbacks);
-			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipWindProtect);
-		}
-		
-		{
-			fi_import_anim_clip_ctx_t ctx = {};
-			ctx.path = "assets/characters/zelda/animations/zelda-upper-hold-sword.fbx";
-			
-			fi_import_anim_clip(&depot, &ctx, &pEngine->pAnimClipHoldSword, pAllocCallbacks);
-			fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, pEngine->pAnimClipHoldSword);
-		}
 	}
 	
 	fr_temp_create_skinning_mapping(pEngine->pRenderer, pEngine->pRig->boneNameHashes, pEngine->pRig->numBones, pAllocCallbacks);
@@ -1705,20 +1641,7 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	
 	FUR_FREE(pEngine->scratchpadBuffer, pAllocCallbacks);
 	fa_rig_release(pEngine->pRig, pAllocCallbacks);
-	fa_anim_clip_release(pEngine->pAnimClipIdleStand, pAllocCallbacks);
-	fa_anim_clip_release(pEngine->pAnimClipIdle, pAllocCallbacks);
-	fa_anim_clip_release(pEngine->pAnimClipIdle2, pAllocCallbacks);
-	fa_anim_clip_release(pEngine->pAnimClipIdle3, pAllocCallbacks);
-	fa_anim_clip_release(pEngine->pAnimClipIdle4, pAllocCallbacks);
-	fa_anim_clip_release(pEngine->pAnimClipRun, pAllocCallbacks);
-	fa_anim_clip_release(pEngine->pAnimClipRunToIdleSharp, pAllocCallbacks);
-	fa_anim_clip_release(pEngine->pAnimClipIdleToRun0, pAllocCallbacks);
-	fa_anim_clip_release(pEngine->pAnimClipAdditive, pAllocCallbacks);
-	fa_anim_clip_release(pEngine->pAnimClipAPose, pAllocCallbacks);
-	fa_anim_clip_release(pEngine->pAnimClipWindProtect, pAllocCallbacks);
-	fa_anim_clip_release(pEngine->pAnimClipHoldSword, pAllocCallbacks);
-	fa_anim_clip_release(pEngine->pAnimClipJumpInPlace, pAllocCallbacks);
-	fa_anim_clip_release(pEngine->pAnimClipJump, pAllocCallbacks);
+	fg_animations_register_release_anims(&pEngine->gameAnimationsRegister, pAllocCallbacks);
 	
 	fp_physics_scene_release(pEngine->pPhysics, pEngine->pPhysicsScene, pAllocCallbacks);
 	
