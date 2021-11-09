@@ -114,10 +114,9 @@
   )
 
 ;; simple script buffer saved to single *.fs file
-(define (simple-script name . data) ;; data is already in form of bytecode
+(define (simple-script name . code) ;; data is already in form of bytecode
   (let ((f (open-output-file (string-append (symbol->string name) ".fs") #:mode 'binary #:exists 'replace)))
-    (for/list ([e (in-list data)]) ;; iterate flat list of bytecode
-      (write-code e f)) ;; write code bytes into f file
+    (write-code code f) ;; write code bytes into f file
     (close-output-port f)
     )
   (printf "compiled simple script ~a.fs\n" name)
