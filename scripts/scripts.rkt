@@ -25,9 +25,6 @@
 (define hash-fnv-multiple 16777619)
 (define 0xFFFFFFFF 4294967295)
 
-(define op-pre-func-call (int8 0))
-(define op-pre-func-arg (int8 1))
-
 (define (string-hash name)
   (define result 2166136261)
   (for ([i (if (symbol? name) (symbol->string name) name)])
@@ -35,6 +32,11 @@
     )
   (int32 result)
   )
+
+;; prefixes to data
+(define op-pre-func-call (int8 0)) ;; single FS script native function call
+(define op-pre-func-arg (int8 1)) ;; single FS script function argument in form of variant
+(define op-pre-lambda (int8 2)) ;; full script lambda (sequence of function calls)
 
 ;; variant - any variable with allowed type, allows for easy communication with c, limited to 4 bytes for now
 (define (variant expected-type value)
@@ -111,10 +113,35 @@
     )
   )
 
-;; convert code to lambda bytecode
-(define (fs-lambda code)
+;; gets lambda code list and converts to stream of bytes (p)
+(define (code-to-bytes code)
   (let ((p (open-output-bytes)))
     (lambda-to-bytecode code p)
+    (close-output-port p)
+    (get-output-bytes p)
+    )
+  )
+
+;; lambda (sequence of script function calls) header
+(define (fs-lambda-header name length)
+  (list
+   op-pre-lambda ;; gives info that it's a lambda
+   (string-hash name) ;; name of the lambda that uniquely defines it in blob scope (single compiled .fs file)
+   (int32 length) ;; number of bytes in lambda bytecode, so it's easy to jump in blob of bytes in engine
+   )
+  )
+
+;; convert code to lambda bytecode
+(define (fs-lambda name code)
+  (let ((p (open-output-bytes)))
+    (let ((b (code-to-bytes code)))
+      (write-bytes (bytes-append ;; append header and the code (b) itself and write to byte-stream p
+                    (code-to-bytes (fs-lambda-header name (bytes-length b))) ;; the lambda header in bytes
+                    b ;; the bytecode itself
+                    )
+                   p ;; byte-stream to write to
+                   )
+      )
     (close-output-port p)
     (get-output-bytes p)
     )
@@ -130,7 +157,7 @@
 
 ;; simple script buffer saved to single *.fs file
 (define (simple-script name . code) ;; data is already in form of bytecode
-  (bytes-to-file (string-append (symbol->string name) ".fs") (fs-lambda code))
+  (bytes-to-file (string-append (symbol->string name) ".fs") (fs-lambda name code))
   (printf "compiled simple script ~a.fs\n" name)
  )
 

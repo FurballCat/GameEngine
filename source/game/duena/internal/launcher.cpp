@@ -159,6 +159,13 @@ enum fs_script_parsing_stage_t
  
  **/
 
+enum fs_op_pre_flag_t
+{
+	FS_OP_PRE_FLAG_FUNC_CALL = 0,	// indicates function call, read fs_script_op_header next
+	FS_OP_PRE_FLAG_FUNC_ARG = 1,	// indicates function argument, read fs_variant_t next
+	FS_OP_PRE_FLAG_LAMBDA = 2,	// indicates whole lambda (sequence of function calls), read fs_lambda_header_t next
+} fs_op_pre_flag_t;
+
 typedef struct fs_script_op_header
 {
 	fc_string_hash_t opCode;
@@ -166,18 +173,18 @@ typedef struct fs_script_op_header
 	uint32_t numArgs;
 } fs_script_op_header;
 
+typedef struct fs_lambda_header_t
+{
+	fc_string_hash_t name;	// unique name in scope of single .fs file
+	uint32_t dataSize; 		// in bytes
+} fs_lambda_header_t;
+
 typedef struct fs_script_execution_ctx_t
 {
 	fc_binary_buffer_stream_t scriptBufferStream;
 	fs_script_ctx_t* scriptCtx;
 	uint32_t numOpsExecuted;
 } fs_script_execution_ctx_t;
-
-enum fs_op_pre_flag_t
-{
-	FS_OP_PRE_FLAG_FUNC_CALL = 0,
-	FS_OP_PRE_FLAG_FUNC_ARG = 1,
-} fs_op_pre_flag_t;
 
 fs_variant_t fs_execute_script_step(fs_script_execution_ctx_t* ctx)
 {
@@ -246,6 +253,18 @@ void fs_execute_script(const fc_binary_buffer_t* scriptBuffer, fs_script_ctx_t* 
 	fs_script_execution_ctx_t ctx = {};
 	ctx.scriptCtx = scriptCtx;
 	fc_init_binary_buffer_stream(scriptBuffer, &ctx.scriptBufferStream);
+	
+	// read lambda header
+	uint8_t flag = 0;
+	uint32_t bytesRead = fc_read_binary_buffer(&ctx.scriptBufferStream, sizeof(uint8_t), &flag);
+	FUR_ASSERT(bytesRead);
+	FUR_ASSERT(flag == FS_OP_PRE_FLAG_LAMBDA);
+	
+	fs_lambda_header_t lambdaHeader = {};
+	bytesRead = fc_read_binary_buffer(&ctx.scriptBufferStream, sizeof(fs_lambda_header_t), &lambdaHeader);
+	FUR_ASSERT(bytesRead);
+	
+	// ignore the lambdaHeader here, we execute single script for now
 	
 	do
 	{
