@@ -95,6 +95,7 @@
     )
  )
 
+;; write list of pairs of (type value) code into file - recursive iteration
 (define (write-code code file)
   (cond
     ;; if this is the leaf pair - write to file
