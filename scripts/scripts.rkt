@@ -161,6 +161,24 @@
   (printf "compiled simple script ~a.fs\n" name)
  )
 
+(define (state state-name . code)
+  (cons state-name
+        code
+        )
+  )
+
+;; script state machine
+(define (define-state-script script-name . states-data)
+  (let ((p (open-output-bytes)))
+     (for ([i states-data])
+       (write-bytes (fs-lambda (car i) (cdr i)) p)
+     )
+     (close-output-port p)
+     (bytes-to-file (string-append (symbol->string script-name) ".fs") (get-output-bytes p))
+     (printf "compiled state-script ~a.fs\n" script-name)
+   )
+ )
+
 ;; =================
 ;; write script here
 
@@ -181,6 +199,15 @@
                    [animate 'self [get-variable 'zelda 'idle-anim-name]]
                    [wait-seconds 0.5]
                    [equip-item 'self 'sword]
+)
+
+(define-state-script 'zelda
+  (state 'idle
+         [animate 'self 'zelda-idle-stand-relaxed]
+  )
+  (state 'run
+         [animate 'self 'zelda-loco-run-relaxed]
+  )
 )
 
 ;; end of the script

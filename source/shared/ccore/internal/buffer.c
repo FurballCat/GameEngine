@@ -43,7 +43,10 @@ uint32_t fc_read_binary_buffer(fc_binary_buffer_stream_t* stream, uint32_t numBy
 {
 	if(stream->pos + numBytes <= stream->endPos)
 	{
-		memcpy(output, stream->pos, numBytes);
+		if(output != NULL)
+		{
+			memcpy(output, stream->pos, numBytes);
+		}
 		stream->pos += numBytes;
 		return numBytes;
 	}

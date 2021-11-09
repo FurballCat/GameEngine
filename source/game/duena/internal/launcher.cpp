@@ -83,7 +83,7 @@ const fa_anim_clip_t* fg_animations_register_find_anim(const fg_animations_regis
 
 typedef struct fs_script_ctx_t
 {
-	fc_string_hash_t lastOp;
+	fc_string_hash_t lambdaName;
 	fs_variant_t lastResult;
 	float waitSeconds;
 	uint32_t numSkipOps;
@@ -184,6 +184,7 @@ typedef struct fs_script_execution_ctx_t
 	fc_binary_buffer_stream_t scriptBufferStream;
 	fs_script_ctx_t* scriptCtx;
 	uint32_t numOpsExecuted;
+	bool endOflambda;
 } fs_script_execution_ctx_t;
 
 fs_variant_t fs_execute_script_step(fs_script_execution_ctx_t* ctx)
@@ -245,6 +246,7 @@ fs_variant_t fs_execute_script_step(fs_script_execution_ctx_t* ctx)
 		FUR_ASSERT(bytesRead);
 	}
 	
+	ctx->endOflambda = true;
 	return result;
 }
 
@@ -254,17 +256,26 @@ void fs_execute_script(const fc_binary_buffer_t* scriptBuffer, fs_script_ctx_t* 
 	ctx.scriptCtx = scriptCtx;
 	fc_init_binary_buffer_stream(scriptBuffer, &ctx.scriptBufferStream);
 	
-	// read lambda header
-	uint8_t flag = 0;
-	uint32_t bytesRead = fc_read_binary_buffer(&ctx.scriptBufferStream, sizeof(uint8_t), &flag);
-	FUR_ASSERT(bytesRead);
-	FUR_ASSERT(flag == FS_OP_PRE_FLAG_LAMBDA);
-	
 	fs_lambda_header_t lambdaHeader = {};
-	bytesRead = fc_read_binary_buffer(&ctx.scriptBufferStream, sizeof(fs_lambda_header_t), &lambdaHeader);
-	FUR_ASSERT(bytesRead);
 	
-	// ignore the lambdaHeader here, we execute single script for now
+	// read lambda header
+	do
+	{
+		uint8_t flag = 0;
+		uint32_t bytesRead = fc_read_binary_buffer(&ctx.scriptBufferStream, sizeof(uint8_t), &flag);
+		FUR_ASSERT(bytesRead);
+		FUR_ASSERT(flag == FS_OP_PRE_FLAG_LAMBDA);
+		
+		bytesRead = fc_read_binary_buffer(&ctx.scriptBufferStream, sizeof(fs_lambda_header_t), &lambdaHeader);
+		FUR_ASSERT(bytesRead);
+		
+		if(lambdaHeader.name != scriptCtx->lambdaName)
+		{
+			bytesRead = fc_read_binary_buffer(&ctx.scriptBufferStream, lambdaHeader.dataSize, NULL);
+			FUR_ASSERT(bytesRead);
+		}
+	}
+	while(lambdaHeader.name != scriptCtx->lambdaName);
 	
 	do
 	{
@@ -276,7 +287,7 @@ void fs_execute_script(const fc_binary_buffer_t* scriptBuffer, fs_script_ctx_t* 
 			break;
 		}
 	}
-	while(ctx.scriptBufferStream.pos != ctx.scriptBufferStream.endPos);
+	while(!ctx.endOflambda);
 }
 
 // ******************* //
@@ -422,7 +433,7 @@ struct FurGameEngine
 	fg_animations_register_t gameAnimationsRegister;
 	
 	// scripts temp
-	fc_binary_buffer_t zeldaInitScript;
+	fc_binary_buffer_t zeldaStateScript;
 	fg_game_object_t zeldaGameObject;
 	
 	// test dangle
@@ -515,7 +526,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	
 	// load scripts
 	{
-		fc_load_binary_file_into_binary_buffer("../../../../../scripts/idle.fs", &pEngine->zeldaInitScript, pAllocCallbacks);
+		fc_load_binary_file_into_binary_buffer("../../../../../scripts/zelda.fs", &pEngine->zeldaStateScript, pAllocCallbacks);
 	}
 	
 	// init camera
@@ -1107,8 +1118,8 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 
 void fc_dev_menu_reload_scripts(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	fc_release_binary_buffer(&pEngine->zeldaInitScript, pAllocCallbacks);
-	fc_load_binary_file_into_binary_buffer("../../../../../scripts/idle.fs", &pEngine->zeldaInitScript, pAllocCallbacks);
+	fc_release_binary_buffer(&pEngine->zeldaStateScript, pAllocCallbacks);
+	fc_load_binary_file_into_binary_buffer("../../../../../scripts/zelda.fs", &pEngine->zeldaStateScript, pAllocCallbacks);
 }
 
 typedef struct fc_dev_menu_option_t
@@ -1211,6 +1222,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 	
 	static float waitSeconds = 0.0f;
 	static uint32_t numSkipOps = 0;
+	static fc_string_hash_t latentLambdaName = 0;
 	
 	if(waitSeconds > 0.0f)
 	{
@@ -1225,7 +1237,8 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			scriptCtx.gameObjectRegister = &pEngine->gameObjectRegister;
 			scriptCtx.self = &pEngine->zeldaGameObject;
 			scriptCtx.numSkipOps = numSkipOps;
-			fs_execute_script(&pEngine->zeldaInitScript, &scriptCtx);
+			scriptCtx.lambdaName = latentLambdaName;
+			fs_execute_script(&pEngine->zeldaStateScript, &scriptCtx);
 			
 			if(scriptCtx.waitSeconds > 0.0f)
 			{
@@ -1248,12 +1261,14 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			scriptCtx.allAnimations = &pEngine->gameAnimationsRegister;
 			scriptCtx.gameObjectRegister = &pEngine->gameObjectRegister;
 			scriptCtx.self = &pEngine->zeldaGameObject;
-			fs_execute_script(&pEngine->zeldaInitScript, &scriptCtx);
+			scriptCtx.lambdaName = SID("idle");
+			fs_execute_script(&pEngine->zeldaStateScript, &scriptCtx);
 			
 			if(scriptCtx.waitSeconds > 0.0f)
 			{
 				waitSeconds = scriptCtx.waitSeconds;
 				numSkipOps = scriptCtx.numSkipOps;
+				latentLambdaName = scriptCtx.lambdaName;
 			}
 			
 			prevState = pEngine->zeldaGameObject.playerState;
@@ -1707,7 +1722,7 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	//FUR_ASSERT(furValidateAllocatorGeneral(&pEngine->m_memory._defaultInternals));
 	
 	// release scripts
-	fc_release_binary_buffer(&pEngine->zeldaInitScript, pAllocCallbacks);
+	fc_release_binary_buffer(&pEngine->zeldaStateScript, pAllocCallbacks);
 	
 	fa_dangle_release(&pEngine->dangle, pAllocCallbacks);
 	fa_dangle_release(&pEngine->zeldaDangleHairLeft, pAllocCallbacks);
