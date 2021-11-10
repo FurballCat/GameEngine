@@ -220,6 +220,7 @@
 (define-c-function equip-item (object-name symbol) (item-name symbol))
 (define-c-function wait-seconds (num-seconds float))
 (define-c-function get-variable (object-name symbol) (var-name symbol))
+(define-c-function go (state-name symbol))
 
 ;; --- end of import ---
 
@@ -229,8 +230,10 @@
   (state 'idle
          (on (start)
              [animate 'self 'zelda-funny-pose-3]
-             [wait-seconds 1.0]
+             [wait-seconds 0.5]
              [animate 'self 'zelda-funny-pose-4]
+             [wait-seconds 0.5]
+             [go 'jump]
          )
   )
   (state 'run

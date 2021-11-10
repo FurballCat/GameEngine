@@ -95,8 +95,10 @@ typedef enum fs_seg_id_t
 
 typedef struct fs_script_ctx_t
 {
-	fc_string_hash_t stateName;
+	fc_string_hash_t state;
 	fc_string_hash_t stateEventToCall;
+	
+	fc_string_hash_t nextState;
 	fs_variant_t lastResult;
 	float waitSeconds;
 	uint32_t numSkipOps;
@@ -112,6 +114,7 @@ fs_variant_t fs_native_wait_animate(fs_script_ctx_t* ctx, uint32_t numArgs, cons
 fs_variant_t fs_native_equip_item(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 fs_variant_t fs_native_wait_seconds(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 fs_variant_t fs_native_get_variable(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
+fs_variant_t fs_native_go(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 
 typedef fs_variant_t (*fs_script_navitve_func_t)(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 
@@ -130,6 +133,7 @@ fs_native_func_entry_t g_nativeFuncLookUp[] = {
 	{ SID("equip-item"), fs_native_equip_item, 2 },
 	{ SID("wait-seconds"), fs_native_wait_seconds, 1 },
 	{ SID("get-variable"), fs_native_get_variable, 2 },
+	{ SID("go"), fs_native_go, 1 },
 	{ g_scriptNullOpCode, NULL, 0 }
 };
 
@@ -329,6 +333,10 @@ void fs_execute_script_lamba(fs_script_execution_ctx_t* ctx)
 			ctx->scriptCtx->numSkipOps = ctx->numOpsExecuted;
 			break;
 		}
+		else if(ctx->scriptCtx->nextState != 0)
+		{
+			break;
+		}
 	}
 	while(!ctx->endOflambda);
 }
@@ -342,7 +350,7 @@ void fs_execute_script(const fc_binary_buffer_t* scriptBuffer, fs_script_ctx_t* 
 	fc_string_hash_t segName = fs_skip_to_next_segment(&ctx, FS_SEG_ID_STATE_SCRIPT);
 	FUR_ASSERT(segName);
 	
-	bool found = fs_skip_until_segment(&ctx, FS_SEG_ID_STATE, scriptCtx->stateName);
+	bool found = fs_skip_until_segment(&ctx, FS_SEG_ID_STATE, scriptCtx->state);
 	FUR_ASSERT(found);
 	
 	found = fs_skip_until_segment(&ctx, FS_SEG_ID_STATE_ON_EVENT, scriptCtx->stateEventToCall);
@@ -408,17 +416,6 @@ fa_action_animate_t* fg_animate_action_slots_get_free(fg_animate_action_slots_t*
 	return NULL;
 }
 
-typedef enum fg_player_state_t
-{
-	FG_PLAYER_STATE_IDLE = 0,
-	FG_PLAYER_STATE_START_LOCO,
-	FG_PLAYER_STATE_LOCO_RUN,
-	FG_PLAYER_STATE_STOP_LOCO,
-	FG_PLAYER_STATE_JUMP,
-	
-	FG_PLAYER_STATE_NONE,
-} fg_player_state_t;
-
 typedef struct fg_game_object_t
 {
 	fc_string_hash_t name;	// access in scripts example: 'zelda
@@ -426,7 +423,7 @@ typedef struct fg_game_object_t
 	
 	fa_character_t* animCharacter;
 	
-	fg_player_state_t playerState;
+	fc_string_hash_t playerState;
 	bool playerWeaponEquipped;
 	bool playerWindProtecting;
 	bool equipItemNow;
@@ -1023,6 +1020,17 @@ fs_variant_t fs_native_get_variable(fs_script_ctx_t* ctx, uint32_t numArgs, cons
 	return result;
 }
 
+fs_variant_t fs_native_go(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+{
+	FUR_ASSERT(numArgs == 1);
+	const fc_string_hash_t goToState = args[0].asStringHash;
+	
+	ctx->nextState = goToState;
+	
+	fs_variant_t result = {};
+	return result;
+}
+
 void fg_scripts_update(FurGameEngine* pEngine, float dt)
 {
 	// todo
@@ -1263,7 +1271,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 	{
 		isInit = false;
 		
-		pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_IDLE;
+		pEngine->zeldaGameObject.playerState = SID("idle");
 		
 		fa_action_args_t args = {};
 		args.fadeInSec = 0.0f;
@@ -1290,7 +1298,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		time = 0.0f;
 #endif
 	
-	static fg_player_state_t prevState = FG_PLAYER_STATE_IDLE;
+	static fc_string_hash_t prevState = SID("idle");
 	
 	static float waitSeconds = 0.0f;
 	static uint32_t numSkipOps = 0;
@@ -1310,7 +1318,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			scriptCtx.gameObjectRegister = &pEngine->gameObjectRegister;
 			scriptCtx.self = &pEngine->zeldaGameObject;
 			scriptCtx.numSkipOps = numSkipOps;
-			scriptCtx.stateName = latentLambdaName;
+			scriptCtx.state = latentLambdaName;
 			scriptCtx.stateEventToCall = latentEventName;
 			fs_execute_script(&pEngine->zeldaStateScript, &scriptCtx);
 			
@@ -1318,15 +1326,24 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			{
 				waitSeconds = scriptCtx.waitSeconds;
 				numSkipOps = scriptCtx.numSkipOps;
+				latentLambdaName = scriptCtx.state;
+				latentEventName = scriptCtx.stateEventToCall;
+			}
+			
+			if(scriptCtx.nextState != 0)
+			{
+				pEngine->zeldaGameObject.playerState = scriptCtx.nextState;
 			}
 		}
 	}
 	
-	if(pEngine->zeldaGameObject.playerState == FG_PLAYER_STATE_IDLE)
+	if(pEngine->zeldaGameObject.playerState == SID("idle"))
 	{
 		// on enter
 		if(prevState != pEngine->zeldaGameObject.playerState)
 		{
+			prevState = pEngine->zeldaGameObject.playerState;
+			
 			//fa_action_args_t args = {};
 			//args.fadeInSec = 0.3f;
 			//fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionIdle, &args);
@@ -1335,7 +1352,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			scriptCtx.allAnimations = &pEngine->gameAnimationsRegister;
 			scriptCtx.gameObjectRegister = &pEngine->gameObjectRegister;
 			scriptCtx.self = &pEngine->zeldaGameObject;
-			scriptCtx.stateName = SID("idle");
+			scriptCtx.state = SID("idle");
 			scriptCtx.stateEventToCall = SID("start");
 			fs_execute_script(&pEngine->zeldaStateScript, &scriptCtx);
 			
@@ -1343,11 +1360,14 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			{
 				waitSeconds = scriptCtx.waitSeconds;
 				numSkipOps = scriptCtx.numSkipOps;
-				latentLambdaName = scriptCtx.stateName;
+				latentLambdaName = scriptCtx.state;
 				latentEventName = scriptCtx.stateEventToCall;
 			}
 			
-			prevState = pEngine->zeldaGameObject.playerState;
+			if(scriptCtx.nextState != 0)
+			{
+				pEngine->zeldaGameObject.playerState = scriptCtx.nextState;
+			}
 		}
 		
 		// on update - upper-body layer in this case
@@ -1386,12 +1406,12 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		
 		if(fabsf(moveX) > 0.2f || fabsf(moveY) > 0.2f)
 		{
-			pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_START_LOCO;
+			pEngine->zeldaGameObject.playerState = SID("start-loco");
 		}
 		
 		if(pEngine->inActionPressed)
 		{
-			pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_JUMP;
+			pEngine->zeldaGameObject.playerState = SID("jump");
 		}
 	}
 	
@@ -1422,7 +1442,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		}
 	}
 	
-	if(pEngine->zeldaGameObject.playerState == FG_PLAYER_STATE_START_LOCO)
+	if(pEngine->zeldaGameObject.playerState == SID("start-loco"))
 	{
 		// on enter
 		if(prevState != pEngine->zeldaGameObject.playerState)
@@ -1445,7 +1465,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		// on update
 		if(pEngine->actionLocoStart.isFinished)
 		{
-			pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_LOCO_RUN;
+			pEngine->zeldaGameObject.playerState = SID("run");
 		}
 		
 		// transitions
@@ -1453,16 +1473,16 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		const float moveY = pEngine->actionMoveY;
 		if(fabsf(moveX) < 0.2f && fabsf(moveY) < 0.2f)
 		{
-			pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_STOP_LOCO;
+			pEngine->zeldaGameObject.playerState = SID("stop-loco");
 		}
 		
 		if(pEngine->inActionPressed)
 		{
-			pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_JUMP;
+			pEngine->zeldaGameObject.playerState = SID("jump");
 		}
 	}
 	
-	if(pEngine->zeldaGameObject.playerState == FG_PLAYER_STATE_LOCO_RUN)
+	if(pEngine->zeldaGameObject.playerState == SID("run"))
 	{
 		// on enter
 		if(prevState != pEngine->zeldaGameObject.playerState)
@@ -1487,16 +1507,16 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		// transitions
 		if(fabsf(moveX) < 0.2f && fabsf(moveY) < 0.2f)
 		{
-			pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_STOP_LOCO;
+			pEngine->zeldaGameObject.playerState = SID("stop-loco");
 		}
 		
 		if(pEngine->inActionPressed)
 		{
-			pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_JUMP;
+			pEngine->zeldaGameObject.playerState = SID("jump");
 		}
 	}
 	
-	if(pEngine->zeldaGameObject.playerState == FG_PLAYER_STATE_STOP_LOCO)
+	if(pEngine->zeldaGameObject.playerState == SID("stop-loco"))
 	{
 		// on enter
 		if(prevState != pEngine->zeldaGameObject.playerState)
@@ -1519,11 +1539,11 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		// transitions
 		if(pEngine->actionLocoStop.isFinished)
 		{
-			pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_IDLE;
+			pEngine->zeldaGameObject.playerState = SID("idle");
 		}
 	}
 	
-	if(pEngine->zeldaGameObject.playerState == FG_PLAYER_STATE_JUMP)
+	if(pEngine->zeldaGameObject.playerState == SID("jump"))
 	{
 		// on enter
 		if(prevState != pEngine->zeldaGameObject.playerState)
@@ -1549,11 +1569,11 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		{
 			if(pEngine->actionJump.jumpType == 1)
 			{
-				pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_IDLE;
+				pEngine->zeldaGameObject.playerState = SID("idle");
 			}
 			else
 			{
-				pEngine->zeldaGameObject.playerState = FG_PLAYER_STATE_LOCO_RUN;
+				pEngine->zeldaGameObject.playerState = SID("run");
 			}
 		}
 	}
