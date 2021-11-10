@@ -521,6 +521,7 @@ struct FurGameEngine
 	
 	// debug
 	bool debugIsSlowTime;
+	bool debugShowFPS;
 };
 
 fa_anim_clip_t* fe_load_anim_clip(const fi_depot_t* depot, const char* name, FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
@@ -1216,6 +1217,11 @@ void fc_dev_menu_slow_time(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocC
 	pEngine->debugIsSlowTime = !pEngine->debugIsSlowTime;
 }
 
+void fc_dev_menu_show_fps(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	pEngine->debugShowFPS = !pEngine->debugShowFPS;
+}
+
 typedef struct fc_dev_menu_option_t
 {
 	const char* name;
@@ -1237,7 +1243,8 @@ void fc_draw_debug_menu(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCall
 		fc_dev_menu_option_t options[] = {
 			{"reload-scripts", fc_dev_menu_reload_scripts},
 			{"show-player-anim-state", fc_dev_menu_show_player_anim_state},
-			{"slow-time", fc_dev_menu_slow_time}
+			{"slow-time", fc_dev_menu_slow_time},
+			{"fps", fc_dev_menu_show_fps}
 		};
 		
 		if(g_devMenuOption < 0)
@@ -1628,6 +1635,22 @@ void fc_dbg_mat4(const fm_mat4* m)
 
 void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callbacks_t* pAllocCallbacks)
 {
+	// show debug FPS
+	if(pEngine->debugShowFPS)
+	{
+		const float fps = 1.0f / dt;
+		const float ms = dt * 1000.0f;
+		
+		char txt[50];
+		sprintf(txt, "CPU: %1.1f fps (%1.1f ms)", fps, ms);
+		
+		const float green[4] = FUR_COLOR_GREEN;
+		const float yellow[4] = FUR_COLOR_YELLOW;
+		const float red[4] = FUR_COLOR_RED;
+		fc_dbg_text(-1050, 600, txt, ms < 16 ? green : ms < 33 ? yellow : red);
+	}
+	
+	// slow-time debug mode - this needs to be after debugShowFPS
 	if(pEngine->debugIsSlowTime)
 	{
 		const float color[4] = FUR_COLOR_RED;
