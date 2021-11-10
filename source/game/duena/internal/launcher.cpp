@@ -81,9 +81,22 @@ const fa_anim_clip_t* fg_animations_register_find_anim(const fg_animations_regis
 	return NULL;
 }
 
+typedef enum fs_seg_id_t
+{
+	FS_SEG_ID_UNKNOWN = 0,
+	FS_SEG_ID_C_FUNC_CALL = 1,	// indicates function call, read fs_script_op_header next
+	FS_SEG_ID_C_FUNC_ARG = 2,	// indicates function argument, read fs_variant_t next
+	FS_SEG_ID_LAMBDA = 3,	// indicates whole lambda (sequence of function calls), read fs_lambda_header_t next
+	FS_SEG_ID_STATE = 4,
+	FS_SEG_ID_STATE_ON_EVENT = 5,
+	FS_SEG_ID_STATE_TRACK = 6,
+	FS_SEG_ID_STATE_SCRIPT = 7,
+} fs_op_pre_flag_t;
+
 typedef struct fs_script_ctx_t
 {
-	fc_string_hash_t lambdaName;
+	fc_string_hash_t stateName;
+	fc_string_hash_t stateEventToCall;
 	fs_variant_t lastResult;
 	float waitSeconds;
 	uint32_t numSkipOps;
@@ -141,12 +154,12 @@ typedef struct fs_script_state_t
 	uint32_t idxOp;
 } fs_script_state_t;
 
-enum fs_script_parsing_stage_t
+typedef enum fs_script_parsing_stage_t
 {
 	SPS_NONE = 0,
 	SPS_READING,
 	SPS_END,
-};
+} fs_script_parsing_stage_t;
 
 /*
  
@@ -159,13 +172,6 @@ enum fs_script_parsing_stage_t
  
  **/
 
-enum fs_op_pre_flag_t
-{
-	FS_OP_PRE_FLAG_FUNC_CALL = 0,	// indicates function call, read fs_script_op_header next
-	FS_OP_PRE_FLAG_FUNC_ARG = 1,	// indicates function argument, read fs_variant_t next
-	FS_OP_PRE_FLAG_LAMBDA = 2,	// indicates whole lambda (sequence of function calls), read fs_lambda_header_t next
-} fs_op_pre_flag_t;
-
 typedef struct fs_script_op_header
 {
 	fc_string_hash_t opCode;
@@ -173,10 +179,12 @@ typedef struct fs_script_op_header
 	uint32_t numArgs;
 } fs_script_op_header;
 
-typedef struct fs_lambda_header_t
+typedef struct fs_segment_header_t
 {
-	fc_string_hash_t name;	// unique name in scope of single .fs file
-	uint32_t dataSize; 		// in bytes
+	uint8_t segmentId;		// type of segment data (what to expect next)
+	uint8_t padding;
+	uint16_t dataSize; 		// segment size in bytes
+	fc_string_hash_t name;	// unique name in segment scope (to know what to look for)
 } fs_lambda_header_t;
 
 typedef struct fs_script_execution_ctx_t
@@ -191,15 +199,18 @@ fs_variant_t fs_execute_script_step(fs_script_execution_ctx_t* ctx)
 {
 	fc_binary_buffer_stream_t* stream = &ctx->scriptBufferStream;
 	
-	// read what's next in buffer
-	uint8_t op_pre_flag = 0;
-	uint32_t bytesRead = fc_read_binary_buffer(stream, sizeof(uint8_t), &op_pre_flag);
-	FUR_ASSERT(bytesRead);
+	// peek what's next in buffer, but do not advance the stream
+	uint8_t op_pre_flag = FS_SEG_ID_UNKNOWN;
+	fc_peek_binary_buffer(stream, sizeof(uint8_t), &op_pre_flag);
 	
 	fs_variant_t result = {};
 	
-	if(op_pre_flag == FS_OP_PRE_FLAG_FUNC_CALL)
+	if(op_pre_flag == FS_SEG_ID_C_FUNC_CALL)
 	{
+		// advance the stream to skip the peeked part
+		uint32_t bytesRead = fc_read_binary_buffer(stream, sizeof(uint8_t), &op_pre_flag);
+		FUR_ASSERT(bytesRead);
+		
 		ctx->numOpsExecuted += 1;
 		
 		// read operation header
@@ -240,14 +251,86 @@ fs_variant_t fs_execute_script_step(fs_script_execution_ctx_t* ctx)
 			ctx->scriptCtx->numSkipOps -= 1;
 		}
 	}
-	else if(op_pre_flag == FS_OP_PRE_FLAG_FUNC_ARG)
+	else if(op_pre_flag == FS_SEG_ID_C_FUNC_ARG)
 	{
+		// advance the stream to skip the peeked part
+		uint32_t bytesRead = fc_read_binary_buffer(stream, sizeof(uint8_t), &op_pre_flag);
+		FUR_ASSERT(bytesRead);
+		
 		bytesRead = fc_read_binary_buffer(stream, sizeof(fs_variant_t), &result);
 		FUR_ASSERT(bytesRead);
 	}
+	else
+	{
+		ctx->endOflambda = true;
+	}
 	
-	ctx->endOflambda = true;
 	return result;
+}
+
+fs_seg_id_t fs_read_segment_header(fs_script_execution_ctx_t* ctx, fs_segment_header_t* header)
+{
+	// read segment header to know what's in
+	uint32_t bytesRead = fc_read_binary_buffer(&ctx->scriptBufferStream, sizeof(fs_segment_header_t), header);
+	FUR_ASSERT(bytesRead);
+	
+	return (fs_seg_id_t)header->segmentId;
+}
+
+fc_string_hash_t fs_skip_to_next_segment(fs_script_execution_ctx_t* ctx, fs_seg_id_t segmentType)
+{
+	fs_segment_header_t header = {};
+	bool found = false;
+	
+	while(ctx->scriptBufferStream.pos <= ctx->scriptBufferStream.endPos)
+	{
+		// read segment header to know what's in
+		uint32_t bytesRead = fc_read_binary_buffer(&ctx->scriptBufferStream, sizeof(fs_segment_header_t), &header);
+		FUR_ASSERT(bytesRead);
+		
+		// is it the segment we are looking for?
+		if(header.segmentId == segmentType)
+		{
+			found = true;
+			return header.name;
+		}
+		
+		// no? ok, let's skip to the next segment
+		bytesRead = fc_read_binary_buffer(&ctx->scriptBufferStream, header.dataSize, NULL);
+		FUR_ASSERT(bytesRead);
+	}
+	
+	return 0;
+}
+
+bool fs_skip_until_segment(fs_script_execution_ctx_t* ctx, fs_seg_id_t segmentType, fc_string_hash_t segmentName)
+{
+	fc_string_hash_t name = 0;
+	
+	do
+	{
+		name = fs_skip_to_next_segment(ctx, segmentType);
+		if(name == segmentName)
+			return true;
+	}
+	while(name != 0);
+
+	return false;
+}
+
+void fs_execute_script_lamba(fs_script_execution_ctx_t* ctx)
+{
+	do
+	{
+		fs_execute_script_step(ctx);
+		
+		if(ctx->scriptCtx->waitSeconds > 0.0f)
+		{
+			ctx->scriptCtx->numSkipOps = ctx->numOpsExecuted;
+			break;
+		}
+	}
+	while(!ctx->endOflambda);
 }
 
 void fs_execute_script(const fc_binary_buffer_t* scriptBuffer, fs_script_ctx_t* scriptCtx)
@@ -256,38 +339,27 @@ void fs_execute_script(const fc_binary_buffer_t* scriptBuffer, fs_script_ctx_t* 
 	ctx.scriptCtx = scriptCtx;
 	fc_init_binary_buffer_stream(scriptBuffer, &ctx.scriptBufferStream);
 	
-	fs_lambda_header_t lambdaHeader = {};
+	fc_string_hash_t segName = fs_skip_to_next_segment(&ctx, FS_SEG_ID_STATE_SCRIPT);
+	FUR_ASSERT(segName);
 	
-	// read lambda header
-	do
-	{
-		uint8_t flag = 0;
-		uint32_t bytesRead = fc_read_binary_buffer(&ctx.scriptBufferStream, sizeof(uint8_t), &flag);
-		FUR_ASSERT(bytesRead);
-		FUR_ASSERT(flag == FS_OP_PRE_FLAG_LAMBDA);
-		
-		bytesRead = fc_read_binary_buffer(&ctx.scriptBufferStream, sizeof(fs_lambda_header_t), &lambdaHeader);
-		FUR_ASSERT(bytesRead);
-		
-		if(lambdaHeader.name != scriptCtx->lambdaName)
-		{
-			bytesRead = fc_read_binary_buffer(&ctx.scriptBufferStream, lambdaHeader.dataSize, NULL);
-			FUR_ASSERT(bytesRead);
-		}
-	}
-	while(lambdaHeader.name != scriptCtx->lambdaName);
+	bool found = fs_skip_until_segment(&ctx, FS_SEG_ID_STATE, scriptCtx->stateName);
+	FUR_ASSERT(found);
 	
-	do
+	found = fs_skip_until_segment(&ctx, FS_SEG_ID_STATE_ON_EVENT, scriptCtx->stateEventToCall);
+	FUR_ASSERT(found);
+	
+	fs_segment_header_t segmentHeader = {};
+	fs_read_segment_header(&ctx, &segmentHeader);
+	
+	if(segmentHeader.segmentId == FS_SEG_ID_STATE_TRACK)
 	{
-		fs_execute_script_step(&ctx);
-		
-		if(scriptCtx->waitSeconds > 0.0f)
-		{
-			scriptCtx->numSkipOps = ctx.numOpsExecuted;
-			break;
-		}
+		// todo
+		fs_read_segment_header(&ctx, &segmentHeader);
+		FUR_ASSERT(segmentHeader.segmentId == FS_SEG_ID_LAMBDA);
 	}
-	while(!ctx.endOflambda);
+	
+	// run lambda
+	fs_execute_script_lamba(&ctx);
 }
 
 // ******************* //
@@ -1223,6 +1295,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 	static float waitSeconds = 0.0f;
 	static uint32_t numSkipOps = 0;
 	static fc_string_hash_t latentLambdaName = 0;
+	static fc_string_hash_t latentEventName = 0;
 	
 	if(waitSeconds > 0.0f)
 	{
@@ -1237,7 +1310,8 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			scriptCtx.gameObjectRegister = &pEngine->gameObjectRegister;
 			scriptCtx.self = &pEngine->zeldaGameObject;
 			scriptCtx.numSkipOps = numSkipOps;
-			scriptCtx.lambdaName = latentLambdaName;
+			scriptCtx.stateName = latentLambdaName;
+			scriptCtx.stateEventToCall = latentEventName;
 			fs_execute_script(&pEngine->zeldaStateScript, &scriptCtx);
 			
 			if(scriptCtx.waitSeconds > 0.0f)
@@ -1261,14 +1335,16 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			scriptCtx.allAnimations = &pEngine->gameAnimationsRegister;
 			scriptCtx.gameObjectRegister = &pEngine->gameObjectRegister;
 			scriptCtx.self = &pEngine->zeldaGameObject;
-			scriptCtx.lambdaName = SID("idle");
+			scriptCtx.stateName = SID("idle");
+			scriptCtx.stateEventToCall = SID("start");
 			fs_execute_script(&pEngine->zeldaStateScript, &scriptCtx);
 			
 			if(scriptCtx.waitSeconds > 0.0f)
 			{
 				waitSeconds = scriptCtx.waitSeconds;
 				numSkipOps = scriptCtx.numSkipOps;
-				latentLambdaName = scriptCtx.lambdaName;
+				latentLambdaName = scriptCtx.stateName;
+				latentEventName = scriptCtx.stateEventToCall;
 			}
 			
 			prevState = pEngine->zeldaGameObject.playerState;

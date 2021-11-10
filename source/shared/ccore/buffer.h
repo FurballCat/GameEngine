@@ -31,6 +31,7 @@ typedef struct fc_binary_buffer_stream_t
 
 CCORE_API void fc_init_binary_buffer_stream(const fc_binary_buffer_t* buffer, fc_binary_buffer_stream_t* outStream);
 CCORE_API uint32_t fc_read_binary_buffer(fc_binary_buffer_stream_t* stream, uint32_t numBytes, void* output);
+CCORE_API uint32_t fc_peek_binary_buffer(fc_binary_buffer_stream_t* stream, uint32_t numBytes, void* output);
 
 typedef struct fc_text_buffer_t
 {

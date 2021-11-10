@@ -54,6 +54,20 @@ uint32_t fc_read_binary_buffer(fc_binary_buffer_stream_t* stream, uint32_t numBy
 	return 0;
 }
 
+uint32_t fc_peek_binary_buffer(fc_binary_buffer_stream_t* stream, uint32_t numBytes, void* output)
+{
+	if(stream->pos + numBytes <= stream->endPos)
+	{
+		if(output != NULL)
+		{
+			memcpy(output, stream->pos, numBytes);
+		}
+		return numBytes;
+	}
+	
+	return 0;
+}
+
 bool fc_load_text_file_into_text_buffer(const char* path, fc_text_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	FILE* pFile = fopen(path, "r");
