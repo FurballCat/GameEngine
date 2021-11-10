@@ -33,6 +33,9 @@ CCORE_API void fc_dbg_plane(const float center[3], const float halfLength, const
 	
 // use sprintf( txt, "blah blah %u", value ) and pass txt to the function (txt is char txt[32] or any other reasonable size)
 CCORE_API void fc_dbg_text(float x, float y, const char* txt, const float color[4]);
+
+// draw flat 2D rectancle (drawn under text), use it for simple debug UI rectancles
+CCORE_API void fc_dbg_rect(float x, float y, float width, float height, const float color[4]);
 	
 // sizes of each debug fragment buffers
 CCORE_API uint32_t fc_dbg_line_buffer_size(void);
@@ -53,20 +56,30 @@ CCORE_API uint32_t fc_dbg_triangles_current_num_triangles(void);
 CCORE_API uint32_t fc_dbg_triangles_current_triangles_size(void);
 CCORE_API uint32_t fc_dbg_triangles_num_total_vertices(void);
 
+CCORE_API uint32_t fc_dbg_rects_current_num_rects(void);
+CCORE_API uint32_t fc_dbg_rects_num_total_vertices(void);
+
 typedef struct fc_dbg_buffers_desc_t
 {
+	// 3D lines
 	const float* linesData;
 	uint32_t linesDataSize;
 	
+	// 3D triangles
 	const float* trianglesData;
 	uint32_t trianglesDataSize;
 	
+	// 2D text
 	const float* textLocationData;
 	const uint32_t* textRangeData;
 	uint32_t textLinesCount;
 	
 	const char* textCharactersData;
 	uint32_t textCharacterDataSize;
+	
+	// 2D rects
+	const float* rectsData;
+	uint32_t rectsDataSize;
 } fc_dbg_buffer_desc_t;
 	
 CCORE_API void fc_dbg_get_buffers(fc_dbg_buffer_desc_t* outDesc);

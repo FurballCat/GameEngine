@@ -9,6 +9,7 @@
 
 #define FC_DEBUG_FRAGMENTS_LINES_CAPACITY 4096
 #define FC_DEBUG_FRAGMENTS_TRIANGLES_CAPACITY 4096
+#define FC_DEBUG_FRAGMENTS_RECTS_CAPACITY 4096
 #define FC_DEBUG_VERTEX_NUM_FLOATS 7
 
 // 512 lines of 512 characters or 1024 lines of 256 characters or 4096 lines of 64 characters
@@ -20,19 +21,31 @@
 #define FC_DEBUG_LINE_SIZE sizeof(float) * FC_DEBUG_VERTEX_NUM_FLOATS * 2
 #define FC_DEBUG_TRIANGLE_SIZE sizeof(float) * FC_DEBUG_VERTEX_NUM_FLOATS * 3
 
+// rects vertices are xy rgba - 6 floats
+#define FC_DEBUG_RECT_NUM_VERTICES 4
+#define FC_DEBUG_RECTS_VERTEX_NUM_FLOATS 6
+#define FC_DEBUG_RECT_SIZE sizeof(float) * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS * FC_DEBUG_RECT_NUM_VERTICES
+
 typedef struct fc_debug_fragments_t
 {
+	// debug 3D lines
 	float* linesData;
 	uint32_t numLines;	// todo: this can be atomic, so we will avoid locking the global
 	
+	// debug 3D triangles
 	float* trianglesData;
 	uint32_t numTriangles;
 	
-	float* textLocationData;	// x, y, r, g, b
+	// debug text
+	float* textLocationData;	// 5x float: x, y, r, g, b
 	uint32_t* textRangeData;	// offset, length
 	uint32_t numTextLines;
 	char* textCharactersData;
 	uint32_t numTextCharacters;
+	
+	// debug 2D rectangles
+	float* rectData;	// 4x vertex of 7 floats (xyz rgba)
+	uint32_t numRects;
 	
 } fc_debug_fragments_t;
 
@@ -66,6 +79,13 @@ void fc_dbg_init(fc_alloc_callbacks_t* pAllocCallbacks)
 		g_debugFragments.textCharactersData = FUR_ALLOC(sizeData, 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
 	}
 	
+	// 2D rect alloc
+	{
+		const uint32_t sizeData = FC_DEBUG_RECT_SIZE * FC_DEBUG_FRAGMENTS_RECTS_CAPACITY;
+		g_debugFragments.rectData = FUR_ALLOC(sizeData, 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
+		g_debugFragments.numRects = 0;
+	}
+	
 	g_debugFragments.numTextCharacters = 0;
 	g_debugFragments.numTextLines = 0;
 }
@@ -77,6 +97,7 @@ void fc_dbg_release(fc_alloc_callbacks_t* pAllocCallbacks)
 	FUR_FREE(g_debugFragments.textLocationData, pAllocCallbacks);
 	FUR_FREE(g_debugFragments.textRangeData, pAllocCallbacks);
 	FUR_FREE(g_debugFragments.textCharactersData, pAllocCallbacks);
+	FUR_FREE(g_debugFragments.rectData, pAllocCallbacks);
 	
 	memset(&g_debugFragments, 0, sizeof(fc_debug_fragments_t));
 }
@@ -138,6 +159,9 @@ void fc_dbg_get_buffers(fc_dbg_buffer_desc_t* outDesc)
 	outDesc->textRangeData = g_debugFragments.textRangeData;
 	outDesc->textLinesCount = g_debugFragments.numTextLines;
 	outDesc->textCharacterDataSize = g_debugFragments.numTextCharacters;
+	
+	outDesc->rectsData = g_debugFragments.rectData;
+	outDesc->rectsDataSize = g_debugFragments.numRects;
 }
 
 const float* fc_dbg_line_get_data(void)
@@ -173,6 +197,16 @@ uint32_t fc_dbg_triangles_current_triangles_size(void)
 uint32_t fc_dbg_triangles_num_total_vertices(void)
 {
 	return 3 * FC_DEBUG_FRAGMENTS_TRIANGLES_CAPACITY;
+}
+
+uint32_t fc_dbg_rects_current_num_rects(void)
+{
+	return g_debugFragments.numRects;
+}
+
+uint32_t fc_dbg_rects_num_total_vertices(void)
+{
+	return FC_DEBUG_RECT_NUM_VERTICES * FC_DEBUG_FRAGMENTS_RECTS_CAPACITY;
 }
 
 void fc_dbg_buffers_clear()
@@ -270,6 +304,141 @@ void fc_dbg_text(float x, float y, const char* txt, const float color[4])
 	uint32_t* dataRange = g_debugFragments.textRangeData + offsetRange;
 	dataRange[0] = offsetCharacters;
 	dataRange[1] = length;
+}
+
+void fc_dbg_rect(float x, float y, float width, float height, const float color[4])
+{
+	FUR_ASSERT(g_debugFragments.numRects < FC_DEBUG_FRAGMENTS_RECTS_CAPACITY);
+	
+	const uint32_t idx = g_debugFragments.numRects * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS;
+	g_debugFragments.numRects += 1;
+	
+	float* vertices = g_debugFragments.rectData + idx;
+	const uint32_t vertexStride = FC_DEBUG_RECTS_VERTEX_NUM_FLOATS;
+	
+	//  / Z
+	// o----X
+	// |
+	// |
+	// Y
+	
+	// top-right CCW triangle
+	// O---
+	//  \  |
+	//   \ |
+	//    \|
+	//
+	{
+		float* pos = vertices;
+		float* vcolor = vertices + 2;
+		
+		pos[0] = x;
+		pos[1] = y;
+		vcolor[0] = color[0];
+		vcolor[1] = color[1];
+		vcolor[2] = color[2];
+		vcolor[2] = color[2];
+	}
+	
+	vertices += vertexStride;
+	
+	//  ---
+	//  \  |
+	//   \ |
+	//    \|
+	//     O
+	{
+		float* pos = vertices;
+		float* vcolor = vertices + 2;
+		
+		pos[0] = x + width;
+		pos[1] = y - height;
+		vcolor[0] = color[0];
+		vcolor[1] = color[1];
+		vcolor[2] = color[2];
+		vcolor[2] = color[2];
+	}
+	
+	vertices += vertexStride;
+	
+	//  ---O
+	//  \  |
+	//   \ |
+	//    \|
+	//
+	{
+		float* pos = vertices;
+		float* vcolor = vertices + 2;
+		
+		pos[0] = x + width;
+		pos[1] = y;
+		vcolor[0] = color[0];
+		vcolor[1] = color[1];
+		vcolor[2] = color[2];
+		vcolor[2] = color[2];
+	}
+	
+	vertices += vertexStride;
+	
+	// bottom-left CCW triangle
+	// O
+	// |\
+	// | \
+	// |  \
+	//  ---
+	{
+		// same as vertex 0
+		float* pos = vertices;
+		float* vcolor = vertices + 2;
+		
+		pos[0] = x;
+		pos[1] = y;
+		vcolor[0] = color[0];
+		vcolor[1] = color[1];
+		vcolor[2] = color[2];
+		vcolor[2] = color[2];
+	}
+	
+	vertices += vertexStride;
+	
+	//
+	// |\
+	// | \
+	// |  \
+	// O---
+	{
+		float* pos = vertices;
+		float* vcolor = vertices + 2;
+		
+		pos[0] = x;
+		pos[1] = y - height;
+		vcolor[0] = color[0];
+		vcolor[1] = color[1];
+		vcolor[2] = color[2];
+		vcolor[2] = color[2];
+	}
+	
+	vertices += vertexStride;
+	
+	//
+	// |\
+	// | \
+	// |  \
+	//  ---O
+	{
+		// same as vertex 1
+		float* pos = vertices;
+		float* vcolor = vertices + 2;
+		
+		pos[0] = x + width;
+		pos[1] = y - height;
+		vcolor[0] = color[0];
+		vcolor[1] = color[1];
+		vcolor[2] = color[2];
+		vcolor[2] = color[2];
+	}
+	
+	vertices += vertexStride;
 }
 
 uint32_t fc_dbg_text_characters_capacity(void)
