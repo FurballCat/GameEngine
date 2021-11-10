@@ -1241,10 +1241,10 @@ void fc_draw_debug_menu(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCall
 		const float ident = 28.0f;
 		
 		fc_dev_menu_option_t options[] = {
+			{"quick-fps-mem", fc_dev_menu_show_fps},
 			{"reload-scripts", fc_dev_menu_reload_scripts},
-			{"show-player-anim-state", fc_dev_menu_show_player_anim_state},
 			{"slow-time", fc_dev_menu_slow_time},
-			{"fps", fc_dev_menu_show_fps}
+			{"show-player-anim-state", fc_dev_menu_show_player_anim_state}
 		};
 		
 		const uint32_t numOptions = FUR_ARRAY_SIZE(options);
@@ -1644,16 +1644,31 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 	// show debug FPS
 	if(pEngine->debugShowFPS)
 	{
-		const float fps = 1.0f / dt;
-		const float ms = dt * 1000.0f;
-		
-		char txt[50];
-		sprintf(txt, "CPU: %1.1f fps (%1.1f ms)", fps, ms);
-		
-		const float green[4] = FUR_COLOR_GREEN;
-		const float yellow[4] = FUR_COLOR_YELLOW;
-		const float red[4] = FUR_COLOR_RED;
-		fc_dbg_text(-1050, 600, txt, ms < 16 ? green : ms < 33 ? yellow : red);
+		{
+			const float fps = 1.0f / dt;
+			const float ms = dt * 1000.0f;
+			
+			char txt[50];
+			sprintf(txt, "CPU: %1.1f fps (%1.1f ms)", fps, ms);
+			
+			const float green[4] = FUR_COLOR_GREEN;
+			const float yellow[4] = FUR_COLOR_YELLOW;
+			const float red[4] = FUR_COLOR_RED;
+			fc_dbg_text(-1050, 628, txt, ms < 16 ? green : ms < 33 ? yellow : red);
+		}
+		{
+			fc_mem_stats_t stats = fc_memory_stats();
+			
+			const float numMBs = ((float)stats.numBytes) / 1000000.0f;
+			
+			char txt[50];
+			sprintf(txt, "MEM: %1.1f MBs (%u allocs)", numMBs, stats.numAllocs);
+			
+			const float green[4] = FUR_COLOR_GREEN;
+			const float yellow[4] = FUR_COLOR_YELLOW;
+			const float red[4] = FUR_COLOR_RED;
+			fc_dbg_text(-1050, 600, txt, numMBs < 1500.0f ? green : numMBs < 2000.0f ? yellow : red);
+		}
 	}
 	
 	// slow-time debug mode - this needs to be after debugShowFPS

@@ -108,3 +108,19 @@ bool fc_validate_memory(void)
 	
 	return true;
 }
+
+CCORE_API fc_mem_stats_t fc_memory_stats(void)
+{
+	fc_mem_stats_t stats = {};
+	
+	fc_mem_debug_info_t* ptr = &g_rootDebugMemInfo;
+	while(ptr != NULL)
+	{
+		stats.numBytes += ptr->size;
+		stats.numAllocs += 1;
+		
+		ptr = ptr->next;
+	}
+	
+	return stats;
+}

@@ -99,6 +99,14 @@ CCORE_API void fc_dealloc(struct fc_alloc_callbacks_t* pAllocCallbacks, void* pM
 	
 CCORE_API bool fc_validate_memory(void);
 
+typedef struct fc_mem_stats_t
+{
+	uint32_t numAllocs;
+	uint64_t numBytes;
+} fc_mem_stats_t;
+
+CCORE_API fc_mem_stats_t fc_memory_stats(void);
+
 #define FUR_ARRAY_SIZE(_arr) sizeof(_arr) / sizeof(_arr[0])
 	
 #ifdef __cplusplus
