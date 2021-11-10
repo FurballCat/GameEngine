@@ -28,6 +28,7 @@ void fr_pso_init_color_blend_state(VkPipelineColorBlendAttachmentState* colorBle
 void fr_pso_init_layout(VkDescriptorSetLayout* descriptorSetLayout, VkPipelineLayoutCreateInfo* pipelineLayoutInfo);
 
 void fr_pso_init_depth_stencil_state(VkPipelineDepthStencilStateCreateInfo* depthStencil);
+void fr_pso_init_depth_stencil_state_no_depth_test(VkPipelineDepthStencilStateCreateInfo* depthStencil);
 
 void fr_attachment_init_color(uint32_t attachmentIndex,
 							  VkFormat colorFormat,

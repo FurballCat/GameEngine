@@ -150,6 +150,20 @@ void fr_pso_init_depth_stencil_state(VkPipelineDepthStencilStateCreateInfo* dept
 	// depthStencil->back = {}; // Optional
 }
 
+void fr_pso_init_depth_stencil_state_no_depth_test(VkPipelineDepthStencilStateCreateInfo* depthStencil)
+{
+	depthStencil->sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depthStencil->depthTestEnable = VK_FALSE;
+	depthStencil->depthWriteEnable = VK_FALSE;
+	depthStencil->depthCompareOp = VK_COMPARE_OP_ALWAYS;
+	depthStencil->depthBoundsTestEnable = VK_FALSE;
+	depthStencil->minDepthBounds = 0.0f; // Optional
+	depthStencil->maxDepthBounds = 1.0f; // Optional
+	depthStencil->stencilTestEnable = VK_FALSE;
+	// depthStencil->front = {}; // Optional - cleared at the beginning by depthStencil = {}
+	// depthStencil->back = {}; // Optional
+}
+
 void fr_attachment_init_color(uint32_t attachmentIndex,
 							  VkFormat colorFormat,
 							  VkAttachmentDescription* colorAttachment,

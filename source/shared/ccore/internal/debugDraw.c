@@ -21,8 +21,8 @@
 #define FC_DEBUG_LINE_SIZE sizeof(float) * FC_DEBUG_VERTEX_NUM_FLOATS * 2
 #define FC_DEBUG_TRIANGLE_SIZE sizeof(float) * FC_DEBUG_VERTEX_NUM_FLOATS * 3
 
-// rects vertices are xy rgba - 6 floats
-#define FC_DEBUG_RECT_NUM_VERTICES 4
+// rects vertices are xy rgba - 6 floats, 6 vertices per rect because 2x triangle 3x vertex
+#define FC_DEBUG_RECT_NUM_VERTICES 6
 #define FC_DEBUG_RECTS_VERTEX_NUM_FLOATS 6
 #define FC_DEBUG_RECT_SIZE sizeof(float) * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS * FC_DEBUG_RECT_NUM_VERTICES
 
@@ -161,7 +161,7 @@ void fc_dbg_get_buffers(fc_dbg_buffer_desc_t* outDesc)
 	outDesc->textCharacterDataSize = g_debugFragments.numTextCharacters;
 	
 	outDesc->rectsData = g_debugFragments.rectData;
-	outDesc->rectsDataSize = g_debugFragments.numRects;
+	outDesc->rectsDataSize = fc_dbg_rects_current_data_size();
 }
 
 const float* fc_dbg_line_get_data(void)
@@ -204,9 +204,29 @@ uint32_t fc_dbg_rects_current_num_rects(void)
 	return g_debugFragments.numRects;
 }
 
+uint32_t fc_dbg_rects_buffer_size(void)
+{
+	return fc_dbg_rects_num_total_vertices() * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS * sizeof(float);
+}
+
+uint32_t fc_dbg_rects_current_num_vertices(void)
+{
+	return fc_dbg_rects_current_num_rects() * FC_DEBUG_RECT_NUM_VERTICES;
+}
+
+uint32_t fc_dbg_rects_current_data_size(void)
+{
+	return fc_dbg_rects_current_num_vertices() * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS * sizeof(float);
+}
+
 uint32_t fc_dbg_rects_num_total_vertices(void)
 {
 	return FC_DEBUG_RECT_NUM_VERTICES * FC_DEBUG_FRAGMENTS_RECTS_CAPACITY;
+}
+
+uint32_t fc_dbg_rect_num_floats_per_vertex(void)
+{
+	return FC_DEBUG_RECTS_VERTEX_NUM_FLOATS;
 }
 
 void fc_dbg_buffers_clear()
@@ -215,6 +235,7 @@ void fc_dbg_buffers_clear()
 	g_debugFragments.numTriangles = 0;
 	g_debugFragments.numTextCharacters = 0;
 	g_debugFragments.numTextLines = 0;
+	g_debugFragments.numRects = 0;
 }
 
 void fc_dbg_buffers_unlock(void)
@@ -337,7 +358,7 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 		vcolor[0] = color[0];
 		vcolor[1] = color[1];
 		vcolor[2] = color[2];
-		vcolor[2] = color[2];
+		vcolor[3] = color[3];
 	}
 	
 	vertices += vertexStride;
@@ -356,7 +377,7 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 		vcolor[0] = color[0];
 		vcolor[1] = color[1];
 		vcolor[2] = color[2];
-		vcolor[2] = color[2];
+		vcolor[3] = color[3];
 	}
 	
 	vertices += vertexStride;
@@ -375,7 +396,7 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 		vcolor[0] = color[0];
 		vcolor[1] = color[1];
 		vcolor[2] = color[2];
-		vcolor[2] = color[2];
+		vcolor[3] = color[3];
 	}
 	
 	vertices += vertexStride;
@@ -396,7 +417,7 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 		vcolor[0] = color[0];
 		vcolor[1] = color[1];
 		vcolor[2] = color[2];
-		vcolor[2] = color[2];
+		vcolor[3] = color[3];
 	}
 	
 	vertices += vertexStride;
@@ -415,7 +436,7 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 		vcolor[0] = color[0];
 		vcolor[1] = color[1];
 		vcolor[2] = color[2];
-		vcolor[2] = color[2];
+		vcolor[3] = color[3];
 	}
 	
 	vertices += vertexStride;
@@ -435,7 +456,7 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 		vcolor[0] = color[0];
 		vcolor[1] = color[1];
 		vcolor[2] = color[2];
-		vcolor[2] = color[2];
+		vcolor[3] = color[3];
 	}
 	
 	vertices += vertexStride;

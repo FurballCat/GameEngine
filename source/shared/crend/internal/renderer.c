@@ -712,6 +712,7 @@ struct fr_renderer_t
 	// debug draw
 	VkPipeline debugLinesPSO;
 	VkPipeline debugTrianglesPSO;
+	VkPipeline debugRectsPSO;
 	VkPipeline debugTextPSO;
 	
 	VkShaderModule debugVertexShaderModule;
@@ -726,9 +727,22 @@ struct fr_renderer_t
 	VkVertexInputBindingDescription debugTextVertexBindingDescription;
 	VkVertexInputAttributeDescription debugTextVertexAttributes[3];
 	
+	// debug 3D lines and triangles
 	fr_buffer_t debugLinesVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
 	fr_buffer_t debugTrianglesVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
 	
+	// debug 2D rects
+	VkDescriptorSetLayout rectDescriptorSetLayout;	// for uniform buffer
+	VkDescriptorSet aRectDescriptorSets[NUM_SWAP_CHAIN_IMAGES];
+	VkVertexInputBindingDescription debugRectVertexBindingDescription;
+	VkVertexInputAttributeDescription debugRectVertexAttributes[2];
+	VkPipelineLayout rectsPipelineLayout;
+	VkShaderModule rectVertexShaderModule;
+	VkShaderModule rectFragmentShaderModule;
+	fr_buffer_t aRectsVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
+	fr_buffer_t aRectsUniformBuffer[NUM_SWAP_CHAIN_IMAGES];
+	
+	// debug 2D text
 	fr_buffer_t textVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
 	fr_font_t textFont;
 	VkDescriptorSetLayout textDescriptorSetLayout;	// for uniform buffer
@@ -1139,6 +1153,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	const char* debugFragmentShaderPath = "../../../../../shaders/compiled/debug_fs.spv";
 	const char* textVertexShaderPath = "../../../../../shaders/compiled/text_vs.spv";
 	const char* textFragmentShaderPath = "../../../../../shaders/compiled/text_fs.spv";
+	const char* rectVertexShaderPath = "../../../../../shaders/compiled/rect_vs.spv";
+	const char* rectFragmentShaderPath = "../../../../../shaders/compiled/rect_fs.spv";
 	
 	if(res == FR_RESULT_OK)
 	{
@@ -1175,6 +1191,16 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		res = fr_create_shader_module(pRenderer->device, textFragmentShaderPath, &pRenderer->textFragmentShaderModule, pAllocCallbacks);
 	}
 	
+	if(res == FR_RESULT_OK)
+	{
+		res = fr_create_shader_module(pRenderer->device, rectVertexShaderPath, &pRenderer->rectVertexShaderModule, pAllocCallbacks);
+	}
+	
+	if(res == FR_RESULT_OK)
+	{
+		res = fr_create_shader_module(pRenderer->device, rectFragmentShaderPath, &pRenderer->rectFragmentShaderModule, pAllocCallbacks);
+	}
+	
 	// debug draw bindings
 	if(res == FR_RESULT_OK)
 	{
@@ -1191,6 +1217,24 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		pRenderer->debugLinesVertexAttributes[1].location = 1;
 		pRenderer->debugLinesVertexAttributes[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
 		pRenderer->debugLinesVertexAttributes[1].offset = 3 * sizeof(float);
+	}
+	
+	// debug 2D rect draw bindings
+	if(res == FR_RESULT_OK)
+	{
+		pRenderer->debugRectVertexBindingDescription.binding = 0;
+		pRenderer->debugRectVertexBindingDescription.stride = fc_dbg_rect_num_floats_per_vertex() * sizeof(float);
+		pRenderer->debugRectVertexBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		
+		pRenderer->debugRectVertexAttributes[0].binding = 0;
+		pRenderer->debugRectVertexAttributes[0].location = 0;
+		pRenderer->debugRectVertexAttributes[0].format = VK_FORMAT_R32G32_SFLOAT;
+		pRenderer->debugRectVertexAttributes[0].offset = 0;
+		
+		pRenderer->debugRectVertexAttributes[1].binding = 0;
+		pRenderer->debugRectVertexAttributes[1].location = 1;
+		pRenderer->debugRectVertexAttributes[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+		pRenderer->debugRectVertexAttributes[1].offset = 2 * sizeof(float);
 	}
 	
 	// debug text draw bindings
@@ -1295,6 +1339,32 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 	}
 	
+	// create descriptor set layout for 2D rect drawing
+	if(res == FR_RESULT_OK)
+	{
+		// uniform buffer (UBO)
+		VkDescriptorSetLayoutBinding uboLayoutBinding = {};
+		uboLayoutBinding.binding = 0;
+		uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uboLayoutBinding.descriptorCount = 1;
+		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		uboLayoutBinding.pImmutableSamplers = NULL;
+		
+		const uint32_t numBindings = 1;
+		VkDescriptorSetLayoutBinding bindings[numBindings] = { uboLayoutBinding };
+		
+		VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layoutInfo.bindingCount = numBindings;
+		layoutInfo.pBindings = bindings;
+		
+		if (vkCreateDescriptorSetLayout(pRenderer->device, &layoutInfo, NULL, &pRenderer->rectDescriptorSetLayout) != VK_SUCCESS)
+		{
+			fur_set_last_error("Can't create descriptor layout for 2D rect drawing");
+			res = FR_RESULT_ERROR_GPU;
+		}
+	}
+	
 	// create descriptor set layout for text drawing
 	if(res == FR_RESULT_OK)
 	{
@@ -1368,6 +1438,20 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		for(uint32_t i=0; i<3; ++i)
 		{
 			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->aSkinningBuffer[i], pAllocCallbacks);
+		}
+	}
+	
+	// create 2D rects uniform buffer
+	if(res == FR_RESULT_OK)
+	{
+		fr_buffer_desc_t desc;
+		desc.size = sizeof(fr_uniform_buffer_t);
+		desc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+		desc.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+		
+		for(uint32_t i=0; i<3; ++i)
+		{
+			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->aRectsUniformBuffer[i], pAllocCallbacks);
 		}
 	}
 	
@@ -1551,17 +1635,18 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		VkPipelineMultisampleStateCreateInfo multisampling = {};
 		fr_pso_init_multisampling_state(&multisampling);
 		
-		// depth and stencil state
+		// depth and stencil state - for blending use fr_pso_init_color_blend_attachment_state_blending
 		VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
 		fr_pso_init_color_blend_attachment_state(&colorBlendAttachment);
-		
-		// for blending use fr_pso_init_color_blend_attachment_state_blending
 		
 		VkPipelineColorBlendStateCreateInfo colorBlending = {};
 		fr_pso_init_color_blend_state(&colorBlendAttachment, &colorBlending);
 		
 		VkPipelineDepthStencilStateCreateInfo depthStencil = {};
 		fr_pso_init_depth_stencil_state(&depthStencil);
+		
+		VkPipelineDepthStencilStateCreateInfo depthStencilNoDepth = {};
+		fr_pso_init_depth_stencil_state_no_depth_test(&depthStencilNoDepth);
 		
 		// create graphics pipeline
 		VkGraphicsPipelineCreateInfo pipelineInfo = {};
@@ -1598,14 +1683,14 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
 		pipelineInfo.basePipelineIndex = 0; // Optional
 		
-		// create lines debug PSO
+		// create 3D lines debug PSO
 		if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->debugLinesPSO) != VK_SUCCESS)
 		{
 			fur_set_last_error("Can't create debug lines PSO");
 			res = FR_RESULT_ERROR_GPU;
 		}
 		
-		// create triangles debug PSO
+		// create 3D triangles debug PSO
 		fr_pso_init_rasterization_state_polygon_fill(&rasterizer);
 		fr_pso_init_input_assembly_state_triangle_list(&inputAssembly);
 		if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->debugTrianglesPSO) != VK_SUCCESS)
@@ -1614,38 +1699,91 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			res = FR_RESULT_ERROR_GPU;
 		}
 		
-		// create text debug PSO
-		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
-		fr_pso_init_layout(&pRenderer->textDescriptorSetLayout, &pipelineLayoutInfo);
+		// depth and stencil state - for blending use fr_pso_init_color_blend_attachment_state_blending
+		VkPipelineColorBlendAttachmentState colorBlendAttachmentBlending = {};
+		fr_pso_init_color_blend_attachment_state_blending(&colorBlendAttachmentBlending);
 		
-		if (vkCreatePipelineLayout(pRenderer->device, &pipelineLayoutInfo, NULL, &pRenderer->textPipelineLayout) != VK_SUCCESS)
+		VkPipelineColorBlendStateCreateInfo colorBlendingDoBlending = {};
+		fr_pso_init_color_blend_state(&colorBlendAttachmentBlending, &colorBlendingDoBlending);
+		
+		pipelineInfo.pColorBlendState = &colorBlendingDoBlending;
+		
+		// override depth stencil to no depth test
+		pipelineInfo.pDepthStencilState = &depthStencilNoDepth;
+		
+		// create 2D rects debug PSO
 		{
-			fur_set_last_error("Can't create text pipeline layout");
-			res = FR_RESULT_ERROR_GPU;
+			VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
+			fr_pso_init_layout(&pRenderer->rectDescriptorSetLayout, &pipelineLayoutInfo);
+			
+			if (vkCreatePipelineLayout(pRenderer->device, &pipelineLayoutInfo, NULL, &pRenderer->rectsPipelineLayout) != VK_SUCCESS)
+			{
+				fur_set_last_error("Can't create rects pipeline layout");
+				res = FR_RESULT_ERROR_GPU;
+			}
+			
+			pipelineInfo.layout = pRenderer->rectsPipelineLayout;
+			
+			fr_pso_init_rasterization_state_polygon_fill(&rasterizer);
+			fr_pso_init_input_assembly_state_triangle_list(&inputAssembly);
+			
+			fr_pso_init_shader_stages_simple(pRenderer->rectVertexShaderModule, "main",
+											 pRenderer->rectFragmentShaderModule, "main",
+											 shaderStages);
+			
+			pipelineInfo.stageCount = 2;
+			pipelineInfo.pStages = shaderStages;
+			
+			vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+			vertexInputInfo.vertexBindingDescriptionCount = 1;
+			vertexInputInfo.vertexAttributeDescriptionCount = 2;
+			vertexInputInfo.pVertexBindingDescriptions = &pRenderer->debugRectVertexBindingDescription;
+			vertexInputInfo.pVertexAttributeDescriptions = pRenderer->debugRectVertexAttributes;
+			
+			if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->debugRectsPSO) != VK_SUCCESS)
+			{
+				fur_set_last_error("Can't create debug rects PSO");
+				res = FR_RESULT_ERROR_GPU;
+			}
 		}
 		
-		pipelineInfo.layout = pRenderer->textPipelineLayout;
-		
-		fr_pso_init_rasterization_state_polygon_fill(&rasterizer);
-		fr_pso_init_input_assembly_state_triangle_list(&inputAssembly);
-		
-		fr_pso_init_shader_stages_simple(pRenderer->textVertexShaderModule, "main",
-										 pRenderer->textFragmentShaderModule, "main",
-										 shaderStages);
-		
-		pipelineInfo.stageCount = 2;
-		pipelineInfo.pStages = shaderStages;
-		
-		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInputInfo.vertexBindingDescriptionCount = 1;
-		vertexInputInfo.vertexAttributeDescriptionCount = 3;
-		vertexInputInfo.pVertexBindingDescriptions = &pRenderer->debugTextVertexBindingDescription;
-		vertexInputInfo.pVertexAttributeDescriptions = pRenderer->debugTextVertexAttributes;
-		
-		if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->debugTextPSO) != VK_SUCCESS)
+		// create 2D text debug PSO
 		{
-			fur_set_last_error("Can't create debug text PSO");
-			res = FR_RESULT_ERROR_GPU;
+			VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
+			fr_pso_init_layout(&pRenderer->textDescriptorSetLayout, &pipelineLayoutInfo);
+			
+			if (vkCreatePipelineLayout(pRenderer->device, &pipelineLayoutInfo, NULL, &pRenderer->textPipelineLayout) != VK_SUCCESS)
+			{
+				fur_set_last_error("Can't create text pipeline layout");
+				res = FR_RESULT_ERROR_GPU;
+			}
+			
+			VkPipelineDepthStencilStateCreateInfo depthStencil = {};
+			fr_pso_init_depth_stencil_state_no_depth_test(&depthStencil);
+			
+			pipelineInfo.layout = pRenderer->textPipelineLayout;
+			
+			fr_pso_init_rasterization_state_polygon_fill(&rasterizer);
+			fr_pso_init_input_assembly_state_triangle_list(&inputAssembly);
+			
+			fr_pso_init_shader_stages_simple(pRenderer->textVertexShaderModule, "main",
+											 pRenderer->textFragmentShaderModule, "main",
+											 shaderStages);
+			
+			pipelineInfo.stageCount = 2;
+			pipelineInfo.pStages = shaderStages;
+			
+			vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+			vertexInputInfo.vertexBindingDescriptionCount = 1;
+			vertexInputInfo.vertexAttributeDescriptionCount = 3;
+			vertexInputInfo.pVertexBindingDescriptions = &pRenderer->debugTextVertexBindingDescription;
+			vertexInputInfo.pVertexAttributeDescriptions = pRenderer->debugTextVertexAttributes;
+			
+			if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->debugTextPSO) != VK_SUCCESS)
+			{
+				fur_set_last_error("Can't create debug text PSO");
+				res = FR_RESULT_ERROR_GPU;
+			}
 		}
 	}
 	
@@ -1817,6 +1955,20 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 	}
 	
+	// create debug 2D rects vertex buffer
+	if(res == FR_RESULT_OK)
+	{
+		fr_buffer_desc_t desc = {};
+		desc.size = fc_dbg_rects_buffer_size();
+		desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
+		desc.properties = FR_STAGING_BUFFER_MEMORY_FLAGS;	// use vertex buffer usage, but staging buffer properties
+		
+		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		{
+			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->aRectsVertexBuffer[i], pAllocCallbacks);
+		}
+	}
+	
 	// create debug text vertex buffer
 	if(res == FR_RESULT_OK)
 	{
@@ -1875,7 +2027,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		poolInfo.poolSizeCount = numBindings;
 		poolInfo.pPoolSizes = poolSizes;
-		poolInfo.maxSets = NUM_SWAP_CHAIN_IMAGES * 3;	// * 3 because part of it is also for text drawing and also for prop descriptors
+		poolInfo.maxSets = NUM_SWAP_CHAIN_IMAGES * 4;	// * 4 because part of it is also for text drawing and also for prop descriptors and also for rects drawing
 		
 		if (vkCreateDescriptorPool(pRenderer->device, &poolInfo, NULL, &pRenderer->descriptorPool) != VK_SUCCESS)
 		{
@@ -2285,6 +2437,48 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 	}
 	
+	// create descriptor sets for 2D rect drawing
+	if(res == FR_RESULT_OK)
+	{
+		VkDescriptorSetLayout layouts[NUM_SWAP_CHAIN_IMAGES] = {pRenderer->rectDescriptorSetLayout,
+			pRenderer->rectDescriptorSetLayout, pRenderer->rectDescriptorSetLayout};
+		
+		VkDescriptorSetAllocateInfo allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		allocInfo.descriptorPool = pRenderer->descriptorPool;
+		allocInfo.descriptorSetCount = NUM_SWAP_CHAIN_IMAGES;
+		allocInfo.pSetLayouts = layouts;
+		
+		if (vkAllocateDescriptorSets(pRenderer->device, &allocInfo, pRenderer->aRectDescriptorSets) != VK_SUCCESS)
+		{
+			fur_set_last_error("Can't allocate descriptor sets for 2D rect drawing uniform buffers");
+			res = FR_RESULT_ERROR_GPU;
+		}
+		
+		for (size_t i = 0; i < NUM_SWAP_CHAIN_IMAGES; ++i)
+		{
+			VkDescriptorBufferInfo bufferInfo[1] = {};
+			bufferInfo[0].buffer = pRenderer->aRectsUniformBuffer[i].buffer;
+			bufferInfo[0].offset = 0;
+			bufferInfo[0].range = sizeof(fr_uniform_buffer_t);
+			
+			const uint32_t numBindings = 1;
+			VkWriteDescriptorSet descriptorWrites[numBindings] = {};
+			
+			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[0].dstSet = pRenderer->aRectDescriptorSets[i];
+			descriptorWrites[0].dstBinding = 0;
+			descriptorWrites[0].dstArrayElement = 0;
+			descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			descriptorWrites[0].descriptorCount = 1;
+			descriptorWrites[0].pBufferInfo = &bufferInfo[0];
+			descriptorWrites[0].pImageInfo = NULL; // Optional
+			descriptorWrites[0].pTexelBufferView = NULL; // Optional
+			
+			vkUpdateDescriptorSets(pRenderer->device, numBindings, descriptorWrites, 0, NULL);
+		}
+	}
+	
 	// create descriptor sets for text drawing
 	if(res == FR_RESULT_OK)
 	{
@@ -2475,15 +2669,24 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			 
 			VkDeviceSize offsets[] = {0};
 			
-			// debug draw lines
+			// debug draw 3D lines
 			vkCmdBindPipeline(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugLinesPSO);
 			vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 1, &pRenderer->debugLinesVertexBuffer[i].buffer, offsets);
 			vkCmdDraw(pRenderer->aCommandBuffers[i], fc_dbg_line_num_total_vertices(), 1, 0, 0);
 			
-			// debug draw triangles
+			// debug draw 3D triangles
 			vkCmdBindPipeline(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugTrianglesPSO);
 			vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 1, &pRenderer->debugTrianglesVertexBuffer[i].buffer, offsets);
 			vkCmdDraw(pRenderer->aCommandBuffers[i], fc_dbg_triangles_num_total_vertices(), 1, 0, 0);
+			
+			// debug draw 2D rects
+			vkCmdBindPipeline(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugRectsPSO);
+			
+			vkCmdBindDescriptorSets(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
+									pRenderer->rectsPipelineLayout, 0, 1, &pRenderer->aRectDescriptorSets[i], 0, NULL);
+			
+			vkCmdBindVertexBuffers(pRenderer->aCommandBuffers[i], 0, 1, &pRenderer->aRectsVertexBuffer[i].buffer, offsets);
+			vkCmdDraw(pRenderer->aCommandBuffers[i], fc_dbg_rects_num_total_vertices(), 1, 0, 0);
 			
 			// debug draw text
 			vkCmdBindPipeline(pRenderer->aCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugTextPSO);
@@ -2661,7 +2864,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 	}
 	
-	// clear debug fragments buffers buffer with zeros
+	// clear debug fragments buffers with zeros
 	if(res == FR_RESULT_OK)
 	{
 		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
@@ -2677,6 +2880,11 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			fr_clear_data_in_buffer(pRenderer->device, pRenderer->textVertexBuffer[i].memory, 0, fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6 * sizeof(float));
+		}
+		
+		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		{
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->aRectsVertexBuffer[i].memory, 0, fc_dbg_rects_buffer_size());
 		}
 	}
 	
@@ -2733,6 +2941,7 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 			fr_buffer_release(pRenderer->device, &pRenderer->aSkinningBuffer[i], pAllocCallbacks);
 			
 			fr_buffer_release(pRenderer->device, &pRenderer->aTextUniformBuffer[i], pAllocCallbacks);
+			fr_buffer_release(pRenderer->device, &pRenderer->aRectsUniformBuffer[i], pAllocCallbacks);
 		}
 		
 		vkDestroyDescriptorPool(pRenderer->device, pRenderer->descriptorPool, NULL);
@@ -2778,6 +2987,7 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 		fr_buffer_release(pRenderer->device, &pRenderer->debugLinesVertexBuffer[i], pAllocCallbacks);
 		fr_buffer_release(pRenderer->device, &pRenderer->debugTrianglesVertexBuffer[i], pAllocCallbacks);
 		fr_buffer_release(pRenderer->device, &pRenderer->textVertexBuffer[i], pAllocCallbacks);
+		fr_buffer_release(pRenderer->device, &pRenderer->aRectsVertexBuffer[i], pAllocCallbacks);
 	}
 	
 	fr_font_release(pRenderer->device, &pRenderer->textFont, pAllocCallbacks);
@@ -2785,6 +2995,7 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	// destroy descriptor set layout
 	vkDestroyDescriptorSetLayout(pRenderer->device, pRenderer->descriptorSetLayout, NULL);
 	vkDestroyDescriptorSetLayout(pRenderer->device, pRenderer->textDescriptorSetLayout, NULL);
+	vkDestroyDescriptorSetLayout(pRenderer->device, pRenderer->rectDescriptorSetLayout, NULL);
 	
 	// destroy semaphores
 	vkDestroySemaphore(pRenderer->device, pRenderer->imageAvailableSemaphore, NULL);
@@ -2823,6 +3034,9 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	
 	vkDestroyShaderModule(pRenderer->device, pRenderer->textVertexShaderModule, NULL);
 	vkDestroyShaderModule(pRenderer->device, pRenderer->textFragmentShaderModule, NULL);
+	
+	vkDestroyShaderModule(pRenderer->device, pRenderer->rectVertexShaderModule, NULL);
+	vkDestroyShaderModule(pRenderer->device, pRenderer->rectFragmentShaderModule, NULL);
 	
 	// destroy window surface and swap chain
 	for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
@@ -3004,6 +3218,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		fm_mat4_transpose(&ubo.proj);
 		
 		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aTextUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(fr_uniform_buffer_t));
+		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aRectsUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(fr_uniform_buffer_t));
 	}
 	
 	/*
@@ -3034,7 +3249,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		}
 		else
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[imageIndex].memory, 0, desc.linesDataSize);
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[imageIndex].memory, 0, (uint32_t)pRenderer->debugLinesVertexBuffer[imageIndex].size);
 		}
 		
 		if(desc.trianglesDataSize > 0)
@@ -3044,7 +3259,17 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		}
 		else
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[imageIndex].memory, 0, desc.trianglesDataSize);
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[imageIndex].memory, 0, (uint32_t)pRenderer->debugTrianglesVertexBuffer[imageIndex].size);
+		}
+		
+		if(desc.rectsDataSize > 0)
+		{
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->aRectsVertexBuffer[imageIndex].memory, 0, desc.rectsDataSize);
+			fr_copy_data_to_buffer(pRenderer->device, pRenderer->aRectsVertexBuffer[imageIndex].memory, desc.rectsData, 0, desc.rectsDataSize);
+		}
+		else
+		{
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->aRectsVertexBuffer[imageIndex].memory, 0, fc_dbg_rects_buffer_size());
 		}
 		
 		if(desc.textLinesCount > 0)

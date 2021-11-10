@@ -57,7 +57,11 @@ CCORE_API uint32_t fc_dbg_triangles_current_triangles_size(void);
 CCORE_API uint32_t fc_dbg_triangles_num_total_vertices(void);
 
 CCORE_API uint32_t fc_dbg_rects_current_num_rects(void);
+CCORE_API uint32_t fc_dbg_rects_buffer_size(void);
+CCORE_API uint32_t fc_dbg_rects_current_num_vertices(void);
+CCORE_API uint32_t fc_dbg_rects_current_data_size(void);
 CCORE_API uint32_t fc_dbg_rects_num_total_vertices(void);
+CCORE_API uint32_t fc_dbg_rect_num_floats_per_vertex(void);
 
 typedef struct fc_dbg_buffers_desc_t
 {

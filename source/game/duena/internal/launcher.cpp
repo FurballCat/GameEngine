@@ -1247,14 +1247,20 @@ void fc_draw_debug_menu(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCall
 			{"fps", fc_dev_menu_show_fps}
 		};
 		
+		const uint32_t numOptions = FUR_ARRAY_SIZE(options);
+		
 		if(g_devMenuOption < 0)
-			g_devMenuOption = FUR_ARRAY_SIZE(options)-1;
-		else if(g_devMenuOption >= FUR_ARRAY_SIZE(options))
+			g_devMenuOption = numOptions-1;
+		else if(g_devMenuOption >= numOptions)
 			g_devMenuOption = 0;
+		
+		const float bgColor[4] = {0.2f, 0.2f, 0.2f, 0.8f};
+		
+		fc_dbg_rect(x - 40.0f, y + 40.0f, 450.0f, 110.0f + 28.0f * numOptions, bgColor);
 		
 		fc_dbg_text(x, y, "Dev Menu:", color);
 		
-		for(uint32_t i=0; i<FUR_ARRAY_SIZE(options); ++i)
+		for(uint32_t i=0; i<numOptions; ++i)
 		{
 			const bool isSelected = (i == g_devMenuOption);
 			
