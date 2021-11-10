@@ -404,7 +404,7 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 		
 		if(glyph->size[0] == 0)
 		{
-			cursor[0] += 3.0f * scale;	// move cursor by 3 pixels for space character
+			cursor[0] += 12.0f * scale;	// move cursor by X pixels for space character
 		}
 		
 		verticesUsed += numVerticesPerGlyph * FR_FONT_FLOATS_PER_GLYPH_VERTEX;

@@ -414,6 +414,8 @@ typedef struct fa_character_animate_ctx_t
 	
 	void* scratchpadBuffer;
 	uint32_t scratchpadBufferSize;
+	
+	bool showDebug;
 } fa_character_animate_ctx_t;
 	
 CANIM_API void fa_character_animate(fa_character_t* character, const fa_character_animate_ctx_t* ctx);

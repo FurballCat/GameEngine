@@ -427,6 +427,7 @@ typedef struct fg_game_object_t
 	bool playerWeaponEquipped;
 	bool playerWindProtecting;
 	bool equipItemNow;
+	bool showAnimStateDebug;
 	
 } fg_game_object_t;
 
@@ -517,6 +518,9 @@ struct FurGameEngine
 	uint32_t zeldaDangleHairRightIdx2;
 	uint32_t zeldaHeadIdx;
 	uint32_t zeldaHandRightIdx;
+	
+	// debug
+	bool debugIsSlowTime;
 };
 
 fa_anim_clip_t* fe_load_anim_clip(const fi_depot_t* depot, const char* name, FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
@@ -1202,6 +1206,16 @@ void fc_dev_menu_reload_scripts(FurGameEngine* pEngine, fc_alloc_callbacks_t* pA
 	fc_load_binary_file_into_binary_buffer("../../../../../scripts/zelda.fs", &pEngine->zeldaStateScript, pAllocCallbacks);
 }
 
+void fc_dev_menu_show_player_anim_state(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	pEngine->zeldaGameObject.showAnimStateDebug = !pEngine->zeldaGameObject.showAnimStateDebug;
+}
+
+void fc_dev_menu_slow_time(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	pEngine->debugIsSlowTime = !pEngine->debugIsSlowTime;
+}
+
 typedef struct fc_dev_menu_option_t
 {
 	const char* name;
@@ -1222,8 +1236,8 @@ void fc_draw_debug_menu(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCall
 		
 		fc_dev_menu_option_t options[] = {
 			{"reload-scripts", fc_dev_menu_reload_scripts},
-			{"Option-2", NULL},
-			{"Option-3", NULL}
+			{"show-player-anim-state", fc_dev_menu_show_player_anim_state},
+			{"slow-time", fc_dev_menu_slow_time}
 		};
 		
 		if(g_devMenuOption < 0)
@@ -1343,10 +1357,6 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		if(prevState != pEngine->zeldaGameObject.playerState)
 		{
 			prevState = pEngine->zeldaGameObject.playerState;
-			
-			//fa_action_args_t args = {};
-			//args.fadeInSec = 0.3f;
-			//fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionIdle, &args);
 			
 			fs_script_ctx_t scriptCtx = {};
 			scriptCtx.allAnimations = &pEngine->gameAnimationsRegister;
@@ -1586,6 +1596,7 @@ void fg_animation_update(FurGameEngine* pEngine, float dt)
 	animateCtx.dt = dt;
 	animateCtx.scratchpadBuffer = pEngine->scratchpadBuffer;
 	animateCtx.scratchpadBufferSize = pEngine->scratchpadBufferSize;
+	animateCtx.showDebug = pEngine->zeldaGameObject.showAnimStateDebug;
 	
 	fa_character_animate(&pEngine->animCharacterZelda, &animateCtx);
 	
@@ -1617,6 +1628,13 @@ void fc_dbg_mat4(const fm_mat4* m)
 
 void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callbacks_t* pAllocCallbacks)
 {
+	if(pEngine->debugIsSlowTime)
+	{
+		const float color[4] = FUR_COLOR_RED;
+		fc_dbg_text(920, 600, "slow-time ON", color);
+		dt *= 0.3f;
+	}
+	
 	pEngine->globalTime += dt;
 	pEngine->blendAlpha = fm_clamp(((sinf(pEngine->globalTime * 0.4f) + 1.0f) / 2.0f), 0.0f, 1.0f);
 	

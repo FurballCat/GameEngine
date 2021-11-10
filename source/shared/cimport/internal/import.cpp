@@ -705,11 +705,11 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 				fa_anim_curve_t* curve = &animClip->curves[i_c];
 				
 				curve->index = tempCurve.index;
-				curve->numKeys = tempCurve.keys.size();
+				curve->numRotKeys = tempCurve.keys.size();
 				curve->numPosKeys = tempCurve.posKeys.size();
 				
-				curve->keys = curKey;
-				for(uint32_t i=0; i<curve->numKeys; ++i)
+				curve->rotKeys = curKey;
+				for(uint32_t i=0; i<curve->numRotKeys; ++i)
 				{
 					const fi_temp_anim_curve_key_t& key = tempCurve.keys[i];
 					

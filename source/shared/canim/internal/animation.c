@@ -755,8 +755,9 @@ void fa_cmd_end(fa_cmd_buffer_recorder_t* recorder)
 	FUR_ASSERT(recorder->poseStackSizeTracking >= 1);	// at the end of command buffer, we expect the post stack to have +1 pose
 }
 
-#define FA_DBG_TEXT_X -400.0f
-#define FA_DBG_TEXT_Y(_pos) 1.0f - 1.0f * _pos
+#define FA_DBG_TEXT_X -900.0f
+#define FA_DBG_TEXT_Y(_pos) 150.0f - 2.0f * _pos
+#define FA_DBG_COLOR FUR_COLOR_GREEN
 
 // set reference pose command
 fa_cmd_status_t fa_cmd_impl_ref_pose(fa_cmd_context_t* ctx, const void* cmdData)
@@ -771,7 +772,7 @@ fa_cmd_status_t fa_cmd_impl_ref_pose(fa_cmd_context_t* ctx, const void* cmdData)
 	if(ctx->debug)
 	{
 		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
-		const float color[4] = FUR_COLOR_DARK_GREY;
+		const float color[4] = FA_DBG_COLOR;
 		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), "ref_pose", color);
 	}
 	
@@ -797,7 +798,7 @@ fa_cmd_status_t fa_cmd_impl_identity(fa_cmd_context_t* ctx, const void* cmdData)
 	if(ctx->debug)
 	{
 		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
-		const float color[4] = FUR_COLOR_DARK_GREY;
+		const float color[4] = FA_DBG_COLOR;
 		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), "identity", color);
 	}
 	
@@ -836,7 +837,7 @@ fa_cmd_status_t fa_cmd_impl_anim_sample(fa_cmd_context_t* ctx, const void* cmdDa
 	if(ctx->debug)
 	{
 		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
-		const float color[4] = FUR_COLOR_DARK_GREY;
+		const float color[4] = FA_DBG_COLOR;
 		char txt[256];
 		sprintf(txt, "anim_sample %s t=%1.2f", fc_string_hash_as_cstr_debug(clip->name), data->time);
 		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
@@ -882,7 +883,7 @@ fa_cmd_status_t fa_cmd_impl_blend2(fa_cmd_context_t* ctx, const void* cmdData)
 	if(ctx->debug)
 	{
 		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
-		const float color[4] = FUR_COLOR_DARK_GREY;
+		const float color[4] = FA_DBG_COLOR;
 		char txt[128];
 		sprintf(txt, "blend2 a=%1.2f", data->alpha);
 		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
@@ -921,7 +922,7 @@ fa_cmd_status_t fa_cmd_impl_apply_additive(fa_cmd_context_t* ctx, const void* cm
 	if(ctx->debug)
 	{
 		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
-		const float color[4] = FUR_COLOR_DARK_GREY;
+		const float color[4] = FA_DBG_COLOR;
 		char txt[128];
 		sprintf(txt, "apply additive w=%1.2f", data->weight);
 		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
@@ -958,7 +959,7 @@ fa_cmd_status_t fa_cmd_impl_use_cached_pose(fa_cmd_context_t* ctx, const void* c
 	if(ctx->debug)
 	{
 		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
-		const float color[4] = FUR_COLOR_DARK_GREY;
+		const float color[4] = FA_DBG_COLOR;
 		char txt[128];
 		sprintf(txt, "use_cached_pose id=%i", data->poseId);
 		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
@@ -1008,7 +1009,7 @@ fa_cmd_status_t fa_cmd_impl_apply_mask(fa_cmd_context_t* ctx, const void* cmdDat
 	if(ctx->debug)
 	{
 		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
-		const float color[4] = FUR_COLOR_DARK_GREY;
+		const float color[4] = FA_DBG_COLOR;
 		char txt[128];
 		sprintf(txt, "apply_mask id=%i", data->maskId);
 		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
@@ -1644,7 +1645,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		fa_pose_stack_init(&poseStack, &desc, animPoseStackMemory, poseStackSize);
 	}
 	
-	//fa_cmd_context_debug_t debug = {};
+	fa_cmd_context_debug_t debug = {};
 	
 	// update layers
 	fa_cross_layer_context_t layerCtx = {};
@@ -1652,7 +1653,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	layerCtx.poseStack = &poseStack;
 	layerCtx.scratchMemory = animCmdBufferMemory;
 	layerCtx.scratchMemorySize = animCmdBufferSize;
-	layerCtx.debug = NULL;	// pass &debug to show debug text
+	layerCtx.debug = ctx->showDebug ? &debug : NULL;
 	
 	// reset pose to ref pose
 	fa_pose_stack_push(&poseStack, 1);
