@@ -229,11 +229,7 @@
 (define-state-script 'zelda
   (state 'idle
          (on (start)
-             [animate 'self 'zelda-funny-pose-3]
-             [wait-seconds 0.5]
-             [animate 'self 'zelda-funny-pose-4]
-             [wait-seconds 0.5]
-             [go 'jump]
+             [animate 'self 'zelda-idle-stand-relaxed]
          )
   )
   (state 'run

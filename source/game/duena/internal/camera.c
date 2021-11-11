@@ -59,7 +59,7 @@ void fg_camera_update_orbit(fg_camera_t* camera, const fg_camera_update_orbit_ct
 	const float rotationSpeed = 2.5f * ctx->dt;
 	cameraRotationYaw += rotationSpeed * ctx->rotationYaw;
 	
-	static float cameraRotationPitch = 0.0f;
+	static float cameraRotationPitch = 0.2f;
 	const float rotationSpeedPitch = 2.5f * ctx->dt;
 	cameraRotationPitch += rotationSpeedPitch * ctx->rotationPitch;
 	
