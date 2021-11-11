@@ -887,7 +887,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 
 fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
 {
-	FUR_ASSERT(numArgs == 2);
+	FUR_ASSERT(numArgs >= 2);
 	const fc_string_hash_t objectName = args[0].asStringHash;
 	const fc_string_hash_t animName = args[1].asStringHash;
 	
@@ -930,7 +930,7 @@ fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_
 
 fs_variant_t fs_native_wait_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
 {
-	FUR_ASSERT(numArgs == 2);
+	FUR_ASSERT(numArgs >= 2);
 	const fc_string_hash_t animName = args[1].asStringHash;
 	
 	const fa_anim_clip_t* animClip = fg_animations_register_find_anim(ctx->allAnimations, animName);
@@ -943,7 +943,7 @@ fs_variant_t fs_native_wait_animate(fs_script_ctx_t* ctx, uint32_t numArgs, cons
 
 fs_variant_t fs_native_equip_item(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
 {
-	FUR_ASSERT(numArgs == 2);
+	FUR_ASSERT(numArgs >= 2);
 	const fc_string_hash_t objectName = args[0].asStringHash;
 	//const fc_string_hash_t itemName = args[1].asStringHash;
 	
