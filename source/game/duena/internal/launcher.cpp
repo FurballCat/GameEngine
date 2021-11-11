@@ -715,6 +715,92 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 						}
 					}
 				}
+				
+				// face mask
+				{
+					pEngine->pRig->maskFace = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+					const int16_t idxSpine = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Spine"));
+					const fc_string_hash_t hashes[] = {
+						SID("Bip001_Neck"),
+						SID("Bip001_Head"),
+						SID("Bip001_Jaw"),
+						SID("Bip001_Chin"),
+						SID("Bip001_LipLower_C"),
+						SID("Bip001_LipLower1_R"),
+						SID("Bip001_LipLower1_L"),
+						SID("Bip001_LipLower2_R"),
+						SID("Bip001_LipLower2_L"),
+						SID("Bip001_TeethLower"),
+						SID("Bip001_Tongue"),
+						SID("Bip001_Tongue1"),
+						SID("Bip001_Tongue2"),
+						SID("Bip001_Tongue3"),
+						SID("Bip001_LipUpper_C"),
+						SID("Bip001_LipUpper1_R"),
+						SID("Bip001_LipUpper1_L"),
+						SID("Bip001_LipUpper2_R"),
+						SID("Bip001_LipUpper2_L"),
+						SID("Bip001_LipCorner_R"),
+						SID("Bip001_LipCorner_L"),
+						SID("Bip001_Cheek_R"),
+						SID("Bip001_Cheek_L"),
+						SID("Bip001_Cheek1_R"),
+						SID("Bip001_Cheek1_L"),
+						SID("Bip001_Cheek2_R"),
+						SID("Bip001_Cheek2_L"),
+						SID("Bip001_Smile_R"),
+						SID("Bip001_Smile_L"),
+						SID("Bip001_Frown_R"),
+						SID("Bip001_Frown_L"),
+						SID("Bip001_TeethUpper"),
+						SID("Bip001_BrowInner_L"),
+						SID("Bip001_BrowInner_R"),
+						SID("Bip001_BrowMid_L"),
+						SID("Bip001_BrowMid_R"),
+						SID("Bip001_BrowOuter_L"),
+						SID("Bip001_BrowOuter_R"),
+						SID("Bip001_Nostril_L"),
+						SID("Bip001_Nostril_R"),
+						SID("Bip001_Nose"),
+						SID("Bip001_EyelidUp_L"),
+						SID("Bip001_EyelidUp_R"),
+						SID("Bip001_EyelidDown_L"),
+						SID("Bip001_EyelidDown_R"),
+						SID("Bip001_Eye_L"),
+						SID("Bip001_EyeSpec_L"),
+						SID("Bip001_EyeSpec1_L"),
+						SID("Bip001_EyeSpec2_L"),
+						SID("Bip001_EyeSpec3_L"),
+						SID("Bip001_Eye_R"),
+						SID("Bip001_EyeSpec_R"),
+						SID("Bip001_EyeSpec1_R"),
+						SID("Bip001_EyeSpec2_R"),
+						SID("Bip001_Ear_L"),
+						SID("Bip001_Ear_R"),
+						SID("Bip001_BrowFlesh_L"),
+						SID("Bip001_BrowFlesh_R"),
+						SID("Bip001_EyelidCrevace_L"),
+						SID("Bip001_EyelidCrevace_R"),
+					};
+					
+					if(idxSpine != -1)
+					{
+						for(uint32_t i=0; i<pEngine->pRig->numBones; ++i)
+						{
+							uint8_t w = 0;
+							const uint32_t numHashes = FUR_ARRAY_SIZE(hashes);
+							for(uint32_t j=0; j<numHashes; ++j)
+							{
+								if(pEngine->pRig->boneNameHashes[i] == hashes[j])
+								{
+									w = 255;
+									break;
+								}
+							}
+							pEngine->pRig->maskFace[i] = w;
+						}
+					}
+				}
 			}
 		}
 
@@ -732,6 +818,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		pEngine->pAnimClipAPose = fe_load_anim_clip(&depot, "zelda-a-pose", pEngine, pAllocCallbacks);
 		pEngine->pAnimClipWindProtect = fe_load_anim_clip(&depot, "zelda-upper-wind-protect", pEngine, pAllocCallbacks);
 		pEngine->pAnimClipHoldSword = fe_load_anim_clip(&depot, "zelda-upper-hold-sword", pEngine, pAllocCallbacks);
+		
+		fe_load_anim_clip(&depot, "zelda-face-idle", pEngine, pAllocCallbacks);
 
 	}
 	
@@ -747,15 +835,19 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		// create Zelda
 		pEngine->animCharacterZelda.rig = pEngine->pRig;
 		pEngine->animCharacterZelda.poseMS = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		pEngine->animCharacterZelda.layers[0].poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		pEngine->animCharacterZelda.layers[0].poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		pEngine->animCharacterZelda.layers[0].poseCache.tempPose.numXforms = pEngine->animCharacterZelda.rig->numBones;
+		pEngine->animCharacterZelda.layerFullBody.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		pEngine->animCharacterZelda.layerFullBody.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		pEngine->animCharacterZelda.layerFullBody.poseCache.tempPose.numXforms = pEngine->animCharacterZelda.rig->numBones;
 		
-		pEngine->animCharacterZelda.layers[1].poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		pEngine->animCharacterZelda.layers[1].poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		pEngine->animCharacterZelda.layers[1].poseCache.tempPose.numXforms = pEngine->animCharacterZelda.rig->numBones;
+		pEngine->animCharacterZelda.layerPartial.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		pEngine->animCharacterZelda.layerPartial.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		pEngine->animCharacterZelda.layerPartial.poseCache.tempPose.numXforms = pEngine->animCharacterZelda.rig->numBones;
+		pEngine->animCharacterZelda.layerPartial.maskID = FA_MASK_UPPER_BODY;
 		
-		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_PARTIAL].maskID = FA_MASK_UPPER_BODY;
+		pEngine->animCharacterZelda.layerFace.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		pEngine->animCharacterZelda.layerFace.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		pEngine->animCharacterZelda.layerFace.poseCache.tempPose.numXforms = pEngine->animCharacterZelda.rig->numBones;
+		pEngine->animCharacterZelda.layerFace.maskID = FA_MASK_FACE;
 		
 		pEngine->actionIdle.animation = pEngine->pAnimClipIdleStand;
 		pEngine->actionIdle.forceLoop = true;
@@ -1921,11 +2013,14 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	
 	FUR_FREE(pEngine->animCharacterZelda.poseMS, pAllocCallbacks);
 	
-	FUR_FREE(pEngine->animCharacterZelda.layers[0].poseCache.tempPose.xforms, pAllocCallbacks);
-	FUR_FREE(pEngine->animCharacterZelda.layers[0].poseCache.tempPose.weightsXforms, pAllocCallbacks);
+	FUR_FREE(pEngine->animCharacterZelda.layerFullBody.poseCache.tempPose.xforms, pAllocCallbacks);
+	FUR_FREE(pEngine->animCharacterZelda.layerFullBody.poseCache.tempPose.weightsXforms, pAllocCallbacks);
 	
-	FUR_FREE(pEngine->animCharacterZelda.layers[1].poseCache.tempPose.xforms, pAllocCallbacks);
-	FUR_FREE(pEngine->animCharacterZelda.layers[1].poseCache.tempPose.weightsXforms, pAllocCallbacks);
+	FUR_FREE(pEngine->animCharacterZelda.layerPartial.poseCache.tempPose.xforms, pAllocCallbacks);
+	FUR_FREE(pEngine->animCharacterZelda.layerPartial.poseCache.tempPose.weightsXforms, pAllocCallbacks);
+	
+	FUR_FREE(pEngine->animCharacterZelda.layerFace.poseCache.tempPose.xforms, pAllocCallbacks);
+	FUR_FREE(pEngine->animCharacterZelda.layerFace.poseCache.tempPose.weightsXforms, pAllocCallbacks);
 	
 	FUR_FREE(pEngine->gameObjectRegister.objects, pAllocCallbacks);
 	FUR_FREE(pEngine->gameObjectRegister.ids, pAllocCallbacks);

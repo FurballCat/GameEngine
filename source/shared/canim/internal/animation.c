@@ -16,6 +16,8 @@ void fa_rig_release(fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks)
 	
 	if(rig->maskUpperBody)
 		FUR_FREE(rig->maskUpperBody, pAllocCallbacks);
+	if(rig->maskFace)
+		FUR_FREE(rig->maskFace, pAllocCallbacks);
 	
 	FUR_FREE(rig, pAllocCallbacks);
 }
@@ -35,6 +37,8 @@ const uint8_t* fa_rig_get_mask(const fa_rig_t* rig, fa_mask_t mask)
 {
 	if(mask == FA_MASK_UPPER_BODY)
 		return rig->maskUpperBody;
+	else if(mask == FA_MASK_FACE)
+		return rig->maskFace;
 	
 	return NULL;
 }
@@ -1210,6 +1214,10 @@ typedef struct fa_cross_layer_context_t
 	float dt;
 	
 	float outWeightLegsIK;
+	
+	float rootMotionDeltaX;
+	float rootMotionDeltaY;
+	float rootMotionDeltaYaw;
 } fa_cross_layer_context_t;
 
 void fa_character_layer_cache_pose(fa_layer_t* layer, fa_cross_layer_context_t* ctx, float alpha)
@@ -1228,7 +1236,7 @@ void fa_character_layer_cache_pose(fa_layer_t* layer, fa_cross_layer_context_t* 
 	}
 }
 
-void fa_character_action_animate(fa_character_t* character, fa_character_layer_t layerEnum, fa_action_t* action, fa_cross_layer_context_t* ctx)
+void fa_character_action_animate(fa_character_t* character, fa_layer_t* layer, fa_action_t* action, fa_cross_layer_context_t* ctx)
 {
 	FUR_ASSERT(action->fnUpdate != NULL);
 	
@@ -1244,7 +1252,6 @@ void fa_character_action_animate(fa_character_t* character, fa_character_layer_t
 	
 	fa_action_ctx_t actionCtx = {};
 	actionCtx.dt = ctx->dt;
-	actionCtx.layer = layerEnum;
 	actionCtx.cmdRecorder = &recorder;
 	actionCtx.animInfo = &character->animInfo;
 	actionCtx.localTime = localTime;
@@ -1257,8 +1264,6 @@ void fa_character_action_animate(fa_character_t* character, fa_character_layer_t
 		fa_cmd_end(&recorder);
 	}
 	
-	fa_layer_t* layer = &character->layers[layerEnum];
-	
 	// evaluate commands
 	fa_cmd_context_t animCtx = {};
 	animCtx.animClips = action->fnGetAnims(action->userData, &animCtx.numAnimClips);
@@ -1269,6 +1274,10 @@ void fa_character_action_animate(fa_character_t* character, fa_character_layer_t
 	animCtx.mask = fa_rig_get_mask(character->rig, layer->maskID);
 	
 	fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
+	
+	ctx->rootMotionDeltaX = actionCtx.rootMotionDeltaX;
+	ctx->rootMotionDeltaY = actionCtx.rootMotionDeltaY;
+	ctx->rootMotionDeltaYaw = actionCtx.rootMotionDeltaYaw;
 }
 
 void fa_action_safely_cancel(fa_action_t* action)
@@ -1334,11 +1343,10 @@ void fa_action_safely_end(fa_action_begin_end_ctx_t* ctx, fa_action_t* action)
 	}
 }
 
-void fa_action_queue_resolve_pre_animate(fa_character_t* character, fa_character_layer_t layer, fa_action_queue_t* queue)
+void fa_action_queue_resolve_pre_animate(fa_character_t* character, fa_action_queue_t* queue)
 {
 	fa_action_begin_end_ctx_t ctx = {};
 	ctx.animInfo = &character->animInfo;
-	ctx.layer = layer;
 	
 	// check if any of the pending actions should be instantly activated
 	if(fa_action_get_alpha(character, &queue->actions[3]) >= 1.0)
@@ -1389,11 +1397,10 @@ void fa_action_queue_resolve_pre_animate(fa_character_t* character, fa_character
 	}
 }
 
-void fa_action_queue_resolve_post_animate(fa_character_t* character, fa_character_layer_t layer, fa_action_queue_t* queue)
+void fa_action_queue_resolve_post_animate(fa_character_t* character, fa_action_queue_t* queue)
 {
 	fa_action_begin_end_ctx_t ctx = {};
 	ctx.animInfo = &character->animInfo;
-	ctx.layer = layer;
 	
 	if(queue->cachePoseAfterNextAction) // case of cache for 2 actions
 	{
@@ -1454,12 +1461,10 @@ void fa_action_queue_resolve_post_animate(fa_character_t* character, fa_characte
 	}
 }
 
-void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_context_t* ctx, fa_character_layer_t layerEnum)
+void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_context_t* ctx, fa_layer_t* layer)
 {
-	fa_layer_t* layer = &character->layers[layerEnum];
-	
 	// resolve scheduled actions
-	fa_action_queue_resolve_pre_animate(character, layerEnum, &layer->actionQueue);
+	fa_action_queue_resolve_pre_animate(character, &layer->actionQueue);
 	
 	fa_action_t* currAction = &layer->actionQueue.actions[0];
 	fa_action_t* nextAction = &layer->actionQueue.actions[1];
@@ -1484,7 +1489,7 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 	if(currAction->fnUpdate != NULL)
 	{
 		fa_action_t* action = currAction;
-		fa_character_action_animate(character, layerEnum, action, ctx);
+		fa_character_action_animate(character, layer, action, ctx);
 		
 		if(layer->actionQueue.cachePoseAfterCurrAction)
 		{
@@ -1506,7 +1511,7 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 	if(nextAction->fnUpdate != NULL)
 	{
 		fa_action_t* action = nextAction;
-		fa_character_action_animate(character, layerEnum, action, ctx);
+		fa_character_action_animate(character, layer, action, ctx);
 		
 		if(layer->actionQueue.cachePoseAfterNextAction)
 		{
@@ -1524,8 +1529,7 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 		}
 	}
 	
-	// only body layer can affect legs IK
-	if(layerEnum == FA_CHAR_LAYER_FULL_BODY)
+	// only body layer can affect legs IK, it's secured outside this function
 	{
 		const float currIK = currAction->args.ikMode == FA_IK_MODE_LEGS ? currAlpha : 0.0f;
 		const float nextIK = nextAction->args.ikMode == FA_IK_MODE_LEGS ? 1.0f : 0.0f;
@@ -1534,7 +1538,7 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 		ctx->outWeightLegsIK = weightIK;
 	}
 	
-	fa_action_queue_resolve_post_animate(character, layerEnum, &layer->actionQueue);
+	fa_action_queue_resolve_post_animate(character, &layer->actionQueue);
 }
 
 void fa_character_ik(fa_character_t* character, fa_cross_layer_context_t* layerCtx)
@@ -1676,18 +1680,35 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	}
 	
 	// body
-	fa_character_layer_animate(character, &layerCtx, FA_CHAR_LAYER_FULL_BODY);
+	fa_character_layer_animate(character, &layerCtx, &character->layerFullBody);
 	
-	// upper body
-	fa_character_layer_animate(character, &layerCtx, FA_CHAR_LAYER_PARTIAL);
+	// store root motion
+	const float rootMotionDeltaX = character->animInfo.rootMotionDeltaX;
+	const float rootMotionDeltaY = character->animInfo.rootMotionDeltaY;
+	const float rootMotionDeltaYaw = character->animInfo.rootMotionDeltaYaw;
+	
+	// store weight IK
+	const float weightLegsIK = layerCtx.outWeightLegsIK;
+	
+	// partial layer, can be applied anywhere, but does not interrupt full body
+	fa_character_layer_animate(character, &layerCtx, &character->layerPartial);
+	
+	// face
+	fa_character_layer_animate(character, &layerCtx, &character->layerFace);
 	
 	// look-at
 	
 	// inverse kinematics
+	layerCtx.outWeightLegsIK = weightLegsIK;
 	fa_character_ik(character, &layerCtx);
 	
 	// ragdoll
 
+	// apply root motion
+	character->animInfo.rootMotionDeltaX = rootMotionDeltaX;
+	character->animInfo.rootMotionDeltaY = rootMotionDeltaY;
+	character->animInfo.rootMotionDeltaYaw = rootMotionDeltaYaw;
+	
 	// convert to model space
 	{
 		const int16_t* parentIndices = character->rig->parents;
@@ -1702,11 +1723,10 @@ void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData)
 {
 	// player motion update
 	fa_character_anim_info_t* animInfo = ctx->animInfo;
-	if(ctx->layer == FA_CHAR_LAYER_FULL_BODY)
-	{
-		animInfo->rootMotionDeltaX = 0.0f;
-		animInfo->rootMotionDeltaY = 0.0f;
-	}
+	
+	// we know we play it on full-body layer
+	animInfo->rootMotionDeltaX = 0.0f;
+	animInfo->rootMotionDeltaY = 0.0f;
 	
 	// animation update
 	fa_action_animate_t* data = (fa_action_animate_t*)userData;
@@ -1742,9 +1762,35 @@ void fa_action_animate_cancel_func(void* userData)
 	data->reserved = false;
 }
 
+fa_layer_t* fa_character_layer_select(fa_character_t* character, const fa_action_args_t* args)
+{
+	if(args->layerName == 0)
+	{
+		switch(args->layer)
+		{
+			case FA_CHAR_LAYER_FULL_BODY:
+				return &character->layerFullBody;
+			case FA_CHAR_LAYER_PARTIAL:
+				return &character->layerPartial;
+			default:
+				return NULL;
+		}
+	}
+	
+	if(args->layerName == SID("full-body"))
+		return &character->layerFullBody;
+	else if(args->layerName == SID("partial"))
+		return &character->layerPartial;
+	else if(args->layerName == SID("face"))
+		return &character->layerFace;
+	
+	return NULL;
+}
+
 void fa_character_schedule_action_simple(fa_character_t* character, fa_action_animate_t* action, const fa_action_args_t* args)
 {
-	fa_layer_t* layer = &character->layers[args->layer];
+	fa_layer_t* layer = fa_character_layer_select(character, args);
+	FUR_ASSERT(layer);
 	
 	fa_action_t* actionSlot = fa_action_queue_get_free_slot(&layer->actionQueue);
 	actionSlot->userData = action;
@@ -1760,7 +1806,8 @@ void fa_character_schedule_action_simple(fa_character_t* character, fa_action_an
 
 CANIM_API void fa_character_schedule_none_action(fa_character_t* character, const fa_action_args_t* args)
 {
-	fa_layer_t* layer = &character->layers[args->layer];
+	fa_layer_t* layer = fa_character_layer_select(character, args);
+	FUR_ASSERT(layer);
 	
 	fa_action_t* actionSlot = fa_action_queue_get_free_slot(&layer->actionQueue);
 	actionSlot->userData = NULL;
@@ -1773,7 +1820,8 @@ CANIM_API void fa_character_schedule_none_action(fa_character_t* character, cons
 
 CANIM_API void fa_character_schedule_action(fa_character_t* character, fa_action_schedule_data_t* data, const fa_action_args_t* args)
 {
-	fa_layer_t* layer = &character->layers[args->layer];
+	fa_layer_t* layer = fa_character_layer_select(character, args);
+	FUR_ASSERT(layer);
 	
 	fa_action_t* actionSlot = fa_action_queue_get_free_slot(&layer->actionQueue);
 	actionSlot->userData = data->userData;
@@ -1840,7 +1888,8 @@ const fa_anim_clip_t** fa_action_animate_test_get_anims_func(const void* userDat
 
 void fa_character_schedule_action_test_simple(fa_character_t* character, fa_action_animate_test_t* action, const fa_action_args_t* args)
 {
-	fa_layer_t* layer = &character->layers[FA_CHAR_LAYER_FULL_BODY];
+	fa_layer_t* layer = fa_character_layer_select(character, args);
+	FUR_ASSERT(layer);
 	
 	fa_action_t* actionSlot = fa_action_queue_get_free_slot(&layer->actionQueue);
 	actionSlot->userData = action;

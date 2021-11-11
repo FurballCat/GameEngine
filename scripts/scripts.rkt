@@ -371,9 +371,9 @@
          (on (start)
              [animate 'self 'zelda-idle-stand-relaxed
                       (animate-arg fade-in-sec) 0.3]
-             [animate 'self 'zelda-upper-wind-protect
+             [animate 'self 'zelda-face-idle
                       (animate-arg fade-in-sec) 0.3
-                      (animate-arg layer) (animate-layer partial)]
+                      (animate-arg layer-name) 'face]
          )
   )
   (state 'run

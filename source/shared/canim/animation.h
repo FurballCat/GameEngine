@@ -44,6 +44,7 @@ typedef enum fa_mask_t
 {
 	FA_MASK_NONE = 0,
 	FA_MASK_UPPER_BODY,
+	FA_MASK_FACE,
 } fa_mask_t;
 
 typedef struct fa_rig_t
@@ -60,6 +61,7 @@ typedef struct fa_rig_t
 	fa_ik_setup_t ikRightLeg;
 	
 	uint8_t* maskUpperBody;
+	uint8_t* maskFace;
 } fa_rig_t;
 
 CANIM_API void fa_rig_release(fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks);
@@ -306,16 +308,18 @@ typedef struct fa_action_ctx_t
 {
 	float dt;
 	float localTime;
-	fa_character_layer_t layer;
 	fa_character_anim_info_t* animInfo;
 	fa_cmd_buffer_recorder_t* cmdRecorder;
 	fa_cmd_context_debug_t* debug;
+	
+	float rootMotionDeltaX;
+	float rootMotionDeltaY;
+	float rootMotionDeltaYaw;
 } fa_action_ctx_t;
 
 typedef struct fa_action_begin_end_ctx_t
 {
 	fa_character_anim_info_t* animInfo;
-	fa_character_layer_t layer;
 } fa_action_begin_end_ctx_t;
 
 // update is called every frame once action is active (if fade-in-sec is 0.0, then it will be active instantly, otherwise next frame)
@@ -397,7 +401,13 @@ typedef struct fa_layer_t
 typedef struct fa_character_t
 {
 	const fa_rig_t* rig;
-	fa_layer_t layers[FA_CHAR_LAYER_COUNT];
+	
+	// default layers (can be selected using fa_character_layer_t enum)
+	fa_layer_t layerFullBody;
+	fa_layer_t layerPartial;
+	
+	// named layers
+	fa_layer_t layerFace;
 	
 	// resulting pose
 	fm_xform* poseMS;
@@ -408,8 +418,8 @@ typedef struct fa_character_t
 	fa_character_anim_info_t animInfo;
 } fa_character_t;
 
-void fa_action_queue_resolve_pre_animate(fa_character_t* character, fa_character_layer_t layer, fa_action_queue_t* queue);
-void fa_action_queue_resolve_post_animate(fa_character_t* character, fa_character_layer_t layer, fa_action_queue_t* queue);
+void fa_action_queue_resolve_pre_animate(fa_character_t* character, fa_action_queue_t* queue);
+void fa_action_queue_resolve_post_animate(fa_character_t* character, fa_action_queue_t* queue);
 
 typedef struct fa_character_animate_ctx_t
 {
