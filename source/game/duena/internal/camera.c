@@ -46,28 +46,38 @@ void fg_camera_release(fg_camera_t* camera, fc_alloc_callbacks_t* pAllocCallback
 
 void fg_camera_update_orbit(fg_camera_t* camera, const fg_camera_update_orbit_ctx* ctx)
 {
-	const fm_vec4 g_eye = {-3, -3, 1.7, 0};
+	const float poleLength = 3.0f;
 	fm_vec4 camera_at = {0, 0, 1.2, 0};
 	const fm_vec4 up = {0, 0, 1, 0};
 	
-	fm_vec4 eye = g_eye;
+	fm_vec4 eye = {};
 	
 	fm_vec4 dir_forward = {};
 	fm_vec4 dir_left = {};
 	
-	static float cameraRotation = 0.0f;
+	static float cameraRotationYaw = 0.0f;
 	const float rotationSpeed = 2.5f * ctx->dt;
-	cameraRotation += rotationSpeed * ctx->rotationX;
-	const float sinRot = sinf(cameraRotation);
-	const float cosRot = cosf(cameraRotation);
-	eye.x = g_eye.x * sinRot;
-	eye.y = g_eye.y * cosRot;
+	cameraRotationYaw += rotationSpeed * ctx->rotationYaw;
+	
+	static float cameraRotationPitch = 0.0f;
+	const float rotationSpeedPitch = 2.5f * ctx->dt;
+	cameraRotationPitch += rotationSpeedPitch * ctx->rotationPitch;
+	
+	cameraRotationPitch = fm_clamp(cameraRotationPitch, -1.0f, 1.0f);
+	const float poleLengthFactor = 1.0f - (cameraRotationPitch < 0.0f ? 0.5f : 0.2f) * (cameraRotationPitch * cameraRotationPitch);
+	
+	const float sinRotPitch = sinf(cameraRotationPitch);
+	const float cosRotPitch = cosf(cameraRotationPitch);
+	
+	const float sinRotYaw = sinf(cameraRotationYaw);
+	const float cosRotYaw = cosf(cameraRotationYaw);
+	eye.x = -poleLength * poleLengthFactor * cosRotPitch * sinRotYaw;
+	eye.y = -poleLength * poleLengthFactor * cosRotPitch * cosRotYaw;
+	eye.z = poleLength * poleLengthFactor * sinRotPitch;
 	
 	static float cameraZoom = 1.0f;
 	const float zoomSpeed = 1.0f * ctx->dt;
 	cameraZoom += zoomSpeed * (ctx->zoom);
-	
-	fm_vec4_sub(&eye, &camera_at, &eye);
 	
 	dir_forward = eye;
 	fm_vec4_normalize(&dir_forward);

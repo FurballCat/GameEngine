@@ -467,6 +467,7 @@ struct FurGameEngine
 	bool inputTriangleActionPressed;
 	bool inputCircleActionPressed;
 	float actionRotationLeftX;
+	float actionRotationLeftY;
 	float actionZoomIn;
 	float actionZoomOut;
 	float actionMoveX;
@@ -1102,6 +1103,10 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 		else if(inputEvents[i].eventID == Gamepad_rightAnalogX)
 		{
 			pEngine->actionRotationLeftX = fm_snap_near_zero(inputEvents[i].value, 0.05f);
+		}
+		else if(inputEvents[i].eventID == Gamepad_rightAnalogY)
+		{
+			pEngine->actionRotationLeftY = fm_snap_near_zero(inputEvents[i].value, 0.05f);
 		}
 		else if(inputEvents[i].eventID == Gamepad_leftAnalogX)
 		{
@@ -1801,7 +1806,8 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		{
 			fg_camera_update_orbit_ctx cameraCtx = {};
 			cameraCtx.dt = dt;
-			cameraCtx.rotationX = pEngine->actionRotationLeftX;
+			cameraCtx.rotationYaw = pEngine->actionRotationLeftX;
+			cameraCtx.rotationPitch = pEngine->actionRotationLeftY;
 			cameraCtx.zoom = pEngine->actionZoomOut - pEngine->actionZoomIn;
 			
 			fg_camera_update_orbit(pEngine->camera, &cameraCtx);

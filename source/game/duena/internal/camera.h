@@ -20,7 +20,8 @@ void fg_camera_release(fg_camera_t* camera, fc_alloc_callbacks_t* pAllocCallback
 typedef struct fg_camera_update_orbit_ctx
 {
 	float dt;
-	float rotationX;
+	float rotationYaw;
+	float rotationPitch;
 	float zoom;
 } fg_camera_update_orbit_ctx;
 
