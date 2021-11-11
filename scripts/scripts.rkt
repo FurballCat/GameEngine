@@ -17,6 +17,8 @@
   result
   )
 
+;; ***** C-TYPES AND CODE STRUCT GENRATION *****
+
 ;; basic c-types
 (define (int8 value) (cons 'c-type-int8 value))
 (define (int16 value) (cons 'c-type-int16 value))
@@ -36,6 +38,50 @@
     [else (assert #f (format "unknown c-type: ~v" value))]
     )
   )
+
+;; type property macro for particular property access (name, C source code, etc.)
+(define-syntax c-type-prop
+  (syntax-rules ()
+    [(_ proc index)
+     (define (proc type) (list-ref type index))
+     ]
+    )
+  )
+
+(c-type-prop c-type-constant 0) ;; used to know that it's a type, used in c-type?
+(c-type-prop c-type-name 1) ;; name as symbol
+(c-type-prop c-type-source-code 2) ;; C source code as string
+(c-type-prop c-type-to-byte-procedure 3) ;; save value content to bytes
+(c-type-prop c-type-sizeof 4) ;; size of type in bytes
+
+(define c-type-constant-symbol 'c-type-constant-symbol)
+
+(define (c-type? obj)
+  (eq? (car obj) c-type-constant-symbol))
+
+(define-syntax deftype
+  (syntax-rules ()
+    [(_ type-name ((prop-name prop-type) ...))
+     (define type-name
+       (list
+        ;; [0] - type constant symbol to indicate that it's a c-type
+        c-type-constant-symbol
+        ;; [1] - type name as symbol
+        (quote type-name)
+        ;; [2] - C code as string
+        (string-append
+                    (format "typedef struct ~s {\n" (quote type-name))
+                    (format "\t~s ~s;\n" (quote prop-type) (quote prop-name))
+                    ...
+                    (format "} ~s;\n" (quote type-name)))
+        ;; [3] - to-bytes procedure
+        ""
+        ;; [4] - size in bytes
+        (+ (c-type-sizeof prop-type) ...)
+       ))])
+  )
+
+;; ***** SAVING BINARY BUFFERS AND SEGMENTS OF DATA *****
 
 ;; prefixes to data
 (define op-pre-func-call 1) ;; single FS script native function call
@@ -72,34 +118,19 @@
 (define-syntax define-c-function
   (syntax-rules ()
      ;; 1 arg function
-     [(_ func-name (arg0 type0))
-     (define (func-name arg0)
+     [(_ func-name (arg0 type0) ...)
+     (define (func-name arg0 ...)
       (list
        ;; header of the operation
        (script-op-header
         (quote func-name)
-        (if (equal? arg0 'self) 1 0) ;; mark calls for 'self objects for quicker look-up
-        1)
+        0 ; flags
+        (length (list (quote arg0) ... )))
 
        ;; args
        (variant type0 arg0)
-       )
-      )]
-     ;; 2 arg
-     [(_ func-name (arg0 type0) (arg1 type1))
-     (define (func-name arg0 arg1)
-      (list
-       ;; header
-       (script-op-header
-        (quote func-name)
-        (if (equal? arg0 'self) 1 0) ;; mark calls for 'self objects for quicker look-up
-        2)
-
-       ;; args
-       (variant type0 arg0) ;; type0 might be string-hash function that will hash arg0, generally type0 is like type constructor
-       (variant type1 arg1)
-       )
-      )]
+       ...
+       ))]
     )
  )
 
@@ -130,7 +161,7 @@
     )
   )
 
-;; lambda (sequence of script function calls) header
+;; segment header
 (define (fs-segment-header id name length)
   (list
    (int8 id) ;; gives info what's the segment type
@@ -148,16 +179,17 @@
   )
 )
 
-(define (fs-lambda name code)
-  (fs-segment op-pre-lambda name code)
-  )
-
 ;; save data to file
 (define (bytes-to-file path bytes)
   (let ((f (open-output-file path #:mode 'binary #:exists 'replace)))
     (write-bytes bytes f) ;; write bytes into file f
     (close-output-port f)
     )
+  )
+
+;; ***** FS LAMBDA SCRIPTS *****
+(define (fs-lambda name code)
+  (fs-segment op-pre-lambda name code)
   )
 
 ;; simple script buffer saved to single *.fs file
@@ -208,6 +240,25 @@
      (printf "compiled state-script ~a.fs\n" script-name)
    )
  )
+
+;; ***** ASSET DESCRIPTIONS *****
+
+(define asset-type-mesh 1)
+
+(define (mesh-chunk path albedo-texture-name)
+  (list path
+        (symbol albedo-texture-name)
+        )
+  )
+
+;; mesh
+(define (mesh name path . chunks)
+  (list (int16 asset-type-mesh) ; resource type id
+        (int16 (length chunks)) ; num chunks
+        (symbol name) ; unique mesh name to identify in the engine
+        path ; path to the source file
+        chunks)
+  )
 
 ;; =================
 ;; write script here
