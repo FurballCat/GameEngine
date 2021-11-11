@@ -300,35 +300,6 @@
      )
     ]))
 
-(defenum animate-arg
-  (
-   fade-in-curve   ;; (anim-curve-type :default (anim-curve-type uniform-s)) what kind of blend curve to use when fading in
-   fade-in-sec     ;; (float :default 0.0) cross fade time in seconds
-   fade-out-curve  ;; (anim-curve-type :default (anim-curve-type uniform-s)) what kind of blend curve to use when fading out
-   fade-out-sec    ;; (float :default 0.0) cross fade time in seconds, used for igc
-   ik-mode         ;; (anim-ik-mode :default (anim-ik-mode none))
-   layer           ;; (animate-layer :default (animate-layer full-body))
-   layer-name      ;; (symbol :default 0) specify exactly layer name instead of using full-body or partial
-   ))
-
-(defenum anim-curve-type
-  (
-   uniform-s
-   linear
-   ))
-
-(defenum animate-layer
-  (
-   full-body
-   partial
-   ))
-
-(defenum anim-ik-mode
-  (
-   none
-   legs
-   ))
-
 ;; ***** ASSET DESCRIPTIONS *****
 
 (define asset-type-mesh 1)
@@ -360,6 +331,36 @@
 (define-c-function wait-seconds (num-seconds float))
 (define-c-function get-variable (object-name symbol) (var-name symbol))
 (define-c-function go (state-name symbol))
+
+;; enums
+(defenum animate-arg
+  (
+   fade-in-curve   ;; (anim-curve-type :default (anim-curve-type uniform-s)) what kind of blend curve to use when fading in
+   fade-in-sec     ;; (float :default 0.0) cross fade time in seconds
+   fade-out-curve  ;; (anim-curve-type :default (anim-curve-type uniform-s)) what kind of blend curve to use when fading out
+   fade-out-sec    ;; (float :default 0.0) cross fade time in seconds, used for igc
+   ik-mode         ;; (anim-ik-mode :default (anim-ik-mode none))
+   layer           ;; (animate-layer :default (animate-layer full-body))
+   layer-name      ;; (symbol :default 0) specify exactly layer name instead of using full-body or partial
+   ))
+
+(defenum anim-curve-type
+  (
+   uniform-s
+   linear
+   ))
+
+(defenum animate-layer
+  (
+   full-body
+   partial
+   ))
+
+(defenum anim-ik-mode
+  (
+   none
+   legs
+   ))
 
 ;; --- end of import ---
 
