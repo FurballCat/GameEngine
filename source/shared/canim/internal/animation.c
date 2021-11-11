@@ -1525,7 +1525,7 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 	}
 	
 	// only body layer can affect legs IK
-	if(layerEnum == FA_CHAR_LAYER_BODY)
+	if(layerEnum == FA_CHAR_LAYER_FULL_BODY)
 	{
 		const float currIK = currAction->args.ikMode == FA_IK_MODE_LEGS ? currAlpha : 0.0f;
 		const float nextIK = nextAction->args.ikMode == FA_IK_MODE_LEGS ? 1.0f : 0.0f;
@@ -1676,10 +1676,10 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	}
 	
 	// body
-	fa_character_layer_animate(character, &layerCtx, FA_CHAR_LAYER_BODY);
+	fa_character_layer_animate(character, &layerCtx, FA_CHAR_LAYER_FULL_BODY);
 	
 	// upper body
-	fa_character_layer_animate(character, &layerCtx, FA_CHAR_LAYER_UPPER_BODY);
+	fa_character_layer_animate(character, &layerCtx, FA_CHAR_LAYER_PARTIAL);
 	
 	// look-at
 	
@@ -1702,7 +1702,7 @@ void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData)
 {
 	// player motion update
 	fa_character_anim_info_t* animInfo = ctx->animInfo;
-	if(ctx->layer == FA_CHAR_LAYER_BODY)
+	if(ctx->layer == FA_CHAR_LAYER_FULL_BODY)
 	{
 		animInfo->rootMotionDeltaX = 0.0f;
 		animInfo->rootMotionDeltaY = 0.0f;
@@ -1840,7 +1840,7 @@ const fa_anim_clip_t** fa_action_animate_test_get_anims_func(const void* userDat
 
 void fa_character_schedule_action_test_simple(fa_character_t* character, fa_action_animate_test_t* action, const fa_action_args_t* args)
 {
-	fa_layer_t* layer = &character->layers[FA_CHAR_LAYER_BODY];
+	fa_layer_t* layer = &character->layers[FA_CHAR_LAYER_FULL_BODY];
 	
 	fa_action_t* actionSlot = fa_action_queue_get_free_slot(&layer->actionQueue);
 	actionSlot->userData = action;

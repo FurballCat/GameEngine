@@ -26,6 +26,29 @@
 (define (float value) (cons 'c-type-float value))
 (define (symbol value) (cons 'c-type-symbol value))
 
+(define (any-fundamental-type? value)
+  (cond
+    [(equal? (car value) (car (int8 0))) #t]
+    [(equal? (car value) (car (int16 0))) #t]
+    [(equal? (car value) (car (int32 0))) #t]
+    [(equal? (car value) (car (float 0))) #t]
+    [(equal? (car value) (car (symbol 'zero))) #t]
+    [else #f]
+    )
+  )
+
+(define (c-type? value) (if (pair? value) (any-fundamental-type? value) #f))
+
+(define (to-variant-c-type value)
+  (cond
+    [(exact-integer? value) int32]
+    [(real? value) float]
+    [(symbol? value) symbol]
+    [(list? value) int32] ; type doesn't matter when it's list
+    [else (assert #f (format "unknown type for variant ~v" value))]
+    )
+  )
+
 ;; conversion of basic c-types to bytes
 (define (c-type-to-bytes value)
   (assert (pair? value) "cannot convert non-pair typed value to bytes")
@@ -55,9 +78,6 @@
 (c-type-prop c-type-sizeof 4) ;; size of type in bytes
 
 (define c-type-constant-symbol 'c-type-constant-symbol)
-
-(define (c-type? obj)
-  (eq? (car obj) c-type-constant-symbol))
 
 (define-syntax deftype
   (syntax-rules ()
@@ -117,19 +137,32 @@
 ;; using a c function call in script is basically outputting bytecode for that call
 (define-syntax define-c-function
   (syntax-rules ()
-     ;; 1 arg function
      [(_ func-name (arg0 type0) ...)
-     (define (func-name arg0 ...)
+     (define (func-name arg0 ... . var-args)
       (list
        ;; header of the operation
        (script-op-header
         (quote func-name)
         0 ; flags
-        (length (list (quote arg0) ... )))
+        (+ (length (list (quote arg0) ... )) (length var-args)))
 
        ;; args
-       (variant type0 arg0)
-       ...
+       (if (empty? var-args)
+           (list
+            (variant type0 arg0)
+            ...
+            )
+           (list
+            (variant type0 arg0)
+            ...
+            (for/list ([e (in-list var-args)])
+              (variant (to-variant-c-type e) e)
+              )
+            )
+           )
+       
+       ;; variadic args
+       
        ))]
     )
  )
@@ -241,6 +274,61 @@
    )
  )
 
+;; todo: find a better way
+(define (range-values n)
+  (cond
+    [(= n 1) (values 0)]
+    [(= n 2) (values 0 1)]
+    [(= n 3) (values 0 1 2)]
+    [(= n 4) (values 0 1 2 3)]
+    [(= n 5) (values 0 1 2 3 4)]
+    [(= n 6) (values 0 1 2 3 4 5)]
+    [(= n 7) (values 0 1 2 3 4 5 6)]
+    [(= n 8) (values 0 1 2 3 4 5 6 7)]
+    [(= n 9) (values 0 1 2 3 4 5 6 7 8)]
+    [(= n 10) (values 0 1 2 3 4 5 6 7 8 9)]
+    [(= n 11) (values 0 1 2 3 4 5 6 7 8 9 10)]
+    )
+  )
+
+(define-syntax defenum
+  (syntax-rules ()
+    [(_ enum-type-name (enum-value ...))
+     (begin
+       (define-values (enum-value ...) (range-values (length (list (quote enum-value) ...))))
+       (define (enum-type-name x) x)
+     )
+    ]))
+
+(defenum animate-arg
+  (
+   fade-in-curve   ;; (anim-curve-type :default (anim-curve-type uniform-s)) what kind of blend curve to use when fading in
+   fade-in-sec     ;; (float :default 0.0) cross fade time in seconds
+   fade-out-curve  ;; (anim-curve-type :default (anim-curve-type uniform-s)) what kind of blend curve to use when fading out
+   fade-out-sec    ;; (float :default 0.0) cross fade time in seconds, used for igc
+   ik-mode         ;; (anim-ik-mode :default (anim-ik-mode none))
+   layer           ;; (animate-layer :default (animate-layer full-body))
+   layer-name      ;; (symbol :default 0) specify exactly layer name instead of using full-body or partial
+   ))
+
+(defenum anim-curve-type
+  (
+   uniform-s
+   linear
+   ))
+
+(defenum animate-layer
+  (
+   full-body
+   partial
+   ))
+
+(defenum anim-ik-mode
+  (
+   none
+   legs
+   ))
+
 ;; ***** ASSET DESCRIPTIONS *****
 
 (define asset-type-mesh 1)
@@ -280,7 +368,11 @@
 (define-state-script 'zelda
   (state 'idle
          (on (start)
-             [animate 'self 'zelda-idle-stand-relaxed]
+             [animate 'self 'zelda-idle-stand-relaxed
+                      (animate-arg fade-in-sec) 0.3]
+             [animate 'self 'zelda-upper-wind-protect
+                      (animate-arg fade-in-sec) 0.3
+                      (animate-arg layer) (animate-layer partial)]
          )
   )
   (state 'run

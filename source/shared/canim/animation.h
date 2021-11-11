@@ -282,8 +282,8 @@ CANIM_API void fa_cmd_apply_mask(fa_cmd_buffer_recorder_t* recorder, uint16_t ma
 	
 typedef enum fa_character_layer_t
 {
-	FA_CHAR_LAYER_BODY = 0,
-	FA_CHAR_LAYER_UPPER_BODY,
+	FA_CHAR_LAYER_FULL_BODY = 0,
+	FA_CHAR_LAYER_PARTIAL,
 	FA_CHAR_LAYER_COUNT
 } fa_character_layer_t;
 
@@ -344,10 +344,13 @@ typedef enum fa_ik_mode_t
 
 typedef struct fa_action_args_t
 {
-	float fadeInSec;
 	fa_curve_type_t fadeInCurve;
+	float fadeInSec;
+	fa_curve_type_t fadeOutCurve;
+	float fadeOutSec;
 	fa_ik_mode_t ikMode;
 	fa_character_layer_t layer;
+	fc_string_hash_t layerName;
 } fa_action_args_t;
 	
 typedef struct fa_action_t

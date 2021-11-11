@@ -753,7 +753,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		pEngine->animCharacterZelda.layers[1].poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 		pEngine->animCharacterZelda.layers[1].poseCache.tempPose.numXforms = pEngine->animCharacterZelda.rig->numBones;
 		
-		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_UPPER_BODY].maskID = FA_MASK_UPPER_BODY;
+		pEngine->animCharacterZelda.layers[FA_CHAR_LAYER_PARTIAL].maskID = FA_MASK_UPPER_BODY;
 		
 		pEngine->actionIdle.animation = pEngine->pAnimClipIdleStand;
 		pEngine->actionIdle.forceLoop = true;
@@ -885,6 +885,17 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	return true;
 }
 
+typedef enum fs_animate_arg_t
+{
+	FS_ANIMATE_ARG_FADE_IN_CURVE = 0,
+	FS_ANIMATE_ARG_FADE_IN_SEC,
+	FS_ANIMATE_ARG_FADE_OUT_CURVE,
+	FS_ANIMATE_ARG_FADE_OUT_SEC,
+	FS_ANIMATE_ARG_IK_MODE,
+	FS_ANIMATE_ARG_LAYER,
+	FS_ANIMATE_ARG_LAYER_NAME,
+} fs_animate_arg_t;
+
 fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
 {
 	FUR_ASSERT(numArgs >= 2);
@@ -921,7 +932,39 @@ fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_
 	animateSlot->reserved = true;
 	
 	fa_action_args_t animArgs = {};
-	animArgs.fadeInSec = 0.3f;	// todo: take from script args
+	
+	// get variadic arguments - iterate every 2 arguments, as we need (animate-arg ENUM) VALUE, this is two variadic arguments
+	for(uint32_t i=2; i+1<numArgs; i += 2)
+	{
+		const fs_animate_arg_t arg_enum = (fs_animate_arg_t)args[i].asInt32;
+		switch(arg_enum)
+		{
+			case FS_ANIMATE_ARG_FADE_IN_SEC:
+				animArgs.fadeInSec = args[i+1].asFloat;
+				break;
+			case FS_ANIMATE_ARG_FADE_IN_CURVE:
+				animArgs.fadeInCurve = (fa_curve_type_t)args[i+1].asInt32;
+				break;
+			case FS_ANIMATE_ARG_FADE_OUT_SEC:
+				animArgs.fadeOutSec = args[i+1].asFloat;
+				break;
+			case FS_ANIMATE_ARG_FADE_OUT_CURVE:
+				animArgs.fadeOutCurve = (fa_curve_type_t)args[i+1].asInt32;
+				break;
+			case FS_ANIMATE_ARG_IK_MODE:
+				animArgs.ikMode = (fa_ik_mode_t)args[i+1].asInt32;
+				break;
+			case FS_ANIMATE_ARG_LAYER:
+				animArgs.layer = (fa_character_layer_t)args[i+1].asInt32;
+				break;
+			case FS_ANIMATE_ARG_LAYER_NAME:
+				animArgs.layerName = args[i+1].asStringHash;
+				break;
+			default:
+				break;
+		}
+	}
+	
 	fa_character_schedule_action_simple(gameObj->animCharacter, animateSlot, &animArgs);
 	
 	fs_variant_t result = {};
@@ -1310,7 +1353,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionIdle, &args);
 		
 		args.fadeInSec = 0.5f;
-		args.layer = FA_CHAR_LAYER_UPPER_BODY;
+		args.layer = FA_CHAR_LAYER_PARTIAL;
 		//fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionWeaponEquipped, &args);
 	}
 	
@@ -1412,7 +1455,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			{
 				fa_action_args_t args = {};
 				args.fadeInSec = 0.5f;
-				args.layer = FA_CHAR_LAYER_UPPER_BODY;
+				args.layer = FA_CHAR_LAYER_PARTIAL;
 				fa_character_schedule_none_action(&pEngine->animCharacterZelda, &args);
 				
 				pEngine->zeldaGameObject.playerWeaponEquipped = false;
@@ -1421,7 +1464,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			{
 				fa_action_args_t args = {};
 				args.fadeInSec = 0.5f;
-				args.layer = FA_CHAR_LAYER_UPPER_BODY;
+				args.layer = FA_CHAR_LAYER_PARTIAL;
 				fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionWeaponEquipped, &args);
 				
 				pEngine->zeldaGameObject.playerWeaponEquipped = true;
@@ -1454,7 +1497,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		{
 			fa_action_args_t args = {};
 			args.fadeInSec = 0.5f;
-			args.layer = FA_CHAR_LAYER_UPPER_BODY;
+			args.layer = FA_CHAR_LAYER_PARTIAL;
 			fa_character_schedule_none_action(&pEngine->animCharacterZelda, &args);
 			
 			pEngine->zeldaGameObject.playerWindProtecting = false;
@@ -1463,7 +1506,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		{
 			fa_action_args_t args = {};
 			args.fadeInSec = 0.5f;
-			args.layer = FA_CHAR_LAYER_UPPER_BODY;
+			args.layer = FA_CHAR_LAYER_PARTIAL;
 			fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionWindProtect, &args);
 			
 			pEngine->zeldaGameObject.playerWindProtecting = true;
