@@ -37,6 +37,8 @@ typedef struct fg_game_object_register_t
 	fc_string_hash_t* ids;
 	uint32_t numObjects;	// also numIds
 	uint32_t capacity;
+	
+	fg_game_object_t* pPlayer; // for quick access
 } fg_game_object_register_t;
 
 typedef struct fg_animations_register_t
@@ -798,6 +800,9 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		pEngine->gameObjectRegister.objects[pEngine->gameObjectRegister.numObjects] = &pEngine->zeldaGameObject;
 		pEngine->gameObjectRegister.ids[pEngine->gameObjectRegister.numObjects] = pEngine->zeldaGameObject.name;
 		pEngine->gameObjectRegister.numObjects += 1;
+		
+		// reguster player game object
+		pEngine->gameObjectRegister.pPlayer = &pEngine->zeldaGameObject;
 	}
 	
 	// init dangle
@@ -885,6 +890,30 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	return true;
 }
 
+fg_game_object_t* fs_look_up_game_object(fs_script_ctx_t* ctx, fc_string_hash_t name)
+{
+	if(name == SID("self"))
+	{
+		return ctx->self;
+	}
+	else if(name == SID("player"))
+	{
+		return ctx->gameObjectRegister->pPlayer;
+	}
+	else
+	{
+		for(uint32_t i=0; i<ctx->gameObjectRegister->numObjects; ++i)
+		{
+			if(ctx->gameObjectRegister->ids[i] == name)
+			{
+				return ctx->gameObjectRegister->objects[i];
+			}
+		}
+	}
+	
+	return NULL;
+}
+
 typedef enum fs_animate_arg_t
 {
 	FS_ANIMATE_ARG_FADE_IN_CURVE = 0,
@@ -903,22 +932,7 @@ fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_
 	const fc_string_hash_t animName = args[1].asStringHash;
 	
 	// find game object
-	fg_game_object_t* gameObj = NULL;
-	if(objectName == SID("self"))
-	{
-		gameObj = ctx->self;
-	}
-	else
-	{
-		for(uint32_t i=0; i<ctx->gameObjectRegister->numObjects; ++i)
-		{
-			if(ctx->gameObjectRegister->ids[i] == objectName)
-			{
-				gameObj = ctx->gameObjectRegister->objects[i];
-				break;
-			}
-		}
-	}
+	fg_game_object_t* gameObj = fs_look_up_game_object(ctx, objectName);
 	FUR_ASSERT(gameObj);
 	
 	fa_action_animate_t* animateSlot = fg_animate_action_slots_get_free(&gameObj->animateActionSlots);
@@ -991,22 +1005,7 @@ fs_variant_t fs_native_equip_item(fs_script_ctx_t* ctx, uint32_t numArgs, const 
 	//const fc_string_hash_t itemName = args[1].asStringHash;
 	
 	// find game object
-	fg_game_object_t* gameObj = NULL;
-	if(objectName == SID("self"))
-	{
-		gameObj = ctx->self;
-	}
-	else
-	{
-		for(uint32_t i=0; i<ctx->gameObjectRegister->numObjects; ++i)
-		{
-			if(ctx->gameObjectRegister->ids[i] == objectName)
-			{
-				gameObj = ctx->gameObjectRegister->objects[i];
-				break;
-			}
-		}
-	}
+	fg_game_object_t* gameObj = fs_look_up_game_object(ctx, objectName);
 	FUR_ASSERT(gameObj);
 	
 	gameObj->equipItemNow = true;
@@ -1033,22 +1032,7 @@ fs_variant_t fs_native_get_variable(fs_script_ctx_t* ctx, uint32_t numArgs, cons
 	const fc_string_hash_t varName = args[1].asStringHash;
 	
 	// find game object
-	fg_game_object_t* gameObj = NULL;
-	if(objectName == SID("self"))
-	{
-		gameObj = ctx->self;
-	}
-	else
-	{
-		for(uint32_t i=0; i<ctx->gameObjectRegister->numObjects; ++i)
-		{
-			if(ctx->gameObjectRegister->ids[i] == objectName)
-			{
-				gameObj = ctx->gameObjectRegister->objects[i];
-				break;
-			}
-		}
-	}
+	fg_game_object_t* gameObj = fs_look_up_game_object(ctx, objectName);
 	FUR_ASSERT(gameObj);
 	
 	fs_variant_t result = {};
