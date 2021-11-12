@@ -25,11 +25,12 @@ typedef enum fc_memory_type_t
 typedef enum fc_memory_scope_t
 {
 	FC_MEMORY_SCOPE_DEFAULT = 0,
-	FC_MEMORY_SCOPE_INPUT = 1,
-	FC_MEMORY_SCOPE_PHYSICS = 2,
-	FC_MEMORY_SCOPE_ANIMATION = 3,
-	FC_MEMORY_SCOPE_SCRIPT = 4,
-	FC_MEMORY_SCOPE_DEBUG = 5
+	FC_MEMORY_SCOPE_INPUT,
+	FC_MEMORY_SCOPE_PHYSICS,
+	FC_MEMORY_SCOPE_ANIMATION,
+	FC_MEMORY_SCOPE_SCRIPT,
+	FC_MEMORY_SCOPE_DEBUG,
+	FC_MEMORY_SCOPE_PROFILER
 } fc_memory_scope_t;
 
 typedef void* (*fc_mem_alloc_fn_t)(	void* 						pUserData,

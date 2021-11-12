@@ -331,7 +331,7 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 {
 	FUR_ASSERT(g_debugFragments.numRects < FC_DEBUG_FRAGMENTS_RECTS_CAPACITY);
 	
-	const uint32_t idx = g_debugFragments.numRects * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS;
+	const uint32_t idx = g_debugFragments.numRects * FC_DEBUG_RECT_NUM_VERTICES * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS;
 	g_debugFragments.numRects += 1;
 	
 	float* vertices = g_debugFragments.rectData + idx;

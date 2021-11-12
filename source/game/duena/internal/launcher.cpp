@@ -554,6 +554,8 @@ fa_anim_clip_t* fe_load_anim_clip(const fi_depot_t* depot, const char* name, Fur
 // Furball Cat - Platform
 bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, fc_alloc_callbacks_t* pAllocCallbacks)
 {
+	fc_profiler_init(pAllocCallbacks);
+	
 	FurGameEngine* pEngine = (FurGameEngine*)malloc(sizeof(FurGameEngine));
 	memset(pEngine, 0, sizeof(FurGameEngine));
 	
@@ -1187,6 +1189,13 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 	
 	g_devMenuOptionClick = false;
 	
+	static float rightAnalogX = 0.0f;
+	static float rightAnalogY = 0.0f;
+	static float leftAnalogX = 0.0f;
+	static float leftAnalogY = 0.0f;
+	static float rightTrigger = 0.0f;
+	static float leftTrigger = 0.0f;
+	
 	fi_input_event_t inputEvents[10];
 	const uint32_t numEventsCollected = fi_get_input_events(pEngine->pInputManager, inputEvents, 10, 0);
 	for(uint32_t i=0; i<numEventsCollected; ++i)
@@ -1221,27 +1230,27 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 		}
 		else if(inputEvents[i].eventID == Gamepad_rightAnalogX)
 		{
-			pEngine->actionRotationLeftX = fm_snap_near_zero(inputEvents[i].value, 0.05f);
+			rightAnalogX = fm_snap_near_zero(inputEvents[i].value, 0.05f);
 		}
 		else if(inputEvents[i].eventID == Gamepad_rightAnalogY)
 		{
-			pEngine->actionRotationLeftY = fm_snap_near_zero(inputEvents[i].value, 0.05f);
+			rightAnalogY = fm_snap_near_zero(inputEvents[i].value, 0.05f);
 		}
 		else if(inputEvents[i].eventID == Gamepad_leftAnalogX)
 		{
-			pEngine->actionMoveX = -fm_snap_near_zero(inputEvents[i].value, 0.05f);
+			leftAnalogX = -fm_snap_near_zero(inputEvents[i].value, 0.05f);
 		}
 		else if(inputEvents[i].eventID == Gamepad_leftAnalogY)
 		{
-			pEngine->actionMoveY = fm_snap_near_zero(inputEvents[i].value, 0.05f);
+			leftAnalogY = fm_snap_near_zero(inputEvents[i].value, 0.05f);
 		}
 		else if(inputEvents[i].eventID == Gamepad_rightTrigger)
 		{
-			pEngine->actionZoomIn = fm_snap_near_zero(inputEvents[i].value, 0.05f);
+			rightTrigger = fm_snap_near_zero(inputEvents[i].value, 0.05f);
 		}
 		else if(inputEvents[i].eventID == Gamepad_leftTrigger)
 		{
-			pEngine->actionZoomOut = fm_snap_near_zero(inputEvents[i].value, 0.05f);
+			leftTrigger = fm_snap_near_zero(inputEvents[i].value, 0.05f);
 		}
 	}
 	
@@ -1291,8 +1300,34 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 			actionWasPressed = actionPressed;
 		}
 	}
+	else if(fc_profiler_is_draw_on())
+	{
+		if(actionWasPressed != actionPressed)
+		{
+			if(actionPressed)
+			{
+				fc_profiler_toggle_pause();
+			}
+			actionWasPressed = actionPressed;
+		}
+		else
+		{
+			pEngine->inActionPressed = false;
+		}
+		
+		const float zoomDelta = leftTrigger - rightTrigger;
+		const float panDelta = rightAnalogX;
+		fc_profiler_zoom_and_pan_delta(zoomDelta, panDelta);
+	}
 	else // block all the actions when debug menu is enabled
 	{
+		pEngine->actionRotationLeftX = rightAnalogX;
+		pEngine->actionRotationLeftY = rightAnalogY;
+		pEngine->actionMoveX = leftAnalogX;
+		pEngine->actionMoveY = leftAnalogY;
+		pEngine->actionZoomIn = rightTrigger;
+		pEngine->actionZoomOut = leftTrigger;
+		
 		if(actionWasPressed != actionPressed)
 		{
 			pEngine->inActionPressed = actionPressed;
@@ -1336,6 +1371,11 @@ void fc_dev_menu_show_player_anim_state(FurGameEngine* pEngine, fc_alloc_callbac
 	pEngine->zeldaGameObject.showAnimStateDebug = !pEngine->zeldaGameObject.showAnimStateDebug;
 }
 
+void fc_dev_menu_show_profiler(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	fc_profiler_toggle_draw();
+}
+
 void fc_dev_menu_slow_time(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	pEngine->debugIsSlowTime = !pEngine->debugIsSlowTime;
@@ -1368,7 +1408,8 @@ void fc_draw_debug_menu(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCall
 			{"quick-fps-mem", fc_dev_menu_show_fps},
 			{"reload-scripts", fc_dev_menu_reload_scripts},
 			{"slow-time", fc_dev_menu_slow_time},
-			{"show-player-anim-state", fc_dev_menu_show_player_anim_state}
+			{"show-player-anim-state", fc_dev_menu_show_player_anim_state},
+			{"profiler", fc_dev_menu_show_profiler}
 		};
 		
 		const uint32_t numOptions = FUR_ARRAY_SIZE(options);
@@ -1807,99 +1848,76 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 	pEngine->blendAlpha = fm_clamp(((sinf(pEngine->globalTime * 0.4f) + 1.0f) / 2.0f), 0.0f, 1.0f);
 	
 	// input
-	fi_update_input_manager(pEngine->pInputManager, pEngine->globalTime);
-	fg_input_actions_update(pEngine, dt);
+	FUR_PROFILE("actions-update")
+	{
+		fi_update_input_manager(pEngine->pInputManager, pEngine->globalTime);
+		fg_input_actions_update(pEngine, dt);
+	}
 	
 	// debug/dev menu
 	fc_draw_debug_menu(pEngine, pAllocCallbacks);
 	
 	// game
-	fg_scripts_update(pEngine, dt);
-	fg_gameplay_update(pEngine, dt);
+	FUR_PROFILE("gameplay-update")
+	{
+		fg_scripts_update(pEngine, dt);
+		fg_gameplay_update(pEngine, dt);
+	}
 	
 	// animation
-	fg_animation_update(pEngine, dt);
+	FUR_PROFILE("animation-update")
+	{
+		fg_animation_update(pEngine, dt);
+	}
 	
 	// physics
-	fp_physics_update_ctx_t physicsCtx = {};
-	physicsCtx.dt = dt;
-	
-	// apply root motion from anim info to physics
-	fm_vec4 playerDisplacement;
-	playerDisplacement.x = pEngine->animCharacterZelda.animInfo.rootMotionDeltaX;
-	playerDisplacement.y = pEngine->animCharacterZelda.animInfo.rootMotionDeltaY;
-	playerDisplacement.z = 0.0f;
-	playerDisplacement.w = 0.0f;
-	physicsCtx.playerDisplacement = &playerDisplacement;
-	fp_physics_update(pEngine->pPhysics, pEngine->pPhysicsScene, &physicsCtx);
-
-	// simulate hair dangles
+	FUR_PROFILE("physics-update")
 	{
-		fa_dangle_sim_ctx simCtx {};
-		simCtx.dt = dt;
+		fp_physics_update_ctx_t physicsCtx = {};
+		physicsCtx.dt = dt;
 		
-		fm_vec4 spherePos = pEngine->skinMatrices[pEngine->zeldaHeadIdx].w;
-		const float sphereRadius = 0.08f;
-		pEngine->zeldaDangleHairLeft.spherePos = &spherePos;
-		pEngine->zeldaDangleHairLeft.sphereRadius = sphereRadius;
-		pEngine->zeldaDangleHairRight.spherePos = &spherePos;
-		pEngine->zeldaDangleHairRight.sphereRadius = sphereRadius;
-		
-		pEngine->zeldaDangleHairLeft.x0[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1].w;
-		pEngine->zeldaDangleHairRight.x0[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1].w;
-		fa_dangle_simulate(&simCtx, &pEngine->zeldaDangleHairLeft);
-		fa_dangle_simulate(&simCtx, &pEngine->zeldaDangleHairRight);
-		
-		fm_mat4 m[3] = {};
-		
-		m[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1];
-		fa_dangle_to_matrices_y_down(&pEngine->zeldaDangleHairLeft, &m[0], m);
-		pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1] = m[0];
-		pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx2] = m[1];
-		
-		m[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1];
-		fa_dangle_to_matrices_y_down(&pEngine->zeldaDangleHairRight, &m[0], m);
-		pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1] = m[0];
-		pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx2] = m[1];
-	}
-	
-	// draw dangle
-#if 0
-	{
-		const float color[4] = FUR_COLOR_BLACK;
-		const float colorV[4] = FUR_COLOR_RED;
-		
-		fm_mat4 attachmentMatrix;
-		fm_mat4_identity(&attachmentMatrix);
-		attachmentMatrix.x = {-1.0f, 0.0f, 0.0f, 0.0f};
+		// apply root motion from anim info to physics
+		fm_vec4 playerDisplacement;
+		playerDisplacement.x = pEngine->animCharacterZelda.animInfo.rootMotionDeltaX;
+		playerDisplacement.y = pEngine->animCharacterZelda.animInfo.rootMotionDeltaY;
+		playerDisplacement.z = 0.0f;
+		playerDisplacement.w = 0.0f;
+		physicsCtx.playerDisplacement = &playerDisplacement;
+		fp_physics_update(pEngine->pPhysics, pEngine->pPhysicsScene, &physicsCtx);
 
-		fm_mat4 matrices[40];
-		fa_dangle_to_matrices_y_down(&pEngine->dangle, &attachmentMatrix, matrices);
-		
-		fc_dbg_mat4(&matrices[0]);
-		
-		for(uint32_t i=1; i<pEngine->dangle.numParaticles; ++i)
+		// simulate hair dangles
 		{
-			const fm_vec4 p0 = pEngine->dangle.x0[i-1];
-			const fm_vec4 p1 = pEngine->dangle.x0[i];
-			fm_vec4 v = pEngine->dangle.v[i];
-			fm_vec4_mulf(&v, 0.1f, &v);
-			fm_vec4_add(&v, &p1, &v);
+			fa_dangle_sim_ctx simCtx {};
+			simCtx.dt = dt;
 			
-			fc_dbg_line(&p0.x, &p1.x, color);
-			//fc_dbg_line(&p1.x, &v.x, colorV);
+			fm_vec4 spherePos = pEngine->skinMatrices[pEngine->zeldaHeadIdx].w;
+			const float sphereRadius = 0.08f;
+			pEngine->zeldaDangleHairLeft.spherePos = &spherePos;
+			pEngine->zeldaDangleHairLeft.sphereRadius = sphereRadius;
+			pEngine->zeldaDangleHairRight.spherePos = &spherePos;
+			pEngine->zeldaDangleHairRight.sphereRadius = sphereRadius;
 			
-			fc_dbg_mat4(&matrices[i]);
+			pEngine->zeldaDangleHairLeft.x0[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1].w;
+			pEngine->zeldaDangleHairRight.x0[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1].w;
+			fa_dangle_simulate(&simCtx, &pEngine->zeldaDangleHairLeft);
+			fa_dangle_simulate(&simCtx, &pEngine->zeldaDangleHairRight);
+			
+			fm_mat4 m[3] = {};
+			
+			m[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1];
+			fa_dangle_to_matrices_y_down(&pEngine->zeldaDangleHairLeft, &m[0], m);
+			pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1] = m[0];
+			pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx2] = m[1];
+			
+			m[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1];
+			fa_dangle_to_matrices_y_down(&pEngine->zeldaDangleHairRight, &m[0], m);
+			pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1] = m[0];
+			pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx2] = m[1];
 		}
-		
-		//fc_dbg_mat4(&pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1]);
-		//fc_dbg_mat4(&pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx2]);
-		//fc_dbg_mat4(&pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1]);
-		//fc_dbg_mat4(&pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx2]);
 	}
-#endif
 	
 	// rendering
+	FUR_PROFILE("render-update")
 	{
 		// get zelda position
 		fm_xform playerLocator;
@@ -1993,7 +2011,14 @@ void furMainEngineLoop(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallb
 		
 		const float dt = dtOrig.count();
 		
-		furMainEngineGameUpdate(pEngine, dt, pAllocCallbacks);
+		fc_profiler_start_frame();
+		
+		FUR_PROFILE("frame")
+		{
+			furMainEngineGameUpdate(pEngine, dt, pAllocCallbacks);
+		}
+		
+		fc_profiler_end_frame();
 	}
 	
 	fr_wait_for_device(pEngine->pRenderer);
@@ -2040,6 +2065,9 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	
 	fc_string_hash_register_release(pAllocCallbacks);
 	
+	fc_profiler_release(pAllocCallbacks);
+	
+	// release all memory before this call, otherwise it might be treated as memory leak
 	fr_release_app(pEngine->pApp, pAllocCallbacks);
 	
 	free(pEngine);	// rest of the deallocations should happen through allocators

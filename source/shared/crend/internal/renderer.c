@@ -3264,7 +3264,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		
 		if(desc.rectsDataSize > 0)
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->aRectsVertexBuffer[imageIndex].memory, 0, desc.rectsDataSize);
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->aRectsVertexBuffer[imageIndex].memory, 0, fc_dbg_rects_buffer_size());
 			fr_copy_data_to_buffer(pRenderer->device, pRenderer->aRectsVertexBuffer[imageIndex].memory, desc.rectsData, 0, desc.rectsDataSize);
 		}
 		else

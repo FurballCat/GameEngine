@@ -1659,9 +1659,10 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	layerCtx.scratchMemorySize = animCmdBufferSize;
 	layerCtx.debug = ctx->showDebug ? &debug : NULL;
 	
+	fa_pose_t poseLS;
+	
 	// reset pose to ref pose
 	fa_pose_stack_push(&poseStack, 1);
-	fa_pose_t poseLS;
 	fa_pose_stack_get(&poseStack, &poseLS, 0);
 	{
 		FUR_ASSERT(poseLS.numXforms == character->rig->numBones);
@@ -1680,7 +1681,10 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	}
 	
 	// body
-	fa_character_layer_animate(character, &layerCtx, &character->layerFullBody);
+	FUR_PROFILE("body-layer")
+	{
+		fa_character_layer_animate(character, &layerCtx, &character->layerFullBody);
+	}
 	
 	// store root motion
 	const float rootMotionDeltaX = character->animInfo.rootMotionDeltaX;
@@ -1691,16 +1695,25 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	const float weightLegsIK = layerCtx.outWeightLegsIK;
 	
 	// partial layer, can be applied anywhere, but does not interrupt full body
-	fa_character_layer_animate(character, &layerCtx, &character->layerPartial);
+	FUR_PROFILE("partial-layer")
+	{
+		fa_character_layer_animate(character, &layerCtx, &character->layerPartial);
+	}
 	
 	// face
-	fa_character_layer_animate(character, &layerCtx, &character->layerFace);
+	FUR_PROFILE("face-layer")
+	{
+		fa_character_layer_animate(character, &layerCtx, &character->layerFace);
+	}
 	
 	// look-at
 	
 	// inverse kinematics
-	layerCtx.outWeightLegsIK = weightLegsIK;
-	fa_character_ik(character, &layerCtx);
+	FUR_PROFILE("ik")
+	{
+		layerCtx.outWeightLegsIK = weightLegsIK;
+		fa_character_ik(character, &layerCtx);
+	}
 	
 	// ragdoll
 
@@ -1710,6 +1723,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	character->animInfo.rootMotionDeltaYaw = rootMotionDeltaYaw;
 	
 	// convert to model space
+	FUR_PROFILE("ls-to-ms")
 	{
 		const int16_t* parentIndices = character->rig->parents;
 		fa_pose_t poseMS = {};
