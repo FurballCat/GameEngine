@@ -19,6 +19,7 @@
 #include "image.h"
 #include "renderUtils.h"
 #include "psoUtils.h"
+#include "pvs.h"
 
 #include "cimport/public.h"
 
@@ -617,6 +618,7 @@ typedef struct fr_uniform_buffer_t
 	fm_mat4_t model;
 	fm_mat4_t view;
 	fm_mat4_t proj;
+	fm_mat4_t padding;	// when using offset for buffers, it has to be a multiple of 256
 } fr_uniform_buffer_t;
 
 typedef struct fr_skinning_buffer_t
@@ -653,6 +655,7 @@ const char* g_texturePathEyesDiff = "../../../../../assets/characters/zelda/mesh
 const char* g_texturePathMelee = "../../../../../assets/characters/zelda/mesh/textures/melee_diff.png";
 
 #define NUM_TEXTURES_IN_ARRAY 3
+#define NUM_MAX_MESH_UNIFORM_BUFFERS 40
 
 /*************************************************************/
 
@@ -779,8 +782,10 @@ struct fr_renderer_t
 	VkDescriptorPool descriptorPool;
 	VkDescriptorSet aDescriptorSets[NUM_SWAP_CHAIN_IMAGES];
 	
-	fr_buffer_t aPropUniformBuffer[NUM_SWAP_CHAIN_IMAGES];
 	VkDescriptorSet aPropDescriptorSets[NUM_SWAP_CHAIN_IMAGES];
+	
+	VkDescriptorPool pvsDescriptorPool;
+	fr_pvs_t pvs[NUM_SWAP_CHAIN_IMAGES];
 	
 	fm_mat4 cameraMatrix;
 };
@@ -1403,27 +1408,13 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		fr_buffer_desc_t desc;
-		desc.size = sizeof(fr_uniform_buffer_t);
+		desc.size = sizeof(fr_uniform_buffer_t) * NUM_MAX_MESH_UNIFORM_BUFFERS;
 		desc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 		desc.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 		
 		for(uint32_t i=0; i<3; ++i)
 		{
 			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->aUniformBuffer[i], pAllocCallbacks);
-		}
-	}
-	
-	// create prop uniform buffer
-	if(res == FR_RESULT_OK)
-	{
-		fr_buffer_desc_t desc;
-		desc.size = sizeof(fr_uniform_buffer_t);
-		desc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-		desc.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-		
-		for(uint32_t i=0; i<3; ++i)
-		{
-			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->aPropUniformBuffer[i], pAllocCallbacks);
 		}
 	}
 	
@@ -2291,6 +2282,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 	}
 	
+	uint32_t numUsedUniformBuffers = 0;	// todo: in future this will depend on PVS (Potentially Visible Set)
+	
 	// create descriptor sets
 	if(res == FR_RESULT_OK)
 	{
@@ -2300,6 +2293,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		desc.numDescriptors = NUM_SWAP_CHAIN_IMAGES;
 		desc.outDescriptorSets = pRenderer->aDescriptorSets;
 		desc.uniformBuffers = pRenderer->aUniformBuffer;
+		desc.uniformBufferOffset = sizeof(fr_uniform_buffer_t) * numUsedUniformBuffers;
 		desc.uniformBufferSize = sizeof(fr_uniform_buffer_t);
 		desc.skinningBuffers = pRenderer->aSkinningBuffer;
 		desc.skinningBufferSize = sizeof(fr_skinning_buffer_t);
@@ -2312,6 +2306,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		desc.textures = textures;
 		
 		fr_alloc_descriptor_sets_mesh(pRenderer->device, &desc);
+		
+		numUsedUniformBuffers += 1;
 	}
 	
 	// create prop descriptor sets
@@ -2322,7 +2318,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		desc.layout = pRenderer->descriptorSetLayout;
 		desc.numDescriptors = NUM_SWAP_CHAIN_IMAGES;
 		desc.outDescriptorSets = pRenderer->aPropDescriptorSets;
-		desc.uniformBuffers = pRenderer->aPropUniformBuffer;
+		desc.uniformBuffers = pRenderer->aUniformBuffer;
+		desc.uniformBufferOffset = sizeof(fr_uniform_buffer_t) * numUsedUniformBuffers;
 		desc.uniformBufferSize = sizeof(fr_uniform_buffer_t);
 		desc.skinningBuffers = pRenderer->aSkinningBuffer;
 		desc.skinningBufferSize = sizeof(fr_skinning_buffer_t);
@@ -2333,6 +2330,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		desc.textures = &pRenderer->textureMelee;
 		
 		fr_alloc_descriptor_sets_mesh(pRenderer->device, &desc);
+		
+		numUsedUniformBuffers += 1;
 	}
 	
 	// create descriptor sets for 2D rect drawing
@@ -2429,6 +2428,89 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			descriptorWrites[1].pImageInfo = &imageInfo;
 			
 			vkUpdateDescriptorSets(pRenderer->device, numBindings, descriptorWrites, 0, NULL);
+		}
+	}
+	
+	// create descriptor pool for PVS (Potentially Visible Set)
+	if(res == FR_RESULT_OK)
+	{
+		uint32_t numBindings = 2;
+		VkDescriptorPoolSize poolSizes[numBindings];
+		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		poolSizes[0].descriptorCount = NUM_SWAP_CHAIN_IMAGES;
+		
+		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		poolSizes[1].descriptorCount = NUM_SWAP_CHAIN_IMAGES;
+		
+		VkDescriptorPoolCreateInfo poolInfo = {};
+		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		poolInfo.poolSizeCount = numBindings;
+		poolInfo.pPoolSizes = poolSizes;
+		poolInfo.maxSets = NUM_SWAP_CHAIN_IMAGES * NUM_MAX_MESH_UNIFORM_BUFFERS;
+		
+		if (vkCreateDescriptorPool(pRenderer->device, &poolInfo, NULL, &pRenderer->pvsDescriptorPool) != VK_SUCCESS)
+		{
+			FUR_ASSERT(false);	// can't create descriptor pool for PVS for some reason
+		}
+	}
+	
+	// prepare PVS
+	{
+		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		{
+			fr_pvs_t* pvs = &pRenderer->pvs[i];
+			pvs->device = pRenderer->device;
+			pvs->defaultTextureSampler = pRenderer->textureSampler;
+			pvs->numMaxDescriptorSets = NUM_MAX_MESH_UNIFORM_BUFFERS;
+			pvs->descriptorSets = FUR_ALLOC_ARRAY_AND_ZERO(VkDescriptorSet, NUM_MAX_MESH_UNIFORM_BUFFERS, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+			pvs->proxies = FUR_ALLOC_ARRAY_AND_ZERO(const fr_proxy_t*, NUM_MAX_MESH_UNIFORM_BUFFERS, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+			pvs->proxiesFlags = FUR_ALLOC_ARRAY_AND_ZERO(uint32_t, NUM_MAX_MESH_UNIFORM_BUFFERS, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+			
+			// allocate descriptor sets
+			VkDescriptorSetLayout layouts[20] = {};	// max layouts
+			for(uint32_t i=0; i<NUM_MAX_MESH_UNIFORM_BUFFERS; ++i)
+			{
+				layouts[i] = pRenderer->descriptorSetLayout;
+			}
+			
+			VkDescriptorSetAllocateInfo allocInfo = {};
+			allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+			allocInfo.descriptorPool = pRenderer->pvsDescriptorPool;
+			allocInfo.descriptorSetCount = NUM_MAX_MESH_UNIFORM_BUFFERS;
+			allocInfo.pSetLayouts = layouts;
+			
+			if (vkAllocateDescriptorSets(pRenderer->device, &allocInfo, pvs->descriptorSets) != VK_SUCCESS)
+			{
+				FUR_ASSERT(false); // can't allocate descriptor sets for some reason
+			}
+			
+			// create uniform buffer for PVS
+			if(res == FR_RESULT_OK)
+			{
+				fr_buffer_desc_t desc;
+				desc.size = sizeof(fr_uniform_buffer_t) * NUM_MAX_MESH_UNIFORM_BUFFERS;
+				desc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+				desc.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+				
+				for(uint32_t i=0; i<3; ++i)
+				{
+					fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pvs->worldViewProj, pAllocCallbacks);
+				}
+			}
+			
+			// create skinning buffer for PVS
+			if(res == FR_RESULT_OK)
+			{
+				fr_buffer_desc_t desc;
+				desc.size = sizeof(fr_skinning_buffer_t);	// todo: need to specify size
+				desc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+				desc.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+				
+				for(uint32_t i=0; i<3; ++i)
+				{
+					fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pvs->skinningBuffer, pAllocCallbacks);
+				}
+			}
 		}
 	}
 	
@@ -2812,6 +2894,22 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 					   struct fc_alloc_callbacks_t*	pAllocCallbacks)
 {
+	// release PVS
+	{
+		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		{
+			fr_pvs_t* pvs = &pRenderer->pvs[i];
+			fr_buffer_release(pRenderer->device, &pvs->worldViewProj, pAllocCallbacks);
+			fr_buffer_release(pRenderer->device, &pvs->skinningBuffer, pAllocCallbacks);
+			
+			FUR_FREE(pvs->descriptorSets, pAllocCallbacks);
+			FUR_FREE(pvs->proxies, pAllocCallbacks);
+			FUR_FREE(pvs->proxiesFlags, pAllocCallbacks);
+		}
+		
+		vkDestroyDescriptorPool(pRenderer->device, pRenderer->pvsDescriptorPool, NULL);
+	}
+	
 	if(pRenderer->skinningMapping.indicesMapping)
 	{
 		FUR_FREE(pRenderer->skinningMapping.indicesMapping, pAllocCallbacks);
@@ -2835,7 +2933,6 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			fr_buffer_release(pRenderer->device, &pRenderer->aUniformBuffer[i], pAllocCallbacks);
-			fr_buffer_release(pRenderer->device, &pRenderer->aPropUniformBuffer[i], pAllocCallbacks);
 			fr_buffer_release(pRenderer->device, &pRenderer->aSkinningBuffer[i], pAllocCallbacks);
 			
 			fr_buffer_release(pRenderer->device, &pRenderer->aTextUniformBuffer[i], pAllocCallbacks);
@@ -3087,6 +3184,8 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		fm_mat4_transpose(&ubo.view);
 		fm_mat4_transpose(&ubo.proj);
 		
+		uint32_t uniformBufferOffset = 0;
+		
 		// set player position and orientation
 		if(ctx->zeldaMatrix)
 		{
@@ -3096,7 +3195,9 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		{
 			fm_mat4_identity(&ubo.model);
 		}
-		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(fr_uniform_buffer_t));
+		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aUniformBuffer[imageIndex].memory, &ubo,
+							   sizeof(fr_uniform_buffer_t) * uniformBufferOffset, sizeof(fr_uniform_buffer_t));
+		uniformBufferOffset += 1;
 		
 		// set prop position and orientation
 		if(ctx->propMatrix)
@@ -3107,7 +3208,9 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		{
 			fm_mat4_identity(&ubo.model);
 		}
-		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aPropUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(fr_uniform_buffer_t));
+		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aUniformBuffer[imageIndex].memory, &ubo,
+							   sizeof(fr_uniform_buffer_t) * uniformBufferOffset, sizeof(fr_uniform_buffer_t));
+		uniformBufferOffset += 1;
 		
 		const float scale = pRenderer->swapChainExtent.height * 0.18f;
 		fm_mat4_ortho_projection(scale, -scale, -aspectRatio * scale, aspectRatio * scale, 0.0f, 1.0f, &ubo.proj);

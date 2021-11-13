@@ -72,7 +72,9 @@ typedef struct fr_alloc_descriptor_sets_mesh_ctx_t
 	fr_buffer_t* uniformBuffers;
 	fr_buffer_t* skinningBuffers;
 	size_t uniformBufferSize;
+	size_t uniformBufferOffset;
 	size_t skinningBufferSize;
+	size_t skinningBufferOffset;
 	
 	// for all descritors
 	uint32_t numTextures;
@@ -81,6 +83,23 @@ typedef struct fr_alloc_descriptor_sets_mesh_ctx_t
 } fr_alloc_descriptor_sets_mesh_ctx_t;
 
 void fr_alloc_descriptor_sets_mesh(VkDevice device, fr_alloc_descriptor_sets_mesh_ctx_t* ctx);
+
+typedef struct fr_write_descriptor_set_ctx_t
+{
+	fr_buffer_t* uniformBuffer;
+	fr_buffer_t* skinningBuffer;
+	size_t uniformBufferSize;
+	size_t uniformBufferOffset;
+	size_t skinningBufferSize;
+	size_t skinningBufferOffset;
+	
+	// for all descritors
+	uint32_t numTextures;
+	fr_image_t* textures;
+	VkSampler* samplers;
+} fr_write_descriptor_set_ctx_t;
+
+void fr_write_descriptor_set(VkDevice device, fr_write_descriptor_set_ctx_t* ctx, VkDescriptorSet descriptor);
 
 // -------------
 // COMMAND UTILS

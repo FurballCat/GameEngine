@@ -11,7 +11,8 @@ extern "C"
 #include "api.h"
 
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
-	
+typedef struct fm_mat4 fm_mat4;
+
 // Render result code
 enum fr_result_t
 {
@@ -64,8 +65,8 @@ CREND_API void fr_wait_for_device(struct fr_renderer_t* pRenderer);
 	
 struct fr_scene_t;
 	
-// Render proxy
-typedef struct fr_mesh_proxy_t fr_mesh_proxy_t;
+// render proxy - can be a mesh, a particle system, anything that can be rendered and has position
+typedef struct fr_proxy_t fr_proxy_t;
 
 typedef struct fi_depot_t fi_depot_t;
 
@@ -77,28 +78,28 @@ typedef struct fr_load_mesh_ctx_t
 	uint32_t numTextures;
 } fr_load_mesh_ctx_t;
 
-CREND_API fr_mesh_proxy_t* fr_load_mesh(fr_renderer_t* renderer, const fi_depot_t* depot, const fr_load_mesh_ctx_t* ctx);
+// load mesh, the ownership is kept inside renderer, so no need to
+CREND_API fr_proxy_t* fr_load_mesh(fr_renderer_t* renderer, const fi_depot_t* depot, const fr_load_mesh_ctx_t* ctx);
 
-struct FrRenderProxyDesc_Mesh;
-	
-CREND_API enum fr_result_t fr_create_render_proxy_mesh(struct fr_scene_t* pRenderScene,
-										 const struct FrRenderProxyDesc_Mesh* pDesc,
-										 struct fr_render_proxy_mesh_t** ppProxy);
+// potentially visible set - defines render proxies that are visible this frame
+typedef struct fr_pvs_t fr_pvs_t;
 
-CREND_API enum fr_result_t fr_release_render_proxy_mesh(struct fr_scene_t* pRenderScene,
-										  struct fr_render_proxy_mesh_t* pProxy);
+// at frame update, acquire PVS and relink proxies to it, keep it with frame data
+CREND_API fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer);
 
-typedef struct fm_mat4 fm_mat4;
+// add renderable thing to given potentially visible set
+CREND_API void fr_pvs_add(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator);
+
+// add renderable thing to given potentially visible set and pass skinning matrices for it
+CREND_API void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator, const fm_mat4* skinMatrices);
 
 struct fr_update_context_t
 {
 	float dt;
 	fm_mat4* cameraMatrix;
 };
-	
-CREND_API void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_context_t* ctx);
 
-typedef struct fm_mat4 fm_mat4;
+CREND_API void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_context_t* ctx);
 	
 typedef struct fr_draw_frame_context_t
 {
@@ -107,6 +108,8 @@ typedef struct fr_draw_frame_context_t
 	
 	const fm_mat4* zeldaMatrix;
 	const fm_mat4* propMatrix;
+	
+	fr_pvs_t* pvs;	// what's visible in this frame
 } fr_draw_frame_context_t;
 	
 CREND_API void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_t* ctx);

@@ -30,7 +30,8 @@ typedef enum fc_memory_scope_t
 	FC_MEMORY_SCOPE_ANIMATION,
 	FC_MEMORY_SCOPE_SCRIPT,
 	FC_MEMORY_SCOPE_DEBUG,
-	FC_MEMORY_SCOPE_PROFILER
+	FC_MEMORY_SCOPE_PROFILER,
+	FC_MEMORY_SCOPE_RENDER
 } fc_memory_scope_t;
 
 typedef void* (*fc_mem_alloc_fn_t)(	void* 						pUserData,
