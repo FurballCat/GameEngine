@@ -1976,11 +1976,8 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		fm_mat4 cameraMatrix;
 		fg_camera_view_matrix(pEngine->camera, &cameraMatrix);
 		
-		// update rendering
-		fr_update_context_t ctx = {};
-		ctx.dt = dt;
-		ctx.cameraMatrix = &cameraMatrix;
-		fr_update_renderer(pEngine->pRenderer, &ctx);
+		// acquire this frame's PVS (Potentially Visible Set) to fill it with data
+		fr_pvs_t* framePVS = fr_acquire_free_pvs(pEngine->pRenderer, &cameraMatrix);
 		
 		if(!pEngine->zeldaGameObject.playerWeaponEquipped)
 		{
@@ -1995,6 +1992,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		renderCtx.skinMatrices = pEngine->skinMatrices;
 		renderCtx.numSkinMatrices = pEngine->pRig->numBones;
 		renderCtx.propMatrix = &slotMS;
+		renderCtx.pvs = framePVS;
 		fr_draw_frame(pEngine->pRenderer, &renderCtx);
 	}
 }

@@ -38,12 +38,15 @@ typedef struct fr_pvs_t
 	// constants given this frame
 	fm_mat4 view;
 	fm_mat4 projection;
+	fm_mat4 camera;			// view and projection is created based on that, it's initiated when acquiring the PVS
 	
 	// values modified with adding proxies
-	uint32_t worldViewProjOffset;		// adding proxies moves the offset
+	uint32_t worldViewProjOffset;	// adding proxies moves the offset
 	size_t skinningBufferOffset;	// same here, adding skinned proxies moves the offset in skinning buffer
 	
-	const fr_proxy_t** proxies;			// collection of all proxies visible this frame
+	const fr_proxy_t** proxies;		// collection of all proxies visible this frame
 	uint32_t* proxiesFlags;			// flags like - is skinned
 	uint32_t numProxies;			// this is the current number of proxies added to PVS during frame
+	
+	uint32_t pvsIndex;	// used for tripple buffering
 } fr_pvs_t;

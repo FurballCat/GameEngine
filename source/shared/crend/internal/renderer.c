@@ -50,6 +50,8 @@
 #define S1(x) #x
 #define S2(x) S1(x)
 
+#define USE_PVS 1
+
 /*************************************************************/
 
 #define FC_ERROR_MESSAGE_MAX_LENGTH 512
@@ -786,8 +788,6 @@ struct fr_renderer_t
 	
 	VkDescriptorPool pvsDescriptorPool;
 	fr_pvs_t pvs[NUM_SWAP_CHAIN_IMAGES];
-	
-	fm_mat4 cameraMatrix;
 };
 
 void fr_pixels_free_func(void* pData, size_t size, void* pUserData)
@@ -2459,6 +2459,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			fr_pvs_t* pvs = &pRenderer->pvs[i];
+			pvs->pvsIndex = i;
 			pvs->device = pRenderer->device;
 			pvs->defaultTextureSampler = pRenderer->textureSampler;
 			pvs->numMaxDescriptorSets = NUM_MAX_MESH_UNIFORM_BUFFERS;
@@ -2877,11 +2878,6 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		FUR_FREE(pRenderer, pAllocCallbacks);
 	}
 	
-	if(res == FR_RESULT_OK)
-	{
-		fm_mat4_identity(&pRenderer->cameraMatrix);
-	}
-	
 	// create skinning mapping
 	if(res == FR_RESULT_OK)
 	{
@@ -3057,9 +3053,6 @@ void fr_wait_for_device(struct fr_renderer_t* pRenderer)
 	vkDeviceWaitIdle(pRenderer->device);
 }
 
-double g_timeDelta = 0.0f;
-double g_time = 0.0f;
-
 void fr_dbg_draw_mat4(const fm_mat4_t* m)
 {
 	const float pos[3] = {m->w.x, m->w.y, m->w.z};
@@ -3077,20 +3070,32 @@ void fr_dbg_draw_mat4(const fm_mat4_t* m)
 	fc_dbg_line(pos, axisZ, blue);
 }
 
-float g_blend = 0.0f;
-
-void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_context_t* ctx)
+fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera)
 {
-	g_timeDelta = ctx->dt;
-	g_time += g_timeDelta;
+	uint32_t imageIndex;
+	vkAcquireNextImageKHR(pRenderer->device, pRenderer->swapChain, (uint64_t)-1,
+						  pRenderer->imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 	
-	// update camera
-	pRenderer->cameraMatrix = *ctx->cameraMatrix;
+	fr_pvs_t* pvs = &pRenderer->pvs[imageIndex];
+	pvs->camera = *camera;
 	
-	g_blend = fm_clamp((sinf(g_time / 5.0f) + 1.0f) / 2.0f, 0.0f, 1.0f);
-};
-
-uint32_t g_prevImageIndex = 0;
+	const float aspectRatio = pRenderer->swapChainExtent.width / (float)pRenderer->swapChainExtent.height;
+	
+	fm_mat4 tempView = pvs->camera;
+	
+	fm_mat4_projection_fov(45.0f, aspectRatio, 0.1f, 1000.0f, &pvs->projection);
+	
+	fm_mat4_t rot_x_vulkan_correction;
+	fm_mat4_rot_x(FM_DEG_TO_RAD(-90), &rot_x_vulkan_correction);
+	fm_mat4_mul(&rot_x_vulkan_correction, &tempView, &pvs->view);
+	
+	pvs->projection.y.y *= -1.0f;	// flipping from right-handed (Blender) to left-handed (Vulkan)?
+	
+	fm_mat4_transpose(&pvs->projection);
+	fm_mat4_transpose(&pvs->view);
+	
+	return pvs;
+}
 
 void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_t* ctx)
 {
@@ -3114,38 +3119,18 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		skinBuffer.bones[i] = testMatrices[i];
 	}
 	
-	// todo: pass skinning matrices
+	uint32_t imageIndex = 0;
 	
-	/*
-	const uint32_t numChunks = pRenderer->pMesh->numChunks;
-	for(uint32_t i=0; i<numChunks; ++i)
-	{
-		const fr_resource_mesh_chunk_t* chunk = &pRenderer->pMesh->chunks[i];
-		for(uint32_t b=0; b<chunk->numBones; ++b)
-		{
-			const fm_mat4_t* m = &chunk->bindPose[b];
-			fm_mat4_t tm = *m;
-			fm_mat4_transpose(&tm);
-			fr_dbg_draw_mat4(&tm);
-		}
-	}
-	 */
-	
-	uint32_t imageIndex;
-	vkAcquireNextImageKHR(pRenderer->device, pRenderer->swapChain, (uint64_t)-1,
-						  pRenderer->imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+	fr_pvs_t* pvs = ctx->pvs;
+	FUR_ASSERT(pvs);
+	imageIndex = pvs->pvsIndex;
+
+	FUR_ASSERT(imageIndex < NUM_SWAP_CHAIN_IMAGES);
 	
 	// pass skinning matrices to skin buffer
 	{
 		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aSkinningBuffer[imageIndex].memory, &skinBuffer, 0, sizeof(fr_skinning_buffer_t));
 	}
-	
-	if(imageIndex != g_prevImageIndex)
-	{
-		g_prevImageIndex = imageIndex;
-	}
-	
-	FUR_ASSERT(imageIndex < NUM_SWAP_CHAIN_IMAGES);
 	
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -3165,24 +3150,11 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 
 	// update uniform buffer
 	{
-		const float aspectRatio = pRenderer->swapChainExtent.width / (float)pRenderer->swapChainExtent.height;
-		
-		fm_mat4 tempView = pRenderer->cameraMatrix;
-		
-		fr_uniform_buffer_t ubo = {};
-		fm_mat4_identity(&ubo.model);
-		
-		fm_mat4_projection_fov(45.0f, aspectRatio, 0.1f, 1000.0f, &ubo.proj);
-		
-		fm_mat4_t rot_x_vulkan_correction;
-		fm_mat4_rot_x(FM_DEG_TO_RAD(-90), &rot_x_vulkan_correction);
-		fm_mat4_mul(&rot_x_vulkan_correction, &tempView, &ubo.view);
-		
-		ubo.proj.y.y *= -1.0f;	// flipping from right-handed (Blender) to left-handed (Vulkan)?
+		fr_uniform_buffer_t ubo;
+		ubo.proj = pvs->projection;
+		ubo.view = pvs->view;
 		
 		fm_mat4_transpose(&ubo.model);
-		fm_mat4_transpose(&ubo.view);
-		fm_mat4_transpose(&ubo.proj);
 		
 		uint32_t uniformBufferOffset = 0;
 		
@@ -3213,6 +3185,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		uniformBufferOffset += 1;
 		
 		const float scale = pRenderer->swapChainExtent.height * 0.18f;
+		const float aspectRatio = pRenderer->swapChainExtent.width / (float)pRenderer->swapChainExtent.height;
 		fm_mat4_ortho_projection(scale, -scale, -aspectRatio * scale, aspectRatio * scale, 0.0f, 1.0f, &ubo.proj);
 		fm_mat4_identity(&ubo.model);
 		fm_mat4_identity(&ubo.view);

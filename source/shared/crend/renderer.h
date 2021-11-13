@@ -85,7 +85,7 @@ CREND_API fr_proxy_t* fr_load_mesh(fr_renderer_t* renderer, const fi_depot_t* de
 typedef struct fr_pvs_t fr_pvs_t;
 
 // at frame update, acquire PVS and relink proxies to it, keep it with frame data
-CREND_API fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer);
+CREND_API fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera);
 
 // add renderable thing to given potentially visible set
 CREND_API void fr_pvs_add(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator);
@@ -93,14 +93,6 @@ CREND_API void fr_pvs_add(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locat
 // add renderable thing to given potentially visible set and pass skinning matrices for it
 CREND_API void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator, const fm_mat4* skinMatrices);
 
-struct fr_update_context_t
-{
-	float dt;
-	fm_mat4* cameraMatrix;
-};
-
-CREND_API void fr_update_renderer(struct fr_renderer_t* pRenderer, const struct fr_update_context_t* ctx);
-	
 typedef struct fr_draw_frame_context_t
 {
 	const fm_mat4* skinMatrices;
