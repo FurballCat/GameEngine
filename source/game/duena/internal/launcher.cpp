@@ -1880,7 +1880,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		fm_vec4 playerDisplacement;
 		playerDisplacement.x = pEngine->animCharacterZelda.animInfo.rootMotionDeltaX;
 		playerDisplacement.y = pEngine->animCharacterZelda.animInfo.rootMotionDeltaY;
-		playerDisplacement.z = 0.0f;
+		playerDisplacement.z = -2.0f * dt;
 		playerDisplacement.w = 0.0f;
 		physicsCtx.playerDisplacement = &playerDisplacement;
 		fp_physics_update(pEngine->pPhysics, pEngine->pPhysicsScene, &physicsCtx);
