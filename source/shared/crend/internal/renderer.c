@@ -2294,147 +2294,45 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create descriptor sets
 	if(res == FR_RESULT_OK)
 	{
-		VkDescriptorSetLayout layouts[NUM_SWAP_CHAIN_IMAGES] = {pRenderer->descriptorSetLayout,
-			pRenderer->descriptorSetLayout, pRenderer->descriptorSetLayout};
+		fr_alloc_descriptor_sets_mesh_ctx_t desc = {};
+		desc.descriptorPool = pRenderer->descriptorPool;
+		desc.layout = pRenderer->descriptorSetLayout;
+		desc.numDescriptors = NUM_SWAP_CHAIN_IMAGES;
+		desc.outDescriptorSets = pRenderer->aDescriptorSets;
+		desc.uniformBuffers = pRenderer->aUniformBuffer;
+		desc.uniformBufferSize = sizeof(fr_uniform_buffer_t);
+		desc.skinningBuffers = pRenderer->aSkinningBuffer;
+		desc.skinningBufferSize = sizeof(fr_skinning_buffer_t);
 		
-		VkDescriptorSetAllocateInfo allocInfo = {};
-		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		allocInfo.descriptorPool = pRenderer->descriptorPool;
-		allocInfo.descriptorSetCount = NUM_SWAP_CHAIN_IMAGES;
-		allocInfo.pSetLayouts = layouts;
+		desc.numTextures = NUM_TEXTURES_IN_ARRAY;
 		
-		if (vkAllocateDescriptorSets(pRenderer->device, &allocInfo, pRenderer->aDescriptorSets) != VK_SUCCESS)
-		{
-			fur_set_last_error("Can't allocate descriptor sets for uniform buffers");
-			res = FR_RESULT_ERROR_GPU;
-		}
+		VkSampler samplers[NUM_TEXTURES_IN_ARRAY] = {pRenderer->textureSampler, pRenderer->textureSampler, pRenderer->textureSampler};
+		desc.samplers = samplers;
+		fr_image_t textures[NUM_TEXTURES_IN_ARRAY] = {pRenderer->textureZeldaDiff, pRenderer->textureHairDiff, pRenderer->textureEyesDiff};
+		desc.textures = textures;
 		
-		for (size_t i = 0; i < NUM_SWAP_CHAIN_IMAGES; ++i)
-		{
-			VkDescriptorBufferInfo bufferInfo[2] = {};
-			bufferInfo[0].buffer = pRenderer->aUniformBuffer[i].buffer;
-			bufferInfo[0].offset = 0;
-			bufferInfo[0].range = sizeof(fr_uniform_buffer_t);
-			
-			bufferInfo[1].buffer = pRenderer->aSkinningBuffer[i].buffer;
-			bufferInfo[1].offset = 0;
-			bufferInfo[1].range = sizeof(fr_skinning_buffer_t);
-			
-			VkDescriptorImageInfo imageInfo[3] = {};
-			imageInfo[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			imageInfo[0].imageView = pRenderer->textureZeldaDiff.view;
-			imageInfo[0].sampler = pRenderer->textureSampler;
-			
-			imageInfo[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			imageInfo[1].imageView = pRenderer->textureHairDiff.view;
-			imageInfo[1].sampler = pRenderer->textureSampler;
-			
-			imageInfo[2].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			imageInfo[2].imageView = pRenderer->textureEyesDiff.view;
-			imageInfo[2].sampler = pRenderer->textureSampler;
-			
-			const uint32_t numBindings = 3;
-			VkWriteDescriptorSet descriptorWrites[numBindings] = {};
-			
-			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[0].dstSet = pRenderer->aDescriptorSets[i];
-			descriptorWrites[0].dstBinding = 0;
-			descriptorWrites[0].dstArrayElement = 0;
-			descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			descriptorWrites[0].descriptorCount = 1;
-			descriptorWrites[0].pBufferInfo = &bufferInfo[0];
-			descriptorWrites[0].pImageInfo = NULL; // Optional
-			descriptorWrites[0].pTexelBufferView = NULL; // Optional
-			
-			descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[1].dstSet = pRenderer->aDescriptorSets[i];
-			descriptorWrites[1].dstBinding = 1;
-			descriptorWrites[1].dstArrayElement = 0;
-			descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			descriptorWrites[1].descriptorCount = 1;
-			descriptorWrites[1].pBufferInfo = &bufferInfo[1];
-			descriptorWrites[1].pImageInfo = NULL; // Optional
-			descriptorWrites[1].pTexelBufferView = NULL; // Optional
-			
-			descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[2].dstSet = pRenderer->aDescriptorSets[i];
-			descriptorWrites[2].dstBinding = 2;
-			descriptorWrites[2].dstArrayElement = 0;
-			descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			descriptorWrites[2].descriptorCount = NUM_TEXTURES_IN_ARRAY;	// number of textures in array goes here
-			descriptorWrites[2].pImageInfo = imageInfo;
-
-			vkUpdateDescriptorSets(pRenderer->device, numBindings, descriptorWrites, 0, NULL);
-		}
+		fr_alloc_descriptor_sets_mesh(pRenderer->device, &desc);
 	}
 	
 	// create prop descriptor sets
 	if(res == FR_RESULT_OK)
 	{
-		VkDescriptorSetLayout layouts[NUM_SWAP_CHAIN_IMAGES] = {pRenderer->descriptorSetLayout,
-			pRenderer->descriptorSetLayout, pRenderer->descriptorSetLayout};
+		fr_alloc_descriptor_sets_mesh_ctx_t desc = {};
+		desc.descriptorPool = pRenderer->descriptorPool;
+		desc.layout = pRenderer->descriptorSetLayout;
+		desc.numDescriptors = NUM_SWAP_CHAIN_IMAGES;
+		desc.outDescriptorSets = pRenderer->aPropDescriptorSets;
+		desc.uniformBuffers = pRenderer->aPropUniformBuffer;
+		desc.uniformBufferSize = sizeof(fr_uniform_buffer_t);
+		desc.skinningBuffers = pRenderer->aSkinningBuffer;
+		desc.skinningBufferSize = sizeof(fr_skinning_buffer_t);
 		
-		VkDescriptorSetAllocateInfo allocInfo = {};
-		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		allocInfo.descriptorPool = pRenderer->descriptorPool;
-		allocInfo.descriptorSetCount = NUM_SWAP_CHAIN_IMAGES;
-		allocInfo.pSetLayouts = layouts;
+		desc.numTextures = 1;
+		desc.samplers = &pRenderer->textureSampler;
 		
-		if (vkAllocateDescriptorSets(pRenderer->device, &allocInfo, pRenderer->aPropDescriptorSets) != VK_SUCCESS)
-		{
-			fur_set_last_error("Can't allocate descriptor sets for uniform buffers");
-			res = FR_RESULT_ERROR_GPU;
-		}
+		desc.textures = &pRenderer->textureMelee;
 		
-		for (size_t i = 0; i < NUM_SWAP_CHAIN_IMAGES; ++i)
-		{
-			VkDescriptorBufferInfo bufferInfo[2] = {};
-			bufferInfo[0].buffer = pRenderer->aPropUniformBuffer[i].buffer;
-			bufferInfo[0].offset = 0;
-			bufferInfo[0].range = sizeof(fr_uniform_buffer_t);
-			
-			bufferInfo[1].buffer = pRenderer->aSkinningBuffer[i].buffer;	// this is just because of layout - prop does not require skinning
-			bufferInfo[1].offset = 0;
-			bufferInfo[1].range = sizeof(fr_skinning_buffer_t);
-			
-			VkDescriptorImageInfo imageInfo[1] = {};
-			imageInfo[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			imageInfo[0].imageView = pRenderer->textureMelee.view;
-			imageInfo[0].sampler = pRenderer->textureSampler;
-			
-			const uint32_t numBindings = 3;
-			VkWriteDescriptorSet descriptorWrites[numBindings] = {};
-			
-			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[0].dstSet = pRenderer->aPropDescriptorSets[i];
-			descriptorWrites[0].dstBinding = 0;
-			descriptorWrites[0].dstArrayElement = 0;
-			descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			descriptorWrites[0].descriptorCount = 1;
-			descriptorWrites[0].pBufferInfo = &bufferInfo[0];
-			descriptorWrites[0].pImageInfo = NULL; // Optional
-			descriptorWrites[0].pTexelBufferView = NULL; // Optional
-			
-			descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[1].dstSet = pRenderer->aPropDescriptorSets[i];
-			descriptorWrites[1].dstBinding = 1;
-			descriptorWrites[1].dstArrayElement = 0;
-			descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			descriptorWrites[1].descriptorCount = 1;
-			descriptorWrites[1].pBufferInfo = &bufferInfo[1];
-			descriptorWrites[1].pImageInfo = NULL; // Optional
-			descriptorWrites[1].pTexelBufferView = NULL; // Optional
-			
-			descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[2].dstSet = pRenderer->aPropDescriptorSets[i];
-			descriptorWrites[2].dstBinding = 2;
-			descriptorWrites[2].dstArrayElement = 0;
-			descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			descriptorWrites[2].descriptorCount = 1;	// number of textures in array goes here
-			descriptorWrites[2].pImageInfo = imageInfo;
-
-			vkUpdateDescriptorSets(pRenderer->device, numBindings, descriptorWrites, 0, NULL);
-		}
+		fr_alloc_descriptor_sets_mesh(pRenderer->device, &desc);
 	}
 	
 	// create descriptor sets for 2D rect drawing

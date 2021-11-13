@@ -7,6 +7,7 @@
 
 #include "renderUtils.h"
 #include "renderBuffer.h"
+#include "image.h"
 
 #define FUR_ASSERT(x) assert(x)
 
@@ -92,6 +93,82 @@ void fr_staging_record_copy_commands(fr_staging_buffer_builder_t* builder, VkCom
 		copyRegion.size = entry->size;
 		
 		vkCmdCopyBuffer(commandBuffer, stagingBuffer, aDstBuffer[i], 1, &copyRegion);
+	}
+}
+
+void fr_alloc_descriptor_sets_mesh(VkDevice device, fr_alloc_descriptor_sets_mesh_ctx_t* ctx)
+{
+	// allocate descriptor sets - remember that the descriptorPool needs space for them
+	VkDescriptorSetLayout layouts[20] = {};	// max layouts
+	for(uint32_t i=0; i<ctx->numDescriptors; ++i)
+	{
+		layouts[i] = ctx->layout;
+	}
+	
+	VkDescriptorSetAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = ctx->descriptorPool;
+	allocInfo.descriptorSetCount = ctx->numDescriptors;
+	allocInfo.pSetLayouts = layouts;
+	
+	if (vkAllocateDescriptorSets(device, &allocInfo, ctx->outDescriptorSets) != VK_SUCCESS)
+	{
+		FUR_ASSERT(false); // can't allocate descriptor sets for some reason
+	}
+	
+	// textures
+	VkDescriptorImageInfo imageInfo[20] = {};
+	for(uint32_t i=0; i<ctx->numTextures; ++i)
+	{
+		imageInfo[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imageInfo[i].imageView = ctx->textures[i].view;
+		imageInfo[i].sampler = ctx->samplers[i];
+	}
+	
+	// do writes for each of the descriptor set
+	for (size_t i = 0; i < ctx->numDescriptors; ++i)
+	{
+		VkDescriptorBufferInfo bufferInfo[2] = {};
+		bufferInfo[0].buffer = ctx->uniformBuffers[i].buffer;
+		bufferInfo[0].offset = 0;
+		bufferInfo[0].range = ctx->uniformBufferSize;
+		
+		bufferInfo[1].buffer = ctx->skinningBuffers[i].buffer;	// this is just because of layout - prop does not require skinning
+		bufferInfo[1].offset = 0;
+		bufferInfo[1].range = ctx->skinningBufferSize;
+		
+		const uint32_t numBindings = 3;
+		VkWriteDescriptorSet descriptorWrites[numBindings] = {};
+		
+		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[0].dstSet = ctx->outDescriptorSets[i];
+		descriptorWrites[0].dstBinding = 0;
+		descriptorWrites[0].dstArrayElement = 0;
+		descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		descriptorWrites[0].descriptorCount = 1;
+		descriptorWrites[0].pBufferInfo = &bufferInfo[0];
+		descriptorWrites[0].pImageInfo = NULL; // Optional
+		descriptorWrites[0].pTexelBufferView = NULL; // Optional
+		
+		descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[1].dstSet = ctx->outDescriptorSets[i];
+		descriptorWrites[1].dstBinding = 1;
+		descriptorWrites[1].dstArrayElement = 0;
+		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		descriptorWrites[1].descriptorCount = 1;
+		descriptorWrites[1].pBufferInfo = &bufferInfo[1];
+		descriptorWrites[1].pImageInfo = NULL; // Optional
+		descriptorWrites[1].pTexelBufferView = NULL; // Optional
+		
+		descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[2].dstSet = ctx->outDescriptorSets[i];
+		descriptorWrites[2].dstBinding = 2;
+		descriptorWrites[2].dstArrayElement = 0;
+		descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		descriptorWrites[2].descriptorCount = ctx->numTextures;	// number of textures in array goes here
+		descriptorWrites[2].pImageInfo = imageInfo;
+
+		vkUpdateDescriptorSets(device, numBindings, descriptorWrites, 0, NULL);
 	}
 }
 

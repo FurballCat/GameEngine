@@ -55,6 +55,33 @@ void fr_staging_release_builder(fr_staging_buffer_builder_t* builder);
 void fr_staging_record_copy_commands(fr_staging_buffer_builder_t* builder, VkCommandBuffer commandBuffer, VkBuffer stagingBuffer,
 									 uint32_t* aSrcRegionIndex, VkBuffer* aDstBuffer, const VkDeviceSize* aDstOffsets, uint32_t numBuffers);
 
+// ----------------
+// DESCRIPTOR UTILS
+
+typedef struct fr_buffer_t fr_buffer_t;
+typedef struct fr_image_t fr_image_t;
+
+typedef struct fr_alloc_descriptor_sets_mesh_ctx_t
+{
+	VkDescriptorSetLayout layout;	// same layout for all descritors
+	VkDescriptorPool descriptorPool;	// remember to have space for descriptors in the pool
+	
+	// per descriptor data
+	uint32_t numDescriptors;	// also numUniformBuffers and numSkinningBuffers
+	VkDescriptorSet* outDescriptorSets;
+	fr_buffer_t* uniformBuffers;
+	fr_buffer_t* skinningBuffers;
+	size_t uniformBufferSize;
+	size_t skinningBufferSize;
+	
+	// for all descritors
+	uint32_t numTextures;
+	fr_image_t* textures;
+	VkSampler* samplers;
+} fr_alloc_descriptor_sets_mesh_ctx_t;
+
+void fr_alloc_descriptor_sets_mesh(VkDevice device, fr_alloc_descriptor_sets_mesh_ctx_t* ctx);
+
 // -------------
 // COMMAND UTILS
 

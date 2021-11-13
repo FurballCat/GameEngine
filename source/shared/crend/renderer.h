@@ -45,7 +45,7 @@ CREND_API enum fr_result_t fr_release_app(struct fr_app_t* pApp,
 CREND_API uint32_t fr_update_app(struct fr_app_t* pApp);
 	
 // Renderer structure
-struct fr_renderer_t;
+typedef struct fr_renderer_t fr_renderer_t;
 
 // Renderer creation description
 struct fr_renderer_desc_t
@@ -65,7 +65,19 @@ CREND_API void fr_wait_for_device(struct fr_renderer_t* pRenderer);
 struct fr_scene_t;
 	
 // Render proxy
-struct fr_render_proxy_mesh_t;
+typedef struct fr_mesh_proxy_t fr_mesh_proxy_t;
+
+typedef struct fi_depot_t fi_depot_t;
+
+typedef struct fr_load_mesh_ctx_t
+{
+	const char* path;
+	
+	int32_t textureIndices;
+	uint32_t numTextures;
+} fr_load_mesh_ctx_t;
+
+CREND_API fr_mesh_proxy_t* fr_load_mesh(fr_renderer_t* renderer, const fi_depot_t* depot, const fr_load_mesh_ctx_t* ctx);
 
 struct FrRenderProxyDesc_Mesh;
 	
