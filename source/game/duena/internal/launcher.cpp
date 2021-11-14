@@ -830,9 +830,11 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		{
 			fr_load_mesh_ctx_t meshCtx = {};
 			meshCtx.path = "assets/characters/zelda/mesh/zelda_sword.fbx";
+			const char* texturePaths[] = {"assets/characters/zelda/mesh/textures/melee_diff.png"};
 			const int32_t textureIndices[] = {0};
 			meshCtx.numTextures = FUR_ARRAY_SIZE(textureIndices);
 			meshCtx.textureIndices = textureIndices;
+			meshCtx.texturePaths = texturePaths;
 			pEngine->swordMesh = fr_load_mesh(pEngine->pRenderer, &depot, &meshCtx, pAllocCallbacks);
 		}
 	}

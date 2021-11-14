@@ -76,6 +76,8 @@ typedef struct fr_load_mesh_ctx_t
 	
 	const int32_t* textureIndices;
 	uint32_t numTextures;
+	
+	const char** texturePaths;
 } fr_load_mesh_ctx_t;
 
 // load mesh, the ownership is kept inside renderer, so no need to
