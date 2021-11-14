@@ -497,6 +497,7 @@ struct FurGameEngine
 	
 	// meshes
 	fr_proxy_t* swordMesh;
+	fr_proxy_t* chestMesh;
 	
 	// update memory (scratchpad)
 	void* scratchpadBuffer;
@@ -836,6 +837,18 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			meshCtx.textureIndices = textureIndices;
 			meshCtx.texturePaths = texturePaths;
 			pEngine->swordMesh = fr_load_mesh(pEngine->pRenderer, &depot, &meshCtx, pAllocCallbacks);
+		}
+		
+		// load meshes
+		{
+			fr_load_mesh_ctx_t meshCtx = {};
+			meshCtx.path = "assets/chest/chest.fbx";
+			const char* texturePaths[] = {"assets/chest/chest_albedo.png"};
+			const int32_t textureIndices[] = {0};
+			meshCtx.numTextures = FUR_ARRAY_SIZE(textureIndices);
+			meshCtx.textureIndices = textureIndices;
+			meshCtx.texturePaths = texturePaths;
+			pEngine->chestMesh = fr_load_mesh(pEngine->pRenderer, &depot, &meshCtx, pAllocCallbacks);
 		}
 	}
 	
@@ -2002,6 +2015,13 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		
 		fr_pvs_add(framePVS, pEngine->swordMesh, &slotMS);
 		
+		fm_mat4 chestLocator;
+		fm_mat4_identity(&chestLocator);
+		chestLocator.w.x = 2.0f;
+		chestLocator.w.y = 2.0f;
+		
+		fr_pvs_add(framePVS, pEngine->chestMesh, &chestLocator);
+		
 		// draw frame
 		fr_draw_frame_context_t renderCtx = {};
 		renderCtx.zeldaMatrix = &zeldaMat;
@@ -2042,6 +2062,7 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 {
 	// release meshes
 	fr_release_proxy(pEngine->pRenderer, pEngine->swordMesh, pAllocCallbacks);
+	fr_release_proxy(pEngine->pRenderer, pEngine->chestMesh, pAllocCallbacks);
 	
 	// release scripts
 	fc_release_binary_buffer(&pEngine->zeldaStateScript, pAllocCallbacks);
