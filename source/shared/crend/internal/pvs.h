@@ -52,3 +52,5 @@ typedef struct fr_pvs_t
 	
 	uint32_t pvsIndex;	// used for tripple buffering
 } fr_pvs_t;
+
+void fr_pvs_clear(fr_pvs_t* pvs);

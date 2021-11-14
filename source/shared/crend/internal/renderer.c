@@ -2981,8 +2981,8 @@ fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera)
 						  pRenderer->imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 	
 	fr_pvs_t* pvs = &pRenderer->pvs[imageIndex];
+	fr_pvs_clear(pvs);
 	pvs->camera = *camera;
-	pvs->numProxies = 0;
 	
 	const float aspectRatio = pRenderer->swapChainExtent.width / (float)pRenderer->swapChainExtent.height;
 	

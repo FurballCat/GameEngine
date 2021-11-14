@@ -82,3 +82,10 @@ void fr_pvs_add(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator)
 {
 	fr_pvs_add_and_skin(pvs, proxy, locator, NULL);
 }
+
+void fr_pvs_clear(fr_pvs_t* pvs)
+{
+	pvs->numProxies = 0;
+	pvs->skinningBufferOffset = 0;
+	pvs->worldViewProjOffset = 0;
+}
