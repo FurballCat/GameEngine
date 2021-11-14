@@ -499,6 +499,8 @@ struct FurGameEngine
 	fr_proxy_t* swordMesh;
 	fr_proxy_t* chestMesh;
 	
+	fr_proxy_t* rockMeshes[5];
+	
 	// update memory (scratchpad)
 	void* scratchpadBuffer;
 	uint32_t scratchpadBufferSize;
@@ -849,6 +851,25 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			meshCtx.textureIndices = textureIndices;
 			meshCtx.texturePaths = texturePaths;
 			pEngine->chestMesh = fr_load_mesh(pEngine->pRenderer, &depot, &meshCtx, pAllocCallbacks);
+		}
+		
+		// load rock meshes
+		for(uint32_t i=0; i<5; ++i)
+		{
+			char txtPath[256];
+			sprintf(txtPath, "assets/rocks/rock-0%i.fbx", i+1);
+			
+			char txtTexturePath[256];
+			sprintf(txtTexturePath, "assets/rocks/rock-0%i.png", i+1);
+			
+			fr_load_mesh_ctx_t meshCtx = {};
+			meshCtx.path = txtPath;
+			const char* texturePaths[] = {txtTexturePath};
+			const int32_t textureIndices[] = {0};
+			meshCtx.numTextures = FUR_ARRAY_SIZE(textureIndices);
+			meshCtx.textureIndices = textureIndices;
+			meshCtx.texturePaths = texturePaths;
+			pEngine->rockMeshes[i] = fr_load_mesh(pEngine->pRenderer, &depot, &meshCtx, pAllocCallbacks);
 		}
 	}
 	
@@ -2015,12 +2036,34 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		
 		fr_pvs_add(framePVS, pEngine->swordMesh, &slotMS);
 		
-		fm_mat4 chestLocator;
-		fm_mat4_identity(&chestLocator);
-		chestLocator.w.x = 2.0f;
-		chestLocator.w.y = 2.0f;
+		fm_mat4 staticMeshesLocator;
+		fm_mat4_identity(&staticMeshesLocator);
 		
-		fr_pvs_add(framePVS, pEngine->chestMesh, &chestLocator);
+		// chest
+		staticMeshesLocator.w.x = 2.0f;
+		staticMeshesLocator.w.y = 2.0f;
+		fr_pvs_add(framePVS, pEngine->chestMesh, &staticMeshesLocator);
+		
+		// rocks
+		staticMeshesLocator.w.x = 14.0f;
+		staticMeshesLocator.w.y = -15.0f;
+		fr_pvs_add(framePVS, pEngine->rockMeshes[0], &staticMeshesLocator);
+		
+		staticMeshesLocator.w.x = 15.0f;
+		staticMeshesLocator.w.y = 13.0f;
+		fr_pvs_add(framePVS, pEngine->rockMeshes[1], &staticMeshesLocator);
+		
+		staticMeshesLocator.w.x = -11.0f;
+		staticMeshesLocator.w.y = 7.0f;
+		fr_pvs_add(framePVS, pEngine->rockMeshes[2], &staticMeshesLocator);
+		
+		staticMeshesLocator.w.x = -13.0f;
+		staticMeshesLocator.w.y = -4.0f;
+		fr_pvs_add(framePVS, pEngine->rockMeshes[3], &staticMeshesLocator);
+		
+		staticMeshesLocator.w.x = 2.0f;
+		staticMeshesLocator.w.y = -14.0f;
+		fr_pvs_add(framePVS, pEngine->rockMeshes[4], &staticMeshesLocator);
 		
 		// draw frame
 		fr_draw_frame_context_t renderCtx = {};
@@ -2063,6 +2106,12 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	// release meshes
 	fr_release_proxy(pEngine->pRenderer, pEngine->swordMesh, pAllocCallbacks);
 	fr_release_proxy(pEngine->pRenderer, pEngine->chestMesh, pAllocCallbacks);
+	
+	// load rock meshes
+	for(uint32_t i=0; i<5; ++i)
+	{
+		fr_release_proxy(pEngine->pRenderer, pEngine->rockMeshes[i], pAllocCallbacks);
+	}
 	
 	// release scripts
 	fc_release_binary_buffer(&pEngine->zeldaStateScript, pAllocCallbacks);
