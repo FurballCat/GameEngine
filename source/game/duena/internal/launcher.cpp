@@ -495,6 +495,9 @@ struct FurGameEngine
 	// skinning
 	fm_mat4 skinMatrices[512];
 	
+	// meshes
+	fr_proxy_t* swordMesh;
+	
 	// update memory (scratchpad)
 	void* scratchpadBuffer;
 	uint32_t scratchpadBufferSize;
@@ -823,6 +826,15 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		
 		fe_load_anim_clip(&depot, "zelda-face-idle", pEngine, pAllocCallbacks);
 
+		// load meshes
+		{
+			fr_load_mesh_ctx_t meshCtx = {};
+			meshCtx.path = "assets/characters/zelda/mesh/zelda_sword.fbx";
+			const int32_t textureIndices[] = {0};
+			meshCtx.numTextures = FUR_ARRAY_SIZE(textureIndices);
+			meshCtx.textureIndices = textureIndices;
+			pEngine->swordMesh = fr_load_mesh(pEngine->pRenderer, &depot, &meshCtx, pAllocCallbacks);
+		}
 	}
 	
 	fr_temp_create_skinning_mapping(pEngine->pRenderer, pEngine->pRig->boneNameHashes, pEngine->pRig->numBones, pAllocCallbacks);
@@ -1976,15 +1988,17 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		fm_mat4 cameraMatrix;
 		fg_camera_view_matrix(pEngine->camera, &cameraMatrix);
 		
-		// acquire this frame's PVS (Potentially Visible Set) to fill it with data
-		fr_pvs_t* framePVS = fr_acquire_free_pvs(pEngine->pRenderer, &cameraMatrix);
-		
 		if(!pEngine->zeldaGameObject.playerWeaponEquipped)
 		{
 			fm_mat4_identity(&slotMS);
 			slotMS.w.x = 4.0f;
 			slotMS.w.z = -4.0f;
 		}
+		
+		// acquire this frame's PVS (Potentially Visible Set) to fill it with data
+		fr_pvs_t* framePVS = fr_acquire_free_pvs(pEngine->pRenderer, &cameraMatrix);
+		
+		fr_pvs_add(framePVS, pEngine->swordMesh, &slotMS);
 		
 		// draw frame
 		fr_draw_frame_context_t renderCtx = {};
@@ -1993,7 +2007,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		renderCtx.numSkinMatrices = pEngine->pRig->numBones;
 		renderCtx.propMatrix = &slotMS;
 		renderCtx.pvs = framePVS;
-		fr_draw_frame(pEngine->pRenderer, &renderCtx);
+		fr_draw_frame(pEngine->pRenderer, &renderCtx, pAllocCallbacks);
 	}
 }
 
@@ -2024,8 +2038,8 @@ void furMainEngineLoop(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallb
 
 bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	// check for memory leaks
-	//FUR_ASSERT(furValidateAllocatorGeneral(&pEngine->m_memory._defaultInternals));
+	// release meshes
+	fr_release_proxy(pEngine->pRenderer, pEngine->swordMesh, pAllocCallbacks);
 	
 	// release scripts
 	fc_release_binary_buffer(&pEngine->zeldaStateScript, pAllocCallbacks);

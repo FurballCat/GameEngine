@@ -74,12 +74,15 @@ typedef struct fr_load_mesh_ctx_t
 {
 	const char* path;
 	
-	int32_t textureIndices;
+	const int32_t* textureIndices;
 	uint32_t numTextures;
 } fr_load_mesh_ctx_t;
 
 // load mesh, the ownership is kept inside renderer, so no need to
-CREND_API fr_proxy_t* fr_load_mesh(fr_renderer_t* renderer, const fi_depot_t* depot, const fr_load_mesh_ctx_t* ctx);
+CREND_API fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, const fr_load_mesh_ctx_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks);
+
+// release proxy, might also release the associated data (meshes, textures, etc.)
+CREND_API void fr_release_proxy(fr_renderer_t* pRenderer, fr_proxy_t* proxy, fc_alloc_callbacks_t* pAllocCallbacks);
 
 // potentially visible set - defines render proxies that are visible this frame
 typedef struct fr_pvs_t fr_pvs_t;
@@ -104,7 +107,7 @@ typedef struct fr_draw_frame_context_t
 	fr_pvs_t* pvs;	// what's visible in this frame
 } fr_draw_frame_context_t;
 	
-CREND_API void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_t* ctx);
+CREND_API void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks);
 
 CREND_API void fr_temp_create_skinning_mapping(struct fr_renderer_t* pRenderer, const uint32_t* boneNameHashes, uint32_t numBones, fc_alloc_callbacks_t* pAllocCallbacks);
 	

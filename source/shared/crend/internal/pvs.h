@@ -9,10 +9,12 @@
 typedef struct fr_buffer_t fr_buffer_t;
 typedef struct fr_mesh_t fr_mesh_t;
 typedef struct fr_image_t fr_image_t;
+typedef struct fr_resource_mesh_t fr_resource_mesh_t;
 
 typedef struct fr_proxy_t
 {
 	fr_mesh_t* mesh;
+	fr_resource_mesh_t* meshResource;
 	fr_image_t* textures;
 	uint32_t numTextures;
 } fr_proxy_t;

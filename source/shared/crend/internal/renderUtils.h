@@ -110,6 +110,13 @@ VkCommandBuffer fr_begin_simple_commands(VkDevice device, VkCommandPool commandP
 // end, submit, and free one time command buffer
 void fr_end_simple_commands(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool, struct fc_alloc_callbacks_t* pAllocCallbacks);
 
+// begin primary command buffer that will be disposed immediately after submission, does not wait for GPU
+VkCommandBuffer fr_begin_primary_disposable_command_buffer(VkDevice device, VkCommandPool commandPool, struct fc_alloc_callbacks_t* pAllocCallbacks);
+
+// end primary command buffer and submit to GPU, dispose after
+void fr_end_primary_disposable_command_buffer(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool,
+											  VkSemaphore imageAvailableSemaphore, VkSemaphore renderFinishedSemaphore,struct fc_alloc_callbacks_t* pAllocCallbacks);
+
 // transition image layout
 void fr_transition_image_layout(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, struct fc_alloc_callbacks_t* pAllocCallbacks);
 

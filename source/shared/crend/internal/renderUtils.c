@@ -188,9 +188,12 @@ void fr_write_descriptor_set(VkDevice device, fr_write_descriptor_set_ctx_t* ctx
 	bufferInfo[0].offset = ctx->uniformBufferOffset;
 	bufferInfo[0].range = ctx->uniformBufferSize;
 	
-	bufferInfo[1].buffer = ctx->skinningBuffer->buffer;	// this is just because of layout - prop does not require skinning
-	bufferInfo[1].offset = ctx->skinningBufferOffset;
-	bufferInfo[1].range = ctx->skinningBufferSize;
+	if(ctx->skinningBuffer)
+	{
+		bufferInfo[1].buffer = ctx->skinningBuffer->buffer;	// this is just because of layout - prop does not require skinning
+		bufferInfo[1].offset = ctx->skinningBufferOffset;
+		bufferInfo[1].range = ctx->skinningBufferSize;
+	}
 	
 	const uint32_t numBindings = 3;
 	VkWriteDescriptorSet descriptorWrites[numBindings] = {};
@@ -270,6 +273,62 @@ void fr_end_simple_commands(VkDevice device, VkQueue graphicsQueue, VkCommandBuf
 	vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
 	vkQueueWaitIdle(graphicsQueue);
 	
+	vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+}
+
+// begin primary command buffer that will be disposed immediately after submission
+VkCommandBuffer fr_begin_primary_disposable_command_buffer(VkDevice device, VkCommandPool commandPool, struct fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	VkCommandBufferAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfo.commandPool = commandPool;
+	allocInfo.commandBufferCount = 1;
+	
+	VkCommandBuffer commandBuffer;
+	if(vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer) != VK_SUCCESS)
+	{
+		FUR_ASSERT(false);
+	}
+	
+	VkCommandBufferBeginInfo beginInfo = {};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	beginInfo.pInheritanceInfo = NULL; // Optional
+	
+	if(vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
+	{
+		FUR_ASSERT(false);
+	}
+	
+	return commandBuffer;
+}
+
+// end primary command buffer and submit to GPU, dispose after
+void fr_end_primary_disposable_command_buffer(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool,
+											  VkSemaphore imageAvailableSemaphore, VkSemaphore renderFinishedSemaphore, struct fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	if(vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
+	{
+		FUR_ASSERT(false);
+	}
+	
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+	
+	VkSemaphore waitSemaphores[] = {imageAvailableSemaphore};
+	VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.pWaitSemaphores = waitSemaphores;
+	submitInfo.pWaitDstStageMask = waitStages;
+	
+	VkSemaphore signalSemaphores[] = {renderFinishedSemaphore};
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = signalSemaphores;
+	
+	vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
 	vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 }
 

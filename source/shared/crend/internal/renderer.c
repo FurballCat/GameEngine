@@ -658,6 +658,7 @@ const char* g_texturePathMelee = "../../../../../assets/characters/zelda/mesh/te
 
 #define NUM_TEXTURES_IN_ARRAY 3
 #define NUM_MAX_MESH_UNIFORM_BUFFERS 40
+#define NUM_MAX_PROXIES_ALLOCATED 256
 
 /*************************************************************/
 
@@ -769,9 +770,7 @@ struct fr_renderer_t
 	fr_skinning_mapping_t skinningMapping;
 	
 	// prop mesh
-	fr_mesh_t meshProp;
 	fr_image_t textureMelee;
-	fr_resource_mesh_t* pMeshProp;
 	
 	// texture samplers
 	VkSampler textureSampler;
@@ -788,6 +787,10 @@ struct fr_renderer_t
 	
 	VkDescriptorPool pvsDescriptorPool;
 	fr_pvs_t pvs[NUM_SWAP_CHAIN_IMAGES];
+	
+	// all proxies
+	fr_proxy_t proxies[NUM_MAX_PROXIES_ALLOCATED];
+	uint32_t numProxies;
 };
 
 void fr_pixels_free_func(void* pData, size_t size, void* pUserData)
@@ -1863,61 +1866,6 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 	}
 	
-	// load prop mesh
-	if(res == FR_RESULT_OK)
-	{
-		fi_depot_t depot;
-		depot.path = depotPath;
-		
-		{
-			fi_import_mesh_ctx_t ctx;
-			ctx.path = "assets/characters/zelda/mesh/zelda_sword.fbx";
-			
-			fi_import_mesh(&depot, &ctx, &pRenderer->pMeshProp, pAllocCallbacks);
-		}
-	}
-	
-	// create prop mesh and its chunks
-	if(res == FR_RESULT_OK)
-	{
-		const fr_resource_mesh_t* meshResource = pRenderer->pMeshProp;
-		fr_mesh_t* mesh = &pRenderer->meshProp;
-		
-		const uint32_t numChunks = meshResource->numChunks;
-		mesh->chunks = (fr_mesh_chunk_t*)FUR_ALLOC_AND_ZERO(sizeof(fr_mesh_chunk_t) * numChunks, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
-		mesh->numChunks = numChunks;
-		
-		const uint32_t numTextureIndices = 1;
-		FUR_ASSERT(numChunks == numTextureIndices);
-		int32_t textureIndices[numTextureIndices] = {0};
-		
-		for(uint32_t i=0; i<numChunks; ++i)
-		{
-			const fr_resource_mesh_chunk_t* meshChunkResource = &meshResource->chunks[i];
-			const uint32_t numVertices = meshChunkResource->numVertices;
-			const VkDeviceSize sizeIndices = numVertices * sizeof(uint32_t);
-			const VkDeviceSize sizeVertices = numVertices * sizeof(fr_vertex_t);
-			
-			fr_mesh_chunk_t* meshChunk = &mesh->chunks[i];
-			meshChunk->numIndices = numVertices;
-			meshChunk->textureIndex = textureIndices[i];
-			
-			// data buffer
-			{
-				fr_buffer_desc_t desc = {};
-				desc.size = sizeIndices + sizeVertices;
-				desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-				desc.properties = FR_VERTEX_BUFFER_MEMORY_FLAGS;
-				
-				fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &meshChunk->data, pAllocCallbacks);
-				
-				meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES] = 0;
-				meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES] = sizeIndices;
-				meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_SKIN] = 0;
-			}
-		}
-	}
-	
 	// create debug lines vertex buffer
 	if(res == FR_RESULT_OK)
 	{
@@ -2627,7 +2575,6 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 									pRenderer->pipelineLayout, 0, 1, &pRenderer->aPropDescriptorSets[i], 0, NULL);
 			
 			// bind and draw mesh chunks
-			mesh = &pRenderer->meshProp;
 			for(uint32_t idxChunk=0; idxChunk<mesh->numChunks; ++idxChunk)
 			{
 				const fr_mesh_chunk_t* meshChunk = &mesh->chunks[idxChunk];
@@ -2704,19 +2651,6 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 				fr_staging_add(&stagingBuilder, (void*)meshChunk->dataSkinning, sizeof(fr_resource_mesh_chunk_skin_t) * meshChunk->numVertices, NULL, NULL);
 		}
 		
-		// add vertices & indices data to staging buffer for prop mesh
-		for(uint32_t i=0; i<pRenderer->pMeshProp->numChunks; ++i)
-		{
-			fr_resource_mesh_chunk_t* meshChunk = &pRenderer->pMeshProp->chunks[i];
-			
-			fr_staging_add(&stagingBuilder, (void*)meshChunk->dataIndices, sizeof(uint32_t) * meshChunk->numIndices, NULL, NULL);
-			fr_staging_add(&stagingBuilder, (void*)meshChunk->dataVertices, sizeof(fr_vertex_t) * meshChunk->numVertices, NULL, NULL);
-			
-			// if skinned mesh
-			if(meshChunk->dataSkinning != NULL)
-				fr_staging_add(&stagingBuilder, (void*)meshChunk->dataSkinning, sizeof(fr_resource_mesh_chunk_skin_t) * meshChunk->numVertices, NULL, NULL);
-		}
-		
 		// create staging buffer & release memory of source data
 		{
 			pRenderer->stagingBuffer.size = stagingBuilder.totalSize;
@@ -2767,19 +2701,6 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 					
 					fr_staging_record_copy_commands(&stagingBuilder, commandBuffer, pRenderer->stagingBuffer.buffer, srcStagingIndices, dstBuffers, dstOffsets, 2);
 				}
-			}
-			
-			// copy vertex buffer region for prop mesh - todo: refactor that - it's a partial copy of what's above
-			for(uint32_t i=0; i<pRenderer->meshProp.numChunks; ++i)
-			{
-				fr_mesh_chunk_t* meshChunk = &pRenderer->meshProp.chunks[i];
-				
-				uint32_t srcStagingIndices[2] = {curStagingIndex, curStagingIndex+1};
-				curStagingIndex += 2;
-				VkBuffer dstBuffers[2] = {meshChunk->data.buffer, meshChunk->data.buffer};
-				VkDeviceSize dstOffsets[2] = {meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES]};
-				
-				fr_staging_record_copy_commands(&stagingBuilder, commandBuffer, pRenderer->stagingBuffer.buffer, srcStagingIndices, dstBuffers, dstOffsets, 2);
 			}
 			
 			fr_end_simple_commands(pRenderer->device, pRenderer->graphicsQueue, commandBuffer, pRenderer->stagingCommandPool, pAllocCallbacks);
@@ -2917,12 +2838,6 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 		fr_mesh_release(pRenderer->pMesh, pAllocCallbacks);
 	}
 	
-	// release prop mesh
-	if(pRenderer->pMeshProp)
-	{
-		fr_mesh_release(pRenderer->pMeshProp, pAllocCallbacks);
-	}
-	
 	// this should be in clean-up swap chain
 	{
 		// destroy uniform buffer
@@ -2960,17 +2875,6 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	}
 	
 	FUR_FREE(pRenderer->mesh.chunks, pAllocCallbacks);
-	
-	// destroy prop mesh
-	for(uint32_t i=0; i<pRenderer->meshProp.numChunks; ++i)
-	{
-		fr_mesh_chunk_t* meshChunk = &pRenderer->meshProp.chunks[i];
-		
-		// destroy vertex buffer
-		fr_buffer_release(pRenderer->device, &meshChunk->data, pAllocCallbacks);
-	}
-	
-	FUR_FREE(pRenderer->meshProp.chunks, pAllocCallbacks);
 	
 	// destroy debug fragments vertex buffer
 	for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
@@ -3078,6 +2982,7 @@ fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera)
 	
 	fr_pvs_t* pvs = &pRenderer->pvs[imageIndex];
 	pvs->camera = *camera;
+	pvs->numProxies = 0;
 	
 	const float aspectRatio = pRenderer->swapChainExtent.width / (float)pRenderer->swapChainExtent.height;
 	
@@ -3097,7 +3002,7 @@ fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera)
 	return pvs;
 }
 
-void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_t* ctx)
+void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	fr_skinning_buffer_t skinBuffer = {};
 	
@@ -3131,22 +3036,6 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 	{
 		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aSkinningBuffer[imageIndex].memory, &skinBuffer, 0, sizeof(fr_skinning_buffer_t));
 	}
-	
-	VkSubmitInfo submitInfo = {};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	
-	VkSemaphore waitSemaphores[] = {pRenderer->imageAvailableSemaphore};
-	VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pWaitSemaphores = waitSemaphores;
-	submitInfo.pWaitDstStageMask = waitStages;
-	
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &pRenderer->aCommandBuffers[imageIndex];
-	
-	VkSemaphore signalSemaphores[] = {pRenderer->renderFinishedSemaphore};
-	submitInfo.signalSemaphoreCount = 1;
-	submitInfo.pSignalSemaphores = signalSemaphores;
 
 	// update uniform buffer
 	{
@@ -3194,19 +3083,6 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aTextUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(fr_uniform_buffer_t));
 		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aRectsUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(fr_uniform_buffer_t));
 	}
-	
-	/*
-	const float begin[3] = {0.0f, 0.0f, 0.0f};
-	const float axisX[3] = {1.0f, 0.0f, 0.0f};
-	const float axisY[3] = {0.0f, 1.0f, 0.0f};
-	const float axisZ[3] = {0.0f, 0.0f, 1.0f};
-	const float colorRed[4] = FUR_COLOR_RED;
-	const float colorGreen[4] = FUR_COLOR_GREEN;
-	const float colorBlue[4] = FUR_COLOR_BLUE;
-	fc_dbg_line(begin, axisX, colorRed);
-	fc_dbg_line(begin, axisY, colorGreen);
-	fc_dbg_line(begin, axisZ, colorBlue);
-	 */
 	
 	// update debug lines buffer
 	{
@@ -3295,16 +3171,147 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 	}
 	
 	// draw
-	if (vkQueueSubmit(pRenderer->graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+	// begin primary command buffer
+	VkCommandBuffer primaryCommandBuffer = fr_begin_primary_disposable_command_buffer(pRenderer->device, pRenderer->commandPool, pAllocCallbacks);
+	
+	// record PVS commands for each proxy
+	FUR_PROFILE("pvs-rec-cmds")
 	{
-		FUR_ASSERT(false);
+		VkRenderPassBeginInfo renderPassInfo = {};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = pRenderer->renderPass;
+		renderPassInfo.framebuffer = pRenderer->aSwapChainFrameBuffers[imageIndex];
+		
+		renderPassInfo.renderArea.offset.x = 0;
+		renderPassInfo.renderArea.offset.y = 0;
+		renderPassInfo.renderArea.extent = pRenderer->swapChainExtent;
+		
+		const uint32_t numClearValues = 2;
+		VkClearValue clearColor[numClearValues] = {};
+		clearColor[0].color.float32[0] = 1.0f;
+		clearColor[0].color.float32[1] = 1.0f;
+		clearColor[0].color.float32[2] = 1.0f;
+		clearColor[0].color.float32[3] = 1.0f;
+		
+		clearColor[1].depthStencil.depth = 1.0f;
+		clearColor[1].depthStencil.stencil = 0;
+		
+		renderPassInfo.clearValueCount = numClearValues;
+		renderPassInfo.pClearValues = clearColor;
+		
+		vkCmdBeginRenderPass(primaryCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+		
+		vkCmdBindPipeline(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->graphicsPipeline);
+		
+		// bind uniform buffer
+		vkCmdBindDescriptorSets(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+								pRenderer->pipelineLayout, 0, 1, &pRenderer->aDescriptorSets[imageIndex], 0, NULL);
+		
+		// bind and draw mesh chunks
+		const fr_mesh_t* mesh = &pRenderer->mesh;
+		for(uint32_t idxChunk=0; idxChunk<mesh->numChunks; ++idxChunk)
+		{
+			const fr_mesh_chunk_t* meshChunk = &mesh->chunks[idxChunk];
+			
+			// bind vertex and index buffers
+			if(meshChunk->data.buffer)	// todo: previously checking 'has skin'
+			{
+				VkDeviceSize offsets[] = {meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_SKIN]};
+				VkBuffer vertexBuffers[] = {meshChunk->data.buffer, meshChunk->data.buffer};
+				vkCmdBindVertexBuffers(primaryCommandBuffer, 0, 2, vertexBuffers, offsets);
+			}
+			else
+			{
+				FUR_ASSERT(false);	// implement 'has skinning'
+				VkDeviceSize offsets[] = {meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES]};
+				VkBuffer vertexBuffers[] = {meshChunk->data.buffer};
+				vkCmdBindVertexBuffers(primaryCommandBuffer, 0, 1, vertexBuffers, offsets);
+			}
+			
+			vkCmdBindIndexBuffer(primaryCommandBuffer, meshChunk->data.buffer, meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES], VK_INDEX_TYPE_UINT32);
+			
+			vkCmdPushConstants(primaryCommandBuffer, pRenderer->pipelineLayout,
+							   VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(int32_t), &meshChunk->textureIndex);
+			
+			// draw the mesh chunk
+			vkCmdDrawIndexed(primaryCommandBuffer, meshChunk->numIndices, 1, 0, 0, 0);
+		}
+		
+		// bind prop pipeline
+		vkCmdBindPipeline(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->graphicsPipelineNoSkin);
+		
+		// bind prop uniform buffer
+		vkCmdBindDescriptorSets(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+								pRenderer->pipelineLayout, 0, 1, &pRenderer->aPropDescriptorSets[imageIndex], 0, NULL);
+		
+		// bind and draw meshes
+		for(uint32_t idxProxy=0; idxProxy<pvs->numProxies; ++idxProxy)
+		{
+			const fr_proxy_t* proxy = pvs->proxies[idxProxy];
+			fr_mesh_t* mesh = proxy->mesh;
+			for(uint32_t idxChunk=0; idxChunk<mesh->numChunks; ++idxChunk)
+			{
+				const fr_mesh_chunk_t* meshChunk = &mesh->chunks[idxChunk];
+				
+				// bind vertex and index buffers
+				{
+					VkDeviceSize offsets[] = {meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES]};
+					VkBuffer vertexBuffers[] = {meshChunk->data.buffer};
+					vkCmdBindVertexBuffers(primaryCommandBuffer, 0, 1, vertexBuffers, offsets);
+				}
+				
+				vkCmdBindIndexBuffer(primaryCommandBuffer, meshChunk->data.buffer, meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES], VK_INDEX_TYPE_UINT32);
+				
+				vkCmdPushConstants(primaryCommandBuffer, pRenderer->pipelineLayout,
+								   VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(int32_t), &meshChunk->textureIndex);
+				
+				// draw the mesh chunk
+				vkCmdDrawIndexed(primaryCommandBuffer, meshChunk->numIndices, 1, 0, 0, 0);
+			}
+		}
+		 
+		VkDeviceSize offsets[] = {0};
+		
+		// debug draw 3D lines
+		vkCmdBindPipeline(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugLinesPSO);
+		vkCmdBindVertexBuffers(primaryCommandBuffer, 0, 1, &pRenderer->debugLinesVertexBuffer[imageIndex].buffer, offsets);
+		vkCmdDraw(primaryCommandBuffer, fc_dbg_line_num_total_vertices(), 1, 0, 0);
+		
+		// debug draw 3D triangles
+		vkCmdBindPipeline(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugTrianglesPSO);
+		vkCmdBindVertexBuffers(primaryCommandBuffer, 0, 1, &pRenderer->debugTrianglesVertexBuffer[imageIndex].buffer, offsets);
+		vkCmdDraw(primaryCommandBuffer, fc_dbg_triangles_num_total_vertices(), 1, 0, 0);
+		
+		// debug draw 2D rects
+		vkCmdBindPipeline(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugRectsPSO);
+		
+		vkCmdBindDescriptorSets(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+								pRenderer->rectsPipelineLayout, 0, 1, &pRenderer->aRectDescriptorSets[imageIndex], 0, NULL);
+		
+		vkCmdBindVertexBuffers(primaryCommandBuffer, 0, 1, &pRenderer->aRectsVertexBuffer[imageIndex].buffer, offsets);
+		vkCmdDraw(primaryCommandBuffer, fc_dbg_rects_num_total_vertices(), 1, 0, 0);
+		
+		// debug draw text
+		vkCmdBindPipeline(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugTextPSO);
+		
+		vkCmdBindDescriptorSets(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+								pRenderer->textPipelineLayout, 0, 1, &pRenderer->aTextDescriptorSets[imageIndex], 0, NULL);
+		
+		vkCmdBindVertexBuffers(primaryCommandBuffer, 0, 1, &pRenderer->textVertexBuffer[imageIndex].buffer, offsets);
+		vkCmdDraw(primaryCommandBuffer, fc_dbg_text_num_total_characters() * 6, 1, 0, 0);	// 6 - number of vertices per glyph
+		
+		vkCmdEndRenderPass(primaryCommandBuffer);
 	}
+	
+	// end and submit primary command buffer, not waiting for GPU
+	fr_end_primary_disposable_command_buffer(pRenderer->device, pRenderer->graphicsQueue, primaryCommandBuffer, pRenderer->commandPool, pRenderer->imageAvailableSemaphore, pRenderer->renderFinishedSemaphore, pAllocCallbacks);
 	
 	// present
 	VkPresentInfoKHR presentInfo = {};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	
 	presentInfo.waitSemaphoreCount = 1;
+	VkSemaphore signalSemaphores[] = {pRenderer->renderFinishedSemaphore};
 	presentInfo.pWaitSemaphores = signalSemaphores;
 	
 	VkSwapchainKHR swapChains[] = {pRenderer->swapChain};
@@ -3436,4 +3443,161 @@ void fr_temp_create_skinning_mapping(struct fr_renderer_t* pRenderer, const uint
 			}
 		}
 	}
+}
+
+fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, const fr_load_mesh_ctx_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	fr_resource_mesh_t* meshResource;
+	
+	// load mesh
+	{
+		fi_import_mesh_ctx_t loadCtx;
+		loadCtx.path = ctx->path;
+		
+		fi_import_mesh(depot, &loadCtx, &meshResource, pAllocCallbacks);
+	}
+	
+	fr_mesh_t* mesh = FUR_ALLOC_AND_ZERO(sizeof(fr_mesh_t), 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+	
+	// create prop mesh and its chunks
+	{
+		const uint32_t numChunks = meshResource->numChunks;
+		mesh->chunks = (fr_mesh_chunk_t*)FUR_ALLOC_AND_ZERO(sizeof(fr_mesh_chunk_t) * numChunks, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+		mesh->numChunks = numChunks;
+		
+		const uint32_t numTextureIndices = 1;
+		FUR_ASSERT(numChunks == numTextureIndices);
+		int32_t textureIndices[numTextureIndices] = {0};
+		
+		for(uint32_t i=0; i<numChunks; ++i)
+		{
+			const fr_resource_mesh_chunk_t* meshChunkResource = &meshResource->chunks[i];
+			const uint32_t numVertices = meshChunkResource->numVertices;
+			const VkDeviceSize sizeIndices = numVertices * sizeof(uint32_t);
+			const VkDeviceSize sizeVertices = numVertices * sizeof(fr_vertex_t);
+			
+			fr_mesh_chunk_t* meshChunk = &mesh->chunks[i];
+			meshChunk->numIndices = numVertices;
+			meshChunk->textureIndex = textureIndices[i];
+			
+			// data buffer
+			{
+				fr_buffer_desc_t desc = {};
+				desc.size = sizeIndices + sizeVertices;
+				desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+				desc.properties = FR_VERTEX_BUFFER_MEMORY_FLAGS;
+				
+				fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &meshChunk->data, pAllocCallbacks);
+				
+				meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES] = 0;
+				meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES] = sizeIndices;
+				meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_SKIN] = 0;
+			}
+		}
+	}
+	
+	const uint32_t proxyIndex = pRenderer->numProxies;
+	pRenderer->numProxies += 1;
+	
+	fr_proxy_t* proxy = &pRenderer->proxies[proxyIndex];
+	proxy->numTextures = ctx->numTextures;
+	proxy->mesh = mesh;
+	proxy->meshResource = meshResource;
+	proxy->textures = &pRenderer->textureMelee;
+	
+	// load data onto GPU
+	{
+		// prepare staging buffer builder
+		fr_staging_buffer_builder_t stagingBuilder;
+		fr_staging_init(&stagingBuilder);
+		
+		// add vertices & indices data to staging buffer for prop mesh
+		for(uint32_t i=0; i<meshResource->numChunks; ++i)
+		{
+			fr_resource_mesh_chunk_t* meshChunk = &meshResource->chunks[i];
+			
+			fr_staging_add(&stagingBuilder, (void*)meshChunk->dataIndices, sizeof(uint32_t) * meshChunk->numIndices, NULL, NULL);
+			fr_staging_add(&stagingBuilder, (void*)meshChunk->dataVertices, sizeof(fr_vertex_t) * meshChunk->numVertices, NULL, NULL);
+			
+			// if skinned mesh
+			if(meshChunk->dataSkinning != NULL)
+				fr_staging_add(&stagingBuilder, (void*)meshChunk->dataSkinning, sizeof(fr_resource_mesh_chunk_skin_t) * meshChunk->numVertices, NULL, NULL);
+		}
+		
+		// create staging buffer & release memory of source data
+		{
+			pRenderer->stagingBuffer.size = stagingBuilder.totalSize;
+			fr_staging_build(&stagingBuilder, pRenderer->device, pRenderer->physicalDevice, &pRenderer->stagingBuffer.buffer, &pRenderer->stagingBuffer.memory, pAllocCallbacks);
+			fr_staging_release_builder(&stagingBuilder);
+		}
+		
+		// create staging command pool
+		{
+			VkCommandPoolCreateInfo poolInfo = {};
+			poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+			poolInfo.queueFamilyIndex = pRenderer->idxQueueGraphics;
+			poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT; // Optional
+			
+			if (vkCreateCommandPool(pRenderer->device, &poolInfo, NULL, &pRenderer->stagingCommandPool) != VK_SUCCESS)
+			{
+				FUR_ASSERT(false);
+			}
+		}
+		
+		// record and execute staging command buffer
+		{
+			VkCommandBuffer commandBuffer = fr_begin_simple_commands(pRenderer->device, pRenderer->stagingCommandPool, pAllocCallbacks);
+			
+			// copy vertex buffer region
+			for(uint32_t i=0; i<mesh->numChunks; ++i)
+			{
+				fr_mesh_chunk_t* meshChunk = &mesh->chunks[i];
+				
+#if 0
+				fr_resource_mesh_chunk_t* sourceMeshChunk = &pMeshProp->chunks[i];
+				if(sourceMeshChunk->dataSkinning)
+				{
+					uint32_t srcStagingIndices[3] = {0, 1, 2};
+					VkBuffer dstBuffers[3] = {meshChunk->data.buffer, meshChunk->data.buffer, meshChunk->data.buffer};
+					VkDeviceSize dstOffsets[3] = {meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_SKIN]};
+					
+					fr_staging_record_copy_commands(&stagingBuilder, commandBuffer, pRenderer->stagingBuffer.buffer, srcStagingIndices, dstBuffers, dstOffsets, 3);
+				}
+				else
+#endif
+				{
+					uint32_t srcStagingIndices[2] = {0, 1};
+					VkBuffer dstBuffers[2] = {meshChunk->data.buffer, meshChunk->data.buffer};
+					VkDeviceSize dstOffsets[2] = {meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES]};
+					
+					fr_staging_record_copy_commands(&stagingBuilder, commandBuffer, pRenderer->stagingBuffer.buffer, srcStagingIndices, dstBuffers, dstOffsets, 2);
+				}
+			}
+			
+			fr_end_simple_commands(pRenderer->device, pRenderer->graphicsQueue, commandBuffer, pRenderer->stagingCommandPool, pAllocCallbacks);
+		}
+	}
+	
+	return proxy;
+}
+
+void fr_release_proxy(fr_renderer_t* pRenderer, fr_proxy_t* proxy, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	// release mesh resource
+	if(proxy->meshResource)
+	{
+		fr_mesh_release(proxy->meshResource, pAllocCallbacks);
+	}
+	
+	// destroy mesh
+	for(uint32_t i=0; i<proxy->mesh->numChunks; ++i)
+	{
+		fr_mesh_chunk_t* meshChunk = &proxy->mesh->chunks[i];
+		
+		// destroy vertex buffer
+		fr_buffer_release(pRenderer->device, &meshChunk->data, pAllocCallbacks);
+	}
+	
+	FUR_FREE(proxy->mesh->chunks, pAllocCallbacks);
+	FUR_FREE(proxy->mesh, pAllocCallbacks);
 }
