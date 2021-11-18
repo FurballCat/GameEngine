@@ -528,6 +528,21 @@ struct FurGameEngine
 	uint32_t zeldaHeadIdx;
 	uint32_t zeldaHandRightIdx;
 	
+	// cape dangles
+	fa_dangle zeldaCapeL;
+	uint32_t zeldaCapeIdxL[4];
+	
+	fa_dangle zeldaCapeC;
+	uint32_t zeldaCapeIdxC[4];
+	
+	fa_dangle zeldaCapeR;
+	uint32_t zeldaCapeIdxR[4];
+	
+	uint32_t zeldaSpineIdx;
+	
+	// wind
+	fm_vec3 windVelocity;
+	
 	// debug
 	bool debugIsSlowTime;
 	bool debugShowFPS;
@@ -998,19 +1013,23 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		const fc_string_hash_t hair_l = SID("Bip001_Hair_L");
 		const fc_string_hash_t hair_l2 = SID("Bip001_Hair1_L");
 		const fc_string_hash_t head = SID("Bip001_Head");
+		const fc_string_hash_t spine = SID("Bip001_Spine");
 		
 		for(uint32_t i=0; i<pEngine->pRig->numBones; ++i)
 		{
-			if(pEngine->pRig->boneNameHashes[i] == hair_r)
+			const fc_string_hash_t name = pEngine->pRig->boneNameHashes[i];
+			if(name == hair_r)
 				pEngine->zeldaDangleHairRightIdx1 = i;
-			else if(pEngine->pRig->boneNameHashes[i] == hair_r2)
+			else if(name == hair_r2)
 				pEngine->zeldaDangleHairRightIdx2 = i;
-			else if(pEngine->pRig->boneNameHashes[i] == hair_l)
+			else if(name == hair_l)
 				pEngine->zeldaDangleHairLeftIdx1 = i;
-			else if(pEngine->pRig->boneNameHashes[i] == hair_l2)
+			else if(name == hair_l2)
 				pEngine->zeldaDangleHairLeftIdx2 = i;
-			else if(pEngine->pRig->boneNameHashes[i] == head)
+			else if(name == head)
 				pEngine->zeldaHeadIdx = i;
+			else if(name == spine)
+				pEngine->zeldaSpineIdx = i;
 		}
 		
 		fm_xform refPoseLeft2 = pEngine->pRig->refPose[pEngine->zeldaDangleHairLeftIdx2];
@@ -1027,6 +1046,81 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		
 		pEngine->zeldaDangleHairRight.d[0] = dRight;
 		pEngine->zeldaDangleHairRight.d[1] = dRight;
+	}
+	
+	// init cape dangles
+	{
+		fa_dangle_desc desc;
+		desc.frequency = 60.0f;
+		desc.numParticles = 4;
+		desc.dampingCoef = 0.96f;
+		
+		fa_dangle_create(&desc, &pEngine->zeldaCapeL, pAllocCallbacks);
+		fa_dangle_create(&desc, &pEngine->zeldaCapeC, pAllocCallbacks);
+		fa_dangle_create(&desc, &pEngine->zeldaCapeR, pAllocCallbacks);
+		
+		const fc_string_hash_t cape_names_l[4] = {
+			SID("Bip001_Cape_L"),
+			SID("Bip001_Cape1_L"),
+			SID("Bip001_Cape2_L"),
+			SID("Bip001_Cape3_L")
+		};
+		
+		const fc_string_hash_t cape_names_c[4] = {
+			SID("Bip001_Cape_C"),
+			SID("Bip001_Cape1_C"),
+			SID("Bip001_Cape2_C"),
+			SID("Bip001_Cape3_C")
+		};
+		
+		const fc_string_hash_t cape_names_r[4] = {
+			SID("Bip001_Cape_R"),
+			SID("Bip001_Cape1_R"),
+			SID("Bip001_Cape2_R"),
+			SID("Bip001_Cape3_R")
+		};
+		
+		for(uint32_t i=0; i<pEngine->pRig->numBones; ++i)
+		{
+			const fc_string_hash_t name = pEngine->pRig->boneNameHashes[i];
+			
+			for(uint32_t j=0; j<4; ++j)
+			{
+				if(name == cape_names_l[j])
+				{
+					pEngine->zeldaCapeIdxL[j] = i;
+				}
+				else if(name == cape_names_c[j])
+				{
+					pEngine->zeldaCapeIdxC[j] = i;
+				}
+				else if(name == cape_names_r[j])
+				{
+					pEngine->zeldaCapeIdxR[j] = i;
+				}
+			}
+		}
+		
+		for(uint32_t j=0; j<4; ++j)
+		{
+			fm_xform refPose = pEngine->pRig->refPose[pEngine->zeldaCapeIdxL[j]];
+			refPose.pos.w = 0.0f;
+			pEngine->zeldaCapeL.d[j] = fm_vec4_mag(&refPose.pos);
+		}
+		
+		for(uint32_t j=0; j<4; ++j)
+		{
+			fm_xform refPose = pEngine->pRig->refPose[pEngine->zeldaCapeIdxC[j]];
+			refPose.pos.w = 0.0f;
+			pEngine->zeldaCapeC.d[j] = fm_vec4_mag(&refPose.pos);
+		}
+		
+		for(uint32_t j=0; j<4; ++j)
+		{
+			fm_xform refPose = pEngine->pRig->refPose[pEngine->zeldaCapeIdxR[j]];
+			refPose.pos.w = 0.0f;
+			pEngine->zeldaCapeR.d[j] = fm_vec4_mag(&refPose.pos);
+		}
 	}
 	
 	return true;
@@ -1933,6 +2027,32 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		physicsCtx.playerDisplacement = &playerDisplacement;
 		fp_physics_update(pEngine->pPhysics, pEngine->pPhysicsScene, &physicsCtx);
 
+		if(pEngine->zeldaGameObject.playerWindProtecting)
+		{
+			pEngine->windVelocity.x = 1.4f;
+			pEngine->windVelocity.y = 3.7f;
+		}
+		else
+		{
+			pEngine->windVelocity.x = 0.0f;
+			pEngine->windVelocity.y = 0.0f;
+		}
+		
+		// adjust wind by inv player movement
+		{
+			fm_vec4 playerMove = pEngine->playerMove;
+			
+			fm_mat4 playerMat;
+			fm_mat4_rot_z(pEngine->animCharacterZelda.animInfo.currentYaw, &playerMat);
+			
+			fm_vec4 invPlayerMove;
+			fm_mat4_transform(&playerMat, &playerMove, &invPlayerMove);
+			
+			pEngine->windVelocity.x -= invPlayerMove.x;
+			pEngine->windVelocity.y -= invPlayerMove.y;
+			pEngine->windVelocity.z -= invPlayerMove.z;
+		}
+		
 		// simulate hair dangles
 		{
 			fa_dangle_sim_ctx simCtx {};
@@ -1947,6 +2067,19 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 			
 			pEngine->zeldaDangleHairLeft.x0[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1].w;
 			pEngine->zeldaDangleHairRight.x0[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1].w;
+			
+			// add wind velocity
+			for(uint32_t i=0; i<3; ++i)
+			{
+				pEngine->zeldaDangleHairLeft.v[i].x += pEngine->windVelocity.x * dt;
+				pEngine->zeldaDangleHairLeft.v[i].y += pEngine->windVelocity.y * dt;
+				pEngine->zeldaDangleHairLeft.v[i].z += pEngine->windVelocity.z * dt;
+				
+				pEngine->zeldaDangleHairRight.v[i].x += pEngine->windVelocity.x * dt;
+				pEngine->zeldaDangleHairRight.v[i].y += pEngine->windVelocity.y * dt;
+				pEngine->zeldaDangleHairRight.v[i].z += pEngine->windVelocity.z * dt;
+			}
+			
 			fa_dangle_simulate(&simCtx, &pEngine->zeldaDangleHairLeft);
 			fa_dangle_simulate(&simCtx, &pEngine->zeldaDangleHairRight);
 			
@@ -1961,6 +2094,73 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 			fa_dangle_to_matrices_y_down(&pEngine->zeldaDangleHairRight, &m[0], m);
 			pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1] = m[0];
 			pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx2] = m[1];
+		}
+		
+		// simulate cape dangles
+		{
+			fa_dangle_sim_ctx simCtx {};
+			simCtx.dt = dt;
+			
+			fm_vec4 spherePos = pEngine->skinMatrices[pEngine->zeldaSpineIdx].w;
+			spherePos.z -= 0.25f;
+			spherePos.y -= 0.6f;
+			const float sphereRadius = 0.8f;
+			pEngine->zeldaCapeL.spherePos = &spherePos;
+			pEngine->zeldaCapeL.sphereRadius = sphereRadius;
+			pEngine->zeldaCapeC.spherePos = &spherePos;
+			pEngine->zeldaCapeC.sphereRadius = sphereRadius;
+			pEngine->zeldaCapeR.spherePos = &spherePos;
+			pEngine->zeldaCapeR.sphereRadius = sphereRadius;
+			
+			pEngine->zeldaCapeL.x0[0] = pEngine->skinMatrices[pEngine->zeldaCapeIdxL[0]].w;
+			pEngine->zeldaCapeC.x0[0] = pEngine->skinMatrices[pEngine->zeldaCapeIdxC[0]].w;
+			pEngine->zeldaCapeR.x0[0] = pEngine->skinMatrices[pEngine->zeldaCapeIdxR[0]].w;
+			
+			// add wind velocity
+			for(uint32_t i=0; i<4; ++i)
+			{
+				pEngine->zeldaCapeL.v[i].x += pEngine->windVelocity.x * dt;
+				pEngine->zeldaCapeL.v[i].y += pEngine->windVelocity.y * dt;
+				pEngine->zeldaCapeL.v[i].z += pEngine->windVelocity.z * dt;
+				
+				pEngine->zeldaCapeC.v[i].x += pEngine->windVelocity.x * dt;
+				pEngine->zeldaCapeC.v[i].y += pEngine->windVelocity.y * dt;
+				pEngine->zeldaCapeC.v[i].z += pEngine->windVelocity.z * dt;
+				
+				pEngine->zeldaCapeR.v[i].x += pEngine->windVelocity.x * dt;
+				pEngine->zeldaCapeR.v[i].y += pEngine->windVelocity.y * dt;
+				pEngine->zeldaCapeR.v[i].z += pEngine->windVelocity.z * dt;
+			}
+			
+			fa_dangle_simulate(&simCtx, &pEngine->zeldaCapeL);
+			fa_dangle_simulate(&simCtx, &pEngine->zeldaCapeC);
+			fa_dangle_simulate(&simCtx, &pEngine->zeldaCapeR);
+			
+			fm_mat4 m[4] = {};
+			
+			m[0] = pEngine->skinMatrices[pEngine->zeldaCapeIdxL[0]];
+			fa_dangle_to_matrices_y_down(&pEngine->zeldaCapeL, &m[0], m);
+			
+			for(uint32_t i=0; i<4; ++i)
+			{
+				pEngine->skinMatrices[pEngine->zeldaCapeIdxL[i]] = m[i];
+			}
+			
+			m[0] = pEngine->skinMatrices[pEngine->zeldaCapeIdxC[0]];
+			fa_dangle_to_matrices_y_down(&pEngine->zeldaCapeC, &m[0], m);
+			
+			for(uint32_t i=0; i<4; ++i)
+			{
+				pEngine->skinMatrices[pEngine->zeldaCapeIdxC[i]] = m[i];
+			}
+			
+			m[0] = pEngine->skinMatrices[pEngine->zeldaCapeIdxR[0]];
+			fa_dangle_to_matrices_y_down(&pEngine->zeldaCapeR, &m[0], m);
+			
+			for(uint32_t i=0; i<4; ++i)
+			{
+				pEngine->skinMatrices[pEngine->zeldaCapeIdxR[i]] = m[i];
+			}
 		}
 	}
 	
@@ -2015,7 +2215,6 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		pEngine->animCharacterZelda.animInfo.desiredMoveX = playerMove.x;
 		pEngine->animCharacterZelda.animInfo.desiredMoveY = playerMove.y;
 		
-		fm_vec4_mulf(&playerMove, dt, &playerMove);
 		pEngine->playerMove = playerMove;
 		
 		// adjust camera by player position
@@ -2119,6 +2318,10 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	fa_dangle_release(&pEngine->dangle, pAllocCallbacks);
 	fa_dangle_release(&pEngine->zeldaDangleHairLeft, pAllocCallbacks);
 	fa_dangle_release(&pEngine->zeldaDangleHairRight, pAllocCallbacks);
+	
+	fa_dangle_release(&pEngine->zeldaCapeL, pAllocCallbacks);
+	fa_dangle_release(&pEngine->zeldaCapeC, pAllocCallbacks);
+	fa_dangle_release(&pEngine->zeldaCapeR, pAllocCallbacks);
 	
 	FUR_FREE(pEngine->animCharacterZelda.poseMS, pAllocCallbacks);
 	
