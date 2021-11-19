@@ -4,6 +4,8 @@
 #include "ccore/public.h"
 #include "cmath/public.h"
 
+#include <stdlib.h>
+
 #define NDEBUG
 #include "PxPhysicsAPI.h"
 
@@ -225,4 +227,158 @@ void fp_physics_get_player_info(fp_physics_t* pPhysics, fp_physics_scene_t* pSce
 	//const PxVec3 y = t.q.getBasisVector1();
 	//const PxVec3 z = t.q.getBasisVector2();
 	fm_quat_identity(&playerInfo->locator->rot);
+}
+
+// ----- BOUNDING VOLUME HIERARCHY -----
+typedef struct fp_bvh_node_t
+{
+	fm_box bound;
+	uint32_t numChildren;	// if 0, then next property is an object ID
+	uint32_t idxFirstChildOrObjectID;
+} fp_bvh_node_t;
+
+int fp_sort_comp_x(void* inAllBoxes, const void* inIdxA, const void* inIdxB)
+{
+	const fm_box* allBoxes = (const fm_box*)inAllBoxes;
+	const uint32_t idxA = *(const uint32_t*)inIdxA;
+	const uint32_t idxB = *(const uint32_t*)inIdxB;
+	
+	return allBoxes[idxA].center.x > allBoxes[idxB].center.x;
+}
+
+int fp_sort_comp_y(void* inAllBoxes, const void* inIdxA, const void* inIdxB)
+{
+	const fm_box* allBoxes = (const fm_box*)inAllBoxes;
+	const uint32_t idxA = *(const uint32_t*)inIdxA;
+	const uint32_t idxB = *(const uint32_t*)inIdxB;
+	
+	return allBoxes[idxA].center.y > allBoxes[idxB].center.y;
+}
+
+int fp_sort_comp_z(void* inAllBoxes, const void* inIdxA, const void* inIdxB)
+{
+	const fm_box* allBoxes = (const fm_box*)inAllBoxes;
+	const uint32_t idxA = *(const uint32_t*)inIdxA;
+	const uint32_t idxB = *(const uint32_t*)inIdxB;
+	
+	return allBoxes[idxA].center.z > allBoxes[idxB].center.z;
+}
+
+void fp_bvh_box_recursive_build(fp_bvh_node_t* nodes, uint32_t maxNodes, uint32_t curNode, uint32_t* nextFreeNodeIdx,
+								fm_box* allObjectBoxes, uint32_t* objectIndices, uint32_t numObjects)
+{
+	// stop condition - single object in the BVH node
+	if(numObjects == 1)
+	{
+		nodes[curNode].bound = allObjectBoxes[objectIndices[0]];
+		nodes[curNode].idxFirstChildOrObjectID = objectIndices[0];
+		nodes[curNode].numChildren = 0;
+		return;
+	}
+	
+	// calculate the box bounding all the objects in the list
+	fm_box box = allObjectBoxes[objectIndices[0]];
+	for(uint32_t i=1; i<numObjects; ++i)
+	{
+		fm_box_append(&box, &allObjectBoxes[objectIndices[i]]);
+	}
+	
+	// check which axis of box is the longest and sort objects along this axis
+	if(box.extent.x > box.extent.y && box.extent.x > box.extent.z)	// x-axis
+	{
+		qsort_r(objectIndices, numObjects, sizeof(uint32_t), allObjectBoxes, fp_sort_comp_x);
+	}
+	else if(box.extent.y > box.extent.z)	// y-axis
+	{
+		qsort_r(objectIndices, numObjects, sizeof(uint32_t), allObjectBoxes, fp_sort_comp_y);
+	}
+	else	// z-axis
+	{
+		qsort_r(objectIndices, numObjects, sizeof(uint32_t), allObjectBoxes, fp_sort_comp_z);
+	}
+	
+	// fill in this node
+	nodes[curNode].bound = box;
+	nodes[curNode].idxFirstChildOrObjectID = *nextFreeNodeIdx;
+	nodes[curNode].numChildren = 2;
+	
+	// create children nodes
+	const uint32_t childIdxA = nodes[curNode].idxFirstChildOrObjectID;
+	const uint32_t childIdxB = nodes[curNode].idxFirstChildOrObjectID + 1;
+	
+	const uint32_t numObjectsA = numObjects / 2;
+	const uint32_t numObjectsB = numObjects - numObjectsA;
+	
+	FUR_ASSERT(*nextFreeNodeIdx + 2 < maxNodes);
+	*nextFreeNodeIdx += 2;
+	
+	fp_bvh_box_recursive_build(nodes, maxNodes, childIdxA, nextFreeNodeIdx, allObjectBoxes, objectIndices, numObjectsA);
+	fp_bvh_box_recursive_build(nodes, maxNodes, childIdxB, nextFreeNodeIdx, allObjectBoxes, objectIndices + numObjectsA, numObjectsB);
+}
+
+void fp_bvh_build(const fp_bvh_build_ctx_t* ctx, fp_bvh_t* bvh, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	FUR_ASSERT(ctx->scratchpad);
+	FUR_ASSERT(ctx->numObjects > 0);
+	
+	uint8_t* scratchpad = (uint8_t*)ctx->scratchpad;
+	uint32_t scratchpadSize = ctx->scratchpadSize;
+	
+	// allocate array of indices on scratchpad
+	const uint32_t sizeMemIndices = ctx->numObjects * sizeof(uint32_t);
+	FUR_ASSERT(scratchpadSize > sizeMemIndices);
+	
+	uint32_t* objectIndices = (uint32_t*)scratchpad;
+	scratchpad += sizeMemIndices;
+	scratchpadSize -= sizeMemIndices;
+	
+	for(uint32_t i=0; i<ctx->numObjects; ++i)
+	{
+		objectIndices[i] = i;
+	}
+	
+	// allocate array of temporary BVH nodes on scratchpad, later on they will be copied to proper memory
+	const uint32_t numMaxNodes = scratchpadSize / sizeof(fp_bvh_node_t);
+	FUR_ASSERT(numMaxNodes > 0);
+	
+	// init nodes by zero
+	fp_bvh_node_t* tmpNodes = (fp_bvh_node_t*)scratchpad;
+	memset(tmpNodes, 0, sizeof(fp_bvh_node_t) * numMaxNodes);
+	
+	scratchpad += numMaxNodes * sizeof(fp_bvh_node_t);
+	scratchpadSize -= numMaxNodes * sizeof(fp_bvh_node_t);
+	
+	uint32_t nextFreeIndex = 1; // 1 because root is assumed to be already allocated
+	
+	// recursively iterate objects to build BVH
+	fp_bvh_box_recursive_build(tmpNodes, numMaxNodes, 0, &nextFreeIndex, ctx->objectBoxes, objectIndices, ctx->numObjects);
+	
+	FUR_ASSERT(nextFreeIndex > 0);	// something got processed - yey!
+	
+	const uint32_t numFinalNodes = nextFreeIndex;
+	
+	bvh->nodes = FUR_ALLOC_ARRAY(fp_bvh_node_t, numFinalNodes, 0, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
+	bvh->numNodes = numFinalNodes;
+	
+	memcpy(bvh->nodes, tmpNodes, sizeof(fp_bvh_node_t) * numFinalNodes);
+}
+
+void fp_bvh_release(fp_bvh_t* bvh, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	FUR_FREE(bvh->nodes, pAllocCallbacks);
+	bvh->nodes = NULL;
+	bvh->numNodes = 0;
+}
+
+void fp_bvh_debug_draw(const fp_bvh_t* bvh)
+{
+	const uint32_t numNodes = bvh->numNodes;
+
+	float color[4] = FUR_COLOR_RED;
+
+	for(uint32_t i=0; i<numNodes; ++i)
+	{
+		const fm_box* box = &bvh->nodes[i].bound;
+		fc_dbg_box_wire((const float*)&box->center, (const float*)&box->extent, color);
+	}
 }

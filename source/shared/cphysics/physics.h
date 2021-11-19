@@ -39,6 +39,31 @@ typedef struct fp_physics_player_info_t
 
 CPHYSICS_API void fp_physics_get_player_info(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, fp_physics_player_info_t* playerInfo);
 
+// ----- BOUNDING VOLUME HIERARCHY -----
+typedef struct fm_box fm_box;
+typedef struct fp_bvh_node_t fm_bvh_node_t;
+
+typedef struct fp_bvh_t
+{
+	fp_bvh_node_t* nodes;
+	uint32_t numNodes;
+} fm_bvh_t;
+
+typedef struct fp_bvh_build_ctx_t
+{
+	// scratchpad memory to be used during build, to avoid unnecessary dynamic allocations
+	void* scratchpad;
+	uint32_t scratchpadSize;
+	
+	// boxes for leaf objects, also IDs will be based on this array
+	fm_box* objectBoxes;
+	uint32_t numObjects;
+} fp_bvh_build_ctx_t;
+
+CPHYSICS_API void fp_bvh_build(const fp_bvh_build_ctx_t* ctx, fp_bvh_t* bvh, fc_alloc_callbacks_t* pAllocCallbacks);
+CPHYSICS_API void fp_bvh_release(fp_bvh_t* bvh, fc_alloc_callbacks_t* pAllocCallbacks);
+CPHYSICS_API void fp_bvh_debug_draw(const fp_bvh_t* bvh);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

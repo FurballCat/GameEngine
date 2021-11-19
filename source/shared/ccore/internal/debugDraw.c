@@ -286,6 +286,94 @@ uint32_t fc_dbg_triangle_buffer_size(void)
 	return FC_DEBUG_TRIANGLE_SIZE * FC_DEBUG_FRAGMENTS_TRIANGLES_CAPACITY;
 }
 
+void fc_dbg_box_wire(const float center[3], const float extent[3], const float color[4])
+{
+	// convert to min/max bounding box
+	float a[3];
+	float b[3];
+	
+	for(uint32_t i=0; i<3; ++i)
+	{
+		a[i] = center[i] - extent[i];
+		b[i] = center[i] + extent[i];
+	}
+	
+	// four x-axis aligned lines
+	{
+		float start[3] = {a[0], a[1], a[2]};
+		float end[3] = {b[0], a[1], a[2]};
+		fc_dbg_line(start, end, color);
+	}
+	
+	{
+		float start[3] = {a[0], b[1], a[2]};
+		float end[3] = {b[0], b[1], a[2]};
+		fc_dbg_line(start, end, color);
+	}
+	
+	{
+		float start[3] = {a[0], a[1], b[2]};
+		float end[3] = {b[0], a[1], b[2]};
+		fc_dbg_line(start, end, color);
+	}
+	
+	{
+		float start[3] = {a[0], b[1], b[2]};
+		float end[3] = {b[0], b[1], b[2]};
+		fc_dbg_line(start, end, color);
+	}
+	
+	// four y-axis aligned lines
+	{
+		float start[3] = {a[0], a[1], a[2]};
+		float end[3] = {a[0], b[1], a[2]};
+		fc_dbg_line(start, end, color);
+	}
+	
+	{
+		float start[3] = {b[0], a[1], a[2]};
+		float end[3] = {b[0], b[1], a[2]};
+		fc_dbg_line(start, end, color);
+	}
+	
+	{
+		float start[3] = {a[0], a[1], b[2]};
+		float end[3] = {a[0], b[1], b[2]};
+		fc_dbg_line(start, end, color);
+	}
+	
+	{
+		float start[3] = {b[0], a[1], b[2]};
+		float end[3] = {b[0], b[1], b[2]};
+		fc_dbg_line(start, end, color);
+	}
+	
+	// four z-axis aligned lines
+	{
+		float start[3] = {a[0], a[1], a[2]};
+		float end[3] = {a[0], a[1], b[2]};
+		fc_dbg_line(start, end, color);
+	}
+	
+	{
+		float start[3] = {b[0], a[1], a[2]};
+		float end[3] = {b[0], a[1], b[2]};
+		fc_dbg_line(start, end, color);
+	}
+	
+	{
+		float start[3] = {a[0], b[1], a[2]};
+		float end[3] = {a[0], b[1], b[2]};
+		fc_dbg_line(start, end, color);
+	}
+	
+	{
+		float start[3] = {b[0], b[1], a[2]};
+		float end[3] = {b[0], b[1], b[2]};
+		fc_dbg_line(start, end, color);
+	}
+}
+
 void fc_dbg_plane(const float center[3], const float halfLength, const float color[4])
 {
 	const float planeA[3] = {-halfLength + center[0], -halfLength + center[1], center[2]};

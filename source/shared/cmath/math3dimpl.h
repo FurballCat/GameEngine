@@ -9,7 +9,10 @@ extern "C"
 
 #include <math.h>
 #include "math3d.h"
-	
+
+#define MAX(a, b) a > b ? a : b
+#define MIN(a, b) a < b ? a : b
+
 #define FM_SLERP_TOL 0.995f
 
 static inline void xm_vec4_add(const xm_vec4 v1, const xm_vec4 v2, xm_vec4* result)
@@ -46,6 +49,20 @@ static inline float xm_vec4_dot(const xm_vec4 v1, const xm_vec4 v2)
 static inline float fm_vec3_dot(const fm_vec3* a, const fm_vec3* b)
 {
 	return a->x * b->x + a->y * b->y + a->z * b->z;
+}
+
+static inline void fm_vec3_add(const fm_vec3* a, const fm_vec3* b, fm_vec3* v)
+{
+	v->x = a->x + b->x;
+	v->y = a->y + b->y;
+	v->z = a->z + b->z;
+}
+
+static inline void fm_vec3_sub(const fm_vec3* a, const fm_vec3* b, fm_vec3* v)
+{
+	v->x = a->x - b->x;
+	v->y = a->y - b->y;
+	v->z = a->z - b->z;
 }
 
 static inline float fm_vec3_mag(const fm_vec3* v)
@@ -103,6 +120,14 @@ static inline float fm_vec4_mag(const fm_vec4* v)
 static inline float fm_vec4_mag2(const fm_vec4* v)
 {
 	return v->x * v->x + v->y * v->y + v->z * v->z + v->w * v->w;
+}
+
+static inline void fm_vec4_abs(fm_vec4* v)
+{
+	v->x = fabs(v->x);
+	v->y = fabs(v->y);
+	v->z = fabs(v->z);
+	v->w = fabs(v->w);
 }
 
 static inline float fm_vec4_dot(const fm_vec4* a, const fm_vec4* b)
@@ -824,6 +849,67 @@ static inline float fm_curve_uniform_s(float alpha)
 {
 	float sqt = alpha * alpha;
 	return sqt / (2.0f * (sqt - alpha) + 1.0f);
+}
+
+static inline bool fm_intersection_box_box(const fm_box* a, const fm_box* b)
+{
+	if(fabs(a->center.x - b->center.x) > (a->extent.x + b->extent.x))
+		return false;
+	
+	if(fabs(a->center.y - b->center.y) > (a->extent.y + b->extent.y))
+		return false;
+	
+	if(fabs(a->center.z - b->center.z) > (a->extent.z + b->extent.z))
+		return false;
+	
+	return false;
+}
+
+static inline bool fm_intersection_box_point(const fm_box* a, const fm_vec3* b)
+{
+	if(fabs(a->center.x - b->x) > a->extent.x)
+		return false;
+	
+	if(fabs(a->center.y - b->y) > a->extent.y)
+		return false;
+	
+	if(fabs(a->center.z - b->z) > a->extent.z)
+		return false;
+	
+	return false;
+}
+
+static inline void fm_box_append(fm_box* a, const fm_box* b)
+{
+	fm_vec3 a_max;
+	fm_vec3_add(&a->center, &a->extent, &a_max);
+	
+	fm_vec3 a_min;
+	fm_vec3_sub(&a->center, &a->extent, &a_min);
+	
+	fm_vec3 b_max;
+	fm_vec3_add(&b->center, &b->extent, &b_max);
+	
+	fm_vec3 b_min;
+	fm_vec3_sub(&b->center, &b->extent, &b_min);
+	
+	fm_vec3 r_max;
+	r_max.x = MAX(a_max.x, b_max.x);
+	r_max.y = MAX(a_max.y, b_max.y);
+	r_max.z = MAX(a_max.z, b_max.z);
+	
+	fm_vec3 r_min;
+	r_min.x = MIN(a_min.x, b_min.x);
+	r_min.y = MIN(a_min.y, b_min.y);
+	r_min.z = MIN(a_min.z, b_min.z);
+	
+	a->center.x = (r_max.x + r_min.x) / 2.0f;
+	a->center.y = (r_max.y + r_min.y) / 2.0f;
+	a->center.z = (r_max.z + r_min.z) / 2.0f;
+	
+	a->extent.x = (r_max.x - r_min.x) / 2.0f;
+	a->extent.y = (r_max.y - r_min.y) / 2.0f;
+	a->extent.z = (r_max.z - r_min.z) / 2.0f;
 }
 
 #ifdef __cplusplus

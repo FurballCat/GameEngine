@@ -543,6 +543,9 @@ struct FurGameEngine
 	// wind
 	fm_vec3 windVelocity;
 	
+	// test bvh
+	fp_bvh_t testBVH;
+	
 	// debug
 	bool debugIsSlowTime;
 	bool debugShowFPS;
@@ -1121,6 +1124,30 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			refPose.pos.w = 0.0f;
 			pEngine->zeldaCapeR.d[j] = fm_vec4_mag(&refPose.pos);
 		}
+	}
+	
+	// test BVH
+	{
+		fm_box boxes[] = {
+			{{0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+			{{4.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+			{{0.0f, 4.0f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+			{{0.4f, 6.0f, 1.0f}, {0.5f, 0.4f, 0.3f}},
+			{{-1.3f, -2.0f, 1.0f}, {0.7f, 0.2f, 0.5f}},
+			{{-6.0f, -7.0f, 3.0f}, {0.8f, 1.3f, 2.1f}},
+			{{-3.0f, -4.0f, 0.7f}, {1.4f, 1.3f, 1.2f}},
+			{{0.0f, 0.0f, 4.0f}, {1.0f, 1.0f, 1.0f}}
+		};
+		
+		const uint32_t numBoxes = FUR_ARRAY_SIZE(boxes);
+		
+		fp_bvh_build_ctx_t bvhCtx = {};
+		bvhCtx.numObjects = numBoxes;
+		bvhCtx.objectBoxes = boxes;
+		bvhCtx.scratchpad = pEngine->scratchpadBuffer;
+		bvhCtx.scratchpadSize = pEngine->scratchpadBufferSize;
+		
+		fp_bvh_build(&bvhCtx, &pEngine->testBVH, pAllocCallbacks);
 	}
 	
 	return true;
@@ -1948,6 +1975,11 @@ void fc_dbg_mat4(const fm_mat4* m)
 
 void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callbacks_t* pAllocCallbacks)
 {
+	// test BVH debug draw
+	{
+		fp_bvh_debug_draw(&pEngine->testBVH);
+	}
+	
 	// show debug FPS
 	if(pEngine->debugShowFPS)
 	{
@@ -2302,6 +2334,9 @@ void furMainEngineLoop(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallb
 
 bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
 {
+	// release text BVH
+	fp_bvh_release(&pEngine->testBVH, pAllocCallbacks);
+	
 	// release meshes
 	fr_release_proxy(pEngine->pRenderer, pEngine->swordMesh, pAllocCallbacks);
 	fr_release_proxy(pEngine->pRenderer, pEngine->chestMesh, pAllocCallbacks);

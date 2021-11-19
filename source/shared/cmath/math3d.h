@@ -15,6 +15,7 @@ extern "C"
 #endif // __cplusplus
 	
 #include <immintrin.h>
+#include <stdbool.h>
 	
 #define FM_PI 3.14159265358979323846264338327950288
 #define FM_DEG_TO_RAD(_x) _x * FM_PI / 180.0
@@ -96,6 +97,12 @@ extern "C"
 	// dot product between a and b saved to v
 	static inline float fm_vec3_dot(const fm_vec3* a, const fm_vec3* b);
 	
+	// add b to a and save to v
+	static inline void fm_vec3_add(const fm_vec3* a, const fm_vec3* b, fm_vec3* v);
+
+	// subtract b from a and save to v
+	static inline void fm_vec3_sub(const fm_vec3* a, const fm_vec3* b, fm_vec3* v);
+
 	// set all vector components to zeros
 	static inline void fm_vec4_zeros(fm_vec4* v);
 	
@@ -113,6 +120,9 @@ extern "C"
 
 	// magniture squared of a vector
 	static inline float fm_vec4_mag2(const fm_vec4* v);
+
+	// abs for vector elements
+	static inline void fm_vec4_abs(fm_vec4* v);
 	
 	// dot product between a and b saved to v
 	static inline float fm_vec4_dot(const fm_vec4* a, const fm_vec4* b);
@@ -250,7 +260,25 @@ extern "C"
 	
 	// uniform-s curve in range 0..1
 	static inline float fm_curve_uniform_s(float alpha);
-	
+
+	/***** Bounding Boxes *****/
+
+	// axis-aligned bounding box
+	typedef struct fm_box
+	{
+		fm_vec3 center;
+		fm_vec3 extent;
+	} fm_box;
+
+	// intersection test between two boxes
+	static inline bool fm_intersection_box_box(const fm_box* a, const fm_box* b);
+
+	// intersection test between a box and a point
+	static inline bool fm_intersection_box_point(const fm_box* a, const fm_vec3* b);
+
+	// append box b to box a, so box a will bound box b too
+	static inline void fm_box_append(fm_box* a, const fm_box* b);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

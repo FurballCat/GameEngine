@@ -28,7 +28,7 @@ CCORE_API void fc_dbg_release(fc_alloc_callbacks_t* pAllocCallbacks);
 // call these to draw debug fragments
 CCORE_API void fc_dbg_line(const float start[3], const float end[3], const float color[4]);
 CCORE_API void fc_dbg_triangle(const float pointA[3], const float pointB[3], const float pointC[3], const float color[4]);
-
+CCORE_API void fc_dbg_box_wire(const float center[3], const float extent[3], const float color[4]);
 CCORE_API void fc_dbg_plane(const float center[3], const float halfLength, const float color[4]);
 	
 // use sprintf( txt, "blah blah %u", value ) and pass txt to the function (txt is char txt[32] or any other reasonable size)
