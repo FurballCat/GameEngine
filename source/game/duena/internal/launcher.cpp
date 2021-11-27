@@ -747,8 +747,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 					pEngine->pRig->maskFace = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 					const int16_t idxSpine = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Spine"));
 					const fc_string_hash_t hashes[] = {
-						SID("Bip001_Neck"),
-						SID("Bip001_Head"),
+						//SID("Bip001_Neck"),
+						//SID("Bip001_Head"),
 						SID("Bip001_Jaw"),
 						SID("Bip001_Chin"),
 						SID("Bip001_LipLower_C"),
