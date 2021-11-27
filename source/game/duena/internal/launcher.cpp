@@ -681,6 +681,15 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 					ik->maxAngle = 2.8f;
 				}
 				
+				// head look-at setup
+				{
+					fa_look_at_setup_t* lookAt = &pEngine->pRig->headLookAt;
+					lookAt->idxHead = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Head"));
+					lookAt->limitYaw = FM_DEG_TO_RAD(85.0f);
+					lookAt->limitPitchDown = FM_DEG_TO_RAD(45.0f);
+					lookAt->limitPitchUp = FM_DEG_TO_RAD(85.0f);
+				}
+				
 				// masks
 				{
 					pEngine->pRig->maskUpperBody = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);

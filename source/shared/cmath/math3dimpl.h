@@ -744,6 +744,27 @@ static inline void fm_quat_conj(fm_quat* q)
 	q->k = -q->k;
 }
 
+static inline fm_vec4 fm_quat_axis_x(fm_quat* q)
+{
+	fm_vec4 axis = {1.0f, 0.0f, 0.0f, 0.0f};
+	fm_quat_rot(q, &axis, &axis);
+	return axis;
+}
+
+static inline fm_vec4 fm_quat_axis_y(fm_quat* q)
+{
+	fm_vec4 axis = {0.0f, 1.0f, 0.0f, 0.0f};
+	fm_quat_rot(q, &axis, &axis);
+	return axis;
+}
+
+static inline fm_vec4 fm_quat_axis_z(fm_quat* q)
+{
+	fm_vec4 axis = {0.0f, 0.0f, 1.0f, 0.0f};
+	fm_quat_rot(q, &axis, &axis);
+	return axis;
+}
+
 static inline void fm_xform_identity(fm_xform* x)
 {
 	fm_vec4_zeros(&x->pos);

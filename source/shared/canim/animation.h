@@ -40,6 +40,16 @@ typedef struct fa_ik_setup_t
 	float maxAngle;
 } fa_ik_setup_t;
 
+typedef struct fa_look_at_setup_t
+{
+	uint16_t idxHead;
+	
+	// half-angle limits in radians
+	float limitYaw;
+	float limitPitchDown;
+	float limitPitchUp;
+} fa_look_at_setup_t;
+
 typedef enum fa_mask_t
 {
 	FA_MASK_NONE = 0,
@@ -54,12 +64,17 @@ typedef struct fa_rig_t
 	fm_xform* refPose;
 	uint32_t numBones;
 	
-	int16_t idxLocoJoint;	// locomotion (root motion) joint index
+	// locomotion
+	int16_t idxLocoJoint;	// root motion joint index
 	
 	// inverse kinematics
 	fa_ik_setup_t ikLeftLeg;
 	fa_ik_setup_t ikRightLeg;
 	
+	// look-at
+	fa_look_at_setup_t headLookAt;
+	
+	// masks
 	uint8_t* maskUpperBody;
 	uint8_t* maskFace;
 } fa_rig_t;

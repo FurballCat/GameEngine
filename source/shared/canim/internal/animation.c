@@ -1218,6 +1218,9 @@ typedef struct fa_cross_layer_context_t
 	float rootMotionDeltaX;
 	float rootMotionDeltaY;
 	float rootMotionDeltaYaw;
+	
+	fm_vec3 lookAtLocator;
+	float lookAtWeight;
 } fa_cross_layer_context_t;
 
 void fa_character_layer_cache_pose(fa_layer_t* layer, fa_cross_layer_context_t* ctx, float alpha)
@@ -1602,6 +1605,65 @@ void fa_character_ik(fa_character_t* character, fa_cross_layer_context_t* layerC
 	}
 }
 
+void fa_character_look_at(fa_character_t* character, fa_cross_layer_context_t* layerCtx)
+{
+	if(layerCtx->lookAtWeight <= 0.0f)
+		return;
+	
+	const fa_look_at_setup_t* lookAt = &character->rig->headLookAt;
+	const fm_vec4 lookAtPosition = {layerCtx->lookAtLocator.x, layerCtx->lookAtLocator.y, layerCtx->lookAtLocator.z, 1.0f};
+	
+	fa_pose_stack_t* poseStack = layerCtx->poseStack;
+	
+	// push temporary MS pose
+	fa_pose_stack_push(poseStack, 1);
+	
+	// get LS and calculate temporary MS pose
+	fa_pose_t poseMS;
+	fa_pose_stack_get(poseStack, &poseMS, 0);
+	fa_pose_t poseLS;
+	fa_pose_stack_get(poseStack, &poseLS, 1);
+	
+	fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
+	
+	// calculate look-at vector and forward vector
+	fm_xform headLocator = poseMS.xforms[lookAt->idxHead];
+	fm_vec4 headDirection = fm_quat_axis_x(&headLocator.rot);
+	fm_vec4 lookAtDirection = {};
+	fm_vec4_sub(&lookAtPosition, &headLocator.pos, &lookAtDirection);
+	
+	if(layerCtx->debug != NULL)
+	{
+		float cyan[4] = FUR_COLOR_CYAN;
+		float yellow[4] = FUR_COLOR_YELLOW;
+		fc_dbg_line(&headLocator.pos.x, &lookAtPosition.x, cyan);
+		
+		fm_vec4 headForwardPoint = {};
+		fm_vec4_add(&headLocator.pos, &headDirection, &headForwardPoint);
+		
+		fc_dbg_line(&headLocator.pos.x, &headForwardPoint.x, yellow);
+	}
+	
+	fm_quat lookAtSpace = headLocator.rot;
+	fm_quat_conj(&lookAtSpace);
+	
+	fm_quat_rot(&lookAtSpace, &headDirection, &headDirection);
+	fm_quat_rot(&lookAtSpace, &lookAtDirection, &lookAtDirection);
+	
+	fm_quat identity = {};
+	fm_quat_identity(&identity);
+	
+	fm_quat lookAtRotCorrection = {};
+	fm_vec4_rot_between(&headDirection, &lookAtDirection, &lookAtRotCorrection);
+	
+	fm_quat_slerp(&identity, &lookAtRotCorrection, layerCtx->lookAtWeight, &lookAtRotCorrection);
+	
+	fm_quat_mul(&lookAtRotCorrection, &poseLS.xforms[lookAt->idxHead].rot, &poseLS.xforms[lookAt->idxHead].rot);
+	
+	// pop temporary MS pose
+	fa_pose_stack_pop(poseStack, 1);
+}
+
 void fa_character_animate(fa_character_t* character, const fa_character_animate_ctx_t* ctx)
 {
 	// allocate pose stack and command buffer memory
@@ -1706,13 +1768,26 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		fa_character_layer_animate(character, &layerCtx, &character->layerFace);
 	}
 	
-	// look-at
-	
 	// inverse kinematics
 	FUR_PROFILE("ik")
 	{
 		layerCtx.outWeightLegsIK = weightLegsIK;
 		fa_character_ik(character, &layerCtx);
+	}
+	
+	// look-at
+	FUR_PROFILE("look-at")
+	{
+		static float time = 0.0f;
+		time += ctx->dt;
+		
+		layerCtx.lookAtLocator.x = 2.0f * sinf(time * 2.0f + 1.0f);
+		layerCtx.lookAtLocator.y = -4.0f;
+		layerCtx.lookAtLocator.z = 2.0f + 2.0f * sinf(time);
+		
+		layerCtx.lookAtWeight = 0.0f;	// change to non-zero to enable look-at
+		
+		fa_character_look_at(character, &layerCtx);
 	}
 	
 	// ragdoll

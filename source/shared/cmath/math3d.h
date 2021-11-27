@@ -235,6 +235,15 @@ extern "C"
 	// conjugate of quaternion (inverse)
 	static inline void fm_quat_conj(fm_quat* q);
 
+	// x-axis rotated by quaternion q
+	static inline fm_vec4 fm_quat_axis_x(fm_quat* q);
+
+	// y-axis rotated by quaternion q
+	static inline fm_vec4 fm_quat_axis_y(fm_quat* q);
+
+	// z-axis rotated by quaternion q
+	static inline fm_vec4 fm_quat_axis_z(fm_quat* q);
+
 	/***** TRANSFORM *****/
 	
 	// set x to identity (pos 0,0,0,0 rot 0,0,0,1)
