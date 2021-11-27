@@ -1623,7 +1623,6 @@ void fa_character_look_at(fa_character_t* character, fa_cross_layer_context_t* l
 	fa_pose_stack_get(poseStack, &poseMS, 0);
 	fa_pose_t poseLS;
 	fa_pose_stack_get(poseStack, &poseLS, 1);
-	
 	fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
 	
 	// calculate look-at vector and forward vector
@@ -1632,6 +1631,26 @@ void fa_character_look_at(fa_character_t* character, fa_cross_layer_context_t* l
 	fm_vec4 lookAtDirection = {};
 	fm_vec4_sub(&lookAtPosition, &headLocator.pos, &lookAtDirection);
 	
+	// move look-at and head forward directions to head space
+	fm_quat lookAtSpace = headLocator.rot;
+	fm_quat_conj(&lookAtSpace);
+	fm_quat_rot(&lookAtSpace, &headDirection, &headDirection);
+	fm_quat_rot(&lookAtSpace, &lookAtDirection, &lookAtDirection);
+	
+	// calculate final look-at rotation correction with weight
+	fm_quat identity = {};
+	fm_quat_identity(&identity);
+	fm_quat lookAtRotCorrection = {};
+	fm_vec4_rot_between(&headDirection, &lookAtDirection, &lookAtRotCorrection);
+	fm_quat_slerp(&identity, &lookAtRotCorrection, layerCtx->lookAtWeight, &lookAtRotCorrection);
+	
+	// apply look-at rotation correction to local space
+	fm_quat_mul(&lookAtRotCorrection, &poseLS.xforms[lookAt->idxHead].rot, &poseLS.xforms[lookAt->idxHead].rot);
+	
+	// pop temporary MS pose
+	fa_pose_stack_pop(poseStack, 1);
+	
+	// draw debug for look-at
 	if(layerCtx->debug != NULL)
 	{
 		float cyan[4] = FUR_COLOR_CYAN;
@@ -1640,28 +1659,8 @@ void fa_character_look_at(fa_character_t* character, fa_cross_layer_context_t* l
 		
 		fm_vec4 headForwardPoint = {};
 		fm_vec4_add(&headLocator.pos, &headDirection, &headForwardPoint);
-		
 		fc_dbg_line(&headLocator.pos.x, &headForwardPoint.x, yellow);
 	}
-	
-	fm_quat lookAtSpace = headLocator.rot;
-	fm_quat_conj(&lookAtSpace);
-	
-	fm_quat_rot(&lookAtSpace, &headDirection, &headDirection);
-	fm_quat_rot(&lookAtSpace, &lookAtDirection, &lookAtDirection);
-	
-	fm_quat identity = {};
-	fm_quat_identity(&identity);
-	
-	fm_quat lookAtRotCorrection = {};
-	fm_vec4_rot_between(&headDirection, &lookAtDirection, &lookAtRotCorrection);
-	
-	fm_quat_slerp(&identity, &lookAtRotCorrection, layerCtx->lookAtWeight, &lookAtRotCorrection);
-	
-	fm_quat_mul(&lookAtRotCorrection, &poseLS.xforms[lookAt->idxHead].rot, &poseLS.xforms[lookAt->idxHead].rot);
-	
-	// pop temporary MS pose
-	fa_pose_stack_pop(poseStack, 1);
 }
 
 void fa_character_animate(fa_character_t* character, const fa_character_animate_ctx_t* ctx)
