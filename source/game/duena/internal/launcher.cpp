@@ -687,9 +687,9 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 					lookAt->idxHead = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Head"));
 					lookAt->idxNeck = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Neck"));
 					lookAt->idxSpine3 = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Spine3"));
-					lookAt->limitYaw = FM_DEG_TO_RAD(85.0f);
+					lookAt->limitYaw = FM_DEG_TO_RAD(60.0f);
 					lookAt->limitPitchDown = FM_DEG_TO_RAD(25.0f);
-					lookAt->limitPitchUp = FM_DEG_TO_RAD(85.0f);
+					lookAt->limitPitchUp = FM_DEG_TO_RAD(45.0f);
 				}
 				
 				// masks
@@ -2067,16 +2067,40 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		playerPhysics.locator = &playerLocator;
 		fp_physics_get_player_info(pEngine->pPhysics, pEngine->pPhysicsScene, &playerPhysics);
 		
-		// convert world space look-at point to model space of player
-		fm_vec4 lookAtPoint = {2.0f, 2.0f, 0.0f, 1.0f};	// in world space
+		static float time = 0.0f;
+		time += dt;
 		
-		float color[4] = FUR_COLOR_CYAN;
-		fc_dbg_line(&playerLocator.pos.x, &lookAtPoint.x, color);
+		// convert world space look-at point to model space of player
+		fm_vec4 lookAtPoint = {2.0f * sinf(time), 2.0f * cosf(time), 1.0f + 1.0f * sinf(time * 0.6f), 1.0f};	// in world space
+		
+		float color[4] = FUR_COLOR_MAGENTA;
+		float extent[] = {0.1f, 0.1f, 0.1f};
+		fc_dbg_box_wire(&lookAtPoint.x, extent, color);
+		
+		extent[0] = 0.07f;
+		extent[1] = 0.07f;
+		extent[2] = 0.07f;
+		fc_dbg_box_wire(&lookAtPoint.x, extent, color);
+		
+		extent[0] = 0.04f;
+		extent[1] = 0.04f;
+		extent[2] = 0.04f;
+		fc_dbg_box_wire(&lookAtPoint.x, extent, color);
+		
+		const float distanceToLookAtPoint = fm_vec4_distance(&lookAtPoint, &playerLocator.pos);
+		
+		if(pEngine->animCharacterZelda.animInfo.useLookAt)
+		{
+			pEngine->animCharacterZelda.animInfo.useLookAt = distanceToLookAtPoint < 10.0f;
+		}
+		else
+		{
+			pEngine->animCharacterZelda.animInfo.useLookAt = distanceToLookAtPoint < 6.0f;
+		}
 		
 		pEngine->animCharacterZelda.animInfo.lookAtPoint[0] = lookAtPoint.x;
 		pEngine->animCharacterZelda.animInfo.lookAtPoint[1] = lookAtPoint.y;
 		pEngine->animCharacterZelda.animInfo.lookAtPoint[2] = lookAtPoint.z;
-		pEngine->animCharacterZelda.animInfo.useLookAt = true;
 	}
 	
 	// animation

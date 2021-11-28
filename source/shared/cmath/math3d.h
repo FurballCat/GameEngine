@@ -160,6 +160,9 @@ extern "C"
 	// shortest rotation between vectors 'from' and 'to'
 	static inline void fm_vec4_rot_between(const fm_vec4* from, const fm_vec4* to, fm_quat* rot);
 
+	// distance between a and b (always positive)
+	static inline float fm_vec4_distance(const fm_vec4* a, const fm_vec4* b);
+
 	/***** MATRIX *****/
 	
 	// identity matrix
@@ -279,6 +282,12 @@ extern "C"
 	// convert transform to matrix
 	static inline void fm_xform_to_mat4(const fm_xform* x, fm_mat4_t* m);
 	
+	// apply xform to vec4 a and store in v
+	static inline void fm_xform_apply(const fm_xform* x, const fm_vec4* a, fm_vec4* v);
+
+	// apply inverse of xform to vec4 a and store in v
+	static inline void fm_xform_apply_inv(const fm_xform* x, const fm_vec4* a, fm_vec4* v);
+
 	/***** SPLINES *****/
 	
 	// Catmull-Rom spline - interpolation is done only between P1 and P2

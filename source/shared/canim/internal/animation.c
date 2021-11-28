@@ -1219,7 +1219,7 @@ typedef struct fa_cross_layer_context_t
 	float rootMotionDeltaY;
 	float rootMotionDeltaYaw;
 	
-	fm_vec3 lookAtLocator;
+	fm_vec4 lookAtMS;
 	float lookAtWeight;
 } fa_cross_layer_context_t;
 
@@ -1607,151 +1607,86 @@ void fa_character_ik(fa_character_t* character, fa_cross_layer_context_t* layerC
 
 void fa_character_look_at(fa_character_t* character, fa_cross_layer_context_t* layerCtx)
 {
+	// no need to apply look-at if the weight is 0.0
 	if(layerCtx->lookAtWeight <= 0.0f)
 		return;
 	
-	const fa_look_at_setup_t* lookAt = &character->rig->headLookAt;
-	fm_vec4 lookAtPosition = {layerCtx->lookAtLocator.x, layerCtx->lookAtLocator.y, layerCtx->lookAtLocator.z, 1.0f};
+	// get look at setup and look at point in model space
+	const fa_look_at_setup_t* setup = &character->rig->headLookAt;
+	fm_vec4 lookAtMS = layerCtx->lookAtMS;
 	
+	// calculate and push temporary MS pose
 	fa_pose_stack_t* poseStack = layerCtx->poseStack;
-	
-	// push temporary MS pose
 	fa_pose_stack_push(poseStack, 1);
-	
-	// get LS and calculate temporary MS pose
 	fa_pose_t poseMS;
 	fa_pose_stack_get(poseStack, &poseMS, 0);
 	fa_pose_t poseLS;
 	fa_pose_stack_get(poseStack, &poseLS, 1);
 	fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
 	
-	// get locators
-	fm_xform headLocator = poseMS.xforms[lookAt->idxHead];
-	fm_xform neckLocator = poseMS.xforms[lookAt->idxNeck];
+	// transform look at from model space to head space
+	fm_xform locator = poseMS.xforms[setup->idxHead];
+	fm_vec4 lookAtLocatorSpace = {};
+	fm_xform_apply_inv(&locator, &lookAtMS, &lookAtLocatorSpace);
 	
-	// calculate look-at vector and forward vector
-	fm_vec4 headDirection = fm_quat_axis_x(&headLocator.rot);
-	fm_vec4 lookAtDirection = {};
-	fm_vec4_sub(&lookAtPosition, &headLocator.pos, &lookAtDirection);
+	// assume +X axis is forward direction (depends on the rig)
+	fm_vec4 forward = {1.0f, 0.0f, 0.0f, 0.0f};
 	
-	// apply constraints
+	// constrain look-at to some sane ranges
 	{
-		fm_vec4 axisY = {0.0f, 1.0f, 0.0f, 0.0f};
-		fm_vec4 axisZ = {0.0f, 0.0f, 1.0f, 0.0f};
-		fm_quat planeRot = {};
+		// remainder: head space here means (+z right, -z left, +y up, -y down, +x forward, -x backward)
+		fm_vec4 dir = lookAtLocatorSpace;
 		
-		// look-at limits as frustum in neck space (+z right, -z left, +y up, -y down, +x forward, -x backward)
-		fm_vec4 leftPlaneN = {0.0f, 0.0f, 1.0f, 0.0f};
-		fm_quat_rot_axis_angle(&axisY, -lookAt->limitYaw, &planeRot);
-		fm_quat_rot(&planeRot, &leftPlaneN, &leftPlaneN);
+		float yaw = dir.z / sqrtf(dir.x * dir.x + dir.z * dir.z);
+		float pitch = dir.y / sqrtf(dir.x * dir.x + dir.y * dir.y);
 		
-		fm_vec4 rightPlaneN = {0.0f, 0.0f, -1.0f, 0.0f};
-		fm_quat_rot_axis_angle(&axisY, lookAt->limitYaw, &planeRot);
-		fm_quat_rot(&planeRot, &rightPlaneN, &rightPlaneN);
+		// fixed yaw to either side when direction is facing backwards
+		if(dir.x < 0.0f)
+			yaw = fm_sign(yaw) * setup->limitYaw;
 		
-		fm_vec4 topPlaneN = {0.0f, -1.0f, 0.0f, 0.0f};
-		fm_quat_rot_axis_angle(&axisZ, -lookAt->limitPitchUp, &planeRot);
-		fm_quat_rot(&planeRot, &topPlaneN, &topPlaneN);
+		// keep within yaw limits
+		if(yaw < -setup->limitYaw)
+			yaw = -setup->limitYaw;
+		else if(yaw > setup->limitYaw)
+			yaw = setup->limitYaw;
 		
-		fm_vec4 bottomPlaneN = {0.0f, 1.0f, 0.0f, 0.0f};
-		fm_quat_rot_axis_angle(&axisZ, lookAt->limitPitchDown, &planeRot);
-		fm_quat_rot(&planeRot, &bottomPlaneN, &bottomPlaneN);
+		// keep within pitch limiets - notice different limit for down and up
+		if(pitch < -setup->limitPitchDown)
+			pitch = -setup->limitPitchDown;
+		else if(pitch > setup->limitPitchUp)
+			pitch = setup->limitPitchUp;
 		
-		fm_vec4 nearPlaneN = {1.0f, 0.0f, 0.0f, 0.0f};
+		// smoothly approach new yaw (low-pass filter)
+		character->lookAtHeadYaw = character->lookAtHeadYaw * 0.95f + yaw * 0.05f;
+		character->lookAtHeadPitch = character->lookAtHeadPitch * 0.95f + pitch * 0.05f;
 		
-		// move look-at position to neck space
-		fm_vec4 neckLookAtPosition = lookAtDirection;
-		fm_quat neckSpace = neckLocator.rot;
-		fm_quat_conj(&neckSpace);
-		fm_quat_rot(&neckSpace, &neckLookAtPosition, &neckLookAtPosition);
+		// prepare new look-at position
+		fm_quat yawRot = {};
+		fm_quat_make_from_axis_angle(0.0f, 1.0f, 0.0f, character->lookAtHeadYaw, &yawRot);
 		
-		// check neckLookAtPosition against frustum
-		bool isValid = true;
-		if(fm_vec4_dot(&neckLookAtPosition, &nearPlaneN) < 0.2f)
-		{
-			isValid = false;
-		}
-		else if(fm_vec4_dot(&neckLookAtPosition, &leftPlaneN) < 0.0f)
-		{
-			isValid = false;
-		}
-		else if(fm_vec4_dot(&neckLookAtPosition, &rightPlaneN) < 0.0f)
-		{
-			isValid = false;
-		}
-		else if(fm_vec4_dot(&neckLookAtPosition, &topPlaneN) < 0.0f)
-		{
-			isValid = false;
-		}
-		else if(fm_vec4_dot(&neckLookAtPosition, &bottomPlaneN) < 0.0f)
-		{
-			isValid = false;
-		}
+		fm_quat pitchRot = {};
+		fm_quat_make_from_axis_angle(0.0f, 0.0f, -1.0f, character->lookAtHeadPitch, &pitchRot);
 		
-		// move look at position from neck space back to model space
-		fm_quat_rot(&neckLocator.rot, &neckLookAtPosition, &lookAtDirection);
-		
-		static fm_vec4 lastValidLookAtDir = {};
-		
-		if(!isValid)
-		{
-			lookAtDirection = headDirection;
-		}
-		
-		fm_vec4_lerp(&lookAtDirection, &lastValidLookAtDir, 0.1f, &lookAtDirection);
-		lastValidLookAtDir = lookAtDirection;
-		
-		if(layerCtx->debug != NULL)
-		{
-			// draw limit plane normals
-			fm_vec4 planeNormalEnd = {};
-			fm_vec4 planeNormalNeckSpace = {};
-			
-			fm_quat_rot(&neckLocator.rot, &leftPlaneN, &planeNormalNeckSpace);
-			fm_vec4_add(&headLocator.pos, &planeNormalNeckSpace, &planeNormalEnd);
-			
-			fm_quat_rot(&neckLocator.rot, &rightPlaneN, &planeNormalNeckSpace);
-			fm_vec4_add(&headLocator.pos, &planeNormalNeckSpace, &planeNormalEnd);
-			
-			fm_quat_rot(&neckLocator.rot, &topPlaneN, &planeNormalNeckSpace);
-			fm_vec4_add(&headLocator.pos, &planeNormalNeckSpace, &planeNormalEnd);
-			
-			fm_quat_rot(&neckLocator.rot, &bottomPlaneN, &planeNormalNeckSpace);
-			fm_vec4_add(&headLocator.pos, &planeNormalNeckSpace, &planeNormalEnd);
-		}
+		fm_quat_rot(&yawRot, &forward, &dir);
+		fm_quat_rot(&pitchRot, &dir, &dir);
+		const float mag = fm_vec4_mag(&lookAtLocatorSpace);
+		fm_vec4_mulf(&dir, mag, &lookAtLocatorSpace);
 	}
 	
-	// move look-at and head forward directions to head space
-	fm_quat lookAtSpace = headLocator.rot;
-	fm_quat_conj(&lookAtSpace);
-	fm_quat_rot(&lookAtSpace, &headDirection, &headDirection);
-	fm_vec4 headLookAtDirection = {};
-	fm_quat_rot(&lookAtSpace, &lookAtDirection, &headLookAtDirection);
-	
 	// calculate final look-at rotation correction with weight
+	fm_quat headCorrection = {};
+	fm_vec4_rot_between(&forward, &lookAtLocatorSpace, &headCorrection);
+	
+	// apply weight to look-at
 	fm_quat identity = {};
 	fm_quat_identity(&identity);
-	fm_quat lookAtRotCorrection = {};
-	fm_vec4_rot_between(&headDirection, &headLookAtDirection, &lookAtRotCorrection);
-	fm_quat_slerp(&identity, &lookAtRotCorrection, layerCtx->lookAtWeight, &lookAtRotCorrection);
+	fm_quat_slerp(&identity, &headCorrection, layerCtx->lookAtWeight, &headCorrection);
 	
 	// apply look-at rotation correction to local space
-	fm_quat_mul(&lookAtRotCorrection, &poseLS.xforms[lookAt->idxHead].rot, &poseLS.xforms[lookAt->idxHead].rot);
+	fm_quat_mul(&headCorrection, &poseLS.xforms[setup->idxHead].rot, &poseLS.xforms[setup->idxHead].rot);
 	
 	// pop temporary MS pose
 	fa_pose_stack_pop(poseStack, 1);
-	
-	// draw debug for look-at
-	if(layerCtx->debug != NULL)
-	{
-		float cyan[4] = FUR_COLOR_CYAN;
-		float yellow[4] = FUR_COLOR_YELLOW;
-		fc_dbg_line(&headLocator.pos.x, &lookAtPosition.x, cyan);
-		
-		fm_vec4 clampedLookAtPoint = {};
-		fm_vec4_add(&headLocator.pos, &lookAtDirection, &clampedLookAtPoint);
-		fc_dbg_line(&headLocator.pos.x, &clampedLookAtPoint.x, yellow);
-	}
 }
 
 void fa_character_animate(fa_character_t* character, const fa_character_animate_ctx_t* ctx)
@@ -1891,20 +1826,23 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		static float time = 0.0f;
 		time += ctx->dt;
 		
+		float lookAtWeightTarget = 0.0f;
+		
 		if(character->animInfo.useLookAt)
 		{
-			layerCtx.lookAtLocator.x = lookAtMS.x;
-			layerCtx.lookAtLocator.y = lookAtMS.y;
-			layerCtx.lookAtLocator.z = lookAtMS.z;
-		}
-		else
-		{
-			layerCtx.lookAtLocator.x = -10.0f;	// put the look at point at back of head, so it's invalid
-			layerCtx.lookAtLocator.y = 0.0f;
-			layerCtx.lookAtLocator.z = 0.0f;
+			layerCtx.lookAtMS = lookAtMS;
+			
+			lookAtWeightTarget = 0.8f;
 		}
 		
-		layerCtx.lookAtWeight = 1.0f;	// change to non-zero to enable look-at
+		character->lookAtWeight = character->lookAtWeight * 0.95f + lookAtWeightTarget * 0.05f;
+		layerCtx.lookAtWeight = character->lookAtWeight;
+		
+		if(character->lookAtWeight <= 0.0f)
+		{
+			character->lookAtHeadYaw = 0.0f;
+			character->lookAtHeadPitch = 0.0f;
+		}
 		
 		fa_character_look_at(character, &layerCtx);
 	}

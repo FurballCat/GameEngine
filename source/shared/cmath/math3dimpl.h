@@ -202,6 +202,13 @@ static inline void fm_vec4_rot_between(const fm_vec4* from, const fm_vec4* to, f
 	}
 }
 
+static inline float fm_vec4_distance(const fm_vec4* a, const fm_vec4* b)
+{
+	fm_vec4 diff = {};
+	fm_vec4_sub(a, b, &diff);
+	return fm_vec4_mag(&diff);
+}
+
 static inline void fm_mat4_identity(fm_mat4_t* m)
 {
 	m->x.x = 1.0f;
@@ -814,6 +821,20 @@ static inline void fm_xform_to_mat4(const fm_xform* x, fm_mat4_t* m)
 	m->w.y = x->pos.y;
 	m->w.z = x->pos.z;
 	m->w.w = 1.0f;
+}
+
+static inline void fm_xform_apply(const fm_xform* x, const fm_vec4* a, fm_vec4* v)
+{
+	fm_quat_rot(&x->rot, a, v);
+	fm_vec4_add(&x->pos, v, v);
+}
+
+static inline void fm_xform_apply_inv(const fm_xform* x, const fm_vec4* a, fm_vec4* v)
+{
+	fm_quat invRot = x->rot;
+	fm_quat_conj(&invRot);
+	fm_vec4_sub(a, &x->pos, v);
+	fm_quat_rot(&invRot, v, v);
 }
 
 #define FM_CATMULL_ROM_ALPHA 0.5f

@@ -439,6 +439,10 @@ typedef struct fa_character_t
 	
 	uint64_t globalTime;
 	
+	float lookAtHeadYaw;
+	float lookAtHeadPitch;
+	float lookAtWeight;
+	
 	fa_character_anim_info_t animInfo;
 } fa_character_t;
 
