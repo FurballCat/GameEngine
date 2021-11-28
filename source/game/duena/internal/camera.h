@@ -29,6 +29,7 @@ void fg_camera_update_orbit(fg_camera_t* camera, const fg_camera_update_orbit_ct
 void fg_camera_adjust_by_player_movement(fg_camera_t* camera, fm_mat4* playerMatrix);
 void fg_camera_get_directions(fg_camera_t* camera, fm_vec4* dirForward, fm_vec4* dirLeft);
 void fg_camera_view_matrix(fg_camera_t* camera, fm_mat4* matrix);
+void fg_camera_get_eye(fg_camera_t* camera, fm_vec4* eye);
 
 #ifdef __cplusplus
 }

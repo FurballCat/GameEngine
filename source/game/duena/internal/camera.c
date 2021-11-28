@@ -113,3 +113,8 @@ void fg_camera_view_matrix(fg_camera_t* camera, fm_mat4* matrix)
 {
 	fm_mat4_lookat_lh(&camera->eye, &camera->at, &camera->up, matrix);
 }
+
+void fg_camera_get_eye(fg_camera_t* camera, fm_vec4* eye)
+{
+	*eye = camera->eye;
+}

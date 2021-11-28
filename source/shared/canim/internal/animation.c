@@ -1605,27 +1605,19 @@ void fa_character_ik(fa_character_t* character, fa_cross_layer_context_t* layerC
 	}
 }
 
-void fa_character_look_at(fa_character_t* character, fa_cross_layer_context_t* layerCtx)
+void fa_character_look_at(fa_character_t* character, fa_pose_t* poseLS, fa_pose_t* poseMS,
+						  float weight, fm_vec4* lookAtPointMS)
 {
 	// no need to apply look-at if the weight is 0.0
-	if(layerCtx->lookAtWeight <= 0.0f)
+	if(weight <= 0.0f)
 		return;
 	
 	// get look at setup and look at point in model space
 	const fa_look_at_setup_t* setup = &character->rig->headLookAt;
-	fm_vec4 lookAtMS = layerCtx->lookAtMS;
-	
-	// calculate and push temporary MS pose
-	fa_pose_stack_t* poseStack = layerCtx->poseStack;
-	fa_pose_stack_push(poseStack, 1);
-	fa_pose_t poseMS;
-	fa_pose_stack_get(poseStack, &poseMS, 0);
-	fa_pose_t poseLS;
-	fa_pose_stack_get(poseStack, &poseLS, 1);
-	fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
+	fm_vec4 lookAtMS = *lookAtPointMS;
 	
 	// transform look at from model space to head space
-	fm_xform locator = poseMS.xforms[setup->idxHead];
+	fm_xform locator = poseMS->xforms[setup->idxHead];
 	fm_vec4 lookAtLocatorSpace = {};
 	fm_xform_apply_inv(&locator, &lookAtMS, &lookAtLocatorSpace);
 	
@@ -1680,13 +1672,10 @@ void fa_character_look_at(fa_character_t* character, fa_cross_layer_context_t* l
 	// apply weight to look-at
 	fm_quat identity = {};
 	fm_quat_identity(&identity);
-	fm_quat_slerp(&identity, &headCorrection, layerCtx->lookAtWeight, &headCorrection);
+	fm_quat_slerp(&identity, &headCorrection, weight, &headCorrection);
 	
 	// apply look-at rotation correction to local space
-	fm_quat_mul(&headCorrection, &poseLS.xforms[setup->idxHead].rot, &poseLS.xforms[setup->idxHead].rot);
-	
-	// pop temporary MS pose
-	fa_pose_stack_pop(poseStack, 1);
+	fm_quat_mul(&headCorrection, &poseLS->xforms[setup->idxHead].rot, &poseLS->xforms[setup->idxHead].rot);
 }
 
 void fa_character_animate(fa_character_t* character, const fa_character_animate_ctx_t* ctx)
@@ -1844,7 +1833,18 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			character->lookAtHeadPitch = 0.0f;
 		}
 		
-		fa_character_look_at(character, &layerCtx);
+		// calculate and push temporary MS pose
+		fa_pose_stack_push(&poseStack, 1);
+		fa_pose_t poseMS;
+		fa_pose_stack_get(&poseStack, &poseMS, 0);
+		fa_pose_t poseLS;
+		fa_pose_stack_get(&poseStack, &poseLS, 1);
+		fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
+		
+		fa_character_look_at(character, &poseLS, &poseMS, layerCtx.lookAtWeight, &layerCtx.lookAtMS);
+		
+		// pop temporary MS pose
+		fa_pose_stack_pop(&poseStack, 1);
 	}
 	
 	// ragdoll
