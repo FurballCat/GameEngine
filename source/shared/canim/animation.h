@@ -43,6 +43,8 @@ typedef struct fa_ik_setup_t
 typedef struct fa_look_at_setup_t
 {
 	uint16_t idxHead;
+	uint16_t idxNeck;
+	uint16_t idxSpine3;
 	
 	// half-angle limits in radians
 	float limitYaw;
@@ -306,6 +308,9 @@ typedef enum fa_character_layer_t
 
 typedef struct fa_character_anim_info_t
 {
+	// last world locator
+	float worldPos[3];
+	
 	// desired movement
 	float desiredMoveX;
 	float desiredMoveY;
@@ -317,6 +322,10 @@ typedef struct fa_character_anim_info_t
 	float rootMotionDeltaX;
 	float rootMotionDeltaY;
 	float rootMotionDeltaYaw;
+	
+	// look-at (already in model space)
+	float lookAtPoint[3];
+	bool useLookAt;
 } fa_character_anim_info_t;
 	
 typedef struct fa_action_ctx_t

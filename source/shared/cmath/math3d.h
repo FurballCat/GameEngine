@@ -53,6 +53,24 @@ extern "C"
 		float yaw, pitch, roll;
 	} fm_euler_angles;
 	
+	// axis-aligned bounding box
+	typedef struct fm_box
+	{
+		fm_vec3 center;
+		fm_vec3 extent;
+	} fm_box;
+
+	// frustum
+	typedef struct fm_frustum
+	{
+		fm_vec4 leftPlane;
+		fm_vec4 rightPlane;
+		fm_vec4 topPlane;
+		fm_vec4 bottomPlane;
+		fm_vec4 nearPlane;
+		fm_vec4 farPlane;
+	} fm_frustum;
+
 	// vector math version (intrin)
 	typedef __m128 xm_float4_v;
 	
@@ -271,13 +289,6 @@ extern "C"
 	static inline float fm_curve_uniform_s(float alpha);
 
 	/***** Bounding Boxes *****/
-
-	// axis-aligned bounding box
-	typedef struct fm_box
-	{
-		fm_vec3 center;
-		fm_vec3 extent;
-	} fm_box;
 
 	// intersection test between two boxes
 	static inline bool fm_intersection_box_box(const fm_box* a, const fm_box* b);
