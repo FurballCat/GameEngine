@@ -18,6 +18,8 @@ void fa_rig_release(fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks)
 		FUR_FREE(rig->maskUpperBody, pAllocCallbacks);
 	if(rig->maskFace)
 		FUR_FREE(rig->maskFace, pAllocCallbacks);
+	if(rig->maskHands)
+		FUR_FREE(rig->maskHands, pAllocCallbacks);
 	
 	FUR_FREE(rig, pAllocCallbacks);
 }
@@ -39,6 +41,8 @@ const uint8_t* fa_rig_get_mask(const fa_rig_t* rig, fa_mask_t mask)
 		return rig->maskUpperBody;
 	else if(mask == FA_MASK_FACE)
 		return rig->maskFace;
+	else if(mask == FA_MASK_HANDS)
+		return rig->maskHands;
 	
 	return NULL;
 }
@@ -1796,6 +1800,12 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		fa_character_layer_animate(character, &layerCtx, &character->layerPartial);
 	}
 	
+	// hands
+	FUR_PROFILE("hands-layer")
+	{
+		fa_character_layer_animate(character, &layerCtx, &character->layerHands);
+	}
+	
 	// face
 	FUR_PROFILE("face-layer")
 	{
@@ -1929,6 +1939,8 @@ fa_layer_t* fa_character_layer_select(fa_character_t* character, const fa_action
 		return &character->layerPartial;
 	else if(args->layerName == SID("face"))
 		return &character->layerFace;
+	else if(args->layerName == SID("hands"))
+		return &character->layerHands;
 	
 	return NULL;
 }

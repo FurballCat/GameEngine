@@ -369,11 +369,14 @@
 (define-state-script 'zelda
   (state 'idle
          (on (start)
-             [animate 'self 'zelda-idle-stand-relaxed
+             [animate 'self 'zelda-idle-stand-01
                       (animate-arg fade-in-sec) 0.3]
              [animate 'self 'zelda-face-idle
                       (animate-arg fade-in-sec) 0.3
                       (animate-arg layer-name) 'face]
+             [animate 'self 'zelda-hands-idle
+                      (animate-arg fade-in-sec) 0.3
+                      (animate-arg layer-name) 'hands]
          )
   )
   (state 'run

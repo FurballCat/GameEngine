@@ -57,6 +57,7 @@ typedef enum fa_mask_t
 	FA_MASK_NONE = 0,
 	FA_MASK_UPPER_BODY,
 	FA_MASK_FACE,
+	FA_MASK_HANDS,
 } fa_mask_t;
 
 typedef struct fa_rig_t
@@ -79,6 +80,7 @@ typedef struct fa_rig_t
 	// masks
 	uint8_t* maskUpperBody;
 	uint8_t* maskFace;
+	uint8_t* maskHands;
 } fa_rig_t;
 
 CANIM_API void fa_rig_release(fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks);
@@ -432,6 +434,7 @@ typedef struct fa_character_t
 	
 	// named layers
 	fa_layer_t layerFace;
+	fa_layer_t layerHands;
 	
 	// resulting pose
 	fm_xform* poseMS;

@@ -838,6 +838,64 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 						}
 					}
 				}
+				
+				// hands mask
+				{
+					pEngine->pRig->maskHands = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+					const int16_t idxSpine = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Spine"));
+					const fc_string_hash_t hashes[] = {
+						SID("Bip001_Index1_L"),
+						SID("Bip001_Index2_L"),
+						SID("Bip001_Index3_L"),
+						SID("Bip001_Middle1_L"),
+						SID("Bip001_Middle2_L"),
+						SID("Bip001_Middle3_L"),
+						SID("Bip001_Ring1_L"),
+						SID("Bip001_Ring2_L"),
+						SID("Bip001_Ring3_L"),
+						SID("Bip001_Pinky1_L"),
+						SID("Bip001_Pinky2_L"),
+						SID("Bip001_Pinky3_L"),
+						SID("Bip001_Thumb_L"),
+						SID("Bip001_Thumb1_L"),
+						SID("Bip001_Thumb2_L"),
+						SID("Bip001_Thumb3_L"),
+						SID("Bip001_Index1_R"),
+						SID("Bip001_Index2_R"),
+						SID("Bip001_Index3_R"),
+						SID("Bip001_Middle1_R"),
+						SID("Bip001_Middle2_R"),
+						SID("Bip001_Middle3_R"),
+						SID("Bip001_Ring1_R"),
+						SID("Bip001_Ring2_R"),
+						SID("Bip001_Ring3_R"),
+						SID("Bip001_Pinky1_R"),
+						SID("Bip001_Pinky2_R"),
+						SID("Bip001_Pinky3_R"),
+						SID("Bip001_Thumb_R"),
+						SID("Bip001_Thumb1_R"),
+						SID("Bip001_Thumb2_R"),
+						SID("Bip001_Thumb3_R"),
+					};
+					
+					if(idxSpine != -1)
+					{
+						for(uint32_t i=0; i<pEngine->pRig->numBones; ++i)
+						{
+							uint8_t w = 0;
+							const uint32_t numHashes = FUR_ARRAY_SIZE(hashes);
+							for(uint32_t j=0; j<numHashes; ++j)
+							{
+								if(pEngine->pRig->boneNameHashes[i] == hashes[j])
+								{
+									w = 255;
+									break;
+								}
+							}
+							pEngine->pRig->maskHands[i] = w;
+						}
+					}
+				}
 			}
 		}
 
@@ -857,7 +915,9 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		pEngine->pAnimClipHoldSword = fe_load_anim_clip(&depot, "zelda-upper-hold-sword", pEngine, pAllocCallbacks);
 		
 		fe_load_anim_clip(&depot, "zelda-face-idle", pEngine, pAllocCallbacks);
-
+		fe_load_anim_clip(&depot, "zelda-idle-stand-01", pEngine, pAllocCallbacks);
+		fe_load_anim_clip(&depot, "zelda-hands-idle", pEngine, pAllocCallbacks);
+		
 		// load meshes
 		{
 			fr_load_mesh_ctx_t meshCtx = {};
@@ -927,6 +987,11 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		pEngine->animCharacterZelda.layerFace.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 		pEngine->animCharacterZelda.layerFace.poseCache.tempPose.numXforms = pEngine->animCharacterZelda.rig->numBones;
 		pEngine->animCharacterZelda.layerFace.maskID = FA_MASK_FACE;
+		
+		pEngine->animCharacterZelda.layerHands.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		pEngine->animCharacterZelda.layerHands.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		pEngine->animCharacterZelda.layerHands.poseCache.tempPose.numXforms = pEngine->animCharacterZelda.rig->numBones;
+		pEngine->animCharacterZelda.layerHands.maskID = FA_MASK_HANDS;
 		
 		pEngine->actionIdle.animation = pEngine->pAnimClipIdleStand;
 		pEngine->actionIdle.forceLoop = true;
@@ -2433,6 +2498,9 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	
 	FUR_FREE(pEngine->animCharacterZelda.layerFace.poseCache.tempPose.xforms, pAllocCallbacks);
 	FUR_FREE(pEngine->animCharacterZelda.layerFace.poseCache.tempPose.weightsXforms, pAllocCallbacks);
+	
+	FUR_FREE(pEngine->animCharacterZelda.layerHands.poseCache.tempPose.xforms, pAllocCallbacks);
+	FUR_FREE(pEngine->animCharacterZelda.layerHands.poseCache.tempPose.weightsXforms, pAllocCallbacks);
 	
 	FUR_FREE(pEngine->gameObjectRegister.objects, pAllocCallbacks);
 	FUR_FREE(pEngine->gameObjectRegister.ids, pAllocCallbacks);
