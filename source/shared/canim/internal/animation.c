@@ -1633,8 +1633,8 @@ void fa_character_look_at(fa_character_t* character, fa_pose_t* poseLS, fa_pose_
 		// remainder: head space here means (+z right, -z left, +y up, -y down, +x forward, -x backward)
 		fm_vec4 dir = lookAtLocatorSpace;
 		
-		float yaw = dir.z / sqrtf(dir.x * dir.x + dir.z * dir.z);
-		float pitch = dir.y / sqrtf(dir.x * dir.x + dir.y * dir.y);
+		float yaw = -acosf(dir.z / sqrtf(dir.x * dir.x + dir.z * dir.z)) + M_PI_2;
+		float pitch = -acosf(dir.y / sqrtf(dir.x * dir.x + dir.y * dir.y)) + M_PI_2;
 		
 		// fixed yaw to either side when direction is facing backwards
 		if(dir.x < 0.0f)
