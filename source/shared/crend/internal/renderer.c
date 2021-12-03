@@ -2902,7 +2902,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 	
 	// pass skinning
 	const uint32_t skinNumBones = pRenderer->skinningMapping.count;
-	FUR_ASSERT(ctx->numSkinMatrices <= skinNumBones);
+	FUR_ASSERT(skinNumBones <= ctx->numSkinMatrices);
 	for(uint32_t i=0; i<skinNumBones; ++i)
 	{
 		const uint32_t srcBoneIndex = pRenderer->skinningMapping.indicesMapping[i];

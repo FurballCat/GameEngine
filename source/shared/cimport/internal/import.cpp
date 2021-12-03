@@ -101,11 +101,7 @@ void fi_gather_anim_curves(ofbx::IScene* scene, std::map<std::string, FBXBoneInf
 			const ofbx::Object* bone = curveNode->getBone();
 			if(bone)
 			{
-				if(strcmp(bone->name, "motion") == 0)
-				{
-					
-				}
-				else if(!(strcmp(bone->name, "Armature") == 0))		// Blender adds 'Armature' as root bone
+				if(!(strcmp(bone->name, "Armature") == 0))		// Blender adds 'Armature' as root bone
 				{
 					if(bones.count(bone->name) == 0)
 					{
@@ -586,9 +582,13 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 					duration = curveDuration;
 				}
 				
+				// todo: finding bone is linear search, so perhaps can be optimised
+				const int16_t boneIdx = fa_rig_find_bone_idx(ctx->rig, SID(bone->m_name.c_str()));
+				FUR_ASSERT(boneIdx != -1);
+				
 				const uint32_t numKeys = (uint32_t)uniqueTimesSorted.size();
 				tempCurve.keys.resize(numKeys);
-				tempCurve.index = i_b;
+				tempCurve.index = boneIdx;
 				
 				numAllKeys += numKeys;
 				
@@ -623,7 +623,6 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 				const FBXBoneInfo* bone = sortedBones[i_b];
 				
 				fi_temp_anim_curve_t& tempCurve = tempClip.curves[i_b];
-				FUR_ASSERT(tempCurve.index == i_b);
 				
 				// gather all times
 				std::vector<float> uniqueTimesSorted;
@@ -656,7 +655,6 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 				
 				const uint32_t numKeys = (uint32_t)uniqueTimesSorted.size();
 				tempCurve.posKeys.resize(numKeys);
-				tempCurve.index = i_b;
 				
 				numAllKeys += numKeys;
 				
@@ -752,13 +750,32 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 		
 		fa_anim_curve_t* rootCurve = &animClip->curves[1];	// 1 - hips
 		const uint32_t numPosKeys = rootCurve->numPosKeys;
+		
+		animClip->motion.numKeys = numPosKeys;
+		animClip->motion.type = FA_MOTION_TYPE_2D;
+		animClip->motion.data = FUR_ALLOC_ARRAY_AND_ZERO(float, numPosKeys * 3, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		animClip->motion.times = FUR_ALLOC_ARRAY_AND_ZERO(uint16_t, numPosKeys, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		
+		float* motionData = animClip->motion.data;
+		uint16_t* motionTimes = animClip->motion.times;
+		
 		for(uint32_t k=0; k<numPosKeys; ++k)
 		{
 			// zero out horizontal movement, leave only vertical movement
 			fm_vec4 pos = vec4_decom_16bit(rootCurve->posKeys[k].keyData);
+			
+			motionData[0] = pos.x;
+			motionData[1] = pos.z;
+			motionData[2] = 0.0f;	// yaw
+			
+			motionTimes[0] = rootCurve->posKeys[k].keyTime;
+			
 			pos.x = 0.0f;
 			pos.z = 0.0f;
 			vec4_com_16bit(pos, rootCurve->posKeys[k].keyData);
+			
+			motionData += 3;
+			motionTimes += 1;
 		}
 	}
 	

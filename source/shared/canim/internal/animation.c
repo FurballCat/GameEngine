@@ -52,6 +52,12 @@ void fa_anim_clip_release(fa_anim_clip_t* clip, fc_alloc_callbacks_t* pAllocCall
 	FUR_FREE(clip->curves, pAllocCallbacks);
 	FUR_FREE(clip->dataKeys, pAllocCallbacks);
 	
+	if(clip->motion.data || clip->motion.times)
+	{
+		FUR_FREE(clip->motion.data, pAllocCallbacks);
+		FUR_FREE(clip->motion.times, pAllocCallbacks);
+	}
+	
 	FUR_FREE(clip, pAllocCallbacks);
 }
 
@@ -851,6 +857,16 @@ fa_cmd_status_t fa_cmd_impl_anim_sample(fa_cmd_context_t* ctx, const void* cmdDa
 		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
 	}
 	
+	// todo: check if required
+	// just in case - reset loco joint
+	const int16_t idxLocoJoint = ctx->rig->idxLocoJoint;
+	if(idxLocoJoint != -1)
+	{
+		FUR_ASSERT(idxLocoJoint < ctx->rig->numBones);
+		fm_quat_identity(&pose.xforms[idxLocoJoint].rot);
+		fm_vec4_zeros(&pose.xforms[idxLocoJoint].pos);
+	}
+	
 	return FA_CMD_STATUS_OK;
 }
 
@@ -865,6 +881,112 @@ void fa_cmd_anim_sample_additive(fa_cmd_buffer_recorder_t* recorder, float time,
 {
 	fa_cmd_anim_sample_data_t data = { time, animClipId, true };
 	fa_cmd_buffer_write(recorder, fa_cmd_impl_anim_sample, &data, sizeof(fa_cmd_anim_sample_data_t));
+	recorder->poseStackSizeTracking += 1;
+}
+
+// sample animation with locomotion command
+typedef struct fa_cmd_anim_sample_with_locomotion_data_t
+{
+	float time;
+	uint16_t animClipId;
+	bool asAdditive;
+	bool resetLoco;
+	float* prevLocoPos;	// fm_vec4
+	float* prevLocoRot;	// fm_vec4
+} fa_cmd_anim_sample_with_locomotion_data_t;
+
+fa_cmd_status_t fa_cmd_impl_anim_sample_with_locomotion(fa_cmd_context_t* ctx, const void* cmdData)
+{
+	const fa_cmd_anim_sample_with_locomotion_data_t* data = (fa_cmd_anim_sample_with_locomotion_data_t*)cmdData;
+	FUR_ASSERT(data->animClipId < ctx->numAnimClips);
+	
+	// get animation clip
+	const fa_anim_clip_t* clip = ctx->animClips[data->animClipId];
+	
+	// push new pose onto stack
+	fa_pose_stack_push(ctx->poseStack, 1);
+	fa_pose_t pose;
+	fa_pose_stack_get(ctx->poseStack, &pose, 0);
+	
+	FUR_ASSERT(pose.numXforms == ctx->rig->numBones);
+	
+	// sample the animation
+	fa_anim_clip_sample(clip, data->time, data->asAdditive, &pose, ctx->mask);
+	
+	// optionally draw debug info
+	if(ctx->debug)
+	{
+		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
+		const float color[4] = FA_DBG_COLOR;
+		char txt[256];
+		sprintf(txt, "anim_sample %s t=%1.2f", fc_string_hash_as_cstr_debug(clip->name), data->time);
+		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
+	}
+	
+	// process locomotion
+	FUR_ASSERT(data->prevLocoPos);
+	FUR_ASSERT(data->prevLocoRot);
+	FUR_ASSERT(ctx->rig->idxLocoJoint != -1);
+	
+	fm_quat prevLocoRot = {};
+	fm_vec4 prevLocoPos = {};
+	
+	if(data->resetLoco)
+	{
+		fm_quat_identity(&prevLocoRot);
+		fm_vec4_zeros(&prevLocoPos);
+	}
+	else
+	{
+		prevLocoRot.i = data->prevLocoRot[0];
+		prevLocoRot.j = data->prevLocoRot[1];
+		prevLocoRot.k = data->prevLocoRot[2];
+		prevLocoRot.r = data->prevLocoRot[3];
+		
+		prevLocoPos.x = data->prevLocoPos[0];
+		prevLocoPos.y = data->prevLocoPos[1];
+		prevLocoPos.z = data->prevLocoPos[2];
+		prevLocoPos.w = data->prevLocoPos[3];
+	}
+	
+	fm_quat_conj(&prevLocoRot);
+	
+	const int16_t idxLocoJoint = ctx->rig->idxLocoJoint;
+	FUR_ASSERT(idxLocoJoint < ctx->rig->numBones);
+	
+	fm_xform currLocoXform = pose.xforms[idxLocoJoint];
+	
+	fm_quat currLocoRot = currLocoXform.rot;
+	fm_vec4 currLocoPos = currLocoXform.pos;
+	
+	fm_quat_mul(&prevLocoRot, &currLocoRot, &currLocoRot);
+	fm_vec4_sub(&currLocoPos, &prevLocoPos, &currLocoPos);
+	fm_quat_rot(&prevLocoRot, &currLocoPos, &currLocoPos);
+	
+	fm_quat_norm(&currLocoRot);
+	
+	// save new locomotion to prev loco
+	data->prevLocoRot[0] = currLocoXform.rot.i;
+	data->prevLocoRot[1] = currLocoXform.rot.j;
+	data->prevLocoRot[2] = currLocoXform.rot.k;
+	data->prevLocoRot[3] = currLocoXform.rot.r;
+	
+	data->prevLocoPos[0] = currLocoXform.pos.x;
+	data->prevLocoPos[1] = currLocoXform.pos.y;
+	data->prevLocoPos[2] = currLocoXform.pos.z;
+	data->prevLocoPos[3] = currLocoXform.pos.w;
+	
+	// override locomotion joint with motion delta
+	pose.xforms[idxLocoJoint].rot = currLocoRot;
+	pose.xforms[idxLocoJoint].pos = currLocoPos;
+	
+	return FA_CMD_STATUS_OK;
+}
+
+void fa_cmd_anim_sample_with_locomotion(fa_cmd_buffer_recorder_t* recorder, float time, uint16_t animClipId, bool resetLoco, float* prevLocoPos, float* prevLocoRot)
+{
+	fa_cmd_anim_sample_with_locomotion_data_t data = { time, animClipId, false, resetLoco, prevLocoPos, prevLocoRot };
+	fa_cmd_buffer_write(recorder, fa_cmd_impl_anim_sample_with_locomotion, &data, sizeof(fa_cmd_anim_sample_with_locomotion_data_t));
 	recorder->poseStackSizeTracking += 1;
 }
 
@@ -1860,9 +1982,38 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	// ragdoll
 
 	// apply root motion
-	character->animInfo.rootMotionDeltaX = rootMotionDeltaX;
-	character->animInfo.rootMotionDeltaY = rootMotionDeltaY;
-	character->animInfo.rootMotionDeltaYaw = rootMotionDeltaYaw;
+	{
+		fa_pose_t poseLS;
+		fa_pose_stack_get(&poseStack, &poseLS, 0);
+		
+		const int16_t idxLocoJoint = character->rig->idxLocoJoint;
+		if(idxLocoJoint != -1)
+		{
+			FUR_ASSERT(idxLocoJoint < poseLS.numXforms);
+			
+			fm_xform motionDelta = poseLS.xforms[idxLocoJoint];
+			
+			character->animInfo.rootMotionDeltaX = motionDelta.pos.y;
+			character->animInfo.rootMotionDeltaY = motionDelta.pos.x;
+			
+			// we know it's gonna be motion 2D (for now) so axis should be vertical in pose space
+			fm_vec4 axis = {};
+			float yaw = 0.0f;
+			fm_quat_to_axis_angle(&motionDelta.rot, &axis, &yaw);
+			
+			yaw *= fm_sign(axis.y);	// the axis flips depending on direction of rotation (to left, to right)
+			
+			character->animInfo.rootMotionDeltaYaw = yaw;
+		}
+		
+		// legacy root motion pipeline
+		if(rootMotionDeltaX != 0.0f || rootMotionDeltaY != 0.0f)
+		{
+			character->animInfo.rootMotionDeltaX = rootMotionDeltaX;
+			character->animInfo.rootMotionDeltaY = rootMotionDeltaY;
+			character->animInfo.rootMotionDeltaYaw = rootMotionDeltaYaw;
+		}
+	}
 	
 	// convert to model space
 	FUR_PROFILE("ls-to-ms")
@@ -1889,7 +2040,12 @@ void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData)
 	
 	const float animDuration = data->animation->duration;
 	const float time = fmodf(ctx->localTime, animDuration);
-	fa_cmd_anim_sample(ctx->cmdRecorder, time, 0);
+	fa_cmd_anim_sample_with_locomotion(ctx->cmdRecorder, time, 0, data->resetLoco, data->prevLocoPos, data->prevLocoRot);
+	
+	if(data->resetLoco)
+	{
+		data->resetLoco = false;
+	}
 	
 	data->progress = time / animDuration;
 }
@@ -1903,7 +2059,10 @@ const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* userData, ui
 
 void fa_action_animate_begin_func(const fa_action_begin_end_ctx_t* ctx, void* userData)
 {
-	// ...
+	fa_action_animate_t* data = (fa_action_animate_t*)userData;
+	
+	// at the beginning, we want to reset locomotion data
+	data->resetLoco = true;
 }
 
 void fa_action_animate_end_func(const fa_action_begin_end_ctx_t* ctx, void* userData)

@@ -551,7 +551,7 @@ struct FurGameEngine
 	bool debugShowFPS;
 };
 
-fa_anim_clip_t* fe_load_anim_clip(const fi_depot_t* depot, const char* name, FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
+fa_anim_clip_t* fe_load_anim_clip(const fi_depot_t* depot, const char* name, const fa_rig_t* rig, FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	const char* directory = "assets/characters/zelda/animations/";
 	const char* extension = ".fbx";
@@ -566,6 +566,7 @@ fa_anim_clip_t* fe_load_anim_clip(const fi_depot_t* depot, const char* name, Fur
 	fi_import_anim_clip_ctx_t ctx = {};
 	ctx.path = path;
 	ctx.extractRootMotion = true;
+	ctx.rig = rig;
 	
 	fa_anim_clip_t* animClip = NULL;
 	
@@ -646,7 +647,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		fi_depot_t depot;
 		depot.path = depotPath;
 
-		const char* characterRigPath = "assets/characters/zelda/animations/zelda-a-pose.fbx";
+		const char* characterRigPath = "assets/characters/zelda/animations/zelda-a-pose-2.fbx";
 
 		// import animation resources
 		{
@@ -657,6 +658,11 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			
 			// apply rig properties
 			{
+				// set locomotion joint to track and apply root motion
+				{
+					pEngine->pRig->idxLocoJoint = fa_rig_find_bone_idx(pEngine->pRig, SID("motion"));
+				}
+				
 				// left leg IK setup
 				{
 					fa_ik_setup_t* ik = &pEngine->pRig->ikLeftLeg;
@@ -899,24 +905,24 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			}
 		}
 
-		pEngine->pAnimClipIdleStand = fe_load_anim_clip(&depot, "zelda-idle-stand-relaxed", pEngine, pAllocCallbacks);
-		pEngine->pAnimClipIdle = fe_load_anim_clip(&depot, "zelda-funny-poses", pEngine, pAllocCallbacks);
-		pEngine->pAnimClipIdle2 = fe_load_anim_clip(&depot, "zelda-funny-pose-2", pEngine, pAllocCallbacks);
-		pEngine->pAnimClipIdle3 = fe_load_anim_clip(&depot, "zelda-funny-pose-3", pEngine, pAllocCallbacks);
-		pEngine->pAnimClipIdle4 = fe_load_anim_clip(&depot, "zelda-funny-pose-4", pEngine, pAllocCallbacks);
-		pEngine->pAnimClipRun = fe_load_anim_clip(&depot, "zelda-loco-run-relaxed", pEngine, pAllocCallbacks);
-		pEngine->pAnimClipRunToIdleSharp = fe_load_anim_clip(&depot, "zelda-run-to-idle-sharp", pEngine, pAllocCallbacks);
-		pEngine->pAnimClipIdleToRun0 = fe_load_anim_clip(&depot, "zelda-loco-idle-to-run-0", pEngine, pAllocCallbacks);
-		pEngine->pAnimClipJumpInPlace = fe_load_anim_clip(&depot, "zelda-loco-jump-in-place", pEngine, pAllocCallbacks);
-		pEngine->pAnimClipJump = fe_load_anim_clip(&depot, "zelda-loco-jump", pEngine, pAllocCallbacks);
-		pEngine->pAnimClipAdditive = fe_load_anim_clip(&depot, "zelda-additive", pEngine, pAllocCallbacks);
-		pEngine->pAnimClipAPose = fe_load_anim_clip(&depot, "zelda-a-pose", pEngine, pAllocCallbacks);
-		pEngine->pAnimClipWindProtect = fe_load_anim_clip(&depot, "zelda-upper-wind-protect", pEngine, pAllocCallbacks);
-		pEngine->pAnimClipHoldSword = fe_load_anim_clip(&depot, "zelda-upper-hold-sword", pEngine, pAllocCallbacks);
+		pEngine->pAnimClipIdleStand = fe_load_anim_clip(&depot, "zelda-idle-stand-relaxed", pEngine->pRig, pEngine, pAllocCallbacks);
+		pEngine->pAnimClipIdle = fe_load_anim_clip(&depot, "zelda-funny-poses", pEngine->pRig, pEngine, pAllocCallbacks);
+		pEngine->pAnimClipIdle2 = fe_load_anim_clip(&depot, "zelda-funny-pose-2", pEngine->pRig, pEngine, pAllocCallbacks);
+		pEngine->pAnimClipIdle3 = fe_load_anim_clip(&depot, "zelda-funny-pose-3", pEngine->pRig, pEngine, pAllocCallbacks);
+		pEngine->pAnimClipIdle4 = fe_load_anim_clip(&depot, "zelda-funny-pose-4", pEngine->pRig, pEngine, pAllocCallbacks);
+		pEngine->pAnimClipRun = fe_load_anim_clip(&depot, "zelda-loco-run-relaxed", pEngine->pRig, pEngine, pAllocCallbacks);
+		pEngine->pAnimClipRunToIdleSharp = fe_load_anim_clip(&depot, "zelda-run-to-idle-sharp", pEngine->pRig, pEngine, pAllocCallbacks);
+		pEngine->pAnimClipIdleToRun0 = fe_load_anim_clip(&depot, "zelda-loco-idle-to-run-0", pEngine->pRig, pEngine, pAllocCallbacks);
+		pEngine->pAnimClipJumpInPlace = fe_load_anim_clip(&depot, "zelda-loco-jump-in-place", pEngine->pRig, pEngine, pAllocCallbacks);
+		pEngine->pAnimClipJump = fe_load_anim_clip(&depot, "zelda-loco-jump", pEngine->pRig, pEngine, pAllocCallbacks);
+		pEngine->pAnimClipAdditive = fe_load_anim_clip(&depot, "zelda-additive", pEngine->pRig, pEngine, pAllocCallbacks);
+		pEngine->pAnimClipAPose = fe_load_anim_clip(&depot, "zelda-a-pose", pEngine->pRig, pEngine, pAllocCallbacks);
+		pEngine->pAnimClipWindProtect = fe_load_anim_clip(&depot, "zelda-upper-wind-protect", pEngine->pRig, pEngine, pAllocCallbacks);
+		pEngine->pAnimClipHoldSword = fe_load_anim_clip(&depot, "zelda-upper-hold-sword", pEngine->pRig, pEngine, pAllocCallbacks);
 		
-		fe_load_anim_clip(&depot, "zelda-face-idle", pEngine, pAllocCallbacks);
-		fe_load_anim_clip(&depot, "zelda-idle-stand-01", pEngine, pAllocCallbacks);
-		fe_load_anim_clip(&depot, "zelda-hands-idle", pEngine, pAllocCallbacks);
+		fe_load_anim_clip(&depot, "zelda-face-idle", pEngine->pRig, pEngine, pAllocCallbacks);
+		fe_load_anim_clip(&depot, "zelda-idle-stand-01", pEngine->pRig, pEngine, pAllocCallbacks);
+		fe_load_anim_clip(&depot, "zelda-hands-idle", pEngine->pRig, pEngine, pAllocCallbacks);
 		
 		// load meshes
 		{
