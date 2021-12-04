@@ -928,13 +928,21 @@ fa_cmd_status_t fa_cmd_impl_anim_sample_with_locomotion(fa_cmd_context_t* ctx, c
 	FUR_ASSERT(data->prevLocoRot);
 	FUR_ASSERT(ctx->rig->idxLocoJoint != -1);
 	
+	const int16_t idxLocoJoint = ctx->rig->idxLocoJoint;
+	FUR_ASSERT(idxLocoJoint < ctx->rig->numBones);
+	
+	fm_xform currLocoXform = pose.xforms[idxLocoJoint];
+	
+	fm_quat currLocoRot = currLocoXform.rot;
+	fm_vec4 currLocoPos = currLocoXform.pos;
+	
 	fm_quat prevLocoRot = {};
 	fm_vec4 prevLocoPos = {};
 	
 	if(data->resetLoco)
 	{
-		fm_quat_identity(&prevLocoRot);
-		fm_vec4_zeros(&prevLocoPos);
+		prevLocoRot = currLocoRot;
+		prevLocoPos = currLocoPos;
 	}
 	else
 	{
@@ -949,19 +957,12 @@ fa_cmd_status_t fa_cmd_impl_anim_sample_with_locomotion(fa_cmd_context_t* ctx, c
 		prevLocoPos.w = data->prevLocoPos[3];
 	}
 	
-	fm_quat_conj(&prevLocoRot);
+	fm_quat prevLocoRotConj = prevLocoRot;
+	fm_quat_conj(&prevLocoRotConj);
 	
-	const int16_t idxLocoJoint = ctx->rig->idxLocoJoint;
-	FUR_ASSERT(idxLocoJoint < ctx->rig->numBones);
-	
-	fm_xform currLocoXform = pose.xforms[idxLocoJoint];
-	
-	fm_quat currLocoRot = currLocoXform.rot;
-	fm_vec4 currLocoPos = currLocoXform.pos;
-	
-	fm_quat_mul(&prevLocoRot, &currLocoRot, &currLocoRot);
+	fm_quat_mul(&prevLocoRotConj, &currLocoRot, &currLocoRot);
 	fm_vec4_sub(&currLocoPos, &prevLocoPos, &currLocoPos);
-	fm_quat_rot(&prevLocoRot, &currLocoPos, &currLocoPos);
+	fm_quat_rot(&prevLocoRotConj, &currLocoPos, &currLocoPos);
 	
 	fm_quat_norm(&currLocoRot);
 	
@@ -1458,17 +1459,19 @@ fa_action_t* fa_action_queue_get_free_slot(fa_action_queue_t* queue)
 
 void fa_action_safely_begin(fa_action_begin_end_ctx_t* ctx, fa_action_t* action)
 {
-	if(action->isUsed && action->fnBegin)
+	if(action->isUsed && action->fnBegin && !action->hasBegun)
 	{
 		action->fnBegin(ctx, action->userData);
+		action->hasBegun = true;
 	}
 }
 
 void fa_action_safely_end(fa_action_begin_end_ctx_t* ctx, fa_action_t* action)
 {
-	if(action->isUsed && action->fnEnd)
+	if(action->isUsed && action->fnEnd && action->hasBegun)
 	{
 		action->fnEnd(ctx, action->userData);
+		action->hasBegun = false;
 	}
 }
 
@@ -1487,9 +1490,6 @@ void fa_action_queue_resolve_pre_animate(fa_character_t* character, fa_action_qu
 		// rare case when we need to cancel action [2], as it's eaten up by action [3]
 		fa_action_safely_cancel(&queue->actions[2]);
 		
-		// begin new actions
-		fa_action_safely_begin(&ctx, &queue->actions[3]);
-		
 		// move pending actions
 		queue->actions[0] = queue->actions[3];
 		
@@ -1503,10 +1503,6 @@ void fa_action_queue_resolve_pre_animate(fa_character_t* character, fa_action_qu
 		// end old actions
 		fa_action_safely_end(&ctx, &queue->actions[0]);
 		fa_action_safely_end(&ctx, &queue->actions[1]);
-		
-		// begin new actions
-		fa_action_safely_begin(&ctx, &queue->actions[2]);
-		fa_action_safely_begin(&ctx, &queue->actions[3]);
 		
 		// move pending actions
 		queue->actions[0] = queue->actions[2];
@@ -1537,10 +1533,6 @@ void fa_action_queue_resolve_post_animate(fa_character_t* character, fa_action_q
 		fa_action_safely_end(&ctx, &queue->actions[0]);
 		fa_action_safely_end(&ctx, &queue->actions[1]);
 		
-		// begin new actions
-		fa_action_safely_begin(&ctx, &queue->actions[2]);
-		fa_action_safely_begin(&ctx, &queue->actions[3]);
-		
 		// move pending actions
 		queue->actions[0] = queue->actions[2];
 		queue->actions[1] = queue->actions[3];
@@ -1556,9 +1548,6 @@ void fa_action_queue_resolve_post_animate(fa_character_t* character, fa_action_q
 		// end old actions
 		fa_action_safely_end(&ctx, &queue->actions[0]);
 		
-		// begin new actions
-		fa_action_safely_begin(&ctx, &queue->actions[2]);
-		
 		// move pending actions
 		queue->actions[0] = queue->actions[1];
 		queue->actions[1] = queue->actions[2];
@@ -1573,10 +1562,6 @@ void fa_action_queue_resolve_post_animate(fa_character_t* character, fa_action_q
 	{
 		// end old actions
 		fa_action_safely_end(&ctx, &queue->actions[0]);
-		
-		// begin new actions
-		// 'next' action [1] was already begun
-		fa_action_safely_begin(&ctx, &queue->actions[2]);
 		
 		// move actions
 		queue->actions[0] = queue->actions[1];
@@ -1613,6 +1598,12 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 	{
 		layer->transitionPoseCached = false;
 	}
+	
+	// todo: refactor that
+	fa_action_begin_end_ctx_t beginEndCtx = {};
+	beginEndCtx.animInfo = &character->animInfo;
+	fa_action_safely_begin(&beginEndCtx, currAction);
+	fa_action_safely_begin(&beginEndCtx, nextAction);
 	
 	// animate current action
 	if(currAction->fnUpdate != NULL)
@@ -1900,6 +1891,9 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			poseLS.tracks[i] = 0.0f;
 			poseLS.weightsTracks[i] = 255;
 		}
+		
+		fm_quat_identity(&poseLS.xforms[character->rig->idxLocoJoint].rot);
+		fm_vec4_zeros(&poseLS.xforms[character->rig->idxLocoJoint].pos);
 	}
 	
 	// body
@@ -1981,20 +1975,36 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	
 	// ragdoll
 
+	// convert to model space
+	FUR_PROFILE("ls-to-ms")
+	{
+		const int16_t* parentIndices = character->rig->parents;
+		fa_pose_t poseMS = {};
+		poseMS.xforms = character->poseMS;
+		poseMS.numXforms = character->rig->numBones;
+		fa_pose_local_to_model(&poseMS, &poseLS, parentIndices);
+	}
+	
 	// apply root motion
 	{
-		fa_pose_t poseLS;
-		fa_pose_stack_get(&poseStack, &poseLS, 0);
+		fa_pose_t poseMS = {};
+		poseMS.xforms = character->poseMS;
+		poseMS.numXforms = character->rig->numBones;
 		
 		const int16_t idxLocoJoint = character->rig->idxLocoJoint;
 		if(idxLocoJoint != -1)
 		{
-			FUR_ASSERT(idxLocoJoint < poseLS.numXforms);
+			FUR_ASSERT(idxLocoJoint < poseMS.numXforms);
 			
-			fm_xform motionDelta = poseLS.xforms[idxLocoJoint];
+			fm_xform motionDelta = poseMS.xforms[idxLocoJoint];
 			
-			character->animInfo.rootMotionDeltaX = motionDelta.pos.y;
-			character->animInfo.rootMotionDeltaY = motionDelta.pos.x;
+			fm_vec4_sub(&motionDelta.pos, &poseMS.xforms[0].pos, &motionDelta.pos);
+			
+			fm_quat rootQuatConj = poseMS.xforms[0].rot;
+			fm_quat_conj(&rootQuatConj);
+			
+			fm_quat_mul(&motionDelta.rot, &rootQuatConj, &motionDelta.rot);
+			fm_quat_norm(&motionDelta.rot);
 			
 			// we know it's gonna be motion 2D (for now) so axis should be vertical in pose space
 			fm_vec4 axis = {};
@@ -2004,6 +2014,14 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			yaw *= fm_sign(axis.y);	// the axis flips depending on direction of rotation (to left, to right)
 			
 			character->animInfo.rootMotionDeltaYaw = yaw;
+			character->animInfo.currentYaw += yaw;
+			
+			fm_quat rotWS = {};
+			fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, character->animInfo.currentYaw + M_PI, &rotWS);
+			fm_quat_rot(&rotWS, &motionDelta.pos, &motionDelta.pos);
+			character->animInfo.rootMotionDeltaX = motionDelta.pos.x;
+			character->animInfo.rootMotionDeltaY = motionDelta.pos.y;
+			character->animInfo.rootMotionDeltaZ = motionDelta.pos.z;
 		}
 		
 		// legacy root motion pipeline
@@ -2013,16 +2031,6 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			character->animInfo.rootMotionDeltaY = rootMotionDeltaY;
 			character->animInfo.rootMotionDeltaYaw = rootMotionDeltaYaw;
 		}
-	}
-	
-	// convert to model space
-	FUR_PROFILE("ls-to-ms")
-	{
-		const int16_t* parentIndices = character->rig->parents;
-		fa_pose_t poseMS = {};
-		poseMS.xforms = character->poseMS;
-		poseMS.numXforms = character->rig->numBones;
-		fa_pose_local_to_model(&poseMS, &poseLS, parentIndices);
 	}
 }
 

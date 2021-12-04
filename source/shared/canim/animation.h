@@ -323,6 +323,7 @@ typedef struct fa_character_anim_info_t
 	// output motion
 	float rootMotionDeltaX;
 	float rootMotionDeltaY;
+	float rootMotionDeltaZ;
 	float rootMotionDeltaYaw;
 	
 	// look-at (already in model space)
@@ -394,6 +395,7 @@ typedef struct fa_action_t
 	
 	uint64_t globalStartTime; // todo: this shouldn't be an input, global start time should be set once action is started/scheduled
 	bool isUsed;
+	bool hasBegun;
 	
 	fa_action_args_t args;
 } fa_action_t;
