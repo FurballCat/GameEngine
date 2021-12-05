@@ -647,7 +647,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		fi_depot_t depot;
 		depot.path = depotPath;
 
-		const char* characterRigPath = "assets/characters/zelda/animations/zelda-a-pose-2.fbx";
+		const char* characterRigPath = "assets/characters/zelda/animations/zelda-a-pose.fbx";
 
 		// import animation resources
 		{
@@ -1324,6 +1324,15 @@ fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_
 		}
 	}
 	
+	if(animArgs.layer == SID("full-body"))
+	{
+		animateSlot->useLoco = true;
+	}
+	else
+	{
+		animateSlot->useLoco = false;
+	}
+	
 	fa_character_schedule_action_simple(gameObj->animCharacter, animateSlot, &animArgs);
 	
 	fs_variant_t result = {};
@@ -1891,7 +1900,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			
 			pEngine->actionLocoStart.isFinished = false;
 			
-			fa_action_schedule_data_t data;
+			fa_action_schedule_data_t data = {};
 			data.userData = &pEngine->actionLocoStart;
 			data.fnGetAnims = fa_action_player_loco_start_get_anims_func;
 			data.fnUpdate = fa_action_player_loco_start_update;
@@ -1929,10 +1938,12 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			fa_action_args_t args = {};
 			args.fadeInSec = 0.5f;
 			
-			fa_action_schedule_data_t data;
+			fa_action_schedule_data_t data = {};
 			data.userData = &pEngine->actionPlayerLoco;
 			data.fnGetAnims = fa_action_player_loco_get_anims_func;
 			data.fnUpdate = fa_action_player_loco_update;
+			data.fnBegin = fa_action_player_loco_begin_func;
+			data.fnEnd = fa_action_player_loco_end_func;
 			
 			fa_character_schedule_action(&pEngine->animCharacterZelda, &data, &args);
 			
@@ -1965,7 +1976,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			
 			pEngine->actionLocoStop.isFinished = false;
 			
-			fa_action_schedule_data_t data;
+			fa_action_schedule_data_t data = {};
 			data.userData = &pEngine->actionLocoStop;
 			data.fnGetAnims = fa_action_player_loco_start_get_anims_func;
 			data.fnUpdate = fa_action_player_loco_start_update;
@@ -1993,7 +2004,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			fa_action_args_t args = {};
 			args.fadeInSec = 0.3f;
 			
-			fa_action_schedule_data_t data;
+			fa_action_schedule_data_t data = {};
 			data.userData = &pEngine->actionJump;
 			data.fnGetAnims = fa_action_player_jump_get_anims_func;
 			data.fnUpdate = fa_action_player_jump_update;
@@ -2178,6 +2189,21 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 	FUR_PROFILE("animation-update")
 	{
 		fg_animation_update(pEngine, dt);
+	}
+	
+	{
+		const fm_vec4 zeros = {0.0f, 0.0f, 0.0f, 0.0f};
+		const fm_vec4 axisX = {1.0f, 0.0f, 0.0f, 0.0f};
+		const fm_vec4 axisY = {0.0f, 1.0f, 0.0f, 0.0f};
+		const fm_vec4 axisZ = {0.0f, 0.0f, 1.0f, 0.0f};
+		
+		const float red[4] = FUR_COLOR_RED;
+		const float green[4] = FUR_COLOR_GREEN;
+		const float blue[4] = FUR_COLOR_BLUE;
+		
+		fc_dbg_line(&zeros.x, &axisX.x, red);
+		fc_dbg_line(&zeros.x, &axisY.x, green);
+		fc_dbg_line(&zeros.x, &axisZ.x, blue);
 	}
 	
 	// physics
@@ -2380,8 +2406,8 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		fm_vec4 playerMove;
 		fm_vec4_add(&playerMoveForward, &playerMoveLeft, &playerMove);
 		
-		pEngine->animCharacterZelda.animInfo.desiredMoveX = playerMove.x;
-		pEngine->animCharacterZelda.animInfo.desiredMoveY = playerMove.y;
+		pEngine->animCharacterZelda.animInfo.desiredMoveX = playerMove.x * dt;
+		pEngine->animCharacterZelda.animInfo.desiredMoveY = playerMove.y * dt;
 		
 		pEngine->playerMove = playerMove;
 		

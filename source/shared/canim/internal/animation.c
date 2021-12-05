@@ -960,7 +960,7 @@ fa_cmd_status_t fa_cmd_impl_anim_sample_with_locomotion(fa_cmd_context_t* ctx, c
 	fm_quat prevLocoRotConj = prevLocoRot;
 	fm_quat_conj(&prevLocoRotConj);
 	
-	fm_quat_mul(&prevLocoRotConj, &currLocoRot, &currLocoRot);
+	fm_quat_mul(&currLocoRot, &prevLocoRotConj, &currLocoRot);
 	fm_vec4_sub(&currLocoPos, &prevLocoPos, &currLocoPos);
 	fm_quat_rot(&prevLocoRotConj, &currLocoPos, &currLocoPos);
 	
@@ -1902,11 +1902,6 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		fa_character_layer_animate(character, &layerCtx, &character->layerFullBody);
 	}
 	
-	// store root motion
-	const float rootMotionDeltaX = character->animInfo.rootMotionDeltaX;
-	const float rootMotionDeltaY = character->animInfo.rootMotionDeltaY;
-	const float rootMotionDeltaYaw = character->animInfo.rootMotionDeltaYaw;
-	
 	// store weight IK
 	const float weightLegsIK = layerCtx.outWeightLegsIK;
 	
@@ -1996,59 +1991,77 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		{
 			FUR_ASSERT(idxLocoJoint < poseMS.numXforms);
 			
-			fm_xform motionDelta = poseMS.xforms[idxLocoJoint];
+			fm_xform animMotionDelta = poseMS.xforms[idxLocoJoint];
 			
-			fm_vec4_sub(&motionDelta.pos, &poseMS.xforms[0].pos, &motionDelta.pos);
+			fm_vec4_sub(&animMotionDelta.pos, &poseMS.xforms[0].pos, &animMotionDelta.pos);
 			
 			fm_quat rootQuatConj = poseMS.xforms[0].rot;
 			fm_quat_conj(&rootQuatConj);
 			
-			fm_quat_mul(&motionDelta.rot, &rootQuatConj, &motionDelta.rot);
-			fm_quat_norm(&motionDelta.rot);
+			fm_quat_mul(&animMotionDelta.rot, &rootQuatConj, &animMotionDelta.rot);
+			fm_quat_norm(&animMotionDelta.rot);
 			
 			// we know it's gonna be motion 2D (for now) so axis should be vertical in pose space
 			fm_vec4 axis = {};
-			float yaw = 0.0f;
-			fm_quat_to_axis_angle(&motionDelta.rot, &axis, &yaw);
+			float animYawDelta = 0.0f;
+			fm_quat_to_axis_angle(&animMotionDelta.rot, &axis, &animYawDelta);
 			
-			yaw *= fm_sign(axis.y);	// the axis flips depending on direction of rotation (to left, to right)
-			
-			character->animInfo.rootMotionDeltaYaw = yaw;
-			character->animInfo.currentYaw += yaw;
+			animYawDelta *= fm_sign(axis.y);	// the axis flips depending on direction of rotation (to left, to right)
 			
 			fm_quat rotWS = {};
-			fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, character->animInfo.currentYaw + M_PI, &rotWS);
-			fm_quat_rot(&rotWS, &motionDelta.pos, &motionDelta.pos);
-			character->animInfo.rootMotionDeltaX = motionDelta.pos.x;
-			character->animInfo.rootMotionDeltaY = motionDelta.pos.y;
-			character->animInfo.rootMotionDeltaZ = motionDelta.pos.z;
-		}
-		
-		// legacy root motion pipeline
-		if(rootMotionDeltaX != 0.0f || rootMotionDeltaY != 0.0f)
-		{
-			character->animInfo.rootMotionDeltaX = rootMotionDeltaX;
-			character->animInfo.rootMotionDeltaY = rootMotionDeltaY;
-			character->animInfo.rootMotionDeltaYaw = rootMotionDeltaYaw;
+			fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, character->animInfo.currentYaw, &rotWS);
+			fm_quat_rot(&rotWS, &animMotionDelta.pos, &animMotionDelta.pos);
+			
+			// motion from animation
+			character->animInfo.rootMotionDeltaYaw = animYawDelta;
+			character->animInfo.currentYaw += animYawDelta;
+			
+			character->animInfo.rootMotionDeltaX = animMotionDelta.pos.x;
+			character->animInfo.rootMotionDeltaY = animMotionDelta.pos.y;
+			character->animInfo.rootMotionDeltaZ = animMotionDelta.pos.z;
+			
+			// motion from logic
+			const fm_vec4 logicMotionDelta = {character->animInfo.desiredMoveX, character->animInfo.desiredMoveY, 0.0f};
+			fm_vec4 logicMotionDir = logicMotionDelta;
+			
+			float logicCurrentYaw = character->animInfo.currentYaw;
+			float logicYawDelta = 0.0f;
+			
+			if(fm_vec4_mag2(&logicMotionDir) > 0.001f)
+			{
+				fm_vec4_normalize(&logicMotionDir);
+				logicCurrentYaw = -fm_sign(logicMotionDir.y) * acosf(logicMotionDir.x);
+				logicYawDelta = logicCurrentYaw - character->animInfo.currentYaw;
+			}
+			
+			const float animToLogicMotionAlpha = 0.0f;
+			
+			character->animInfo.currentYaw += animYawDelta * (1.0f - animToLogicMotionAlpha) + logicYawDelta * animToLogicMotionAlpha;
+			
+			fm_vec4 finalMotionDelta = {};
+			fm_vec4_lerp(&logicMotionDelta, &animMotionDelta.pos, animToLogicMotionAlpha, &finalMotionDelta);
+			
+			character->animInfo.rootMotionDeltaX = finalMotionDelta.x;
+			character->animInfo.rootMotionDeltaY = finalMotionDelta.y;
+			character->animInfo.rootMotionDeltaZ = finalMotionDelta.z;
 		}
 	}
 }
 
 void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData)
 {
-	// player motion update
-	fa_character_anim_info_t* animInfo = ctx->animInfo;
-	
-	// we know we play it on full-body layer
-	animInfo->rootMotionDeltaX = 0.0f;
-	animInfo->rootMotionDeltaY = 0.0f;
-	
-	// animation update
 	fa_action_animate_t* data = (fa_action_animate_t*)userData;
 	
 	const float animDuration = data->animation->duration;
 	const float time = fmodf(ctx->localTime, animDuration);
-	fa_cmd_anim_sample_with_locomotion(ctx->cmdRecorder, time, 0, data->resetLoco, data->prevLocoPos, data->prevLocoRot);
+	if(data->useLoco)
+	{
+		fa_cmd_anim_sample_with_locomotion(ctx->cmdRecorder, time, 0, data->resetLoco, data->prevLocoPos, data->prevLocoRot);
+	}
+	else
+	{
+		fa_cmd_anim_sample(ctx->cmdRecorder, time, 0);
+	}
 	
 	if(data->resetLoco)
 	{
@@ -2151,6 +2164,8 @@ CANIM_API void fa_character_schedule_action(fa_character_t* character, fa_action
 	fa_action_t* actionSlot = fa_action_queue_get_free_slot(&layer->actionQueue);
 	actionSlot->userData = data->userData;
 	actionSlot->fnUpdate = data->fnUpdate;
+	actionSlot->fnBegin = data->fnBegin;
+	actionSlot->fnEnd = data->fnEnd;
 	actionSlot->fnGetAnims = data->fnGetAnims;
 	actionSlot->globalStartTime = character->globalTime;
 	actionSlot->isUsed = true;
@@ -2226,6 +2241,18 @@ void fa_character_schedule_action_test_simple(fa_character_t* character, fa_acti
 
 // -----
 
+void fa_action_player_loco_begin_func(const fa_action_begin_end_ctx_t* ctx, void* userData)
+{
+	fa_action_player_loco_t* data = (fa_action_player_loco_t*)userData;
+	
+	data->resetLoco = true;
+}
+
+void fa_action_player_loco_end_func(const fa_action_begin_end_ctx_t* ctx, void* userData)
+{
+	
+}
+
 void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData)
 {
 	fa_action_player_loco_t* data = (fa_action_player_loco_t*)userData;
@@ -2236,15 +2263,6 @@ void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData)
 	const bool doMove = fabs(animInfo->desiredMoveX) > 0.05f || fabs(animInfo->desiredMoveY) > 0.05f;
 	if(doMove)
 	{
-		const float dirMag = sqrtf(animInfo->desiredMoveX * animInfo->desiredMoveX + animInfo->desiredMoveY * animInfo->desiredMoveY);
-		const float dirX = animInfo->desiredMoveX / dirMag;
-		const float dirY = animInfo->desiredMoveY / dirMag;
-		const float angle = -fm_sign(dirY) * acosf(dirX) - FM_PI / 2.0f;
-		animInfo->rootMotionDeltaYaw = angle - animInfo->currentYaw;
-		animInfo->currentYaw = angle;
-		animInfo->rootMotionDeltaX = animInfo->desiredMoveX * ctx->dt;
-		animInfo->rootMotionDeltaY = animInfo->desiredMoveY * ctx->dt;
-		
 		data->isStopping = false;
 		
 		if(data->blendState == 0.0f)
@@ -2292,18 +2310,22 @@ void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData)
 			fa_cmd_anim_sample(ctx->cmdRecorder, data->idleLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN_TO_IDLE_SHARP);
 		}
 		
-		fa_cmd_anim_sample(ctx->cmdRecorder, data->runLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN);
+		fa_cmd_anim_sample_with_locomotion(ctx->cmdRecorder, data->runLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN, data->resetLoco, data->locoPos, data->locoRot);
 		fa_cmd_blend2(ctx->cmdRecorder, fm_curve_uniform_s(data->blendState));
 	}
 	else if(data->blendState == 1.0f)
 	{
-		fa_cmd_anim_sample(ctx->cmdRecorder, data->runLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN);
+		fa_cmd_anim_sample_with_locomotion(ctx->cmdRecorder, data->runLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN, data->resetLoco, data->locoPos, data->locoRot);
 	}
 	else
 	{
 		fa_cmd_anim_sample(ctx->cmdRecorder, data->idleLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN_TO_IDLE_SHARP);
 	}
 	
+	if(data->resetLoco)
+	{
+		data->resetLoco = false;
+	}
 }
 
 const fa_anim_clip_t** fa_action_player_loco_get_anims_func(const void* userData, uint32_t* numAnims)
@@ -2346,20 +2368,6 @@ void fa_action_player_jump_update(const fa_action_ctx_t* ctx, void* userData)
 		
 		data->progress = t / d;
 		
-		if(doMove)
-		{
-			const float dirMag = sqrtf(animInfo->desiredMoveX * animInfo->desiredMoveX + animInfo->desiredMoveY * animInfo->desiredMoveY);
-			const float dirX = animInfo->desiredMoveX / dirMag;
-			const float dirY = animInfo->desiredMoveY / dirMag;
-			
-			const float angle = -fm_sign(dirY) * acosf(dirX) - FM_PI / 2.0f;
-			const float yawNewPercentage = 0.05f;
-			animInfo->currentYaw = angle;
-			
-			animInfo->rootMotionDeltaX = animInfo->rootMotionDeltaX * (1.0f - yawNewPercentage) + animInfo->desiredMoveX * yawNewPercentage * ctx->dt;
-			animInfo->rootMotionDeltaY = animInfo->rootMotionDeltaY * (1.0f - yawNewPercentage) + animInfo->desiredMoveY * yawNewPercentage * ctx->dt;
-		}
-		
 		fa_cmd_anim_sample(ctx->cmdRecorder, t_anim, 1);
 	}
 }
@@ -2378,29 +2386,6 @@ void fa_action_player_loco_start_update(const fa_action_ctx_t* ctx, void* userDa
 	fa_action_player_loco_start_t* data = (fa_action_player_loco_start_t*)userData;
 	const float t = ctx->localTime;
 	const float d = data->anims[0]->duration;
-	
-	// update player motion
-	fa_character_anim_info_t* animInfo = ctx->animInfo;
-	
-	const bool doMove = fabs(animInfo->desiredMoveX) > 0.05f || fabs(animInfo->desiredMoveY) > 0.05f;
-	if(doMove)
-	{
-		const float dirMag = sqrtf(animInfo->desiredMoveX * animInfo->desiredMoveX + animInfo->desiredMoveY * animInfo->desiredMoveY);
-		const float dirX = animInfo->desiredMoveX / dirMag;
-		const float dirY = animInfo->desiredMoveY / dirMag;
-		const float angle = -fm_sign(dirY) * acosf(dirX) - FM_PI / 2.0f;
-		
-		const float motionCurve = fm_curve_uniform_s(fm_clamp(2.0f * t / d, 0.0f, 1.0f));
-		
-		if(!data->ignoreYaw)
-		{
-			animInfo->rootMotionDeltaYaw = angle - animInfo->currentYaw;
-			animInfo->currentYaw = animInfo->currentYaw * (1.0f - motionCurve) + motionCurve * angle;
-		}
-		
-		animInfo->rootMotionDeltaX = animInfo->desiredMoveX * ctx->dt * motionCurve;
-		animInfo->rootMotionDeltaY = animInfo->desiredMoveY * ctx->dt * motionCurve;
-	}
 	
 	// animate start
 	const float t_anim = fm_clamp(t, 0.0f, d);

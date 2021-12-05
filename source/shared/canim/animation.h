@@ -476,6 +476,7 @@ typedef struct fa_action_animate_t
 	
 	bool reserved;
 	
+	bool useLoco;
 	bool resetLoco;
 	float prevLocoPos[4];
 	float prevLocoRot[4];
@@ -494,6 +495,8 @@ typedef struct fa_action_schedule_data_t
 {
 	fa_action_get_anims_func_t fnGetAnims;
 	fa_action_update_func_t fnUpdate;
+	fa_action_begin_end_func_t fnBegin;	// optional, called before the first Update
+	fa_action_begin_end_func_t fnEnd;	// optional, called after the last Update
 	void* userData;
 } fa_action_schedule_data_t;
 CANIM_API void fa_character_schedule_action(fa_character_t* character, fa_action_schedule_data_t* data, const fa_action_args_t* args);
@@ -543,8 +546,14 @@ typedef struct fa_action_player_loco_t
 	
 	float yawOrientation;
 	bool isStopping;
+	
+	bool resetLoco;
+	float locoRot[4];
+	float locoPos[4];
 } fa_action_player_loco_t;
 
+CANIM_API void fa_action_player_loco_begin_func(const fa_action_begin_end_ctx_t* ctx, void* userData);
+CANIM_API void fa_action_player_loco_end_func(const fa_action_begin_end_ctx_t* ctx, void* userData);
 CANIM_API void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData);
 CANIM_API const fa_anim_clip_t** fa_action_player_loco_get_anims_func(const void* userData, uint32_t* numAnims);
 
