@@ -1717,6 +1717,13 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 	if(pEngine->inputTriangleActionPressed)
 		actionRandomizer2 += 1;
 	
+	static fc_string_hash_t prevState = SID("idle");
+	
+	static float waitSeconds = 0.0f;
+	static uint32_t numSkipOps = 0;
+	static fc_string_hash_t latentLambdaName = 0;
+	static fc_string_hash_t latentEventName = 0;
+	
 	// inital player state
 	static bool isInit = true;
 	if(isInit)
@@ -1725,37 +1732,27 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		
 		pEngine->zeldaGameObject.playerState = SID("idle");
 		
-		fa_action_args_t args = {};
-		args.fadeInSec = 0.0f;
-		fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionIdle, &args);
+		fs_script_ctx_t scriptCtx = {};
+		scriptCtx.allAnimations = &pEngine->gameAnimationsRegister;
+		scriptCtx.gameObjectRegister = &pEngine->gameObjectRegister;
+		scriptCtx.self = &pEngine->zeldaGameObject;
+		scriptCtx.state = SID("idle");
+		scriptCtx.stateEventToCall = SID("start");
+		fs_execute_script(&pEngine->zeldaStateScript, &scriptCtx);
 		
-		args.fadeInSec = 0.5f;
-		args.layer = FA_CHAR_LAYER_PARTIAL;
-		//fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionWeaponEquipped, &args);
+		if(scriptCtx.waitSeconds > 0.0f)
+		{
+			waitSeconds = scriptCtx.waitSeconds;
+			numSkipOps = scriptCtx.numSkipOps;
+			latentLambdaName = scriptCtx.state;
+			latentEventName = scriptCtx.stateEventToCall;
+		}
+		
+		if(scriptCtx.nextState != 0)
+		{
+			pEngine->zeldaGameObject.playerState = scriptCtx.nextState;
+		}
 	}
-	
-#if 0
-	static float time = 0.0f;
-	time += dt;
-	static float interval = 1.0f;
-	if(time < interval)
-		pEngine->actionIdle.animation = pEngine->pAnimClipIdle;
-	else if(time < 2.0f * interval)
-		pEngine->actionIdle.animation = pEngine->pAnimClipIdle3;
-	else if(time < 3.0f * interval)
-		pEngine->actionIdle.animation = pEngine->pAnimClipIdle2;
-	else if(time < 4.0f * interval)
-		pEngine->actionIdle.animation = pEngine->pAnimClipIdle4;
-	else
-		time = 0.0f;
-#endif
-	
-	static fc_string_hash_t prevState = SID("idle");
-	
-	static float waitSeconds = 0.0f;
-	static uint32_t numSkipOps = 0;
-	static fc_string_hash_t latentLambdaName = 0;
-	static fc_string_hash_t latentEventName = 0;
 	
 	if(waitSeconds > 0.0f)
 	{
@@ -2297,7 +2294,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 			
 			fm_vec4 spherePos = pEngine->skinMatrices[pEngine->zeldaSpineIdx].w;
 			spherePos.z -= 0.25f;
-			spherePos.y -= 0.6f;
+			spherePos.x = 0.6f;
 			const float sphereRadius = 0.8f;
 			pEngine->zeldaCapeL.spherePos = &spherePos;
 			pEngine->zeldaCapeL.sphereRadius = sphereRadius;

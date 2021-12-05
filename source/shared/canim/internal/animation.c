@@ -51,13 +51,6 @@ void fa_anim_clip_release(fa_anim_clip_t* clip, fc_alloc_callbacks_t* pAllocCall
 {
 	FUR_FREE(clip->curves, pAllocCallbacks);
 	FUR_FREE(clip->dataKeys, pAllocCallbacks);
-	
-	if(clip->motion.data || clip->motion.times)
-	{
-		FUR_FREE(clip->motion.data, pAllocCallbacks);
-		FUR_FREE(clip->motion.times, pAllocCallbacks);
-	}
-	
 	FUR_FREE(clip, pAllocCallbacks);
 }
 
@@ -891,6 +884,7 @@ typedef struct fa_cmd_anim_sample_with_locomotion_data_t
 	uint16_t animClipId;
 	bool asAdditive;
 	bool resetLoco;
+	int32_t loops;
 	float* prevLocoPos;	// fm_vec4
 	float* prevLocoRot;	// fm_vec4
 } fa_cmd_anim_sample_with_locomotion_data_t;
@@ -919,7 +913,7 @@ fa_cmd_status_t fa_cmd_impl_anim_sample_with_locomotion(fa_cmd_context_t* ctx, c
 		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
 		const float color[4] = FA_DBG_COLOR;
 		char txt[256];
-		sprintf(txt, "anim_sample %s t=%1.2f", fc_string_hash_as_cstr_debug(clip->name), data->time);
+		sprintf(txt, "anim_sample_with_locomotion %s t=%1.2f", fc_string_hash_as_cstr_debug(clip->name), data->time);
 		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
 	}
 	
@@ -932,6 +926,15 @@ fa_cmd_status_t fa_cmd_impl_anim_sample_with_locomotion(fa_cmd_context_t* ctx, c
 	FUR_ASSERT(idxLocoJoint < ctx->rig->numBones);
 	
 	fm_xform currLocoXform = pose.xforms[idxLocoJoint];
+	
+	// todo: remove, this is sanitizing old animation data
+	if(currLocoXform.rot.i == 0.0f &&
+	   currLocoXform.rot.j == 0.0f &&
+	   currLocoXform.rot.k == 0.0f &&
+	   currLocoXform.rot.r == 0.0f)
+	{
+		fm_quat_identity(&currLocoXform.rot);
+	}
 	
 	fm_quat currLocoRot = currLocoXform.rot;
 	fm_vec4 currLocoPos = currLocoXform.pos;
@@ -955,6 +958,44 @@ fa_cmd_status_t fa_cmd_impl_anim_sample_with_locomotion(fa_cmd_context_t* ctx, c
 		prevLocoPos.y = data->prevLocoPos[1];
 		prevLocoPos.z = data->prevLocoPos[2];
 		prevLocoPos.w = data->prevLocoPos[3];
+	}
+	
+	// apply loops to locomotion (when time goes from duration back to 0)
+	//if(clip->motionDelta != NULL) // todo: uncomment in future
+	if(data->loops != 0)
+	{
+		fm_xform singleMotionLoop = {};
+		singleMotionLoop.pos.x = clip->motionDelta[0];
+		singleMotionLoop.pos.y = clip->motionDelta[1];
+		singleMotionLoop.pos.z = clip->motionDelta[2];
+		singleMotionLoop.pos.w = clip->motionDelta[3];
+		singleMotionLoop.rot.i = clip->motionDelta[4];
+		singleMotionLoop.rot.j = clip->motionDelta[5];
+		singleMotionLoop.rot.k = clip->motionDelta[6];
+		singleMotionLoop.rot.r = clip->motionDelta[7];
+		
+		int32_t loopsLeft = data->loops;
+		if(loopsLeft > 0)
+		{
+			for(;loopsLeft>0; --loopsLeft)
+			{
+				fm_xform_apply(&singleMotionLoop, &currLocoPos, &currLocoPos);
+				fm_quat_mul(&currLocoRot, &singleMotionLoop.rot, &currLocoRot);
+			}
+		}
+		else if(loopsLeft < 0)
+		{
+			fm_quat singleMotionLoopRotConj = singleMotionLoop.rot;
+			fm_quat_conj(&singleMotionLoopRotConj);
+			
+			for(;loopsLeft<0; ++loopsLeft)
+			{
+				fm_vec4_sub(&currLocoPos, &singleMotionLoop.pos, &currLocoPos);
+				fm_quat_rot(&singleMotionLoopRotConj, &currLocoPos, &currLocoPos);
+				
+				fm_quat_mul(&singleMotionLoopRotConj, &currLocoRot, &currLocoRot);
+			}
+		}
 	}
 	
 	fm_quat prevLocoRotConj = prevLocoRot;
@@ -984,9 +1025,9 @@ fa_cmd_status_t fa_cmd_impl_anim_sample_with_locomotion(fa_cmd_context_t* ctx, c
 	return FA_CMD_STATUS_OK;
 }
 
-void fa_cmd_anim_sample_with_locomotion(fa_cmd_buffer_recorder_t* recorder, float time, uint16_t animClipId, bool resetLoco, float* prevLocoPos, float* prevLocoRot)
+void fa_cmd_anim_sample_with_locomotion(fa_cmd_buffer_recorder_t* recorder, float time, uint16_t animClipId, bool resetLoco, int32_t loops, float* prevLocoPos, float* prevLocoRot)
 {
-	fa_cmd_anim_sample_with_locomotion_data_t data = { time, animClipId, false, resetLoco, prevLocoPos, prevLocoRot };
+	fa_cmd_anim_sample_with_locomotion_data_t data = { time, animClipId, false, loops, resetLoco, prevLocoPos, prevLocoRot };
 	fa_cmd_buffer_write(recorder, fa_cmd_impl_anim_sample_with_locomotion, &data, sizeof(fa_cmd_anim_sample_with_locomotion_data_t));
 	recorder->poseStackSizeTracking += 1;
 }
@@ -2054,9 +2095,15 @@ void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData)
 	
 	const float animDuration = data->animation->duration;
 	const float time = fmodf(ctx->localTime, animDuration);
+	
+	// loops for motion
+	const int32_t loopsSinceBeginning = (int32_t)(ctx->localTime / animDuration);
+	const int32_t loopsThisFrame = loopsSinceBeginning - data->loopsSoFar;
+	data->loopsSoFar = loopsSinceBeginning;
+	
 	if(data->useLoco)
 	{
-		fa_cmd_anim_sample_with_locomotion(ctx->cmdRecorder, time, 0, data->resetLoco, data->prevLocoPos, data->prevLocoRot);
+		fa_cmd_anim_sample_with_locomotion(ctx->cmdRecorder, time, 0, data->resetLoco, loopsThisFrame, data->prevLocoPos, data->prevLocoRot);
 	}
 	else
 	{
@@ -2066,6 +2113,7 @@ void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData)
 	if(data->resetLoco)
 	{
 		data->resetLoco = false;
+		data->loopsSoFar = 0;
 	}
 	
 	data->progress = time / animDuration;
@@ -2260,6 +2308,12 @@ void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData)
 	// update player motion
 	fa_character_anim_info_t* animInfo = ctx->animInfo;
 	
+	// loops for motion
+	const float animDuration = data->anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN]->duration;
+	const int32_t loopsSinceBeginning = (int32_t)(ctx->localTime / animDuration);
+	const int32_t loopsThisFrame = loopsSinceBeginning - data->loopsSoFar;
+	data->loopsSoFar = loopsSinceBeginning;
+	
 	const bool doMove = fabs(animInfo->desiredMoveX) > 0.05f || fabs(animInfo->desiredMoveY) > 0.05f;
 	if(doMove)
 	{
@@ -2310,21 +2364,28 @@ void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData)
 			fa_cmd_anim_sample(ctx->cmdRecorder, data->idleLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN_TO_IDLE_SHARP);
 		}
 		
-		fa_cmd_anim_sample_with_locomotion(ctx->cmdRecorder, data->runLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN, data->resetLoco, data->locoPos, data->locoRot);
+		fa_cmd_anim_sample_with_locomotion(ctx->cmdRecorder, data->runLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN, data->resetLoco, loopsThisFrame, data->locoPos, data->locoRot);
 		fa_cmd_blend2(ctx->cmdRecorder, fm_curve_uniform_s(data->blendState));
+		
+		if(data->resetLoco)
+		{
+			data->resetLoco = false;
+			data->loopsSoFar = 0;
+		}
 	}
 	else if(data->blendState == 1.0f)
 	{
-		fa_cmd_anim_sample_with_locomotion(ctx->cmdRecorder, data->runLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN, data->resetLoco, data->locoPos, data->locoRot);
+		fa_cmd_anim_sample_with_locomotion(ctx->cmdRecorder, data->runLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN, data->resetLoco, loopsThisFrame, data->locoPos, data->locoRot);
+		
+		if(data->resetLoco)
+		{
+			data->resetLoco = false;
+			data->loopsSoFar = 0;
+		}
 	}
 	else
 	{
 		fa_cmd_anim_sample(ctx->cmdRecorder, data->idleLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN_TO_IDLE_SHARP);
-	}
-	
-	if(data->resetLoco)
-	{
-		data->resetLoco = false;
 	}
 }
 

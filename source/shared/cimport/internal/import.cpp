@@ -750,32 +750,28 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 		
 		fa_anim_curve_t* rootCurve = &animClip->curves[1];	// 1 - hips
 		const uint32_t numPosKeys = rootCurve->numPosKeys;
+		const uint32_t numRotKeys = rootCurve->numRotKeys;
 		
-		animClip->motion.numKeys = numPosKeys;
-		animClip->motion.type = FA_MOTION_TYPE_2D;
-		animClip->motion.data = FUR_ALLOC_ARRAY_AND_ZERO(float, numPosKeys * 3, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		animClip->motion.times = FUR_ALLOC_ARRAY_AND_ZERO(uint16_t, numPosKeys, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		fm_vec4 pos = vec4_decom_16bit(rootCurve->posKeys[numPosKeys-1].keyData);
+		fm_quat rot = quat_ihm_16bit(rootCurve->rotKeys[numRotKeys-1].keyData);
 		
-		float* motionData = animClip->motion.data;
-		uint16_t* motionTimes = animClip->motion.times;
+		animClip->motionDelta[0] = pos.x;
+		animClip->motionDelta[1] = pos.y;
+		animClip->motionDelta[2] = pos.z;
+		animClip->motionDelta[3] = pos.w;
+		
+		animClip->motionDelta[4] = rot.i;
+		animClip->motionDelta[5] = rot.j;
+		animClip->motionDelta[6] = rot.k;
+		animClip->motionDelta[7] = rot.r;
 		
 		for(uint32_t k=0; k<numPosKeys; ++k)
 		{
 			// zero out horizontal movement, leave only vertical movement
 			fm_vec4 pos = vec4_decom_16bit(rootCurve->posKeys[k].keyData);
-			
-			motionData[0] = pos.x;
-			motionData[1] = pos.z;
-			motionData[2] = 0.0f;	// yaw
-			
-			motionTimes[0] = rootCurve->posKeys[k].keyTime;
-			
 			pos.x = 0.0f;
 			pos.z = 0.0f;
 			vec4_com_16bit(pos, rootCurve->posKeys[k].keyData);
-			
-			motionData += 3;
-			motionTimes += 1;
 		}
 	}
 	

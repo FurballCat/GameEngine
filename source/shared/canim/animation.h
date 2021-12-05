@@ -125,7 +125,7 @@ typedef struct fa_anim_clip_t
 	fa_anim_curve_t* curves;
 	fa_anim_curve_key_t* dataKeys;	// all keys in the animation
 	
-	fa_anim_motion_t motion;
+	float motionDelta[8];	// single loop of motion for this anim clip (pos[4] xyzw, rot[4] ijkr)
 } fa_anim_clip_t;
 	
 CANIM_API void fa_anim_clip_release(fa_anim_clip_t* clip, fc_alloc_callbacks_t* pAllocCallbacks);
@@ -478,6 +478,7 @@ typedef struct fa_action_animate_t
 	
 	bool useLoco;
 	bool resetLoco;
+	int32_t loopsSoFar;
 	float prevLocoPos[4];
 	float prevLocoRot[4];
 } fa_action_animate_t;
@@ -548,6 +549,7 @@ typedef struct fa_action_player_loco_t
 	bool isStopping;
 	
 	bool resetLoco;
+	int32_t loopsSoFar;
 	float locoRot[4];
 	float locoPos[4];
 } fa_action_player_loco_t;
