@@ -512,6 +512,11 @@ fm_vec4 vec4_decom_16bit(const uint16_t* v)
 	return res;
 }
 
+float fa_decompress_key_time(const uint16_t time)
+{
+	return ((float)time) / 24.0f;
+}
+
 fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_clip_ctx_t* ctx, fa_anim_clip_t** ppAnimClip, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	std::string absolutePath = depot->path;
@@ -748,30 +753,57 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 		fa_anim_clip_t* animClip = *ppAnimClip;
 		FUR_ASSERT(animClip);	// can't extract root motion on null anim
 		
-		fa_anim_curve_t* rootCurve = &animClip->curves[1];	// 1 - hips
-		const uint32_t numPosKeys = rootCurve->numPosKeys;
-		const uint32_t numRotKeys = rootCurve->numRotKeys;
+		const int16_t idxHips = 1;
+		const int16_t idxLocoJoint = ctx->rig->idxLocoJoint;
 		
-		fm_vec4 pos = vec4_decom_16bit(rootCurve->posKeys[numPosKeys-1].keyData);
-		fm_quat rot = quat_ihm_16bit(rootCurve->rotKeys[numRotKeys-1].keyData);
+		fa_anim_curve_t* curveHips = &animClip->curves[idxHips];
+		const fa_anim_curve_t* curveLoco = &animClip->curves[idxLocoJoint];
 		
-		animClip->motionDelta[0] = pos.x;
-		animClip->motionDelta[1] = pos.y;
-		animClip->motionDelta[2] = pos.z;
-		animClip->motionDelta[3] = pos.w;
+		const uint32_t numPosKeys = curveHips->numPosKeys;
+		const uint32_t numRotKeys = curveHips->numRotKeys;
 		
-		animClip->motionDelta[4] = rot.i;
-		animClip->motionDelta[5] = rot.j;
-		animClip->motionDelta[6] = rot.k;
-		animClip->motionDelta[7] = rot.r;
+		const uint32_t locoNumPosKeys = curveLoco->numPosKeys;
+		const uint32_t locoNumRotKeys = curveLoco->numRotKeys;
+		
+		fm_vec4 posLoop = vec4_decom_16bit(curveLoco->posKeys[locoNumPosKeys-1].keyData);
+		fm_quat rotLoop = quat_ihm_16bit(curveLoco->rotKeys[locoNumRotKeys-1].keyData);
+		
+		animClip->motionDelta[0] = posLoop.x;
+		animClip->motionDelta[1] = posLoop.y;
+		animClip->motionDelta[2] = posLoop.z;
+		animClip->motionDelta[3] = posLoop.w;
+		
+		animClip->motionDelta[4] = rotLoop.i;
+		animClip->motionDelta[5] = rotLoop.j;
+		animClip->motionDelta[6] = rotLoop.k;
+		animClip->motionDelta[7] = rotLoop.r;
 		
 		for(uint32_t k=0; k<numPosKeys; ++k)
 		{
 			// zero out horizontal movement, leave only vertical movement
-			fm_vec4 pos = vec4_decom_16bit(rootCurve->posKeys[k].keyData);
-			pos.x = 0.0f;
-			pos.z = 0.0f;
-			vec4_com_16bit(pos, rootCurve->posKeys[k].keyData);
+			fm_vec4 pos = vec4_decom_16bit(curveHips->posKeys[k].keyData);
+			const float keyTime = fa_decompress_key_time(curveHips->posKeys[k].keyTime);
+			
+			fm_xform locoXform = {};
+			fa_anim_curve_sample(curveLoco, keyTime, false, &locoXform);
+			fm_vec4_sub(&pos, &locoXform.pos, &pos);
+			
+			vec4_com_16bit(pos, curveHips->posKeys[k].keyData);
+		}
+		
+		for(uint32_t k=0; k<numRotKeys; ++k)
+		{
+			// zero out movement along vertical axis
+			fm_quat rot = quat_ihm_16bit(curveHips->rotKeys[k].keyData);
+			const float keyTime = fa_decompress_key_time(curveHips->posKeys[k].keyTime);
+			
+			fm_xform locoXform = {};
+			fa_anim_curve_sample(curveLoco, keyTime, false, &locoXform);
+			
+			fm_quat_conj(&locoXform.rot);
+			fm_quat_mul(&rot, &locoXform.rot, &rot);
+			
+			quat_fhm_16bit(rot, curveHips->rotKeys[k].keyData);
 		}
 	}
 	

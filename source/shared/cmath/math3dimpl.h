@@ -661,7 +661,7 @@ static inline void fm_quat_rot_axis_angle(const fm_vec4* axis, const float angle
 
 static inline void fm_quat_to_axis_angle(const fm_quat* q, fm_vec4* axis, float* angle)
 {
-	*angle = acosf(fm_clamp(q->r, 0.0f, 1.0f)) * 2.0f;
+	*angle = acosf(fm_clamp(q->r, -1.0f, 1.0f)) * 2.0f;
 	if(fabsf(*angle) > 0.0001f)
 	{
 		const float scale = sinf(*angle / 2.0f);

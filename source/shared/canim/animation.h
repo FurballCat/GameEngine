@@ -187,7 +187,9 @@ CANIM_API void fa_pose_set_identity(fa_pose_t* pose, const uint8_t* mask /* opti
 CANIM_API void fa_pose_set_reference(const fa_rig_t* rig, fa_pose_t* pose, const uint8_t* mask /* optional */);
 	
 // -----
-	
+
+CANIM_API void fa_anim_curve_sample(const fa_anim_curve_t* curve, float time, bool asAdditive, fm_xform* xform);
+
 CANIM_API void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive, fa_pose_t* pose, const uint8_t* mask /* optional */);
 CANIM_API void fa_anim_clip_sample_motion(const fa_anim_clip_t* clip, float timeBegin, float timeEnd, fm_xform* motion);
 
@@ -576,8 +578,14 @@ typedef struct fa_action_player_loco_start_t
 	float finishFromEnd;
 	bool isFinished;
 	bool ignoreYaw;
+	
+	bool resetLoco;
+	float prevLocoRot[4];
+	float prevLocoPos[4];
 } fa_action_player_loco_start_t;
 
+CANIM_API void fa_action_player_loco_start_begin_func(const fa_action_begin_end_ctx_t* ctx, void* userData);
+CANIM_API void fa_action_player_loco_start_end_func(const fa_action_begin_end_ctx_t* ctx, void* userData);
 CANIM_API void fa_action_player_loco_start_update(const fa_action_ctx_t* ctx, void* userData);
 CANIM_API const fa_anim_clip_t** fa_action_player_loco_start_get_anims_func(const void* userData, uint32_t* numAnims);
 

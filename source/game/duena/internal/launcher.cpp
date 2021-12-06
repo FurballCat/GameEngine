@@ -1901,6 +1901,8 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			data.userData = &pEngine->actionLocoStart;
 			data.fnGetAnims = fa_action_player_loco_start_get_anims_func;
 			data.fnUpdate = fa_action_player_loco_start_update;
+			data.fnBegin = fa_action_player_loco_start_begin_func;
+			data.fnEnd = fa_action_player_loco_start_end_func;
 			
 			fa_character_schedule_action(&pEngine->animCharacterZelda, &data, &args);
 			
@@ -1977,6 +1979,8 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			data.userData = &pEngine->actionLocoStop;
 			data.fnGetAnims = fa_action_player_loco_start_get_anims_func;
 			data.fnUpdate = fa_action_player_loco_start_update;
+			data.fnBegin = fa_action_player_loco_start_begin_func;
+			data.fnEnd = fa_action_player_loco_start_end_func;
 			
 			fa_character_schedule_action(&pEngine->animCharacterZelda, &data, &args);
 			

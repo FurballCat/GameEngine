@@ -249,6 +249,100 @@ float fa_decompress_key_time(const uint16_t time)
 	return ((float)time) / 24.0f;
 }
 
+void fa_anim_curve_sample(const fa_anim_curve_t* curve, float time, bool asAdditive, fm_xform* xform)
+{
+	// rotation
+	{
+		const uint16_t numKeys = curve->numRotKeys;
+	
+		uint16_t idx = 0;
+		
+		// this could be a binary search
+		while(idx < (numKeys-1) && fa_decompress_key_time(curve->rotKeys[idx].keyTime) < time)
+		{
+			++idx;
+		}
+		
+		const uint16_t upperIdx = idx;
+		const uint16_t lowerIdx = idx == 0 ? idx : idx - 1;
+		
+		fm_quat rot;
+		
+		if(lowerIdx == upperIdx)
+		{
+			fa_decompress_rotation_key(&curve->rotKeys[idx], &rot);
+		}
+		else
+		{
+			fm_quat rot1;
+			fa_decompress_rotation_key(&curve->rotKeys[lowerIdx], &rot1);
+			
+			fm_quat rot2;
+			fa_decompress_rotation_key(&curve->rotKeys[upperIdx], &rot2);
+			
+			const float time1 = fa_decompress_key_time(curve->rotKeys[lowerIdx].keyTime);
+			const float time2 = fa_decompress_key_time(curve->rotKeys[upperIdx].keyTime);
+			
+			float alpha = (time - time1) / (time2 - time1);
+			fm_quat_lerp(&rot1, &rot2, alpha, &rot);
+			fm_quat_norm(&rot);
+		}
+		
+		xform->rot = rot;
+	}
+	
+	// position
+	{
+		const uint16_t numKeys = curve->numPosKeys;
+	
+		uint16_t idx = 0;
+		
+		// this could be a binary search
+		while(idx < (numKeys-1) && fa_decompress_key_time(curve->posKeys[idx].keyTime) < time)
+		{
+			++idx;
+		}
+		
+		const uint16_t upperIdx = idx;
+		const uint16_t lowerIdx = idx == 0 ? idx : idx - 1;
+		
+		fm_vec4 pos;
+		
+		if(lowerIdx == upperIdx)
+		{
+			fa_decompress_position_key(&curve->posKeys[idx], &pos);
+		}
+		else
+		{
+			fm_vec4 pos1;
+			fa_decompress_position_key(&curve->posKeys[lowerIdx], &pos1);
+			
+			fm_vec4 pos2;
+			fa_decompress_position_key(&curve->posKeys[upperIdx], &pos2);
+			
+			const float time1 = fa_decompress_key_time(curve->posKeys[lowerIdx].keyTime);
+			const float time2 = fa_decompress_key_time(curve->posKeys[upperIdx].keyTime);
+			
+			float alpha = (time - time1) / (time2 - time1);
+			fm_vec4_lerp(&pos2, &pos1, alpha, &pos);
+		}
+		
+		xform->pos = pos;
+	}
+	
+	if(asAdditive)
+	{
+		fm_xform firstKey;
+		fa_decompress_rotation_key(&curve->rotKeys[0], &firstKey.rot);
+		fa_decompress_position_key(&curve->posKeys[0], &firstKey.pos);
+		
+		fm_quat_conj(&firstKey.rot);
+		
+		fm_quat_mul(&firstKey.rot, &xform->rot, &xform->rot);
+		fm_vec4_sub(&xform->pos, &firstKey.pos, &xform->pos);
+	}
+}
+
 void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive, fa_pose_t* pose, const uint8_t* mask)
 {
 	for(uint32_t i=0; i<pose->numXforms; ++i)
@@ -265,87 +359,9 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive
 	for(uint32_t i_c=0; i_c<numCurves; ++i_c)
 	{
 		const fa_anim_curve_t* curve = &clip->curves[i_c];
-		
 		const uint16_t idxXform = curve->index;
 		
-		// rotation
-		{
-			const uint16_t numKeys = curve->numRotKeys;
-		
-			uint16_t idx = 0;
-			
-			// this could be a binary search
-			while(idx < (numKeys-1) && fa_decompress_key_time(curve->rotKeys[idx].keyTime) < time)
-			{
-				++idx;
-			}
-			
-			const uint16_t upperIdx = idx;
-			const uint16_t lowerIdx = idx == 0 ? idx : idx - 1;
-			
-			fm_quat rot;
-			
-			if(lowerIdx == upperIdx)
-			{
-				fa_decompress_rotation_key(&curve->rotKeys[idx], &rot);
-			}
-			else
-			{
-				fm_quat rot1;
-				fa_decompress_rotation_key(&curve->rotKeys[lowerIdx], &rot1);
-				
-				fm_quat rot2;
-				fa_decompress_rotation_key(&curve->rotKeys[upperIdx], &rot2);
-				
-				const float time1 = fa_decompress_key_time(curve->rotKeys[lowerIdx].keyTime);
-				const float time2 = fa_decompress_key_time(curve->rotKeys[upperIdx].keyTime);
-				
-				float alpha = (time - time1) / (time2 - time1);
-				fm_quat_lerp(&rot1, &rot2, alpha, &rot);
-				fm_quat_norm(&rot);
-			}
-			
-			pose->xforms[idxXform].rot = rot;
-		}
-		
-		// position
-		{
-			const uint16_t numKeys = curve->numPosKeys;
-		
-			uint16_t idx = 0;
-			
-			// this could be a binary search
-			while(idx < (numKeys-1) && fa_decompress_key_time(curve->posKeys[idx].keyTime) < time)
-			{
-				++idx;
-			}
-			
-			const uint16_t upperIdx = idx;
-			const uint16_t lowerIdx = idx == 0 ? idx : idx - 1;
-			
-			fm_vec4 pos;
-			
-			if(lowerIdx == upperIdx)
-			{
-				fa_decompress_position_key(&curve->posKeys[idx], &pos);
-			}
-			else
-			{
-				fm_vec4 pos1;
-				fa_decompress_position_key(&curve->posKeys[lowerIdx], &pos1);
-				
-				fm_vec4 pos2;
-				fa_decompress_position_key(&curve->posKeys[upperIdx], &pos2);
-				
-				const float time1 = fa_decompress_key_time(curve->posKeys[lowerIdx].keyTime);
-				const float time2 = fa_decompress_key_time(curve->posKeys[upperIdx].keyTime);
-				
-				float alpha = (time - time1) / (time2 - time1);
-				fm_vec4_lerp(&pos2, &pos1, alpha, &pos);
-			}
-			
-			pose->xforms[idxXform].pos = pos;
-		}
+		fa_anim_curve_sample(curve, time, asAdditive, &pose->xforms[idxXform]);
 		
 		if(mask)
 		{
@@ -354,18 +370,6 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive
 		else
 		{
 			pose->weightsXforms[idxXform] = 255;
-		}
-		
-		if(asAdditive)
-		{
-			fm_xform firstKey;
-			fa_decompress_rotation_key(&curve->rotKeys[0], &firstKey.rot);
-			fa_decompress_position_key(&curve->posKeys[0], &firstKey.pos);
-			
-			fm_quat_conj(&firstKey.rot);
-			
-			fm_quat_mul(&firstKey.rot, &pose->xforms[idxXform].rot, &pose->xforms[idxXform].rot);
-			fm_vec4_sub(&pose->xforms[idxXform].pos, &firstKey.pos, &pose->xforms[idxXform].pos);
 		}
 	}
 }
@@ -2056,19 +2060,11 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			float animYawDelta = 0.0f;
 			fm_quat_to_axis_angle(&animMotionDelta.rot, &axis, &animYawDelta);
 			
-			animYawDelta *= fm_sign(axis.y);	// the axis flips depending on direction of rotation (to left, to right)
+			animYawDelta *= -fm_sign(axis.y);	// the axis flips depending on direction of rotation (to left, to right)
 			
 			fm_quat rotWS = {};
 			fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, character->animInfo.currentYaw, &rotWS);
 			fm_quat_rot(&rotWS, &animMotionDelta.pos, &animMotionDelta.pos);
-			
-			// motion from animation
-			character->animInfo.rootMotionDeltaYaw = animYawDelta;
-			character->animInfo.currentYaw += animYawDelta;
-			
-			character->animInfo.rootMotionDeltaX = animMotionDelta.pos.x;
-			character->animInfo.rootMotionDeltaY = animMotionDelta.pos.y;
-			character->animInfo.rootMotionDeltaZ = animMotionDelta.pos.z;
 			
 			// motion from logic
 			const fm_vec4 logicMotionDelta = {character->animInfo.desiredMoveX, character->animInfo.desiredMoveY, 0.0f};
@@ -2085,8 +2081,10 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			}
 			
 			const float animToLogicMotionAlpha = 0.0f;
+			const float finalYawDelta = animYawDelta * (1.0f - animToLogicMotionAlpha) + logicYawDelta * animToLogicMotionAlpha;
 			
-			character->animInfo.currentYaw += animYawDelta * (1.0f - animToLogicMotionAlpha) + logicYawDelta * animToLogicMotionAlpha;
+			character->animInfo.rootMotionDeltaYaw = finalYawDelta;
+			character->animInfo.currentYaw += finalYawDelta;
 			
 			fm_vec4 finalMotionDelta = {};
 			fm_vec4_lerp(&logicMotionDelta, &animMotionDelta.pos, animToLogicMotionAlpha, &finalMotionDelta);
@@ -2383,6 +2381,18 @@ const fa_anim_clip_t** fa_action_player_jump_get_anims_func(const void* userData
 
 // -----
 
+
+void fa_action_player_loco_start_begin_func(const fa_action_begin_end_ctx_t* ctx, void* userData)
+{
+	fa_action_player_loco_start_t* data = (fa_action_player_loco_start_t*)userData;
+	data->resetLoco = true;
+}
+
+void fa_action_player_loco_start_end_func(const fa_action_begin_end_ctx_t* ctx, void* userData)
+{
+	
+}
+
 void fa_action_player_loco_start_update(const fa_action_ctx_t* ctx, void* userData)
 {
 	fa_action_player_loco_start_t* data = (fa_action_player_loco_start_t*)userData;
@@ -2394,7 +2404,12 @@ void fa_action_player_loco_start_update(const fa_action_ctx_t* ctx, void* userDa
 	
 	data->isFinished = t > (d - data->finishFromEnd);
 	
-	fa_cmd_anim_sample(ctx->cmdRecorder, t_anim, 0);
+	fa_cmd_anim_sample_with_locomotion(ctx->cmdRecorder, t_anim, 0, data->resetLoco, 0, data->prevLocoPos, data->prevLocoRot);
+	
+	if(data->resetLoco)
+	{
+		data->resetLoco = false;
+	}
 }
 
 const fa_anim_clip_t** fa_action_player_loco_start_get_anims_func(const void* userData, uint32_t* numAnims)
