@@ -927,7 +927,7 @@ fa_cmd_status_t fa_cmd_impl_anim_sample_with_locomotion(fa_cmd_context_t* ctx, c
 	
 	fm_xform currLocoXform = pose.xforms[idxLocoJoint];
 	
-	// todo: remove, this is sanitizing old animation data
+	// todo: remove, this is sanitising old animation data
 	if(currLocoXform.rot.i == 0.0f &&
 	   currLocoXform.rot.j == 0.0f &&
 	   currLocoXform.rot.k == 0.0f &&
@@ -958,6 +958,15 @@ fa_cmd_status_t fa_cmd_impl_anim_sample_with_locomotion(fa_cmd_context_t* ctx, c
 		prevLocoPos.y = data->prevLocoPos[1];
 		prevLocoPos.z = data->prevLocoPos[2];
 		prevLocoPos.w = data->prevLocoPos[3];
+	}
+	
+	// todo: remove
+	if(prevLocoRot.i == 0.0f &&
+	   prevLocoRot.j == 0.0f &&
+	   prevLocoRot.k == 0.0f &&
+	   prevLocoRot.r == 0.0f)
+	{
+		fm_quat_identity(&prevLocoRot);
 	}
 	
 	// apply loops to locomotion (when time goes from duration back to 0)
@@ -2305,87 +2314,19 @@ void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData)
 {
 	fa_action_player_loco_t* data = (fa_action_player_loco_t*)userData;
 	
-	// update player motion
-	fa_character_anim_info_t* animInfo = ctx->animInfo;
-	
 	// loops for motion
 	const float animDuration = data->anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN]->duration;
+	const float animTime = fmodf(ctx->localTime, animDuration);
 	const int32_t loopsSinceBeginning = (int32_t)(ctx->localTime / animDuration);
 	const int32_t loopsThisFrame = loopsSinceBeginning - data->loopsSoFar;
 	data->loopsSoFar = loopsSinceBeginning;
 	
-	const bool doMove = fabs(animInfo->desiredMoveX) > 0.05f || fabs(animInfo->desiredMoveY) > 0.05f;
-	if(doMove)
-	{
-		data->isStopping = false;
-		
-		if(data->blendState == 0.0f)
-		{
-			data->runLocalTime = 0.0f;
-		}
-		else
-		{
-			const float d_0 = data->anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN]->duration;
-			data->runLocalTime = fmodf(data->runLocalTime + ctx->dt, d_0);
-		}
-		
-		if(data->blendState < 1.0f)
-		{
-			data->blendState = fm_clamp(data->blendState + ctx->dt / 0.3f, 0.0f, 1.0f);
-		}
-	}
-	else
-	{
-		if(data->blendState == 1.0f)
-		{
-			data->idleLocalTime = 0.0f;
-			data->isStopping = true;
-		}
-		else
-		{
-			const float d_0 = data->anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN_TO_IDLE_SHARP]->duration;
-			data->idleLocalTime = fm_clamp(data->idleLocalTime + ctx->dt, 0.0f, d_0);
-		}
-		
-		if(data->blendState > 0.0f)
-		{
-			data->blendState = fm_clamp(data->blendState - ctx->dt / 0.3f, 0.0f, 1.0f);
-		}
-	}
+	fa_cmd_anim_sample_with_locomotion(ctx->cmdRecorder, animTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN, data->resetLoco, loopsThisFrame, data->locoPos, data->locoRot);
 	
-	if(0.0f < data->blendState && data->blendState < 1.0f)
+	if(data->resetLoco)
 	{
-		if(!data->isStopping)
-		{
-			fa_cmd_anim_sample(ctx->cmdRecorder, data->idleLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_IDLE);
-		}
-		else
-		{
-			fa_cmd_anim_sample(ctx->cmdRecorder, data->idleLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN_TO_IDLE_SHARP);
-		}
-		
-		fa_cmd_anim_sample_with_locomotion(ctx->cmdRecorder, data->runLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN, data->resetLoco, loopsThisFrame, data->locoPos, data->locoRot);
-		fa_cmd_blend2(ctx->cmdRecorder, fm_curve_uniform_s(data->blendState));
-		
-		if(data->resetLoco)
-		{
-			data->resetLoco = false;
-			data->loopsSoFar = 0;
-		}
-	}
-	else if(data->blendState == 1.0f)
-	{
-		fa_cmd_anim_sample_with_locomotion(ctx->cmdRecorder, data->runLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN, data->resetLoco, loopsThisFrame, data->locoPos, data->locoRot);
-		
-		if(data->resetLoco)
-		{
-			data->resetLoco = false;
-			data->loopsSoFar = 0;
-		}
-	}
-	else
-	{
-		fa_cmd_anim_sample(ctx->cmdRecorder, data->idleLocalTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN_TO_IDLE_SHARP);
+		data->resetLoco = false;
+		data->loopsSoFar = 0;
 	}
 }
 
