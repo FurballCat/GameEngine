@@ -265,9 +265,7 @@
 ;; script state machine
 (define (define-state-script script-name . states-data)
   (let ((p (open-output-bytes)))
-     (for ([i states-data])
-       (write-bytes (code-to-bytes (fs-segment seg-id-state-script script-name i)) p)
-     )
+     (write-bytes (code-to-bytes (fs-segment seg-id-state-script script-name states-data)) p)
      (close-output-port p)
      (bytes-to-file (string-append (symbol->string script-name) ".fs") (get-output-bytes p))
      (printf "compiled state-script ~a.fs\n" script-name)
@@ -331,6 +329,9 @@
 (define-c-function wait-seconds (num-seconds float))
 (define-c-function get-variable (object-name symbol) (var-name symbol))
 (define-c-function go (state-name symbol))
+(define-c-function go-when (state-name symbol) (condition int32))
+(define-c-function cmp-gt (value-a int32) (value-b int32))
+(define-c-function cmp-eq (value-a int32) (value-b int32))
 
 ;; enums
 (defenum animate-arg
@@ -369,8 +370,9 @@
 (define-state-script 'zelda
   (state 'idle
          (on (start)
-             [animate 'self 'zelda-idle-stand-01
-                      (animate-arg fade-in-sec) 0.3]
+             [wait-animate 'self 'zelda-run-to-idle-sharp
+                      (animate-arg fade-in-sec) 0.1]
+             [animate 'self 'zelda-idle-stand-01]
              [animate 'self 'zelda-face-idle
                       (animate-arg fade-in-sec) 0.3
                       (animate-arg layer-name) 'face]
@@ -378,10 +380,19 @@
                       (animate-arg fade-in-sec) 0.3
                       (animate-arg layer-name) 'hands]
          )
+         (on (update)
+             [go-when 'run [cmp-eq [get-variable 'self 'is-running] 1]]
+         )
   )
   (state 'run
          (on (start)
-             [animate 'self 'zelda-loco-run-relaxed]
+             [wait-animate 'self 'zelda-loco-idle-to-run-0
+                      (animate-arg fade-in-sec) 0.3]
+             [animate 'self 'zelda-loco-run-relaxed
+                      (animate-arg fade-in-sec) 0.3]
+         )
+         (on (update)
+             [go-when 'idle [cmp-eq [get-variable 'self 'is-running] 0]]
          )
   )
 )

@@ -117,6 +117,9 @@ fs_variant_t fs_native_equip_item(fs_script_ctx_t* ctx, uint32_t numArgs, const 
 fs_variant_t fs_native_wait_seconds(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 fs_variant_t fs_native_get_variable(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 fs_variant_t fs_native_go(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
+fs_variant_t fs_native_go_when(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
+fs_variant_t fs_native_cmp_gt(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
+fs_variant_t fs_native_cmp_eq(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 
 typedef fs_variant_t (*fs_script_navitve_func_t)(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 
@@ -136,6 +139,9 @@ fs_native_func_entry_t g_nativeFuncLookUp[] = {
 	{ SID("wait-seconds"), fs_native_wait_seconds, 1 },
 	{ SID("get-variable"), fs_native_get_variable, 2 },
 	{ SID("go"), fs_native_go, 1 },
+	{ SID("go-when"), fs_native_go_when, 2 },
+	{ SID("cmp-gt"), fs_native_cmp_gt, 2 },
+	{ SID("cmp-eq"), fs_native_cmp_eq, 2 },
 	{ g_scriptNullOpCode, NULL, 0 }
 };
 
@@ -295,7 +301,8 @@ fc_string_hash_t fs_skip_to_next_segment(fs_script_execution_ctx_t* ctx, fs_seg_
 		FUR_ASSERT(bytesRead);
 		
 		// is it the segment we are looking for?
-		if(header.segmentId == segmentType)
+		fs_seg_id_t thisSegmentType = (fs_seg_id_t)header.segmentId;
+		if(thisSegmentType == segmentType)
 		{
 			found = true;
 			return header.name;
@@ -372,6 +379,17 @@ void fs_execute_script(const fc_binary_buffer_t* scriptBuffer, fs_script_ctx_t* 
 	fs_execute_script_lamba(&ctx);
 }
 
+typedef struct fs_script_lambda_t
+{
+	float waitSeconds;
+	uint32_t numSkipOps;
+	bool isActive;
+	fc_string_hash_t lambdaName;	// or state name
+	fc_string_hash_t eventName;
+	fg_game_object_t* selfGameObject;
+	const fc_binary_buffer_t* scriptBlob;
+} fs_script_lambda_t;
+
 // ******************* //
 
 struct FurMainAppDesc
@@ -424,6 +442,8 @@ typedef struct fg_game_object_t
 	fg_animate_action_slots_t animateActionSlots;
 	
 	fa_character_t* animCharacter;
+	
+	fm_vec4 logicMove;
 	
 	fc_string_hash_t playerState;
 	bool playerWeaponEquipped;
@@ -514,6 +534,8 @@ struct FurGameEngine
 	// scripts temp
 	fc_binary_buffer_t zeldaStateScript;
 	fg_game_object_t zeldaGameObject;
+	
+	fs_script_lambda_t scriptLambdas[128];
 	
 	// test dangle
 	fa_dangle dangle;
@@ -1324,7 +1346,7 @@ fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_
 		}
 	}
 	
-	if(animArgs.layer == SID("full-body"))
+	if(animArgs.layerName == SID("full-body") || animArgs.layerName == 0)
 	{
 		animateSlot->useLoco = true;
 	}
@@ -1403,6 +1425,10 @@ fs_variant_t fs_native_get_variable(fs_script_ctx_t* ctx, uint32_t numArgs, cons
 	{
 		result.asStringHash = SID("zelda-funny-pose-4");
 	}
+	else if(varName == SID("is-running"))
+	{
+		result.asBool = fm_vec4_mag2(&gameObj->logicMove) > 0.0f;
+	}
 	
 	return result;
 }
@@ -1415,6 +1441,42 @@ fs_variant_t fs_native_go(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_varia
 	ctx->nextState = goToState;
 	
 	fs_variant_t result = {};
+	return result;
+}
+
+fs_variant_t fs_native_go_when(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+{
+	FUR_ASSERT(numArgs == 2);
+	const fc_string_hash_t goToState = args[0].asStringHash;
+	const bool condition = args[1].asBool;
+	
+	if(condition)
+	{
+		ctx->nextState = goToState;
+	}
+	
+	return args[1];
+}
+
+fs_variant_t fs_native_cmp_gt(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+{
+	FUR_ASSERT(numArgs == 2);
+	const int32_t a = args[0].asInt32;
+	const int32_t b = args[1].asInt32;
+	
+	fs_variant_t result;
+	result.asBool = a > b;
+	return result;
+}
+
+fs_variant_t fs_native_cmp_eq(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+{
+	FUR_ASSERT(numArgs == 2);
+	const int32_t a = args[0].asInt32;
+	const int32_t b = args[1].asInt32;
+	
+	fs_variant_t result;
+	result.asBool = (a == b);
 	return result;
 }
 
@@ -1717,13 +1779,6 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 	if(pEngine->inputTriangleActionPressed)
 		actionRandomizer2 += 1;
 	
-	static fc_string_hash_t prevState = SID("idle");
-	
-	static float waitSeconds = 0.0f;
-	static uint32_t numSkipOps = 0;
-	static fc_string_hash_t latentLambdaName = 0;
-	static fc_string_hash_t latentEventName = 0;
-	
 	// inital player state
 	static bool isInit = true;
 	if(isInit)
@@ -1732,89 +1787,76 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		
 		pEngine->zeldaGameObject.playerState = SID("idle");
 		
+		// find free lambda slot
+		int32_t lambdaSlot = 512;
+		for(int32_t i=0; i<128; ++i)
+		{
+			if(pEngine->scriptLambdas[i].isActive == false)
+			{
+				lambdaSlot = i;
+				break;
+			}
+		}
+		
+		fs_script_lambda_t* lambda = &pEngine->scriptLambdas[lambdaSlot];
+		lambda->isActive = true;
+		lambda->numSkipOps = 0;
+		lambda->waitSeconds = 0.0f;
+		lambda->lambdaName = pEngine->zeldaGameObject.playerState;
+		lambda->eventName = SID("start");
+		lambda->selfGameObject = &pEngine->zeldaGameObject;
+		lambda->scriptBlob = &pEngine->zeldaStateScript;
+	}
+	
+	for(uint32_t i=0; i<128; ++i)
+	{
+		fs_script_lambda_t* lambda = &pEngine->scriptLambdas[i];
+		
+		if(lambda->isActive == false)
+			continue;
+		
+		if(lambda->waitSeconds > 0.0f)
+		{
+			lambda->waitSeconds = MAX(lambda->waitSeconds - dt, 0.0f);
+			
+			if(lambda->waitSeconds > 0.0f)
+			{
+				continue;
+			}
+		}
+		
 		fs_script_ctx_t scriptCtx = {};
 		scriptCtx.allAnimations = &pEngine->gameAnimationsRegister;
 		scriptCtx.gameObjectRegister = &pEngine->gameObjectRegister;
-		scriptCtx.self = &pEngine->zeldaGameObject;
-		scriptCtx.state = SID("idle");
-		scriptCtx.stateEventToCall = SID("start");
-		fs_execute_script(&pEngine->zeldaStateScript, &scriptCtx);
+		scriptCtx.self = lambda->selfGameObject;
+		scriptCtx.state = lambda->lambdaName;
+		scriptCtx.stateEventToCall = lambda->eventName;
+		scriptCtx.numSkipOps = lambda->numSkipOps;
+		fs_execute_script(lambda->scriptBlob, &scriptCtx);
 		
 		if(scriptCtx.waitSeconds > 0.0f)
 		{
-			waitSeconds = scriptCtx.waitSeconds;
-			numSkipOps = scriptCtx.numSkipOps;
-			latentLambdaName = scriptCtx.state;
-			latentEventName = scriptCtx.stateEventToCall;
+			lambda->waitSeconds = scriptCtx.waitSeconds;
+			lambda->numSkipOps = scriptCtx.numSkipOps;
 		}
-		
-		if(scriptCtx.nextState != 0)
+		else if(scriptCtx.nextState != 0)
 		{
-			pEngine->zeldaGameObject.playerState = scriptCtx.nextState;
+			lambda->selfGameObject->playerState = scriptCtx.nextState;
+			lambda->lambdaName = scriptCtx.nextState;
+			lambda->eventName = SID("start");
+			lambda->numSkipOps = 0;
+			lambda->waitSeconds = 0.0f;
 		}
-	}
-	
-	if(waitSeconds > 0.0f)
-	{
-		waitSeconds -= dt;
-		
-		if(waitSeconds <= 0.0f)
+		else if(lambda->eventName == SID("start"))
 		{
-			waitSeconds = 0.0f;
-			
-			fs_script_ctx_t scriptCtx = {};
-			scriptCtx.allAnimations = &pEngine->gameAnimationsRegister;
-			scriptCtx.gameObjectRegister = &pEngine->gameObjectRegister;
-			scriptCtx.self = &pEngine->zeldaGameObject;
-			scriptCtx.numSkipOps = numSkipOps;
-			scriptCtx.state = latentLambdaName;
-			scriptCtx.stateEventToCall = latentEventName;
-			fs_execute_script(&pEngine->zeldaStateScript, &scriptCtx);
-			
-			if(scriptCtx.waitSeconds > 0.0f)
-			{
-				waitSeconds = scriptCtx.waitSeconds;
-				numSkipOps = scriptCtx.numSkipOps;
-				latentLambdaName = scriptCtx.state;
-				latentEventName = scriptCtx.stateEventToCall;
-			}
-			
-			if(scriptCtx.nextState != 0)
-			{
-				pEngine->zeldaGameObject.playerState = scriptCtx.nextState;
-			}
+			lambda->eventName = SID("update");
+			lambda->numSkipOps = 0;
+			lambda->waitSeconds = 0.0f;
 		}
 	}
 	
 	if(pEngine->zeldaGameObject.playerState == SID("idle"))
 	{
-		// on enter
-		if(prevState != pEngine->zeldaGameObject.playerState)
-		{
-			prevState = pEngine->zeldaGameObject.playerState;
-			
-			fs_script_ctx_t scriptCtx = {};
-			scriptCtx.allAnimations = &pEngine->gameAnimationsRegister;
-			scriptCtx.gameObjectRegister = &pEngine->gameObjectRegister;
-			scriptCtx.self = &pEngine->zeldaGameObject;
-			scriptCtx.state = SID("idle");
-			scriptCtx.stateEventToCall = SID("start");
-			fs_execute_script(&pEngine->zeldaStateScript, &scriptCtx);
-			
-			if(scriptCtx.waitSeconds > 0.0f)
-			{
-				waitSeconds = scriptCtx.waitSeconds;
-				numSkipOps = scriptCtx.numSkipOps;
-				latentLambdaName = scriptCtx.state;
-				latentEventName = scriptCtx.stateEventToCall;
-			}
-			
-			if(scriptCtx.nextState != 0)
-			{
-				pEngine->zeldaGameObject.playerState = scriptCtx.nextState;
-			}
-		}
-		
 		// on update - upper-body layer in this case
 		if(pEngine->inputTriangleActionPressed || pEngine->zeldaGameObject.equipItemNow)
 		{
@@ -1844,20 +1886,6 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 				pEngine->zeldaGameObject.playerWeaponEquipped = true;
 			}
 		}
-		
-		// transitions
-		const float moveX = pEngine->actionMoveX;
-		const float moveY = pEngine->actionMoveY;
-		
-		if(fabsf(moveX) > 0.2f || fabsf(moveY) > 0.2f)
-		{
-			pEngine->zeldaGameObject.playerState = SID("start-loco");
-		}
-		
-		if(pEngine->inActionPressed)
-		{
-			pEngine->zeldaGameObject.playerState = SID("jump");
-		}
 	}
 	
 	if(pEngine->inputCircleActionPressed)
@@ -1884,148 +1912,6 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionWindProtect, &args);
 			
 			pEngine->zeldaGameObject.playerWindProtecting = true;
-		}
-	}
-	
-	if(pEngine->zeldaGameObject.playerState == SID("start-loco"))
-	{
-		// on enter
-		if(prevState != pEngine->zeldaGameObject.playerState)
-		{
-			fa_action_args_t args = {};
-			args.fadeInSec = 0.2f;
-			
-			pEngine->actionLocoStart.isFinished = false;
-			
-			fa_action_schedule_data_t data = {};
-			data.userData = &pEngine->actionLocoStart;
-			data.fnGetAnims = fa_action_player_loco_start_get_anims_func;
-			data.fnUpdate = fa_action_player_loco_start_update;
-			data.fnBegin = fa_action_player_loco_start_begin_func;
-			data.fnEnd = fa_action_player_loco_start_end_func;
-			
-			fa_character_schedule_action(&pEngine->animCharacterZelda, &data, &args);
-			
-			prevState = pEngine->zeldaGameObject.playerState;
-		}
-		
-		// on update
-		if(pEngine->actionLocoStart.isFinished)
-		{
-			pEngine->zeldaGameObject.playerState = SID("run");
-		}
-		
-		// transitions
-		const float moveX = pEngine->actionMoveX;
-		const float moveY = pEngine->actionMoveY;
-		if(fabsf(moveX) < 0.2f && fabsf(moveY) < 0.2f)
-		{
-			pEngine->zeldaGameObject.playerState = SID("stop-loco");
-		}
-		
-		if(pEngine->inActionPressed)
-		{
-			pEngine->zeldaGameObject.playerState = SID("jump");
-		}
-	}
-	
-	if(pEngine->zeldaGameObject.playerState == SID("run"))
-	{
-		// on enter
-		if(prevState != pEngine->zeldaGameObject.playerState)
-		{
-			fa_action_args_t args = {};
-			args.fadeInSec = 0.5f;
-			
-			fa_action_schedule_data_t data = {};
-			data.userData = &pEngine->actionPlayerLoco;
-			data.fnGetAnims = fa_action_player_loco_get_anims_func;
-			data.fnUpdate = fa_action_player_loco_update;
-			data.fnBegin = fa_action_player_loco_begin_func;
-			data.fnEnd = fa_action_player_loco_end_func;
-			
-			fa_character_schedule_action(&pEngine->animCharacterZelda, &data, &args);
-			
-			prevState = pEngine->zeldaGameObject.playerState;
-		}
-		
-		// on update
-		const float moveX = pEngine->actionMoveX;
-		const float moveY = pEngine->actionMoveY;
-		
-		// transitions
-		if(fabsf(moveX) < 0.2f && fabsf(moveY) < 0.2f)
-		{
-			pEngine->zeldaGameObject.playerState = SID("stop-loco");
-		}
-		
-		if(pEngine->inActionPressed)
-		{
-			pEngine->zeldaGameObject.playerState = SID("jump");
-		}
-	}
-	
-	if(pEngine->zeldaGameObject.playerState == SID("stop-loco"))
-	{
-		// on enter
-		if(prevState != pEngine->zeldaGameObject.playerState)
-		{
-			fa_action_args_t args = {};
-			args.fadeInSec = 0.5f;
-			
-			pEngine->actionLocoStop.isFinished = false;
-			
-			fa_action_schedule_data_t data = {};
-			data.userData = &pEngine->actionLocoStop;
-			data.fnGetAnims = fa_action_player_loco_start_get_anims_func;
-			data.fnUpdate = fa_action_player_loco_start_update;
-			data.fnBegin = fa_action_player_loco_start_begin_func;
-			data.fnEnd = fa_action_player_loco_start_end_func;
-			
-			fa_character_schedule_action(&pEngine->animCharacterZelda, &data, &args);
-			
-			prevState = pEngine->zeldaGameObject.playerState;
-		}
-		
-		// transitions
-		if(pEngine->actionLocoStop.isFinished)
-		{
-			pEngine->zeldaGameObject.playerState = SID("idle");
-		}
-	}
-	
-	if(pEngine->zeldaGameObject.playerState == SID("jump"))
-	{
-		// on enter
-		if(prevState != pEngine->zeldaGameObject.playerState)
-		{
-			pEngine->actionJump.progress = 0.0f;
-			pEngine->actionJump.jumpType = 0;
-			
-			fa_action_args_t args = {};
-			args.fadeInSec = 0.3f;
-			
-			fa_action_schedule_data_t data = {};
-			data.userData = &pEngine->actionJump;
-			data.fnGetAnims = fa_action_player_jump_get_anims_func;
-			data.fnUpdate = fa_action_player_jump_update;
-			
-			fa_character_schedule_action(&pEngine->animCharacterZelda, &data, &args);
-			
-			prevState = pEngine->zeldaGameObject.playerState;
-		}
-		
-		// transitions
-		if(pEngine->actionJump.progress >= 0.8f)
-		{
-			if(pEngine->actionJump.jumpType == 1)
-			{
-				pEngine->zeldaGameObject.playerState = SID("idle");
-			}
-			else
-			{
-				pEngine->zeldaGameObject.playerState = SID("run");
-			}
 		}
 	}
 }
@@ -2411,6 +2297,11 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		pEngine->animCharacterZelda.animInfo.animToLogicMotionTranslationAlpha = 0.0f;
 		pEngine->animCharacterZelda.animInfo.desiredMoveX = playerMove.x * dt;
 		pEngine->animCharacterZelda.animInfo.desiredMoveY = playerMove.y * dt;
+		
+		pEngine->zeldaGameObject.logicMove.x = playerMove.x * dt;
+		pEngine->zeldaGameObject.logicMove.y = playerMove.y * dt;
+		pEngine->zeldaGameObject.logicMove.z = 0.0f;
+		pEngine->zeldaGameObject.logicMove.w = 0.0f;
 		
 		pEngine->playerMove = playerMove;
 		
