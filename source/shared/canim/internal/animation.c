@@ -2080,14 +2080,16 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 				logicYawDelta = logicCurrentYaw - character->animInfo.currentYaw;
 			}
 			
-			const float animToLogicMotionAlpha = 0.0f;
-			const float finalYawDelta = animYawDelta * (1.0f - animToLogicMotionAlpha) + logicYawDelta * animToLogicMotionAlpha;
+			const float animToLogicMotionDirectionAlpha = character->animInfo.animToLogicMotionRotationAlpha;
+			const float finalYawDelta = animYawDelta * (1.0f - animToLogicMotionDirectionAlpha) + logicYawDelta * animToLogicMotionDirectionAlpha;
 			
 			character->animInfo.rootMotionDeltaYaw = finalYawDelta;
 			character->animInfo.currentYaw += finalYawDelta;
 			
+			const float animToLogicMotionSpeedAlpha = character->animInfo.animToLogicMotionTranslationAlpha;
+			
 			fm_vec4 finalMotionDelta = {};
-			fm_vec4_lerp(&logicMotionDelta, &animMotionDelta.pos, animToLogicMotionAlpha, &finalMotionDelta);
+			fm_vec4_lerp(&logicMotionDelta, &animMotionDelta.pos, animToLogicMotionSpeedAlpha, &finalMotionDelta);
 			
 			character->animInfo.rootMotionDeltaX = finalMotionDelta.x;
 			character->animInfo.rootMotionDeltaY = finalMotionDelta.y;

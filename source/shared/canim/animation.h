@@ -318,6 +318,8 @@ typedef struct fa_character_anim_info_t
 	// desired movement
 	float desiredMoveX;
 	float desiredMoveY;
+	float animToLogicMotionRotationAlpha;	// 0.0f anim, 1.0f logic
+	float animToLogicMotionTranslationAlpha;	// 0.0f anim, 1.0f logic
 	
 	// current state
 	float currentYaw;

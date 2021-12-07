@@ -2407,6 +2407,8 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		fm_vec4 playerMove;
 		fm_vec4_add(&playerMoveForward, &playerMoveLeft, &playerMove);
 		
+		pEngine->animCharacterZelda.animInfo.animToLogicMotionRotationAlpha = 1.0f;
+		pEngine->animCharacterZelda.animInfo.animToLogicMotionTranslationAlpha = 0.0f;
 		pEngine->animCharacterZelda.animInfo.desiredMoveX = playerMove.x * dt;
 		pEngine->animCharacterZelda.animInfo.desiredMoveY = playerMove.y * dt;
 		
