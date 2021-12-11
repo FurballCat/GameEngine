@@ -1357,6 +1357,8 @@ fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_
 	
 	fa_character_schedule_action_simple(gameObj->animCharacter, animateSlot, &animArgs);
 	
+	ctx->waitSeconds = MAX(ctx->waitSeconds - animArgs.fadeOutSec, 0.0f);
+	
 	fs_variant_t result = {};
 	return result;
 };

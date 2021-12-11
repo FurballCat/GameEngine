@@ -371,8 +371,10 @@
   (state 'idle
          (on (start)
              [wait-animate 'self 'zelda-run-to-idle-sharp
-                      (animate-arg fade-in-sec) 0.1]
-             [animate 'self 'zelda-idle-stand-01]
+                      (animate-arg fade-in-sec) 0.1
+                      (animate-arg fade-out-sec) 0.3]
+             [animate 'self 'zelda-idle-stand-01
+                      (animate-arg fade-in-sec) 0.3]
              [animate 'self 'zelda-face-idle
                       (animate-arg fade-in-sec) 0.3
                       (animate-arg layer-name) 'face]
@@ -387,9 +389,10 @@
   (state 'run
          (on (start)
              [wait-animate 'self 'zelda-loco-idle-to-run-0
-                      (animate-arg fade-in-sec) 0.3]
+                      (animate-arg fade-in-sec) 0.3
+                      (animate-arg fade-out-sec) 0.2]
              [animate 'self 'zelda-loco-run-relaxed
-                      (animate-arg fade-in-sec) 0.3]
+                      (animate-arg fade-in-sec) 0.2]
          )
          (on (update)
              [go-when 'idle [cmp-eq [get-variable 'self 'is-running] 0]]
