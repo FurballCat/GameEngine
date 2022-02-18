@@ -359,6 +359,8 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 			}
 		}
 		
+		scene->destroy();
+		
 		return FI_RESULT_OK;
 	}
 	
@@ -746,6 +748,8 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 			
 			*ppAnimClip = animClip;
 		}
+		
+		scene->destroy();
 	}
 	
 	if(ctx->extractRootMotion)
@@ -1001,6 +1005,8 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 		}
 		
 		*ppMesh = mesh;
+		
+		scene->destroy();
 		
 		return FI_RESULT_OK;
 	}
