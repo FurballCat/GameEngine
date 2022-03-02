@@ -5,4 +5,6 @@
 #include "api.h"
 #include "enums.h"
 #include "rig.h"
+#include "pose.h"
+#include "clip.h"
 #include "animation.h"
