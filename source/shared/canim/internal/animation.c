@@ -1529,6 +1529,50 @@ void fa_action_safely_end(fa_action_begin_end_ctx_t* ctx, fa_action_t* action)
 	}
 }
 
+void fa_character_init(fa_character_t* character, const fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	character->rig = rig;
+	
+	const uint16_t numBones = rig->numBones;
+	
+	character->poseMS = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	character->layerFullBody.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	character->layerFullBody.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	character->layerFullBody.poseCache.tempPose.numXforms = numBones;
+	
+	character->layerPartial.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	character->layerPartial.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	character->layerPartial.poseCache.tempPose.numXforms = numBones;
+	character->layerPartial.maskID = FA_MASK_UPPER_BODY;
+	
+	character->layerFace.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	character->layerFace.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	character->layerFace.poseCache.tempPose.numXforms = numBones;
+	character->layerFace.maskID = FA_MASK_FACE;
+	
+	character->layerHands.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	character->layerHands.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	character->layerHands.poseCache.tempPose.numXforms = numBones;
+	character->layerHands.maskID = FA_MASK_HANDS;
+}
+
+void fa_character_release(fa_character_t* character, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	FUR_FREE(character->poseMS, pAllocCallbacks);
+	
+	FUR_FREE(character->layerFullBody.poseCache.tempPose.xforms, pAllocCallbacks);
+	FUR_FREE(character->layerFullBody.poseCache.tempPose.weightsXforms, pAllocCallbacks);
+	
+	FUR_FREE(character->layerPartial.poseCache.tempPose.xforms, pAllocCallbacks);
+	FUR_FREE(character->layerPartial.poseCache.tempPose.weightsXforms, pAllocCallbacks);
+	
+	FUR_FREE(character->layerFace.poseCache.tempPose.xforms, pAllocCallbacks);
+	FUR_FREE(character->layerFace.poseCache.tempPose.weightsXforms, pAllocCallbacks);
+	
+	FUR_FREE(character->layerHands.poseCache.tempPose.xforms, pAllocCallbacks);
+	FUR_FREE(character->layerHands.poseCache.tempPose.weightsXforms, pAllocCallbacks);
+}
+
 void fa_action_queue_resolve_pre_animate(fa_character_t* character, fa_action_queue_t* queue)
 {
 	fa_action_begin_end_ctx_t ctx = {};

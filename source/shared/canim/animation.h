@@ -455,6 +455,10 @@ typedef struct fa_character_t
 	fa_character_anim_info_t animInfo;
 } fa_character_t;
 
+// allocate and initialise necessary elements of character
+void fa_character_init(fa_character_t* character, const fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks);
+void fa_character_release(fa_character_t* character, fc_alloc_callbacks_t* pAllocCallbacks);
+
 void fa_action_queue_resolve_pre_animate(fa_character_t* character, fa_action_queue_t* queue);
 void fa_action_queue_resolve_post_animate(fa_character_t* character, fa_action_queue_t* queue);
 

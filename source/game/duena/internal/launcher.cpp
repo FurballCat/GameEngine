@@ -1000,26 +1000,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		pEngine->gameObjectRegister.numObjects = 0;
 		
 		// create Zelda
-		pEngine->animCharacterZelda.rig = pEngine->pRig;
-		pEngine->animCharacterZelda.poseMS = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		pEngine->animCharacterZelda.layerFullBody.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		pEngine->animCharacterZelda.layerFullBody.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		pEngine->animCharacterZelda.layerFullBody.poseCache.tempPose.numXforms = pEngine->animCharacterZelda.rig->numBones;
-		
-		pEngine->animCharacterZelda.layerPartial.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		pEngine->animCharacterZelda.layerPartial.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		pEngine->animCharacterZelda.layerPartial.poseCache.tempPose.numXforms = pEngine->animCharacterZelda.rig->numBones;
-		pEngine->animCharacterZelda.layerPartial.maskID = FA_MASK_UPPER_BODY;
-		
-		pEngine->animCharacterZelda.layerFace.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		pEngine->animCharacterZelda.layerFace.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		pEngine->animCharacterZelda.layerFace.poseCache.tempPose.numXforms = pEngine->animCharacterZelda.rig->numBones;
-		pEngine->animCharacterZelda.layerFace.maskID = FA_MASK_FACE;
-		
-		pEngine->animCharacterZelda.layerHands.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		pEngine->animCharacterZelda.layerHands.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->animCharacterZelda.rig->numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		pEngine->animCharacterZelda.layerHands.poseCache.tempPose.numXforms = pEngine->animCharacterZelda.rig->numBones;
-		pEngine->animCharacterZelda.layerHands.maskID = FA_MASK_HANDS;
+		fa_character_init(&pEngine->animCharacterZelda, pEngine->pRig, pAllocCallbacks);
 		
 		pEngine->actionIdle.animation = pEngine->pAnimClipIdleStand;
 		pEngine->actionIdle.forceLoop = true;
@@ -2416,19 +2397,7 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	fa_dangle_release(&pEngine->zeldaCapeC, pAllocCallbacks);
 	fa_dangle_release(&pEngine->zeldaCapeR, pAllocCallbacks);
 	
-	FUR_FREE(pEngine->animCharacterZelda.poseMS, pAllocCallbacks);
-	
-	FUR_FREE(pEngine->animCharacterZelda.layerFullBody.poseCache.tempPose.xforms, pAllocCallbacks);
-	FUR_FREE(pEngine->animCharacterZelda.layerFullBody.poseCache.tempPose.weightsXforms, pAllocCallbacks);
-	
-	FUR_FREE(pEngine->animCharacterZelda.layerPartial.poseCache.tempPose.xforms, pAllocCallbacks);
-	FUR_FREE(pEngine->animCharacterZelda.layerPartial.poseCache.tempPose.weightsXforms, pAllocCallbacks);
-	
-	FUR_FREE(pEngine->animCharacterZelda.layerFace.poseCache.tempPose.xforms, pAllocCallbacks);
-	FUR_FREE(pEngine->animCharacterZelda.layerFace.poseCache.tempPose.weightsXforms, pAllocCallbacks);
-	
-	FUR_FREE(pEngine->animCharacterZelda.layerHands.poseCache.tempPose.xforms, pAllocCallbacks);
-	FUR_FREE(pEngine->animCharacterZelda.layerHands.poseCache.tempPose.weightsXforms, pAllocCallbacks);
+	fa_character_release(&pEngine->animCharacterZelda, pAllocCallbacks);
 	
 	FUR_FREE(pEngine->gameObjectRegister.objects, pAllocCallbacks);
 	FUR_FREE(pEngine->gameObjectRegister.ids, pAllocCallbacks);
