@@ -1,6 +1,6 @@
 /* Copyright (c) 2016-2022 Furball Cat */
 
-#include "clip.h"
+#include "animClip.h"
 #include "pose.h"
 #include "ccore/public.h"
 #include "cmath/public.h"

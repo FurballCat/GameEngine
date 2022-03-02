@@ -6,6 +6,7 @@
 #include "enums.h"
 #include "rig.h"
 #include "pose.h"
-#include "clip.h"
+#include "animClip.h"
 #include "poseStack.h"
+#include "animCommands.h"
 #include "animation.h"
