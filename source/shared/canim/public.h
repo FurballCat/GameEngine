@@ -7,4 +7,5 @@
 #include "rig.h"
 #include "pose.h"
 #include "clip.h"
+#include "poseStack.h"
 #include "animation.h"
