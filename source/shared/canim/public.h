@@ -10,3 +10,4 @@
 #include "poseStack.h"
 #include "animCommands.h"
 #include "animation.h"
+#include "pbd.h"
