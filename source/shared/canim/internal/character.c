@@ -1,6 +1,6 @@
-/* Copyright (c) 2016-2020 Furball Cat */
+/* Copyright (c) 2016-2022 Furball Cat */
 
-#include "animation.h"
+#include "character.h"
 #include "rig.h"
 #include "animClip.h"
 #include "poseStack.h"

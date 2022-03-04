@@ -9,5 +9,5 @@
 #include "animClip.h"
 #include "poseStack.h"
 #include "animCommands.h"
-#include "animation.h"
+#include "character.h"
 #include "pbd.h"
