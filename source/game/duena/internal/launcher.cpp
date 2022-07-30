@@ -498,7 +498,7 @@ struct FurGameEngine
 	fm_vec4 playerMove;
 	
 	// camera
-	fg_camera_t* camera;
+	fg_camera_system_t* cameraSystem;
 	
 	// gameplay animation states
 	fa_character_t animCharacterZelda;
@@ -656,7 +656,16 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	}
 	
 	// init camera
-	fg_camera_create(&pEngine->camera, pAllocCallbacks);
+	pEngine->cameraSystem = fg_camera_system_create(pAllocCallbacks);
+	
+	// default camera
+	{
+		fg_camera_params_follow_t params = {};
+		params.height = 1.2f;
+		params.zoom = 1.5f;
+		params.poleLength = 1.5f;
+		fg_camera_system_enable_camera_follow(pEngine->cameraSystem, &params);
+	}
 	
 	// init scratchpad buffer
 	pEngine->scratchpadBufferSize = 256 * 1024;
@@ -2253,13 +2262,13 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		
 		// camera
 		{
-			fg_camera_update_orbit_ctx cameraCtx = {};
+			fg_camera_system_update_ctx cameraCtx = {};
 			cameraCtx.dt = dt;
 			cameraCtx.rotationYaw = pEngine->actionRotationLeftX;
 			cameraCtx.rotationPitch = pEngine->actionRotationLeftY;
 			cameraCtx.zoom = pEngine->actionZoomOut - pEngine->actionZoomIn;
 			
-			fg_camera_update_orbit(pEngine->camera, &cameraCtx);
+			fg_camera_system_update(pEngine->cameraSystem, &cameraCtx);
 		}
 		
 		// player movement
@@ -2267,7 +2276,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		
 		fm_vec4 dirForward = {};
 		fm_vec4 dirLeft = {};
-		fg_camera_get_directions(pEngine->camera, &dirForward, &dirLeft);
+		fg_camera_get_directions(pEngine->cameraSystem, &dirForward, &dirLeft);
 		
 		fm_vec4 playerMoveForward;
 		fm_vec4_mulf(&dirForward, maxSpeed * pEngine->actionMoveY, &playerMoveForward);
@@ -2289,10 +2298,10 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		pEngine->playerMove = playerMove;
 		
 		// adjust camera by player position
-		fg_camera_adjust_by_player_movement(pEngine->camera, &zeldaMat);
+		fg_camera_adjust_by_player_movement(pEngine->cameraSystem, &zeldaMat);
 		
 		fm_mat4 cameraMatrix;
-		fg_camera_view_matrix(pEngine->camera, &cameraMatrix);
+		fg_camera_view_matrix(pEngine->cameraSystem, &cameraMatrix);
 		
 		if(!pEngine->zeldaGameObject.playerWeaponEquipped)
 		{
@@ -2302,7 +2311,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		}
 		
 		// acquire this frame's PVS (Potentially Visible Set) to fill it with data
-		fr_pvs_t* framePVS = fr_acquire_free_pvs(pEngine->pRenderer, &cameraMatrix);
+		fr_pvs_t* framePVS = fr_acquire_free_pvs(pEngine->pRenderer, &cameraMatrix, fg_camera_get_fov(pEngine->cameraSystem));
 		
 		fr_pvs_add(framePVS, pEngine->swordMesh, &slotMS);
 		
@@ -2408,7 +2417,7 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	
 	fp_physics_scene_release(pEngine->pPhysics, pEngine->pPhysicsScene, pAllocCallbacks);
 	
-	fg_camera_release(pEngine->camera, pAllocCallbacks);
+	fg_camera_system_release(pEngine->cameraSystem, pAllocCallbacks);
 	
 	fp_release_physics(pEngine->pPhysics, pAllocCallbacks);
 	fr_release_renderer(pEngine->pRenderer, pAllocCallbacks);

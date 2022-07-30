@@ -2868,7 +2868,7 @@ void fr_dbg_draw_mat4(const fm_mat4_t* m)
 	fc_dbg_line(pos, axisZ, blue);
 }
 
-fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera)
+fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera, float fov)
 {
 	uint32_t imageIndex;
 	vkAcquireNextImageKHR(pRenderer->device, pRenderer->swapChain, (uint64_t)-1,
@@ -2882,7 +2882,7 @@ fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera)
 	
 	fm_mat4 tempView = pvs->camera;
 	
-	fm_mat4_projection_fov(45.0f, aspectRatio, 0.1f, 1000.0f, &pvs->projection);
+	fm_mat4_projection_fov(fov, aspectRatio, 0.1f, 1000.0f, &pvs->projection);
 	
 	fm_mat4_t rot_x_vulkan_correction;
 	fm_mat4_rot_x(FM_DEG_TO_RAD(-90), &rot_x_vulkan_correction);

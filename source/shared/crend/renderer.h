@@ -90,7 +90,7 @@ CREND_API void fr_release_proxy(fr_renderer_t* pRenderer, fr_proxy_t* proxy, fc_
 typedef struct fr_pvs_t fr_pvs_t;
 
 // at frame update, acquire PVS and relink proxies to it, keep it with frame data
-CREND_API fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera);
+CREND_API fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera, float fov);
 
 // add renderable thing to given potentially visible set
 CREND_API void fr_pvs_add(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator);
