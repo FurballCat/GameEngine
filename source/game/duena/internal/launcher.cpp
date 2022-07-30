@@ -571,6 +571,7 @@ struct FurGameEngine
 	// debug
 	bool debugIsSlowTime;
 	bool debugShowFPS;
+	bool debugShowMemoryStats;
 };
 
 fa_anim_clip_t* fe_load_anim_clip(const fi_depot_t* depot, const char* name, const fa_rig_t* rig, FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
@@ -1700,6 +1701,11 @@ void fc_dev_menu_show_fps(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCa
 	pEngine->debugShowFPS = !pEngine->debugShowFPS;
 }
 
+void fc_dev_menu_show_memory_stats(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	pEngine->debugShowMemoryStats = !pEngine->debugShowMemoryStats;
+}
+
 typedef struct fc_dev_menu_option_t
 {
 	const char* name;
@@ -1723,7 +1729,8 @@ void fc_draw_debug_menu(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCall
 			{"reload-scripts", fc_dev_menu_reload_scripts},
 			{"slow-time", fc_dev_menu_slow_time},
 			{"show-player-anim-state", fc_dev_menu_show_player_anim_state},
-			{"profiler", fc_dev_menu_show_profiler}
+			{"profiler", fc_dev_menu_show_profiler},
+			{"memory-stats", fc_dev_menu_show_memory_stats}
 		};
 		
 		const uint32_t numOptions = FUR_ARRAY_SIZE(options);
@@ -1989,6 +1996,28 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 			const float yellow[4] = FUR_COLOR_YELLOW;
 			const float red[4] = FUR_COLOR_RED;
 			fc_dbg_text(-1050, 600, txt, numMBs < 1500.0f ? green : numMBs < 2000.0f ? yellow : red);
+		}
+	}
+	
+	// show memory statistics for each memory scope
+	if(pEngine->debugShowMemoryStats)
+	{
+		for(uint32_t i=0; i<FC_MEMORY_SCOPE_COUNT; ++i)
+		{
+			enum fc_memory_scope_t scopeId = (enum fc_memory_scope_t)i;
+			fc_mem_stats_t stats = fc_memory_stats_for_scope(scopeId);
+			
+			const float numKBs = ((float)stats.numBytes) / 1000.0f;
+			
+			const char* name = fc_memory_get_scope_debug_name(scopeId);
+			
+			char txt[128];
+			sprintf(txt, "%s: %1.1f KBs (%u allocs)", name, numKBs, stats.numAllocs);
+			
+			const float green[4] = FUR_COLOR_GREEN;
+			const float yellow[4] = FUR_COLOR_YELLOW;
+			const float red[4] = FUR_COLOR_RED;
+			fc_dbg_text(-1050, 500 - i*24, txt, numKBs < 1500000.0f ? green : numKBs < 2000000.0f ? yellow : red);
 		}
 	}
 	
@@ -2261,6 +2290,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		fm_mat4_mul(&slotMS, &zeldaMat, &slotMS);
 		
 		// camera
+		FUR_PROFILE("camera-update")
 		{
 			fg_camera_system_update_ctx cameraCtx = {};
 			cameraCtx.dt = dt;

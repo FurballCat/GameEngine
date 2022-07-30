@@ -336,14 +336,14 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 			
 			// copy to output rig
 			{
-				fa_rig_t* pRig = (fa_rig_t*)FUR_ALLOC_AND_ZERO(sizeof(fa_rig_t), 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+				fa_rig_t* pRig = (fa_rig_t*)FUR_ALLOC_AND_ZERO(sizeof(fa_rig_t), 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 				
 				*ppRig = pRig;
 				
-				pRig->refPose = (fm_xform*)FUR_ALLOC(sizeof(fm_xform) * rig.m_referencePose.size(), 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
-				pRig->parents = (int16_t*)FUR_ALLOC(sizeof(int16_t) * rig.m_referencePose.size(), 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+				pRig->refPose = (fm_xform*)FUR_ALLOC(sizeof(fm_xform) * rig.m_referencePose.size(), 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+				pRig->parents = (int16_t*)FUR_ALLOC(sizeof(int16_t) * rig.m_referencePose.size(), 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 				pRig->numBones = (uint32_t)rig.m_referencePose.size();
-				pRig->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(fc_string_hash_t, numBones, 0, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+				pRig->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(fc_string_hash_t, numBones, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 				
 				for(uint32_t i=0; i<pRig->numBones; ++i)
 				{
@@ -693,9 +693,9 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 				}
 			}
 			
-			fa_anim_clip_t* animClip = (fa_anim_clip_t*)FUR_ALLOC_AND_ZERO(sizeof(fa_anim_clip_t), 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
-			animClip->curves = (fa_anim_curve_t*)FUR_ALLOC_AND_ZERO(sizeof(fa_anim_curve_t) * tempClip.curves.size(), 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
-			animClip->dataKeys = (fa_anim_curve_key_t*)FUR_ALLOC(sizeof(fa_anim_curve_key_t) * numAllKeys, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+			fa_anim_clip_t* animClip = (fa_anim_clip_t*)FUR_ALLOC_AND_ZERO(sizeof(fa_anim_clip_t), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+			animClip->curves = (fa_anim_curve_t*)FUR_ALLOC_AND_ZERO(sizeof(fa_anim_curve_t) * tempClip.curves.size(), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+			animClip->dataKeys = (fa_anim_curve_key_t*)FUR_ALLOC(sizeof(fa_anim_curve_key_t) * numAllKeys, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 			
 			animClip->numDataKeys = numAllKeys;
 			animClip->numCurves = (uint16_t)tempClip.curves.size();
@@ -852,8 +852,8 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 		
 		const int32_t numMeshes = scene->getMeshCount();
 		
-		fr_resource_mesh_t* mesh = (fr_resource_mesh_t*)FUR_ALLOC_AND_ZERO(sizeof(fr_resource_mesh_t), 0, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
-		mesh->chunks = (fr_resource_mesh_chunk_t*)FUR_ALLOC_AND_ZERO(sizeof(fr_resource_mesh_chunk_t) * numMeshes, 0, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+		fr_resource_mesh_t* mesh = (fr_resource_mesh_t*)FUR_ALLOC_AND_ZERO(sizeof(fr_resource_mesh_t), 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+		mesh->chunks = (fr_resource_mesh_chunk_t*)FUR_ALLOC_AND_ZERO(sizeof(fr_resource_mesh_chunk_t) * numMeshes, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 		mesh->numChunks = numMeshes;
 		
 		for(int32_t i=0; i<numMeshes; ++i)
@@ -871,12 +871,12 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 			const uint32_t strideFloats = 3 + 3 + 2;
 			const uint32_t strideBytes = sizeof(float) * strideFloats;
 			
-			chunk->dataVertices = (float*)FUR_ALLOC_AND_ZERO(strideBytes * numVertices, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+			chunk->dataVertices = (float*)FUR_ALLOC_AND_ZERO(strideBytes * numVertices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 			chunk->numVertices = numVertices;
 			chunk->vertexStride = strideFloats;
 			
 			chunk->numIndices = numVertices;
-			chunk->dataIndices = FUR_ALLOC_ARRAY(uint32_t, numVertices, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+			chunk->dataIndices = FUR_ALLOC_ARRAY(uint32_t, numVertices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 			
 			// create vertex stream
 			float* itVertex = chunk->dataVertices;
@@ -926,9 +926,9 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 			if(skin)
 			{
 				chunk->numBones = skin->getClusterCount();
-				chunk->bindPose = FUR_ALLOC_ARRAY_AND_ZERO(fm_mat4, chunk->numBones, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
-				chunk->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(fc_string_hash_t, chunk->numBones, 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
-				chunk->dataSkinning = FUR_ALLOC_ARRAY_AND_ZERO(fr_resource_mesh_chunk_skin_t, numVertices, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+				chunk->bindPose = FUR_ALLOC_ARRAY_AND_ZERO(fm_mat4, chunk->numBones, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+				chunk->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(fc_string_hash_t, chunk->numBones, 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+				chunk->dataSkinning = FUR_ALLOC_ARRAY_AND_ZERO(fr_resource_mesh_chunk_skin_t, numVertices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 				
 				// init all skin indices to -1
 				for(uint32_t iv=0; iv<chunk->numVertices; ++iv)

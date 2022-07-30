@@ -32,7 +32,11 @@ typedef enum fc_memory_scope_t
 	FC_MEMORY_SCOPE_SCRIPT,
 	FC_MEMORY_SCOPE_DEBUG,
 	FC_MEMORY_SCOPE_PROFILER,
-	FC_MEMORY_SCOPE_RENDER
+	FC_MEMORY_SCOPE_RENDER,
+	
+	// note: remember to add name to the fc_memory_get_scope_debug_name
+	
+	FC_MEMORY_SCOPE_COUNT
 } fc_memory_scope_t;
 
 typedef void* (*fc_mem_alloc_fn_t)(	void* 						pUserData,
@@ -109,6 +113,8 @@ typedef struct fc_mem_stats_t
 } fc_mem_stats_t;
 
 CCORE_API fc_mem_stats_t fc_memory_stats(void);
+CCORE_API const char* fc_memory_get_scope_debug_name(enum fc_memory_scope_t scope);
+CCORE_API fc_mem_stats_t fc_memory_stats_for_scope(enum fc_memory_scope_t scope);
 
 #define FUR_ARRAY_SIZE(_arr) sizeof(_arr) / sizeof(_arr[0])
 	

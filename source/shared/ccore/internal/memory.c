@@ -11,6 +11,7 @@ typedef struct fc_mem_debug_info_t
 	struct fc_mem_debug_info_t* next;
 	struct fc_mem_debug_info_t* prev;
 	const char* line;
+	enum fc_memory_scope_t scope;
 	size_t size;
 	
 } fc_mem_debug_info_t;
@@ -39,6 +40,7 @@ void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t
 	debugPtr->prev = &g_rootDebugMemInfo;
 	debugPtr->line = info;
 	debugPtr->size = originalSize;
+	debugPtr->scope = scope;
 	
 	if(g_rootDebugMemInfo.next && g_rootDebugMemInfo.next->prev)
 	{
@@ -118,6 +120,54 @@ CCORE_API fc_mem_stats_t fc_memory_stats(void)
 	{
 		stats.numBytes += ptr->size;
 		stats.numAllocs += 1;
+		
+		ptr = ptr->next;
+	}
+	
+	return stats;
+}
+
+CCORE_API const char* fc_memory_get_scope_debug_name(enum fc_memory_scope_t scope)
+{
+	switch(scope)
+	{
+		case FC_MEMORY_SCOPE_DEFAULT:
+			return "default";
+		case FC_MEMORY_SCOPE_INPUT:
+			return "input";
+		case FC_MEMORY_SCOPE_PHYSICS:
+			return "physics";
+		case FC_MEMORY_SCOPE_ANIMATION:
+			return "animation";
+		case FC_MEMORY_SCOPE_CAMERA:
+			return "camera";
+		case FC_MEMORY_SCOPE_SCRIPT:
+			return "script";
+		case FC_MEMORY_SCOPE_DEBUG:
+			return "debug";
+		case FC_MEMORY_SCOPE_PROFILER:
+			return "profiler";
+		case FC_MEMORY_SCOPE_RENDER:
+			return "render";
+		default:
+			FUR_ASSERT(false);	// unknown name of the memory scope, please implement
+	}
+	
+	return "unknown";
+}
+
+CCORE_API fc_mem_stats_t fc_memory_stats_for_scope(enum fc_memory_scope_t scope)
+{
+	fc_mem_stats_t stats = {};
+	
+	fc_mem_debug_info_t* ptr = &g_rootDebugMemInfo;
+	while(ptr != NULL)
+	{
+		if(ptr->scope == scope)
+		{
+			stats.numBytes += ptr->size;
+			stats.numAllocs += 1;
+		}
 		
 		ptr = ptr->next;
 	}

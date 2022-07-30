@@ -128,7 +128,7 @@ enum fr_result_t fr_create_app(const struct fr_app_desc_t* pDesc,
 									struct fr_app_t** ppApp,
 									struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	struct fr_app_t* pApp = FUR_ALLOC(sizeof(struct fr_app_t), 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+	struct fr_app_t* pApp = FUR_ALLOC(sizeof(struct fr_app_t), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 	
 	pApp->title = pDesc->appTitle;
 	pApp->viewportWidth = pDesc->viewportWidth;
@@ -300,7 +300,7 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 		}
 		
 		FUR_ASSERT(numGlyphs > 0);
-		font->glyphs = FUR_ALLOC_ARRAY_AND_ZERO(fr_font_glyph_t, numGlyphs, 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+		font->glyphs = FUR_ALLOC_ARRAY_AND_ZERO(fr_font_glyph_t, numGlyphs, 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 		font->numGlyphs = numGlyphs;
 		
 		// parse content
@@ -804,7 +804,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 					   struct fr_renderer_t** ppRenderer,
 					   struct fc_alloc_callbacks_t*	pAllocCallbacks)
 {
-	struct fr_renderer_t* pRenderer = FUR_ALLOC(sizeof(struct fr_renderer_t), 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+	struct fr_renderer_t* pRenderer = FUR_ALLOC(sizeof(struct fr_renderer_t), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 	if(!pRenderer)
 	{
 		fur_set_last_error("Can't allocate renderer.");
@@ -870,7 +870,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		uint32_t numDevices = 0;
 		vkEnumeratePhysicalDevices(pRenderer->vkInstance, &numDevices, NULL);
 		
-		VkPhysicalDevice* devices = FUR_ALLOC(numDevices * sizeof(VkPhysicalDevice), 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+		VkPhysicalDevice* devices = FUR_ALLOC(numDevices * sizeof(VkPhysicalDevice), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 		
 		vkEnumeratePhysicalDevices(pRenderer->vkInstance, &numDevices, devices);
 		
@@ -925,7 +925,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		uint32_t numExtensions = 0;
 		vkEnumerateDeviceExtensionProperties(physicalDevice, NULL, &numExtensions, NULL);
 		
-		VkExtensionProperties* extensions = FUR_ALLOC(numExtensions * sizeof(struct VkExtensionProperties), 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+		VkExtensionProperties* extensions = FUR_ALLOC(numExtensions * sizeof(struct VkExtensionProperties), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 		
 		vkEnumerateDeviceExtensionProperties(physicalDevice, NULL, &numExtensions, extensions);
 		
@@ -954,7 +954,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		uint32_t numQueueFamilies = 0;
 		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &numQueueFamilies, NULL);
 		
-		VkQueueFamilyProperties* queueFamilies = FUR_ALLOC(numQueueFamilies * sizeof(struct VkQueueFamilyProperties), 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+		VkQueueFamilyProperties* queueFamilies = FUR_ALLOC(numQueueFamilies * sizeof(struct VkQueueFamilyProperties), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 		
 		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &numQueueFamilies, queueFamilies);
 		
@@ -1825,7 +1825,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		fr_mesh_t* mesh = &pRenderer->mesh;
 		
 		const uint32_t numChunks = meshResource->numChunks;
-		mesh->chunks = (fr_mesh_chunk_t*)FUR_ALLOC_AND_ZERO(sizeof(fr_mesh_chunk_t) * numChunks, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+		mesh->chunks = (fr_mesh_chunk_t*)FUR_ALLOC_AND_ZERO(sizeof(fr_mesh_chunk_t) * numChunks, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 		mesh->numChunks = numChunks;
 		
 		const uint32_t numTextureIndices = 7;
@@ -3407,7 +3407,7 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 	// create prop mesh and its chunks
 	{
 		const uint32_t numChunks = meshResource->numChunks;
-		mesh->chunks = (fr_mesh_chunk_t*)FUR_ALLOC_AND_ZERO(sizeof(fr_mesh_chunk_t) * numChunks, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+		mesh->chunks = (fr_mesh_chunk_t*)FUR_ALLOC_AND_ZERO(sizeof(fr_mesh_chunk_t) * numChunks, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 		mesh->numChunks = numChunks;
 		
 		const uint32_t numTextureIndices = 1;
