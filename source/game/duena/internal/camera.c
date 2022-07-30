@@ -3,8 +3,10 @@
 #include "camera.h"
 #include "cmath/public.h"
 #include "ccore/public.h"
+#include "string.h"
 
 #define NUM_MAX_CAMERAS 16
+#define BYTES_PER_CAMERA_SLOT 128
 
 typedef struct fg_camera_t
 {
@@ -32,6 +34,9 @@ typedef struct fg_camera_slot_t
 	void* userData;	// each camera has 128 bytes of memory to use
 	fg_camera_func_t fnBegin;
 	fg_camera_func_t fnUpdate;
+	
+	float fadeInSec;
+	float fadeInTime;
 } fg_camera_slot_t;
 
 typedef struct fg_camera_system_t
@@ -53,7 +58,7 @@ fg_camera_system_t g_cameraSystem;
 
 fg_camera_system_t* fg_camera_system_create(fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	g_cameraSystem.stackUserMemory = FUR_ALLOC_AND_ZERO(128 * NUM_MAX_CAMERAS, 16, FC_MEMORY_SCOPE_CAMERA, pAllocCallbacks);
+	g_cameraSystem.stackUserMemory = FUR_ALLOC_AND_ZERO(BYTES_PER_CAMERA_SLOT * NUM_MAX_CAMERAS, 16, FC_MEMORY_SCOPE_CAMERA, pAllocCallbacks);
 	
 	return &g_cameraSystem;
 }
@@ -72,17 +77,57 @@ void fg_camera_system_update(fg_camera_system_t* sys, const fg_camera_system_upd
 	slotCtx.zoom = ctx->zoom;
 	slotCtx.ownerPosition = sys->posPlayer;
 	
+	fm_xform_identity(&sys->finalCamera.locator);
+	sys->finalCamera.fov = 70.0f;
+	
 	// update each camera on camera stack
 	for(uint32_t i=0; i<sys->numCameraStack; ++i)
 	{
 		fg_camera_slot_t* slot = &sys->cameraStack[i];
 		
+		// update fade in timer
+		slot->fadeInTime = fm_clamp(slot->fadeInTime + ctx->dt, 0.0f, slot->fadeInSec);
+		
+		// update the camera
 		slotCtx.camera = &slot->camera;
 		
 		(*slot->fnUpdate)(&slotCtx, slot->userData);
 		
-		// todo: blend cameras instead of using the last one
-		sys->finalCamera = slot->camera;
+		// blend in the camera to final result
+		const float alpha = slot->fadeInSec > 0.0f ? fm_clamp(slot->fadeInTime / slot->fadeInSec, 0.0f, 1.0f) : 1.0f;
+		fm_xform_lerp(&sys->finalCamera.locator, &slot->camera.locator, alpha, &sys->finalCamera.locator);
+		sys->finalCamera.fov = sys->finalCamera.fov * (1.0f - alpha) + slot->camera.fov * alpha;
+	}
+	
+	// remove old cameras
+	for(int32_t i=sys->numCameraStack-1; i>=1; --i)
+	{
+		fg_camera_slot_t* slot = &sys->cameraStack[i];
+		
+		const float alpha = slot->fadeInSec > 0.0f ? fm_clamp(slot->fadeInTime / slot->fadeInSec, 0.0f, 1.0f) : 1.0f;
+		if(alpha >= 1.0f)
+		{
+			uint32_t idx = 0;
+			for(int32_t j=i; j<sys->numCameraStack; ++j)
+			{
+				fg_camera_slot_t* srcSlot = &sys->cameraStack[j];
+				fg_camera_slot_t* dstSlot = &sys->cameraStack[idx];
+				
+				// copy user data first, while the pointer is valid
+				memcpy(dstSlot->userData, srcSlot->userData, BYTES_PER_CAMERA_SLOT);
+				
+				// remember the pointer
+				void* userDataPtr = dstSlot->userData;
+				
+				// copy slot data (and stomp pointer)
+				memcpy(dstSlot, srcSlot, sizeof(fg_camera_slot_t));
+				
+				// need to fix ptr after memcpy
+				dstSlot->userData = userDataPtr;
+			}
+			
+			sys->numCameraStack = sys->numCameraStack - i;
+		}
 	}
 }
 
@@ -202,16 +247,21 @@ void fg_camera_follow_update(fg_camera_ctx_t* ctx, void* userData)
 	ctx->camera->fov = 70.0f;
 }
 
-void fg_camera_system_enable_camera_follow(fg_camera_system_t* sys, const fg_camera_params_follow_t* params)
+void fg_camera_system_enable_camera_follow(fg_camera_system_t* sys, const fg_camera_params_follow_t* params, float fadeInSec)
 {
 	FUR_ASSERT(sys->numCameraStack < 16);
 	
 	const uint32_t idx = sys->numCameraStack;
 	sys->numCameraStack++;
 	
-	sys->cameraStack[idx].userData = sys->stackUserMemory + 128 * idx;
-	sys->cameraStack[idx].fnUpdate = fg_camera_follow_update;
-	sys->cameraStack[idx].fnBegin = NULL;
+	fg_camera_slot_t* slot = &sys->cameraStack[idx];
+	
+	slot->fadeInTime = sys->numCameraStack == 1 ? fadeInSec : 0.0f;	// if it's the only camera, assume it's fully blended in
+	slot->fadeInSec = fadeInSec;
+	
+	slot->userData = sys->stackUserMemory + 128 * idx;
+	slot->fnUpdate = fg_camera_follow_update;
+	slot->fnBegin = NULL;
 	
 	fg_camera_follow_t* data = (fg_camera_follow_t*)sys->cameraStack[idx].userData;
 	data->height = params->height;

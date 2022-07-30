@@ -665,7 +665,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		params.height = 1.2f;
 		params.zoom = 1.5f;
 		params.poleLength = 1.5f;
-		fg_camera_system_enable_camera_follow(pEngine->cameraSystem, &params);
+		fg_camera_system_enable_camera_follow(pEngine->cameraSystem, &params, 0.0f);
 	}
 	
 	// init scratchpad buffer
@@ -1902,6 +1902,12 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			fa_character_schedule_none_action(&pEngine->animCharacterZelda, &args);
 			
 			pEngine->zeldaGameObject.playerWindProtecting = false;
+			
+			fg_camera_params_follow_t params = {};
+			params.height = 1.5f;
+			params.zoom = 1.5f;
+			params.poleLength = 2.5f;
+			fg_camera_system_enable_camera_follow(pEngine->cameraSystem, &params, 0.5f);
 		}
 		else
 		{

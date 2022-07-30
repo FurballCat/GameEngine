@@ -42,7 +42,7 @@ typedef struct fg_camera_params_follow_t
 	float zoom;
 } fg_camera_params_follow_t;
 
-void fg_camera_system_enable_camera_follow(fg_camera_system_t* sys, const fg_camera_params_follow_t* params);
+void fg_camera_system_enable_camera_follow(fg_camera_system_t* sys, const fg_camera_params_follow_t* params, float fadeInSec);
 
 #ifdef __cplusplus
 }
