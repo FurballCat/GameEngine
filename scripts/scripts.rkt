@@ -333,6 +333,12 @@
 (define-c-function cmp-gt (value-a int32) (value-b int32))
 (define-c-function cmp-eq (value-a int32) (value-b int32))
 
+;; camera functions
+;; enables camera (use 'self 'animated to enable any animated camera on character)
+(define-c-function camera-enable (object-name symbol) (camera-type symbol) (fade-in-sec float))
+(define-c-function camera-abandon (object-name symbol))
+(define-c-function camera-fade-out (object-name symbol) (fade-out-sec float))
+
 ;; enums
 (defenum animate-arg
   (
