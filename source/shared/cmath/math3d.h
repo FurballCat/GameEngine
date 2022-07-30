@@ -234,6 +234,9 @@ extern "C"
 	
 	// convert quaternion to rotation matrix
 	static inline void fm_quat_to_mat4(const fm_quat* q, fm_mat4_t* m);
+
+	// convert quaternion to euler angles
+	static inline void fm_quat_to_euler(const fm_quat* q, fm_euler_angles* e);
 	
 	// make quaternion from axis and angle
 	static inline void fm_quat_rot_axis_angle(const fm_vec4* axis, const float angle, fm_quat* q);

@@ -17,6 +17,7 @@ typedef struct fg_camera_t
 typedef struct fg_camera_ctx_t
 {
 	fg_camera_t* camera;
+	const fg_camera_t* lastFrameFinalCamera;
 	fm_vec4 ownerPosition;
 	
 	float dt;
@@ -37,6 +38,8 @@ typedef struct fg_camera_slot_t
 	
 	float fadeInSec;
 	float fadeInTime;
+	
+	bool started;
 } fg_camera_slot_t;
 
 typedef struct fg_camera_system_t
@@ -77,6 +80,9 @@ void fg_camera_system_update(fg_camera_system_t* sys, const fg_camera_system_upd
 	slotCtx.zoom = ctx->zoom;
 	slotCtx.ownerPosition = sys->posPlayer;
 	
+	const fg_camera_t lastFrameFinalCamera = sys->finalCamera;
+	slotCtx.lastFrameFinalCamera = &lastFrameFinalCamera;
+	
 	fm_xform_identity(&sys->finalCamera.locator);
 	sys->finalCamera.fov = 70.0f;
 	
@@ -85,12 +91,19 @@ void fg_camera_system_update(fg_camera_system_t* sys, const fg_camera_system_upd
 	{
 		fg_camera_slot_t* slot = &sys->cameraStack[i];
 		
+		// begin camera if necessary
+		slotCtx.camera = &slot->camera;
+		
+		if(!slot->started)
+		{
+			(*slot->fnBegin)(&slotCtx, slot->userData);
+			slot->started = true;
+		}
+		
 		// update fade in timer
 		slot->fadeInTime = fm_clamp(slot->fadeInTime + ctx->dt, 0.0f, slot->fadeInSec);
 		
 		// update the camera
-		slotCtx.camera = &slot->camera;
-		
 		(*slot->fnUpdate)(&slotCtx, slot->userData);
 		
 		// blend in the camera to final result
@@ -192,6 +205,19 @@ typedef struct fg_camera_follow_t
 	
 } fg_camera_follow_t;
 
+void fg_camera_follow_begin(fg_camera_ctx_t* ctx, void* userData)
+{
+	const fg_camera_t* lastCamera = ctx->lastFrameFinalCamera;
+
+	// try to find the params that makes this camera the most similar to last frame
+	fm_euler_angles angles = {};
+	fm_quat_to_euler(&lastCamera->locator.rot, &angles);
+	
+	fg_camera_follow_t* data = (fg_camera_follow_t*)userData;
+	data->yaw = -angles.yaw;
+	data->pitch = -angles.pitch;
+}
+
 void fg_camera_follow_update(fg_camera_ctx_t* ctx, void* userData)
 {
 	fg_camera_follow_t* data = (fg_camera_follow_t*)userData;
@@ -261,7 +287,8 @@ void fg_camera_system_enable_camera_follow(fg_camera_system_t* sys, const fg_cam
 	
 	slot->userData = sys->stackUserMemory + 128 * idx;
 	slot->fnUpdate = fg_camera_follow_update;
-	slot->fnBegin = NULL;
+	slot->fnBegin = fg_camera_follow_begin;
+	slot->started = false;
 	
 	fg_camera_follow_t* data = (fg_camera_follow_t*)sys->cameraStack[idx].userData;
 	data->height = params->height;

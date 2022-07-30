@@ -650,6 +650,26 @@ static inline void fm_quat_to_mat4(const fm_quat* q, fm_mat4_t* m)
 	m->w.w = 1.0f;
 }
 
+static inline void fm_quat_to_euler(const fm_quat* q, fm_euler_angles* angles)
+{
+	// roll (x-axis rotation)
+	float sinr_cosp = 2.0f * (q->r * q->i + q->j * q->k);
+	float cosr_cosp = 1.0f - 2.0f * (q->i * q->i + q->j * q->j);
+	angles->roll = atan2f(sinr_cosp, cosr_cosp);
+
+	// pitch (y-axis rotation)
+	float sinp = 2.0f * (q->r * q->j - q->k * q->i);
+	if (fabs(sinp) >= 1.0f)
+		angles->pitch = M_PI / 2.0f * fm_sign(sinp); // use 90 degrees if out of range
+	else
+		angles->pitch = asinf(sinp);
+
+	// yaw (z-axis rotation)
+	double siny_cosp = 2.0f * (q->r * q->k + q->i * q->j);
+	double cosy_cosp = 1.0f - 2.0f * (q->j * q->j + q->k * q->k);
+	angles->yaw = atan2f(siny_cosp, cosy_cosp);
+}
+
 static inline void fm_quat_rot_axis_angle(const fm_vec4* axis, const float angle, fm_quat* q)
 {
 	const float scale = sinf(angle / 2) / fm_vec4_mag(axis);
