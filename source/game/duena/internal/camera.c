@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2020 Furball Cat */
+/* Copyright (c) Furball Cat */
 
 #include "camera.h"
 #include "cmath/public.h"
@@ -11,6 +11,9 @@ typedef struct fg_camera_t
 	
 	fm_vec4 dirForward;
 	fm_vec4 dirLeft;
+	
+	fm_xform locator;
+	float fov;
 } fg_camera_t;
 
 fg_camera_t g_camera;
@@ -93,6 +96,14 @@ void fg_camera_update_orbit(fg_camera_t* camera, const fg_camera_update_orbit_ct
 	camera->up = up;
 	camera->dirForward = dir_forward;
 	camera->dirLeft = dir_left;
+	
+	fm_euler_angles angles = {};
+	angles.yaw = -cameraRotationYaw;
+	angles.pitch = -cameraRotationPitch;
+	
+	camera->locator.pos = eye;
+	fm_quat_make_from_euler_angles_yzpxry(&angles, &camera->locator.rot);
+	camera->fov = 70.0f;
 }
 
 void fg_camera_adjust_by_player_movement(fg_camera_t* camera, fm_mat4* playerMatrix)
@@ -101,6 +112,8 @@ void fg_camera_adjust_by_player_movement(fg_camera_t* camera, fm_mat4* playerMat
 	camera->at.w = 0.0f;
 	fm_vec4_add(&camera->eye, &playerMatrix->w, &camera->eye);
 	camera->eye.w = 0.0f;
+	
+	camera->locator.pos = camera->eye;
 }
 
 void fg_camera_get_directions(fg_camera_t* camera, fm_vec4* dirForward, fm_vec4* dirLeft)
@@ -111,7 +124,13 @@ void fg_camera_get_directions(fg_camera_t* camera, fm_vec4* dirForward, fm_vec4*
 
 void fg_camera_view_matrix(fg_camera_t* camera, fm_mat4* matrix)
 {
-	fm_mat4_lookat_lh(&camera->eye, &camera->at, &camera->up, matrix);
+	//fm_mat4_lookat_lh(&camera->eye, &camera->at, &camera->up, matrix);
+	fm_xform locator = camera->locator;
+	fm_quat_rot(&locator.rot, &locator.pos, &locator.pos);
+	fm_vec4_neg(&locator.pos);
+	
+	fm_xform_to_mat4(&locator, matrix);
+	fm_mat4_transpose(matrix);
 }
 
 void fg_camera_get_eye(fg_camera_t* camera, fm_vec4* eye)
