@@ -108,6 +108,9 @@ typedef struct fs_script_ctx_t
 	fg_game_object_t* self;
 	fg_game_object_register_t* gameObjectRegister;
 	fg_animations_register_t* allAnimations;
+	
+	// systems
+	fg_camera_system_t* sysCamera;
 } fs_script_ctx_t;
 
 // todo: move it somewhere else
@@ -120,6 +123,9 @@ fs_variant_t fs_native_go(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_varia
 fs_variant_t fs_native_go_when(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 fs_variant_t fs_native_cmp_gt(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 fs_variant_t fs_native_cmp_eq(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
+
+// camera script functions
+fs_variant_t fs_native_camera_enable(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 
 typedef fs_variant_t (*fs_script_navitve_func_t)(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
 
@@ -142,6 +148,7 @@ fs_native_func_entry_t g_nativeFuncLookUp[] = {
 	{ SID("go-when"), fs_native_go_when, 2 },
 	{ SID("cmp-gt"), fs_native_cmp_gt, 2 },
 	{ SID("cmp-eq"), fs_native_cmp_eq, 2 },
+	{ SID("camera-enable"), fs_native_camera_enable, 3 },
 	{ g_scriptNullOpCode, NULL, 0 }
 };
 
@@ -461,7 +468,6 @@ struct FurGameEngine
 	
 	std::chrono::system_clock::time_point prevTimePoint;
 	float globalTime;
-	float blendAlpha;
 	
 	fp_physics_scene_t* pPhysicsScene;
 	
@@ -469,20 +475,8 @@ struct FurGameEngine
 	
 	// animation
 	fa_rig_t* pRig;
-	fa_anim_clip_t* pAnimClipIdleStand;
-	fa_anim_clip_t* pAnimClipIdle;
-	fa_anim_clip_t* pAnimClipIdle2;
-	fa_anim_clip_t* pAnimClipIdle3;
-	fa_anim_clip_t* pAnimClipIdle4;
-	fa_anim_clip_t* pAnimClipRun;
-	fa_anim_clip_t* pAnimClipRunToIdleSharp;
-	fa_anim_clip_t* pAnimClipIdleToRun0;
-	fa_anim_clip_t* pAnimClipAdditive;
-	fa_anim_clip_t* pAnimClipAPose;
 	fa_anim_clip_t* pAnimClipWindProtect;
 	fa_anim_clip_t* pAnimClipHoldSword;
-	fa_anim_clip_t* pAnimClipJumpInPlace;
-	fa_anim_clip_t* pAnimClipJump;
 	
 	// input actions
 	bool inActionPressed;
@@ -502,15 +496,8 @@ struct FurGameEngine
 	
 	// gameplay animation states
 	fa_character_t animCharacterZelda;
-	fa_action_animate_t actionIdle;
-	fa_action_animate_t actionLoco;
 	fa_action_animate_t actionWeaponEquipped;
 	fa_action_animate_t actionWindProtect;
-	fa_action_player_jump_t actionJump;
-	fa_action_player_loco_t actionPlayerLoco;
-	
-	fa_action_player_loco_start_t actionLocoStart;
-	fa_action_player_loco_start_t actionLocoStop;
 	
 	// skinning
 	fm_mat4 skinMatrices[512];
@@ -665,6 +652,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		params.height = 1.2f;
 		params.zoom = 1.5f;
 		params.poleLength = 1.5f;
+		params.fov = 70.0f;
 		fg_camera_system_enable_camera_follow(pEngine->cameraSystem, &params, 0.0f);
 	}
 	
@@ -937,21 +925,21 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			}
 		}
 
-		pEngine->pAnimClipIdleStand = fe_load_anim_clip(&depot, "zelda-idle-stand-relaxed", pEngine->pRig, pEngine, pAllocCallbacks);
-		pEngine->pAnimClipIdle = fe_load_anim_clip(&depot, "zelda-funny-poses", pEngine->pRig, pEngine, pAllocCallbacks);
-		pEngine->pAnimClipIdle2 = fe_load_anim_clip(&depot, "zelda-funny-pose-2", pEngine->pRig, pEngine, pAllocCallbacks);
-		pEngine->pAnimClipIdle3 = fe_load_anim_clip(&depot, "zelda-funny-pose-3", pEngine->pRig, pEngine, pAllocCallbacks);
-		pEngine->pAnimClipIdle4 = fe_load_anim_clip(&depot, "zelda-funny-pose-4", pEngine->pRig, pEngine, pAllocCallbacks);
-		pEngine->pAnimClipRun = fe_load_anim_clip(&depot, "zelda-loco-run-relaxed", pEngine->pRig, pEngine, pAllocCallbacks);
-		pEngine->pAnimClipRunToIdleSharp = fe_load_anim_clip(&depot, "zelda-run-to-idle-sharp", pEngine->pRig, pEngine, pAllocCallbacks);
-		pEngine->pAnimClipIdleToRun0 = fe_load_anim_clip(&depot, "zelda-loco-idle-to-run-0", pEngine->pRig, pEngine, pAllocCallbacks);
-		pEngine->pAnimClipJumpInPlace = fe_load_anim_clip(&depot, "zelda-loco-jump-in-place", pEngine->pRig, pEngine, pAllocCallbacks);
-		pEngine->pAnimClipJump = fe_load_anim_clip(&depot, "zelda-loco-jump", pEngine->pRig, pEngine, pAllocCallbacks);
-		pEngine->pAnimClipAdditive = fe_load_anim_clip(&depot, "zelda-additive", pEngine->pRig, pEngine, pAllocCallbacks);
-		pEngine->pAnimClipAPose = fe_load_anim_clip(&depot, "zelda-a-pose", pEngine->pRig, pEngine, pAllocCallbacks);
 		pEngine->pAnimClipWindProtect = fe_load_anim_clip(&depot, "zelda-upper-wind-protect", pEngine->pRig, pEngine, pAllocCallbacks);
 		pEngine->pAnimClipHoldSword = fe_load_anim_clip(&depot, "zelda-upper-hold-sword", pEngine->pRig, pEngine, pAllocCallbacks);
 		
+		fe_load_anim_clip(&depot, "zelda-idle-stand-relaxed", pEngine->pRig, pEngine, pAllocCallbacks);
+		fe_load_anim_clip(&depot, "zelda-funny-poses", pEngine->pRig, pEngine, pAllocCallbacks);
+		fe_load_anim_clip(&depot, "zelda-funny-pose-2", pEngine->pRig, pEngine, pAllocCallbacks);
+		fe_load_anim_clip(&depot, "zelda-funny-pose-3", pEngine->pRig, pEngine, pAllocCallbacks);
+		fe_load_anim_clip(&depot, "zelda-funny-pose-4", pEngine->pRig, pEngine, pAllocCallbacks);
+		fe_load_anim_clip(&depot, "zelda-loco-run-relaxed", pEngine->pRig, pEngine, pAllocCallbacks);
+		fe_load_anim_clip(&depot, "zelda-run-to-idle-sharp", pEngine->pRig, pEngine, pAllocCallbacks);
+		fe_load_anim_clip(&depot, "zelda-loco-idle-to-run-0", pEngine->pRig, pEngine, pAllocCallbacks);
+		fe_load_anim_clip(&depot, "zelda-loco-jump-in-place", pEngine->pRig, pEngine, pAllocCallbacks);
+		fe_load_anim_clip(&depot, "zelda-loco-jump", pEngine->pRig, pEngine, pAllocCallbacks);
+		fe_load_anim_clip(&depot, "zelda-additive", pEngine->pRig, pEngine, pAllocCallbacks);
+		fe_load_anim_clip(&depot, "zelda-a-pose", pEngine->pRig, pEngine, pAllocCallbacks);
 		fe_load_anim_clip(&depot, "zelda-face-idle", pEngine->pRig, pEngine, pAllocCallbacks);
 		fe_load_anim_clip(&depot, "zelda-idle-stand-01", pEngine->pRig, pEngine, pAllocCallbacks);
 		fe_load_anim_clip(&depot, "zelda-hands-idle", pEngine->pRig, pEngine, pAllocCallbacks);
@@ -1012,12 +1000,6 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		// create Zelda
 		fa_character_init(&pEngine->animCharacterZelda, pEngine->pRig, pAllocCallbacks);
 		
-		pEngine->actionIdle.animation = pEngine->pAnimClipIdleStand;
-		pEngine->actionIdle.forceLoop = true;
-		
-		pEngine->actionLoco.animation = pEngine->pAnimClipRun;
-		pEngine->actionLoco.forceLoop = true;
-		
 		pEngine->actionWeaponEquipped.animation = pEngine->pAnimClipHoldSword;
 		pEngine->actionWeaponEquipped.forceLoop = true;
 		
@@ -1033,23 +1015,6 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		
 		pEngine->zeldaGameObject.name = SID_REG("zelda");
 		pEngine->zeldaGameObject.animCharacter = &pEngine->animCharacterZelda;
-		
-		// run
-		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_IDLE] = pEngine->pAnimClipIdleStand;
-		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN] = pEngine->pAnimClipRun;
-		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN_TO_IDLE_SHARP] = pEngine->pAnimClipRunToIdleSharp;
-		pEngine->actionPlayerLoco.anims[FA_ACTION_PLAYER_LOCO_ANIM_IDLE_TO_RUN_0] = pEngine->pAnimClipIdleToRun0;
-		
-		// start/stop
-		pEngine->actionLocoStart.anims[0] = pEngine->pAnimClipIdleToRun0;
-		pEngine->actionLocoStart.finishFromEnd = 0.62f;
-		pEngine->actionLocoStop.anims[0] = pEngine->pAnimClipRunToIdleSharp;
-		pEngine->actionLocoStop.finishFromEnd = 0.3f;
-		pEngine->actionLocoStop.ignoreYaw = true;
-		
-		// jump
-		pEngine->actionJump.anims[0] = pEngine->pAnimClipJumpInPlace;
-		pEngine->actionJump.anims[1] = pEngine->pAnimClipJump;
 		
 		// register Zelda (player) game object
 		pEngine->gameObjectRegister.objects[pEngine->gameObjectRegister.numObjects] = &pEngine->zeldaGameObject;
@@ -1473,6 +1438,39 @@ fs_variant_t fs_native_cmp_eq(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_v
 	return result;
 }
 
+fs_variant_t fs_native_camera_enable(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+{
+	FUR_ASSERT(numArgs == 3);
+	const fc_string_hash_t objectName = args[0].asStringHash;
+	const fc_string_hash_t cameraType = args[1].asStringHash;
+	const float fadeInSec = args[2].asFloat;
+	
+	fg_game_object_t* gameObj = fs_look_up_game_object(ctx, objectName);
+	FUR_ASSERT(gameObj);
+	
+	if(cameraType == SID("follow"))
+	{
+		fg_camera_params_follow_t params = {};
+		params.height = 1.2f;
+		params.zoom = 1.5f;
+		params.poleLength = 1.5f;
+		params.fov = 70.0f;
+		fg_camera_system_enable_camera_follow(ctx->sysCamera, &params, fadeInSec);
+	}
+	else if(cameraType == SID("follow-vista"))
+	{
+		fg_camera_params_follow_t params = {};
+		params.height = 1.5f;
+		params.zoom = 1.5f;
+		params.poleLength = 1.0f;
+		params.fov = 60.0f;
+		fg_camera_system_enable_camera_follow(ctx->sysCamera, &params, fadeInSec);
+	}
+	
+	fs_variant_t result = {};
+	return result;
+}
+
 void fg_scripts_update(FurGameEngine* pEngine, float dt)
 {
 	// todo
@@ -1831,6 +1829,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		scriptCtx.state = lambda->lambdaName;
 		scriptCtx.stateEventToCall = lambda->eventName;
 		scriptCtx.numSkipOps = lambda->numSkipOps;
+		scriptCtx.sysCamera = pEngine->cameraSystem;
 		fs_execute_script(lambda->scriptBlob, &scriptCtx);
 		
 		if(scriptCtx.waitSeconds > 0.0f)
@@ -1902,12 +1901,6 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			fa_character_schedule_none_action(&pEngine->animCharacterZelda, &args);
 			
 			pEngine->zeldaGameObject.playerWindProtecting = false;
-			
-			fg_camera_params_follow_t params = {};
-			params.height = 1.5f;
-			params.zoom = 1.5f;
-			params.poleLength = 2.5f;
-			fg_camera_system_enable_camera_follow(pEngine->cameraSystem, &params, 0.5f);
 		}
 		else
 		{
@@ -2036,7 +2029,6 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 	}
 	
 	pEngine->globalTime += dt;
-	pEngine->blendAlpha = fm_clamp(((sinf(pEngine->globalTime * 0.4f) + 1.0f) / 2.0f), 0.0f, 1.0f);
 	
 	// input
 	FUR_PROFILE("actions-update")

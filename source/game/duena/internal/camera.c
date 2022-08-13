@@ -96,7 +96,11 @@ void fg_camera_system_update(fg_camera_system_t* sys, const fg_camera_system_upd
 		
 		if(!slot->started)
 		{
-			(*slot->fnBegin)(&slotCtx, slot->userData);
+			if(slot->fnBegin)	// begin is optional
+			{
+				(*slot->fnBegin)(&slotCtx, slot->userData);
+			}
+			
 			slot->started = true;
 		}
 		
@@ -107,7 +111,7 @@ void fg_camera_system_update(fg_camera_system_t* sys, const fg_camera_system_upd
 		(*slot->fnUpdate)(&slotCtx, slot->userData);
 		
 		// blend in the camera to final result
-		const float alpha = slot->fadeInSec > 0.0f ? fm_clamp(slot->fadeInTime / slot->fadeInSec, 0.0f, 1.0f) : 1.0f;
+		const float alpha = fm_curve_uniform_s(slot->fadeInSec > 0.0f ? fm_clamp(slot->fadeInTime / slot->fadeInSec, 0.0f, 1.0f) : 1.0f);
 		fm_xform_lerp(&sys->finalCamera.locator, &slot->camera.locator, alpha, &sys->finalCamera.locator);
 		sys->finalCamera.fov = sys->finalCamera.fov * (1.0f - alpha) + slot->camera.fov * alpha;
 	}
@@ -117,7 +121,7 @@ void fg_camera_system_update(fg_camera_system_t* sys, const fg_camera_system_upd
 	{
 		fg_camera_slot_t* slot = &sys->cameraStack[i];
 		
-		const float alpha = slot->fadeInSec > 0.0f ? fm_clamp(slot->fadeInTime / slot->fadeInSec, 0.0f, 1.0f) : 1.0f;
+		const float alpha = fm_curve_uniform_s(slot->fadeInSec > 0.0f ? fm_clamp(slot->fadeInTime / slot->fadeInSec, 0.0f, 1.0f) : 1.0f);
 		if(alpha >= 1.0f)
 		{
 			uint32_t idx = 0;
@@ -197,6 +201,7 @@ typedef struct fg_camera_follow_t
 	// constants
 	float poleLength;
 	float height;
+	float fov;
 	
 	// variables
 	float yaw;
@@ -270,7 +275,7 @@ void fg_camera_follow_update(fg_camera_ctx_t* ctx, void* userData)
 	
 	ctx->camera->locator.pos = eye;
 	fm_quat_make_from_euler_angles_yzpxry(&angles, &ctx->camera->locator.rot);
-	ctx->camera->fov = 70.0f;
+	ctx->camera->fov = data->fov;
 }
 
 void fg_camera_system_enable_camera_follow(fg_camera_system_t* sys, const fg_camera_params_follow_t* params, float fadeInSec)
@@ -296,4 +301,5 @@ void fg_camera_system_enable_camera_follow(fg_camera_system_t* sys, const fg_cam
 	data->zoom = params->zoom;
 	data->yaw = 0.0f;
 	data->pitch = 0.2f;
+	data->fov = params->fov;
 }

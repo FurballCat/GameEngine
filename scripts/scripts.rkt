@@ -387,6 +387,10 @@
              [animate 'self 'zelda-hands-idle
                       (animate-arg fade-in-sec) 0.3
                       (animate-arg layer-name) 'hands]
+             [wait-seconds 2.0]
+             [camera-enable 'self 'follow-vista 2.0]
+             [wait-seconds 2.0]
+             [camera-enable 'self 'follow 2.0]
          )
          (on (update)
              [go-when 'run [cmp-eq [get-variable 'self 'is-running] 1]]

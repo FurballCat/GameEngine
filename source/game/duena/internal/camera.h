@@ -40,6 +40,7 @@ typedef struct fg_camera_params_follow_t
 	float poleLength;
 	float height;
 	float zoom;
+	float fov;
 } fg_camera_params_follow_t;
 
 void fg_camera_system_enable_camera_follow(fg_camera_system_t* sys, const fg_camera_params_follow_t* params, float fadeInSec);
