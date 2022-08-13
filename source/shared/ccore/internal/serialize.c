@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2021 Furball Cat */
+/* Copyright (c) Furball Cat */
 
 #include "serialize.h"
 #include <string.h>
@@ -29,3 +29,15 @@ FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_uint64, uint64_t )
 
 FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_float, float )
 FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_double, double )
+
+void fc_serialize_buffer(fc_serializer_t* pSerializer, void* ptr, uint32_t size)
+{
+	if(!pSerializer->isWriting)
+	{
+		fread(ptr, size, 1, pSerializer->file);
+	}
+	else
+	{
+		fwrite(ptr, size, 1, pSerializer->file);
+	}
+}

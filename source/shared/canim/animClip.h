@@ -14,6 +14,7 @@ extern "C"
 typedef struct fm_xform fm_xform;
 typedef uint32_t fc_string_hash_t;
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
+typedef struct fc_serializer_t fc_serializer_t;
 
 typedef struct fa_anim_curve_key_t
 {
@@ -50,6 +51,8 @@ typedef struct fa_pose_t fa_pose_t;
 
 CANIM_API void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive, fa_pose_t* pose, const uint8_t* mask /* optional */);
 CANIM_API void fa_anim_clip_sample_motion(const fa_anim_clip_t* clip, float timeBegin, float timeEnd, fm_xform* motion);
+
+CANIM_API void fa_anim_clip_serialize(fc_serializer_t* pSerializer, fa_anim_clip_t* clip, fc_alloc_callbacks_t* pAllocCallbacks);
 
 #ifdef __cplusplus
 }

@@ -13,6 +13,7 @@
 #include "ccore/public.h"
 #include "ccore/buffer.h"
 #include "ccore/textParsing.h"
+#include "ccore/serialize.h"
 #include "cinput/public.h"
 
 #include "camera.h"
@@ -565,22 +566,49 @@ fa_anim_clip_t* fe_load_anim_clip(const fi_depot_t* depot, const char* name, con
 {
 	const char* directory = "assets/characters/zelda/animations/";
 	const char* extension = ".fbx";
+	const char* engineExtension = ".anim";
 	const size_t dirLength = strlen(directory);
-	const size_t nameLenght = strlen(name);
+	const size_t nameLength = strlen(name);
 	
-	char path[256] = {};
-	memcpy(path, directory, dirLength);
-	memcpy(path + dirLength, name, nameLenght);
-	memcpy(path + dirLength + nameLenght, extension, strlen(extension));
-	
-	fi_import_anim_clip_ctx_t ctx = {};
-	ctx.path = path;
-	ctx.extractRootMotion = true;
-	ctx.rig = rig;
+	char pathEngine[256] = {};
+	memcpy(pathEngine, depot->path, strlen(depot->path));
+	memcpy(pathEngine + strlen(depot->path), directory, dirLength);
+	memcpy(pathEngine + strlen(depot->path) + dirLength, name, nameLength);
+	memcpy(pathEngine + strlen(depot->path) + dirLength + nameLength, engineExtension, strlen(engineExtension));
 	
 	fa_anim_clip_t* animClip = NULL;
+	FILE* engineFile = fopen(pathEngine, "rb");
 	
-	fi_import_anim_clip(depot, &ctx, &animClip, pAllocCallbacks);
+	// import animation if not done yet
+	if(!engineFile)
+	{
+		char pathImport[256] = {};
+		memcpy(pathImport, directory, dirLength);
+		memcpy(pathImport + dirLength, name, nameLength);
+		memcpy(pathImport + dirLength + nameLength, extension, strlen(extension));
+		
+		fi_import_anim_clip_ctx_t ctx = {};
+		ctx.path = pathImport;
+		ctx.extractRootMotion = true;
+		ctx.rig = rig;
+		
+		fi_import_anim_clip(depot, &ctx, &animClip, pAllocCallbacks);
+	}
+	
+	// try loading or saving engine file
+	{
+		fc_serializer_t serializer = {};
+		serializer.file = engineFile ? engineFile : fopen(pathEngine, "wb");
+		serializer.isWriting = !engineFile;
+		
+		if(!serializer.isWriting)
+		{
+			animClip = (fa_anim_clip_t*)FUR_ALLOC_AND_ZERO(sizeof(fa_anim_clip_t), 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		}
+		
+		fa_anim_clip_serialize(&serializer, animClip, pAllocCallbacks);
+	}
+	
 	fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, animClip);
 	
 	return animClip;

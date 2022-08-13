@@ -3,6 +3,7 @@
 #include "animClip.h"
 #include "pose.h"
 #include "ccore/public.h"
+#include "ccore/serialize.h"
 #include "cmath/public.h"
 
 void fa_anim_clip_release(fa_anim_clip_t* clip, fc_alloc_callbacks_t* pAllocCallbacks)
@@ -243,4 +244,56 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive
 			pose->weightsXforms[idxXform] = 255;
 		}
 	}
+}
+
+typedef enum fa_anim_clip_version_t
+{
+	FA_ANIM_VER_BASE = 0,
+	FA_ANIM_VER_LAST,
+} fa_anim_clip_version_t;
+
+void fa_anim_clip_serialize(fc_serializer_t* pSerializer, fa_anim_clip_t* clip, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	//FUR_SER_VERSION(FA_ANIM_VER_LAST-1);
+	
+	FUR_SER_ADD(FA_ANIM_VER_BASE, clip->name);
+	FUR_SER_ADD(FA_ANIM_VER_BASE, clip->duration);
+	FUR_SER_ADD(FA_ANIM_VER_BASE, clip->numCurves);
+	FUR_SER_ADD(FA_ANIM_VER_BASE, clip->numDataKeys);
+	
+	if(!pSerializer->isWriting)
+	{
+		clip->curves = FUR_ALLOC_ARRAY_AND_ZERO(fa_anim_curve_t, clip->numCurves, 8, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		clip->dataKeys = FUR_ALLOC_ARRAY_AND_ZERO(fa_anim_curve_key_t, clip->numDataKeys, 8, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	}
+	
+	for(int32_t i=0; i<clip->numCurves; ++i)
+	{
+		FUR_SER_ADD(FA_ANIM_VER_BASE, clip->curves[i]);
+	}
+	
+	FUR_SER_ADD_BUFFER(FA_ANIM_VER_BASE, clip->dataKeys, clip->numDataKeys * sizeof(fa_anim_curve_key_t));
+	
+	// fix pointers for anim curves
+	uint16_t keyCounter = 0;
+	for(int32_t i=0; i<clip->numCurves; ++i)
+	{
+		clip->curves[i].rotKeys = clip->dataKeys + keyCounter;
+		keyCounter += clip->curves[i].numRotKeys;
+		
+		clip->curves[i].posKeys = clip->dataKeys + keyCounter;
+		keyCounter += clip->curves[i].numPosKeys;
+	}
+	
+	for(int32_t i=0; i<8; ++i)
+	{
+		FUR_SER_ADD(FA_ANIM_VER_BASE, clip->motionDelta[i]);
+	}
+}
+
+void fa_serialize_anim_curve(fc_serializer_t* pSerializer, fa_anim_curve_t* animCurve)
+{
+	FUR_SER_ADD(FA_ANIM_VER_BASE, animCurve->index);
+	FUR_SER_ADD(FA_ANIM_VER_BASE, animCurve->numRotKeys);
+	FUR_SER_ADD(FA_ANIM_VER_BASE, animCurve->numPosKeys);
 }
