@@ -607,6 +607,8 @@ fa_anim_clip_t* fe_load_anim_clip(const fi_depot_t* depot, const char* name, con
 		}
 		
 		fa_anim_clip_serialize(&serializer, animClip, pAllocCallbacks);
+		
+		fclose(serializer.file);
 	}
 	
 	fg_animations_register_add_anim(&pEngine->gameAnimationsRegister, animClip);
