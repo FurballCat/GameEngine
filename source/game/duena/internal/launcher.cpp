@@ -679,10 +679,10 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	// default camera
 	{
 		fg_camera_params_follow_t params = {};
-		params.height = 1.2f;
-		params.zoom = 1.5f;
-		params.poleLength = 1.5f;
-		params.fov = 70.0f;
+		params.height = 0.9f;
+		params.zoom = 1.0f;
+		params.poleLength = 3.0f;
+		params.fov = 45.0f;
 		fg_camera_system_enable_camera_follow(pEngine->cameraSystem, &params, 0.0f);
 	}
 	
@@ -784,6 +784,12 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 						SID("Bip001_Pinky2_L"),
 						SID("Bip001_Pinky3_L")
 					};
+					
+					const fc_string_hash_t noHashes[2] = {
+						SID("rootTransform"),
+						SID("motion")
+					};
+					
 					if(idxSpine != -1)
 					{
 						for(uint32_t i=0; i<pEngine->pRig->numBones; ++i)
@@ -801,7 +807,14 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 							{
 								if(pEngine->pRig->boneNameHashes[i] == hashesPartial[j])
 								{
-									w = 40;
+									w = 100;
+								}
+							}
+							for(uint32_t j=0; j<2; ++j)
+							{
+								if(pEngine->pRig->boneNameHashes[i] == noHashes[j])
+								{
+									w = 0;
 								}
 							}
 							pEngine->pRig->maskUpperBody[i] = w;
@@ -973,6 +986,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		fe_load_anim_clip(&depot, "zelda-face-idle", pEngine->pRig, pEngine, pAllocCallbacks);
 		fe_load_anim_clip(&depot, "zelda-idle-stand-01", pEngine->pRig, pEngine, pAllocCallbacks);
 		fe_load_anim_clip(&depot, "zelda-hands-idle", pEngine->pRig, pEngine, pAllocCallbacks);
+		fe_load_anim_clip(&depot, "zelda-wind-01", pEngine->pRig, pEngine, pAllocCallbacks);
 		
 		// load meshes
 		{
@@ -2326,6 +2340,9 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 			cameraCtx.rotationPitch = pEngine->actionRotationLeftY;
 			cameraCtx.zoom = pEngine->actionZoomOut - pEngine->actionZoomIn;
 			
+			// adjust camera by player position
+			fg_camera_adjust_by_player_movement(pEngine->cameraSystem, &zeldaMat);
+			
 			fg_camera_system_update(pEngine->cameraSystem, &cameraCtx);
 		}
 		
@@ -2354,9 +2371,6 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		pEngine->zeldaGameObject.logicMove.w = 0.0f;
 		
 		pEngine->playerMove = playerMove;
-		
-		// adjust camera by player position
-		fg_camera_adjust_by_player_movement(pEngine->cameraSystem, &zeldaMat);
 		
 		fm_mat4 cameraMatrix;
 		fg_camera_view_matrix(pEngine->cameraSystem, &cameraMatrix);

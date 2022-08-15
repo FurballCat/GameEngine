@@ -188,7 +188,7 @@ void fp_physics_update(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, const
 	}
 	
 	// character controller
-	{
+	/*{
 		const PxTransform t = pPhysics->controller->getActor()->getGlobalPose();
 		const PxVec3 x = t.q.getBasisVector0();
 		const PxVec3 y = t.q.getBasisVector1();
@@ -204,14 +204,12 @@ void fp_physics_update(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, const
 		
 		const float yellow[4] = FUR_COLOR_YELLOW;
 		
-		/*
 		fc_dbg_line(start, end_x, red);
 		fc_dbg_line(start, end_x, red);
 		fc_dbg_line(start, end_y, green);
 		fc_dbg_line(start, end_z, blue);
 		fc_dbg_line(start, footPosf, yellow);
-		 */
-	}
+	}*/
 }
 
 void fp_physics_get_player_info(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, fp_physics_player_info_t* playerInfo)
