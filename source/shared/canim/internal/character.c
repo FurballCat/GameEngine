@@ -988,6 +988,8 @@ void fa_action_animate_begin_func(const fa_action_begin_end_ctx_t* ctx, void* us
 	
 	// at the beginning, we want to reset locomotion data
 	data->resetLoco = true;
+	data->loopsSoFar = 0;
+	data->progress = 0.0f;
 }
 
 void fa_action_animate_end_func(const fa_action_begin_end_ctx_t* ctx, void* userData)

@@ -365,7 +365,7 @@ fa_cmd_status_t fa_cmd_impl_anim_sample_with_locomotion(fa_cmd_context_t* ctx, c
 
 void fa_cmd_anim_sample_with_locomotion(fa_cmd_buffer_recorder_t* recorder, float time, uint16_t animClipId, bool resetLoco, int32_t loops, float* prevLocoPos, float* prevLocoRot)
 {
-	fa_cmd_anim_sample_with_locomotion_data_t data = { time, animClipId, false, loops, resetLoco, prevLocoPos, prevLocoRot };
+	fa_cmd_anim_sample_with_locomotion_data_t data = { time, animClipId, false, resetLoco, loops, prevLocoPos, prevLocoRot };
 	fa_cmd_buffer_write(recorder, fa_cmd_impl_anim_sample_with_locomotion, &data, sizeof(fa_cmd_anim_sample_with_locomotion_data_t));
 	recorder->poseStackSizeTracking += 1;
 }
