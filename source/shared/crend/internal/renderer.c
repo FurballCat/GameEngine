@@ -2898,26 +2898,6 @@ fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera, f
 
 void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	fr_skinning_buffer_t skinBuffer = {};
-	
-	// pass skinning
-	const uint32_t skinNumBones = pRenderer->skinningMapping.count;
-	FUR_ASSERT(skinNumBones <= ctx->numSkinMatrices);
-	for(uint32_t i=0; i<skinNumBones; ++i)
-	{
-		const uint32_t srcBoneIndex = pRenderer->skinningMapping.indicesMapping[i];
-		skinBuffer.bones[i] = ctx->skinMatrices[srcBoneIndex];
-	}
-	
-	const fm_mat4* bindPose = pRenderer->pMesh->chunks[0].bindPose;
-	fm_mat4 testMatrices[400];
-	
-	for(uint32_t i=0; i<skinNumBones; ++i)
-	{
-		fm_mat4_mul(&bindPose[i], &skinBuffer.bones[i], &testMatrices[i]);
-		skinBuffer.bones[i] = testMatrices[i];
-	}
-	
 	uint32_t imageIndex = 0;
 	
 	fr_pvs_t* pvs = ctx->pvs;
@@ -2926,12 +2906,34 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 
 	FUR_ASSERT(imageIndex < NUM_SWAP_CHAIN_IMAGES);
 	
-	// pass skinning matrices to skin buffer
+	FUR_PROFILE("rend-skinning")
 	{
+		fr_skinning_buffer_t skinBuffer = {};
+		
+		// pass skinning
+		const uint32_t skinNumBones = pRenderer->skinningMapping.count;
+		FUR_ASSERT(skinNumBones <= ctx->numSkinMatrices);
+		for(uint32_t i=0; i<skinNumBones; ++i)
+		{
+			const uint32_t srcBoneIndex = pRenderer->skinningMapping.indicesMapping[i];
+			skinBuffer.bones[i] = ctx->skinMatrices[srcBoneIndex];
+		}
+		
+		const fm_mat4* bindPose = pRenderer->pMesh->chunks[0].bindPose;
+		fm_mat4 testMatrices[400];
+		
+		for(uint32_t i=0; i<skinNumBones; ++i)
+		{
+			fm_mat4_mul(&bindPose[i], &skinBuffer.bones[i], &testMatrices[i]);
+			skinBuffer.bones[i] = testMatrices[i];
+		}
+		
+		// pass skinning matrices to skin buffer
 		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aSkinningBuffer[imageIndex].memory, &skinBuffer, 0, sizeof(fr_skinning_buffer_t));
 	}
 
 	// update uniform buffer
+	FUR_PROFILE("rend-update-ubs")
 	{
 		fr_uniform_buffer_t ubo;
 		ubo.proj = pvs->projection;
@@ -2979,6 +2981,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 	}
 	
 	// update debug lines buffer
+	FUR_PROFILE("rend-update-debug")
 	{
 		fc_dbg_buffers_lock();	// lock so no-one adds lines while retriving the buffer
 		
@@ -3198,24 +3201,30 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 	}
 	
 	// end and submit primary command buffer, not waiting for GPU
-	fr_end_primary_disposable_command_buffer(pRenderer->device, pRenderer->graphicsQueue, primaryCommandBuffer, pRenderer->commandPool, pRenderer->imageAvailableSemaphore, pRenderer->renderFinishedSemaphore, pAllocCallbacks);
+	FUR_PROFILE("rend-submit-cmd")
+	{
+		fr_end_primary_disposable_command_buffer(pRenderer->device, pRenderer->graphicsQueue, primaryCommandBuffer, pRenderer->commandPool, pRenderer->imageAvailableSemaphore, pRenderer->renderFinishedSemaphore, pAllocCallbacks);
+	}
 	
 	// present
-	VkPresentInfoKHR presentInfo = {};
-	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-	
-	presentInfo.waitSemaphoreCount = 1;
-	VkSemaphore signalSemaphores[] = {pRenderer->renderFinishedSemaphore};
-	presentInfo.pWaitSemaphores = signalSemaphores;
-	
-	VkSwapchainKHR swapChains[] = {pRenderer->swapChain};
-	presentInfo.swapchainCount = 1;
-	presentInfo.pSwapchains = swapChains;
-	presentInfo.pImageIndices = &imageIndex;
-	
-	presentInfo.pResults = NULL; // Optional
-	
-	vkQueuePresentKHR(pRenderer->presentQueue, &presentInfo);
+	FUR_PROFILE("rend-present")
+	{
+		VkPresentInfoKHR presentInfo = {};
+		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+		
+		presentInfo.waitSemaphoreCount = 1;
+		VkSemaphore signalSemaphores[] = {pRenderer->renderFinishedSemaphore};
+		presentInfo.pWaitSemaphores = signalSemaphores;
+		
+		VkSwapchainKHR swapChains[] = {pRenderer->swapChain};
+		presentInfo.swapchainCount = 1;
+		presentInfo.pSwapchains = swapChains;
+		presentInfo.pImageIndices = &imageIndex;
+		
+		presentInfo.pResults = NULL; // Optional
+		
+		vkQueuePresentKHR(pRenderer->presentQueue, &presentInfo);
+	}
 }
 
 // serialization
