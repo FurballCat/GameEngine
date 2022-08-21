@@ -579,6 +579,8 @@ fa_anim_clip_t* fe_load_anim_clip(const fi_depot_t* depot, const char* name, con
 	fa_anim_clip_t* animClip = NULL;
 	FILE* engineFile = fopen(pathEngine, "rb");
 	
+	SID_REG(name);
+	
 	// import animation if not done yet
 	if(!engineFile)
 	{
