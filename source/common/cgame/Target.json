@@ -1,0 +1,12 @@
+{
+	"dependecies":
+	[
+		"ccore",
+		"cmath",
+		"canim",
+		"cphysics",
+		"crend"
+	],
+	
+    "type": "dynamic_library"
+}

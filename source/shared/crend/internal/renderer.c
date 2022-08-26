@@ -669,7 +669,7 @@ typedef struct fr_skinning_mapping_t
 	uint32_t count;
 } fr_skinning_mapping_t;
 
-struct fr_renderer_t
+typedef struct fr_renderer_t
 {
 	VkInstance vkInstance;
 	VkPhysicalDevice physicalDevice;
@@ -785,7 +785,7 @@ struct fr_renderer_t
 	// all proxies
 	fr_proxy_t proxies[NUM_MAX_PROXIES_ALLOCATED];
 	uint32_t numProxies;
-};
+} fr_renderer_t;
 
 void fr_pixels_free_func(void* pData, size_t size, void* pUserData)
 {

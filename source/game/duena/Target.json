@@ -5,7 +5,8 @@
 	"cphysics",
 	"canim",
 	"cimport",
-	"cinput"
+	"cinput",
+	"cgame"
   ],
 
   "dependencies_osx": [

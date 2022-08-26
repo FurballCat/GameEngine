@@ -33,6 +33,7 @@ typedef enum fc_memory_scope_t
 	FC_MEMORY_SCOPE_DEBUG,
 	FC_MEMORY_SCOPE_PROFILER,
 	FC_MEMORY_SCOPE_RENDER,
+	FC_MEMORY_SCOPE_GAME,
 	
 	// note: remember to add name to the fc_memory_get_scope_debug_name
 	
