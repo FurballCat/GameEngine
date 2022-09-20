@@ -183,6 +183,17 @@ void fr_write_descriptor_set(VkDevice device, fr_write_descriptor_set_ctx_t* ctx
 		imageInfo[i].sampler = ctx->samplers[i];
 	}
 	
+	// todo: fix this hack, fragment shader needs 3 texture samplers to be bound
+	for(uint32_t i=ctx->numTextures; i<3; ++i)
+	{
+		// bind any texture to the rest of the samples
+		imageInfo[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imageInfo[i].imageView = ctx->textures[0].view;
+		imageInfo[i].sampler = ctx->samplers[0];
+	}
+	
+	const uint32_t numTextures = (ctx->numTextures < 3) ? 3 : ctx->numTextures;	// todo: hack, fix that
+	
 	VkDescriptorBufferInfo bufferInfo[2] = {};
 	bufferInfo[0].buffer = ctx->uniformBuffer->buffer;
 	bufferInfo[0].offset = ctx->uniformBufferOffset;
@@ -223,7 +234,7 @@ void fr_write_descriptor_set(VkDevice device, fr_write_descriptor_set_ctx_t* ctx
 	descriptorWrites[2].dstBinding = 2;
 	descriptorWrites[2].dstArrayElement = 0;
 	descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	descriptorWrites[2].descriptorCount = ctx->numTextures;	// number of textures in array goes here
+	descriptorWrites[2].descriptorCount = numTextures;	// number of textures in array goes here
 	descriptorWrites[2].pImageInfo = imageInfo;
 
 	vkUpdateDescriptorSets(device, numBindings, descriptorWrites, 0, NULL);

@@ -443,7 +443,6 @@ const fa_anim_clip_t* fg_load_anim(fg_resource_register_t* reg, const fi_depot_t
 {
 	fa_anim_clip_t* animClip = NULL;
 	
-	FUR_PROFILE("load-anim")
 	{
 		const char* directory = "assets/characters/zelda/animations/";
 		const char* extension = ".fbx";
@@ -505,11 +504,14 @@ const fa_anim_clip_t* fg_load_anim(fg_resource_register_t* reg, const fi_depot_t
 // game object types
 typedef struct fg_go_zelda_t
 {
+	fg_game_object_2_t info;	// this property must be the first one in every game object
+	
 	fs_script_lambda_t script;
 	
 	fg_animate_action_slots_t animateActionSlots;
 	
 	fa_character_t* animCharacter;
+	fr_proxy_t* mesh;
 	
 	fm_vec4 logicMove;
 	
@@ -524,8 +526,7 @@ bool fg_go_zelda_init(fg_game_object_2_t* gameObject, fg_game_object_init_ctx_t*
 {
 	FUR_PROFILE("init-zelda")
 	{
-		gameObject->data = fg_stack_alloc(ctx->stackAlloc, sizeof(fg_go_zelda_t));
-		fg_go_zelda_t* zelda = (fg_go_zelda_t*)gameObject->data;
+		fg_go_zelda_t* zelda = (fg_go_zelda_t*)gameObject;
 		
 		zelda->playerState = fg_spawn_info_get_string_hash(ctx->info, SID("state"), SID("idle"));
 	}
@@ -538,6 +539,20 @@ void fg_go_zelda_update(fg_game_object_2_t* gameObject, fg_game_object_update_ct
 	FUR_PROFILE("update-zelda")
 	{
 		
+	}
+}
+
+void fg_register_type_factories()
+{
+	// zelda
+	{
+		fg_type_factory_t factory = {};
+		factory.updateBucket = FG_UPDATE_BUCKET_CHARACTERS;
+		factory.fn.init = fg_go_zelda_init;
+		factory.fn.update = fg_go_zelda_update;
+		factory.memoryMaxSize = sizeof(fg_go_zelda_t);
+		
+		fg_type_factory_register_new(SID("zelda"), factory);
 	}
 }
 
@@ -591,6 +606,8 @@ struct FurGameEngine
 	fr_proxy_t* chestMesh;
 	
 	fr_proxy_t* rockMeshes[5];
+	
+	fr_proxy_t* zeldaMesh;
 	
 	// update memory (scratchpad)
 	void* scratchpadBuffer;
@@ -720,6 +737,9 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	// init scratchpad buffer
 	pEngine->scratchpadBufferSize = 256 * 1024;
 	pEngine->scratchpadBuffer = FUR_ALLOC_AND_ZERO(pEngine->scratchpadBufferSize, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+	
+	// init type factories
+	fg_register_type_factories();
 	
 	// load resources
 	{
@@ -1022,24 +1042,28 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		// load meshes
 		{
 			fr_load_mesh_ctx_t meshCtx = {};
-			meshCtx.path = "assets/characters/zelda/mesh/zelda_sword.fbx";
+			meshCtx.path = "assets/characters/zelda/mesh/";
+			meshCtx.fileName = "zelda_sword";
 			const char* texturePaths[] = {"assets/characters/zelda/mesh/textures/melee_diff.png"};
 			const int32_t textureIndices[] = {0};
-			meshCtx.numTextures = FUR_ARRAY_SIZE(textureIndices);
-			meshCtx.textureIndices = textureIndices;
 			meshCtx.texturePaths = texturePaths;
+			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
+			meshCtx.textureIndices = textureIndices;
+			meshCtx.numTextureIndices = FUR_ARRAY_SIZE(textureIndices);
 			pEngine->swordMesh = fr_load_mesh(pEngine->pRenderer, &depot, &meshCtx, pAllocCallbacks);
 		}
 		
 		// load meshes
 		{
 			fr_load_mesh_ctx_t meshCtx = {};
-			meshCtx.path = "assets/chest/chest.fbx";
+			meshCtx.path = "assets/chest/";
+			meshCtx.fileName = "chest";
 			const char* texturePaths[] = {"assets/chest/chest_albedo.png"};
 			const int32_t textureIndices[] = {0};
-			meshCtx.numTextures = FUR_ARRAY_SIZE(textureIndices);
-			meshCtx.textureIndices = textureIndices;
 			meshCtx.texturePaths = texturePaths;
+			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
+			meshCtx.textureIndices = textureIndices;
+			meshCtx.numTextureIndices = FUR_ARRAY_SIZE(textureIndices);
 			pEngine->chestMesh = fr_load_mesh(pEngine->pRenderer, &depot, &meshCtx, pAllocCallbacks);
 		}
 		
@@ -1047,23 +1071,43 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		for(uint32_t i=0; i<5; ++i)
 		{
 			char txtPath[256];
-			sprintf(txtPath, "assets/rocks/rock-0%i.fbx", i+1);
+			sprintf(txtPath, "rock-0%i", i+1);
 			
 			char txtTexturePath[256];
 			sprintf(txtTexturePath, "assets/rocks/rock-0%i.png", i+1);
 			
 			fr_load_mesh_ctx_t meshCtx = {};
-			meshCtx.path = txtPath;
+			meshCtx.path = "assets/rocks/";
+			meshCtx.fileName = txtPath;
 			const char* texturePaths[] = {txtTexturePath};
 			const int32_t textureIndices[] = {0};
-			meshCtx.numTextures = FUR_ARRAY_SIZE(textureIndices);
-			meshCtx.textureIndices = textureIndices;
 			meshCtx.texturePaths = texturePaths;
+			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
+			meshCtx.textureIndices = textureIndices;
+			meshCtx.numTextureIndices = FUR_ARRAY_SIZE(textureIndices);
 			pEngine->rockMeshes[i] = fr_load_mesh(pEngine->pRenderer, &depot, &meshCtx, pAllocCallbacks);
+		}
+		
+		// load zelda mesh
+		{
+			fr_load_mesh_ctx_t meshCtx = {};
+			meshCtx.path = "assets/characters/zelda/mesh/";
+			meshCtx.fileName = "zelda_mesh";
+			const char* texturePaths[] = {"assets/characters/zelda/mesh/textures/zelda_diff.png",
+				"assets/characters/zelda/mesh/textures/hair_diff.png",
+				"assets/characters/zelda/mesh/textures/eyes_diff2.png"
+			};
+			const int32_t textureIndices[] = {0, 0, 1, 0, 2, 0, 1};
+			meshCtx.texturePaths = texturePaths;
+			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
+			meshCtx.textureIndices = textureIndices;
+			meshCtx.numTextureIndices = FUR_ARRAY_SIZE(textureIndices);
+			meshCtx.isSkinned = true;
+			pEngine->zeldaMesh = fr_load_mesh(pEngine->pRenderer, &depot, &meshCtx, pAllocCallbacks);
 		}
 	}
 	
-	fr_temp_create_skinning_mapping(pEngine->pRenderer, pEngine->pRig->boneNameHashes, pEngine->pRig->numBones, pAllocCallbacks);
+	fr_temp_create_skinning_mapping(pEngine->pRenderer, pEngine->zeldaMesh, pEngine->pRig->boneNameHashes, pEngine->pRig->numBones, pAllocCallbacks);
 	
 	// init game
 	{
@@ -1284,7 +1328,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		
 		fp_bvh_build(&bvhCtx, &pEngine->testBVH, pAllocCallbacks);
 	}
-	
+		
 	return true;
 }
 
@@ -2447,6 +2491,10 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		staticMeshesLocator.w.y = -14.0f;
 		fr_pvs_add(framePVS, pEngine->rockMeshes[4], &staticMeshesLocator);
 		
+		staticMeshesLocator.w.x = 0.0f;
+		staticMeshesLocator.w.y = 0.0f;
+		fr_pvs_add_and_skin(framePVS, pEngine->zeldaMesh, &zeldaMat, pEngine->skinMatrices);
+		
 		// draw frame
 		fr_draw_frame_context_t renderCtx = {};
 		renderCtx.zeldaMatrix = &zeldaMat;
@@ -2489,6 +2537,7 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	fp_bvh_release(&pEngine->testBVH, pAllocCallbacks);
 	
 	// release meshes
+	fr_release_proxy(pEngine->pRenderer, pEngine->zeldaMesh, pAllocCallbacks);
 	fr_release_proxy(pEngine->pRenderer, pEngine->swordMesh, pAllocCallbacks);
 	fr_release_proxy(pEngine->pRenderer, pEngine->chestMesh, pAllocCallbacks);
 	

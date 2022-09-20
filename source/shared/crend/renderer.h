@@ -73,11 +73,15 @@ typedef struct fi_depot_t fi_depot_t;
 typedef struct fr_load_mesh_ctx_t
 {
 	const char* path;
+	const char* fileName;
 	
 	const int32_t* textureIndices;
-	uint32_t numTextures;
+	int32_t numTextureIndices;
 	
 	const char** texturePaths;
+	uint32_t numTextures;
+	
+	bool isSkinned;
 } fr_load_mesh_ctx_t;
 
 // load mesh, the ownership is kept inside renderer, so no need to
@@ -111,7 +115,7 @@ typedef struct fr_draw_frame_context_t
 	
 CREND_API void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks);
 
-CREND_API void fr_temp_create_skinning_mapping(struct fr_renderer_t* pRenderer, const uint32_t* boneNameHashes, uint32_t numBones, fc_alloc_callbacks_t* pAllocCallbacks);
+CREND_API void fr_temp_create_skinning_mapping(struct fr_renderer_t* pRenderer, const fr_proxy_t* meshProxy, const uint32_t* boneNameHashes, uint32_t numBones, fc_alloc_callbacks_t* pAllocCallbacks);
 	
 #ifdef __cplusplus
 }
