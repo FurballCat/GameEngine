@@ -149,6 +149,8 @@ CCORE_API const char* fc_memory_get_scope_debug_name(enum fc_memory_scope_t scop
 			return "profiler";
 		case FC_MEMORY_SCOPE_RENDER:
 			return "render";
+		case FC_MEMORY_SCOPE_GAME:
+			return "game";
 		default:
 			FUR_ASSERT(false);	// unknown name of the memory scope, please implement
 	}
