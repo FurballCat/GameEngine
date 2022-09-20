@@ -188,3 +188,22 @@ void fc_profiler_zoom_and_pan_delta(float zoomDelta, float panDelta)
 	g_profiler.zoom += zoomDelta * (g_profiler.zoom / 50.0f);
 	g_profiler.pan += panDelta / (g_profiler.zoom / 10.0f);
 }
+
+uint64_t fc_log_profiler_begin(void)
+{
+	struct timeval time = {};
+	gettimeofday(&time, NULL);
+	
+	return (uint64_t)time.tv_sec * 1000000 + (uint64_t)time.tv_usec;
+}
+
+void fc_log_profiler_end(const char* scopeName, uint64_t startTime)
+{
+	struct timeval time = {};
+	gettimeofday(&time, NULL);
+	const uint64_t endTime = (uint64_t)time.tv_sec * 1000000 + (uint64_t)time.tv_usec;
+	
+	const float scopeTime = (float)(endTime - startTime) / 1000.0f;
+	
+	printf("%s: %1.3fms\n", scopeName, scopeTime);
+}

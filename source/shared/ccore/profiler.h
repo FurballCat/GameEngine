@@ -11,8 +11,15 @@ extern "C"
 #include <stdbool.h>
 #include "api.h"
 
-// put before curly bracket '{' for automatic scope
+#define FUR_USE_PROFILER 1
+#define FUR_USE_LOG_PROFILER 1
+
+// put FUR_PROFILE("scope-name") before curly bracket '{' for automatic scope
+#if FUR_USE_PROFILER
 #define FUR_PROFILE(scopeName) for(fc_profiler_scope_t* __profiler_scope = fc_profiler_scope_begin(scopeName); __profiler_scope; fc_profiler_scope_end(__profiler_scope), __profiler_scope = NULL)
+#else
+#define FUR_PROFILE(scopeName)
+#endif
 
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 
@@ -36,6 +43,16 @@ CCORE_API void fc_profiler_toggle_draw(void);
 CCORE_API void fc_profiler_toggle_pause(void);
 CCORE_API bool fc_profiler_is_draw_on(void);
 CCORE_API void fc_profiler_zoom_and_pan_delta(float zoomDelta, float panDelta);
+
+// put FUR_LOG_PROFILE("scope-name") before curly bracket '{' for automatic scope, use log profiler for engine init or one time functions
+#if FUR_USE_LOG_PROFILER
+#define FUR_LOG_PROFILE(scopeName) for(uint64_t __start_time = fc_log_profiler_begin(); __start_time != 0; fc_log_profiler_end(scopeName, __start_time), __start_time = 0)
+#else
+#define FUR_LOG_PROFILE(scopeName)
+#endif
+
+CCORE_API uint64_t fc_log_profiler_begin(void);
+CCORE_API void fc_log_profiler_end(const char* scopeName, uint64_t startTime);
 
 #ifdef __cplusplus
 }
