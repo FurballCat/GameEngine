@@ -30,6 +30,8 @@ typedef struct fi_depot_t
 	const char* path;
 } fi_depot_t;
 	
+void fc_path_concat(char* output, const char* folderAbsolute, const char* directoryRelative, const char* fileName, const char* fileExtension);
+
 // -----
 	
 typedef struct fa_rig_t fa_rig_t;
@@ -62,16 +64,7 @@ typedef struct fi_import_mesh_ctx_t
 
 // if you want to change it then shaders and vertex layout descriptors needs to be changed
 #define FUR_MAX_SKIN_INDICES_PER_VERTEX 4
-	
-typedef enum fr_vertex_attribute_t
-	{
-		FR_VertexAttribute_Position3,
-		FR_VertexAttribute_Color3,
-		FR_VertexAttribute_TexCoord2,
-		FR_VertexAttribute_SkinIndices4,
-		FR_VertexAttribute_SkinWeights4,
-	} fr_vertex_attribute_t;
-	
+
 typedef struct fr_resource_mesh_chunk_skin_t
 {
 	int16_t indices[FUR_MAX_SKIN_INDICES_PER_VERTEX];
@@ -87,9 +80,6 @@ typedef struct fr_resource_mesh_chunk_t
 	uint32_t numIndices;
 	
 	uint32_t vertexStride;
-	
-	fr_vertex_attribute_t* vertexAttributes;
-	uint32_t numVertexAttributes;
 	
 	// skinning indices and weights, size of numVertices
 	fr_resource_mesh_chunk_skin_t* dataSkinning;
@@ -112,7 +102,10 @@ typedef struct fr_resource_mesh_t
 CIMPORT_API fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* ctx, fr_resource_mesh_t** ppMesh, fc_alloc_callbacks_t* pAllocCallbacks);
 	
 CIMPORT_API void fr_mesh_release(fr_resource_mesh_t* ppMesh, fc_alloc_callbacks_t* pAllocCallbacks);
-	
+
+typedef struct fc_serializer_t fc_serializer_t;
+CIMPORT_API void fr_resource_mesh_serialize(fc_serializer_t* pSerializer, fr_resource_mesh_t* mesh, fc_alloc_callbacks_t* pAllocCallbacks);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus
