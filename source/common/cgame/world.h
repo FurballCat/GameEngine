@@ -56,14 +56,44 @@ void* fg_stack_alloc(fg_stack_allocator_t* allocator, int32_t size);
 typedef enum fg_update_bucket_t
 {
 	FG_UPDATE_BUCKET_CHARACTERS = 0,
+	FG_UPDATE_BUCKET_COUNT
 } fg_update_bucket_t;
+
+typedef struct fg_resource_register_t fg_resource_register_t;
+typedef struct fg_game_object_2_t fg_game_object_2_t;
+
+typedef struct fg_game_object_init_ctx_t
+{
+	// all the information from spawner
+	const fg_spawn_info_t* info;
+	
+	// each object can allocate its memory on stack in level heap during init
+	fg_stack_allocator_t* stackAlloc;
+	
+	// register of all available resources
+	const fg_resource_register_t* resources;
+} fg_game_object_init_ctx_t;
+
+typedef bool (*fg_game_object_init_func_t)(fg_game_object_2_t* gameObject, fg_game_object_init_ctx_t* ctx);
+
+typedef struct fg_game_object_update_ctx_t
+{
+	float dt;
+} fg_game_object_update_ctx_t;
+
+typedef void (*fg_game_object_update_func_t)(fg_game_object_2_t* gameObject, fg_game_object_update_ctx_t* ctx);
+
+typedef struct fg_game_object_funcs_t
+{
+	fg_game_object_init_func_t init;
+	fg_game_object_update_func_t update;
+} fg_game_object_funcs_t;
 
 // handle for the game object data
 typedef struct fg_game_object_2_t
 {
+	const fg_game_object_funcs_t* fn;
 	fc_string_hash_t name;
-	
-	void* data;
 } fg_game_object_2_t;
 
 typedef struct fc_binary_buffer_t fc_binary_buffer_t;
@@ -94,33 +124,11 @@ typedef struct fg_systems_register_t
 	fr_renderer_t* renderer;
 } fg_systems_register_t;
 
-typedef struct fg_game_object_init_ctx_t
-{
-	// all the information from spawner
-	const fg_spawn_info_t* info;
-	
-	// each object can allocate its memory on stack in level heap during init
-	fg_stack_allocator_t* stackAlloc;
-	
-	// register of all available resources
-	const fg_resource_register_t* resources;
-} fg_game_object_init_ctx_t;
-
-typedef bool (*fg_game_object_init_func_t)(fg_game_object_2_t* gameObject, fg_game_object_init_ctx_t* ctx);
-
-typedef struct fg_game_object_update_ctx_t
-{
-	float dt;
-} fg_game_object_update_ctx_t;
-
-typedef void (*fg_game_object_update_func_t)(fg_game_object_2_t* gameObject, fg_game_object_update_ctx_t* ctx);
-
 // used for defining how to initialise specific type of game object
 typedef struct fg_type_factory_t
 {
 	// game object custom functions
-	fg_game_object_init_func_t fnGameObjectInit;
-	fg_game_object_update_func_t fnGameObjectUpdate;
+	fg_game_object_funcs_t fn;
 	
 	// size information for relocatable memory management, see level heap
 	uint32_t memoryMaxSize;
@@ -131,13 +139,30 @@ typedef struct fg_type_factory_t
 
 void fg_type_factory_register_new(fc_string_hash_t typeName, fg_type_factory_t factory);
 
-typedef struct fg_game_object_list_t
+// use index to get pointer to the game object, then compare go.name to name to double check
+typedef struct fg_game_object_handle_t
 {
-	fc_string_hash_t* ids;
-	fg_game_object_2_t** elems;
+	// index of the game object slot
+	int32_t index;
+	
+	// unique name
+	fc_string_hash_t name;
+} fg_game_object_handle_t;
+
+typedef struct fg_game_object_handle_array_t
+{
+	fg_game_object_handle_t* data;
 	int32_t num;
 	int32_t capacity;
-} fg_game_object_list_t;
+} fg_game_object_handle_array_t;
+
+typedef struct fg_game_object_handle_map_t
+{
+	fc_string_hash_t* names;
+	int32_t* indices;
+	int32_t num;
+	int32_t capacity;
+} fg_game_object_handle_map_t;
 
 // preallocated memory for level, used to in-place allocate memory for game objects
 typedef struct fg_level_heap_t
@@ -151,12 +176,28 @@ typedef struct fg_level_heap_t
 	int32_t numAllocatedObjects;
 } fg_level_heap_t;
 
-#define FG_BUCKET_MAX_CHARACTERS 256
+typedef struct fg_spawner_t
+{
+	fc_string_hash_t typeName;
+	fc_string_hash_t name;
+	fg_spawn_info_t info;
+} fg_spawner_t;
+
+#define MAX_GAME_OBJECTS_SPAWNED 2048
+
+typedef struct fg_game_object_info_storage_t
+{
+	fg_game_object_2_t* ptr[MAX_GAME_OBJECTS_SPAWNED];
+	const fg_spawner_t* spawner[MAX_GAME_OBJECTS_SPAWNED];
+} fg_game_object_info_storage_t;
 
 typedef struct fg_world_t
 {
-	// list of all spawned game objects
-	fg_game_object_list_t gameObjects;
+	// list of all game object info (use game object index to get data)
+	fg_game_object_info_storage_t gameObjects;
+	
+	// quick game object search map
+	fg_game_object_handle_map_t gameObjectMap;
 	
 	// memory for dynamic objects (game objects), does not include resources like animation, meshes, textures
 	fg_level_heap_t levelHeap;
@@ -168,9 +209,10 @@ typedef struct fg_world_t
 	fg_systems_register_t systems;
 	
 	// game objects in update buckets
-	fg_game_object_2_t* bucketCharacters[FG_BUCKET_MAX_CHARACTERS];
-	fg_game_object_update_func_t bucketCharactersUpdate[FG_BUCKET_MAX_CHARACTERS];
-	int32_t numBucketCharacters;
+	fg_game_object_handle_array_t buckets[FG_UPDATE_BUCKET_COUNT];
+	
+	// true if something is pending to spawn
+	bool hasSpawnScheduled;
 	
 } fg_world_t;
 
@@ -184,16 +226,9 @@ typedef struct fg_world_update_ctx_t
 
 void fg_world_update(fg_world_t* world, fg_world_update_ctx_t* ctx, fg_update_bucket_t bucket);
 
-typedef struct fg_spawner_t
-{
-	fc_string_hash_t typeName;
-	fc_string_hash_t name;
-	fg_spawn_info_t info;
-} fg_spawner_t;
-
 // all resources should be already loaded at the time of spawn call
-fg_game_object_2_t* fg_spawn(const fg_spawner_t* spawner, fg_world_t* world);
-void fg_despawn(fg_game_object_2_t* gameObject, fg_world_t* world);
+fg_game_object_handle_t fg_spawn(const fg_spawner_t* spawner, fg_world_t* world);
+void fg_despawn(fg_game_object_handle_t handle, fg_world_t* world);
 
 void fg_relocate_pointer(void** ptr, int32_t delta, void* lowerBound, void* upperBound);
 

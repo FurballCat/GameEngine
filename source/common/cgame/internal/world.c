@@ -6,7 +6,6 @@
 #include "canim/public.h"
 #include <string.h>
 
-#define MAX_GAME_OBJECTS_SPAWNED 2048
 #define LEVEL_HEAP_MEMORY_CAPACITY 16 * 1024 * 1024
 #define MAX_TYPE_FACTORIES 128
 
@@ -85,16 +84,27 @@ fc_string_hash_t fg_spawn_info_get_string_hash(const fg_spawn_info_t* info, fc_s
 	return defaultValue;
 }
 
+void fg_game_object_handle_array_alloc(fg_game_object_handle_array_t* arr, int32_t capacity, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	FUR_ASSERT(arr->data == NULL);
+	
+	arr->data = FUR_ALLOC_ARRAY_AND_ZERO(fg_game_object_handle_t, capacity, 0, FC_MEMORY_SCOPE_GAME, pAllocCallbacks);
+	arr->num = 0;
+	arr->capacity = capacity;
+}
+
+void fg_game_object_handle_array_free(fg_game_object_handle_array_t* arr, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	FUR_ASSERT(arr->data != NULL);
+	FUR_FREE(arr->data, pAllocCallbacks);
+	arr->num = 0;
+	arr->capacity = 0;
+}
+
 void fg_world_init(fg_world_t* world, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	// init by zero
 	memset(world, 0, sizeof(fg_world_t));
-	
-	// allocate list of game object handles
-	world->gameObjects.elems = FUR_ALLOC_ARRAY_AND_ZERO(fg_game_object_2_t*, MAX_GAME_OBJECTS_SPAWNED, 8, FC_MEMORY_SCOPE_GAME, pAllocCallbacks);
-	world->gameObjects.ids = FUR_ALLOC_ARRAY_AND_ZERO(fc_string_hash_t, MAX_GAME_OBJECTS_SPAWNED, 8, FC_MEMORY_SCOPE_GAME, pAllocCallbacks);
-	world->gameObjects.num = 0;
-	world->gameObjects.capacity = MAX_GAME_OBJECTS_SPAWNED;
 	
 	// allocate level heap
 	world->levelHeap.memory = FUR_ALLOC(LEVEL_HEAP_MEMORY_CAPACITY, 8, FC_MEMORY_SCOPE_GAME, pAllocCallbacks);
@@ -102,17 +112,19 @@ void fg_world_init(fg_world_t* world, fc_alloc_callbacks_t* pAllocCallbacks)
 	world->levelHeap.memoryCapacity = LEVEL_HEAP_MEMORY_CAPACITY;
 	world->levelHeap.allocatedObjects = FUR_ALLOC_ARRAY_AND_ZERO(void*, MAX_GAME_OBJECTS_SPAWNED, 0, FC_MEMORY_SCOPE_GAME, pAllocCallbacks);
 	world->levelHeap.numAllocatedObjects = 0;
+	
+	// allocate update buckets
+	fg_game_object_handle_array_alloc(&world->buckets[FG_UPDATE_BUCKET_CHARACTERS], 256, pAllocCallbacks);
 }
 
 void fg_world_release(fg_world_t* world, fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	// release list of game object handles
-	FUR_FREE(world->gameObjects.elems, pAllocCallbacks);
-	FUR_FREE(world->gameObjects.ids, pAllocCallbacks);
-	
 	// release level heap
 	FUR_FREE(world->levelHeap.memory, pAllocCallbacks);
 	FUR_FREE(world->levelHeap.allocatedObjects, pAllocCallbacks);
+	
+	// release update buckets
+	fg_game_object_handle_array_free(&world->buckets[FG_UPDATE_BUCKET_CHARACTERS], pAllocCallbacks);
 	
 	// release resources
 	for(int32_t i=0; i<world->resources.numAnimations; ++i)
@@ -123,20 +135,6 @@ void fg_world_release(fg_world_t* world, fc_alloc_callbacks_t* pAllocCallbacks)
 	for(int32_t i=0; i<world->resources.numScripts; ++i)
 	{
 		fc_release_binary_buffer((fc_binary_buffer_t*)world->resources.scripts[i], pAllocCallbacks);
-	}
-}
-
-void fg_world_update(fg_world_t* world, fg_world_update_ctx_t* ctx, fg_update_bucket_t bucket)
-{
-	for(int32_t i=0; i<world->numBucketCharacters; ++i)
-	{
-		fg_game_object_2_t* gameObject = world->bucketCharacters[i];
-		fg_game_object_update_func_t fnUpdate = world->bucketCharactersUpdate[i];
-		
-		fg_game_object_update_ctx_t goCtx = {};
-		goCtx.dt = ctx->dt;
-		
-		fnUpdate(gameObject, &goCtx);
 	}
 }
 
@@ -154,6 +152,61 @@ void* fg_level_heap_alloc_object(fg_level_heap_t* levelHeap, int32_t maxSize)
 	levelHeap->numAllocatedObjects++;
 	
 	return objectPtr;
+}
+
+void fg_world_update(fg_world_t* world, fg_world_update_ctx_t* ctx, fg_update_bucket_t bucket)
+{
+	fg_game_object_info_storage_t* info = &world->gameObjects;
+	
+	// scheduled spawn game objects
+	if(world->hasSpawnScheduled)
+	{
+		for(int32_t i=0; i<MAX_GAME_OBJECTS_SPAWNED; ++i)
+		{
+			fg_game_object_2_t* gameObject = info->ptr[i];
+			if(gameObject != NULL)
+			{
+				const fg_type_factory_t* factory = fg_type_factory_find(info->spawner[i]->typeName);
+				
+				// game object can allocate its memory on level heap, through this stack allocator
+				fg_stack_allocator_t stackAlloc = {};
+				stackAlloc.size = sizeof(fg_game_object_2_t);
+				stackAlloc.ptr = world->levelHeap.freePtr;
+				stackAlloc.size = factory->memoryMaxSize;
+				
+				fg_game_object_init_ctx_t initCtx = {};
+				initCtx.info = &info->spawner[i]->info;
+				initCtx.resources = &world->resources;
+				initCtx.stackAlloc = &stackAlloc;
+				
+				gameObject->fn->init(gameObject, &initCtx);
+				
+				// reserve memory that is actually used by the game object
+				fg_level_heap_alloc_object(&world->levelHeap, stackAlloc.size);
+			}
+		}
+	}
+	
+	fg_game_object_update_ctx_t updateCtx = {};
+	updateCtx.dt = ctx->dt;
+	
+	// go through all update buckets
+	for(int32_t i=0; i<FG_UPDATE_BUCKET_COUNT; ++i)
+	{
+		fg_game_object_handle_array_t* bucket = &world->buckets[i];
+		
+		// go through all game objects within a bucket
+		for(int32_t idxHandle=0; idxHandle<bucket->num; ++i)
+		{
+			fg_game_object_handle_t handle = bucket->data[idxHandle];
+			
+			// get game object info
+			fg_game_object_2_t* gameObject = info->ptr[handle.index];
+			
+			// update game object
+			gameObject->fn->update(gameObject, &updateCtx);
+		}
+	}
 }
 
 void* fg_stack_alloc(fg_stack_allocator_t* allocator, int32_t size)
@@ -190,42 +243,47 @@ const fc_binary_buffer_t* fg_resource_find_script(const fg_resource_register_t* 
 	return NULL;
 }
 
-void fg_game_object_list_add(fg_game_object_list_t* gameObjectList, fg_game_object_2_t* gameObject)
+fg_game_object_handle_t fg_game_object_storage_find_free_handle(fg_game_object_info_storage_t* storage)
 {
-	FUR_ASSERT(gameObjectList->num < gameObjectList->capacity);
-	const int32_t idx = gameObjectList->num;
+	fg_game_object_handle_t handle = {};
+	handle.index = -1;
 	
-	gameObjectList->ids[idx] = gameObject->name;
-	gameObjectList->elems[idx] = gameObject;
+	// find free storage slot
+	for(int32_t i=0; i<MAX_GAME_OBJECTS_SPAWNED; ++i)
+	{
+		if(storage->ptr[i] == NULL)
+		{
+			handle.index = i;
+			break;
+		}
+	}
 	
-	gameObjectList->num++;
+	return handle;
 }
 
-fg_game_object_2_t* fg_spawn(const fg_spawner_t* spawner, fg_world_t* world)
+fg_game_object_handle_t fg_spawn(const fg_spawner_t* spawner, fg_world_t* world)
 {
 	const fg_type_factory_t* factory = fg_type_factory_find(spawner->typeName);
 	
 	fg_game_object_2_t* gameObject = (fg_game_object_2_t*)fg_level_heap_alloc_object(&world->levelHeap, factory->memoryMaxSize);
+	gameObject->fn = &factory->fn;
 	gameObject->name = spawner->name;
-	gameObject->data = NULL;
 	
-	fg_stack_allocator_t alloc = {};
-	alloc.capacity = factory->memoryMaxSize;
-	alloc.size = sizeof(fg_game_object_2_t);
-	alloc.ptr = gameObject + sizeof(fg_game_object_2_t);
+	fg_game_object_handle_t handle = fg_game_object_storage_find_free_handle(&world->gameObjects);
+	FUR_ASSERT(handle.index != -1);
 	
-	fg_game_object_init_ctx_t ctx = {};
-	ctx.info = &spawner->info;
-	ctx.stackAlloc = &alloc;
+	handle.name = spawner->name;
 	
-	factory->fnGameObjectInit(gameObject, &ctx);
+	fg_game_object_info_storage_t* info = &world->gameObjects;
+	info->ptr[handle.index] = gameObject;
+	info->spawner[handle.index] = spawner;
 	
-	fg_game_object_list_add(&world->gameObjects, gameObject);
+	world->hasSpawnScheduled = true;
 	
-	return gameObject;
+	return handle;
 }
 
-void fg_despawn(fg_game_object_2_t* gameObject, fg_world_t* world)
+void fg_despawn(fg_game_object_handle_t handle, fg_world_t* world)
 {
 	// todo: implement
 }
