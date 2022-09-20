@@ -254,7 +254,7 @@ typedef enum fa_anim_clip_version_t
 
 void fa_anim_clip_serialize(fc_serializer_t* pSerializer, fa_anim_clip_t* clip, fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	//FUR_SER_VERSION(FA_ANIM_VER_LAST-1);
+	FUR_SER_VERSION(FA_ANIM_VER_LAST-1);
 	
 	FUR_SER_ADD(FA_ANIM_VER_BASE, clip->name);
 	FUR_SER_ADD(FA_ANIM_VER_BASE, clip->duration);
