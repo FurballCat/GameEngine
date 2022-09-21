@@ -44,7 +44,7 @@ def generate_xcode_projects( projects_definitions, third_party_definitions ):
     # create workspace bundle
     source_path = os.getcwd() + "/source/"
     intermediate_path = os.getcwd() + "/intermediate/projects/"
-    workspace_path = intermediate_path + "voodooEngine.xcworkspace/"
+    workspace_path = intermediate_path + "FurballCatGameEngine.xcworkspace/"
     mac.create_bundle( workspace_path )
 
     # create workspace data

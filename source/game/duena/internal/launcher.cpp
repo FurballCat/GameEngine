@@ -2596,7 +2596,7 @@ int main()
 	
 	desc.m_mainApp.m_width = 1600;
 	desc.m_mainApp.m_height = 900;
-	desc.m_mainApp.m_title = "Duena";
+	desc.m_mainApp.m_title = "Furball Cat Game Engine";
 	
 	FurGameEngine* pEngine = NULL;
 	
