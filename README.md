@@ -34,12 +34,10 @@ Compilation from scratch should be under 10 minutes.
 Project generation (.sln, .xcworkspace) is automated and should take no longer than 5 seconds
 
 ### Directories
-There are three main source code directories: shared, common, and game.
+There are three main source code directories: shared, common, and game. Code can naturally flow from Game, through Common, up to Shared if it makes sense.
 Shared - engine components that can be shared without any conflicts between games.
 Common - game specific engine components, that are general enough that with little bit of \#ifdefs it can compile for multiple games.
 Game - game specific code that cannot be reused in another game.
-
-Code can naturally flow from Game, through Common, up to Shared if it makes sense.
 
 ### Naming convention
 Code uses snake_naming_convention with prefix for specific engine component: 'fr_' rendering, 'fa_' animation, 'fc_' core, etc., and postfix for types '_t'.
