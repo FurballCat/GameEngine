@@ -1,0 +1,13 @@
+{
+	"dependecies":
+	[
+		"ccore",
+		"cmath",
+		"canim",
+		"cphysics",
+		"crend",
+		"cimport"
+	],
+	
+    "type": "console_application"
+}
