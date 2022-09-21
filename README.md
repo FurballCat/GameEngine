@@ -31,7 +31,7 @@ World editor is achieved through Blender add-on (version 3.3.0+).
 ### Fast launch
 Engine should take no longer than 5 seconds to launch. Level loading might take longer though.
 Compilation from scratch should be under 10 minutes.
-Project generation (.sln, .xcworkspace) is automated and should take no longer than 5 seconds
+Project generation (.sln, .xcworkspace) is automated and should take no longer than 5 seconds.
 
 ### Directories
 There are three main source code directories: shared, common, and game. Code can naturally flow from Game, through Common, up to Shared if it makes sense.
