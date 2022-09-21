@@ -319,9 +319,13 @@ class PBXBuildPhase:
         self.uuid = xcode_uuid()
         self.files = []
         self.phase_type = phase_type
+        self.shell_script = ""
 
     def add_file( self, file ):
         self.files.append( file )
+
+    def add_shell_script( self, script ):
+        self.shell_script = self.shell_script + script
 
 
 class PBXNativeTarget:
@@ -475,6 +479,31 @@ class PBXProjectBuilder:
 
         self._pop_tab()
         self._write_line( "};" )
+
+    def save_build_phase_run_script( self, phase ):
+        self._write_line("%(u)s /* %(n)s */ = {" % {'u': phase.uuid, 'n': phase.name})
+        self._push_tab()
+        self._write_line("isa = %(n)s;" % {'n': phase.phase_type})
+        self._write_line("buildActionMask = 2147483647;")
+
+        self._write_line("files = (")
+        self._write_line(");")
+        self._write_line("inputFileListPaths = (")
+        self._write_line(");")
+        self._write_line("inputPaths = (")
+        self._write_line(");")
+        self._write_line("outputFileListPaths = (")
+        self._write_line(");")
+        self._write_line("outputPaths = (")
+        self._write_line(");")
+
+        self._write_line("runOnlyForDeploymentPostprocessing = 0;")
+
+        self._write_line("shellPath = /bin/sh;")
+        self._write_line("shellScript = %(n)s;" % {'n': phase.shell_script})
+
+        self._pop_tab()
+        self._write_line("};")
 
     def save_group( self, group ):
         self._write_line( "%(u)s /* %(n)s */ = {" % {'u': group.uuid, 'n': group.name} )
@@ -672,6 +701,8 @@ class PBXProjectBuilder:
         if configuration.product_type == ProductType.DynLib:
             self._write_line( "DYLIB_COMPATIBILITY_VERSION = 1;" )
             self._write_line( "DYLIB_CURRENT_VERSION = 1;" )
+            self._write_line( "DYLIB_INSTALL_NAME_BASE = \"@executable_path\";")
+            self._write_line( "LD_DYLIB_INSTALL_NAME = \"@executable_path/$(EXECUTABLE_PATH)\";")
             self._write_line( "EXECUTABLE_PREFIX = lib;" )
         elif configuration.product_type == ProductType.App:
             self._write_line( "ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;" )
@@ -777,6 +808,7 @@ class Project:
         dependencies_thirdparty = project_description.dependencies_thirdparty
         project_to_source_relative_path = os.path.relpath( source_path, path )
         project_to_thirdparty_relative_path = os.path.relpath( source_path + "/../thirdparty", path )
+        project_to_binaries_debug_relative_path = os.path.relpath( source_path + "/../binaries/Debug", path )
 
         if project_type_string == "application":
             product_type = ProductType.App
@@ -844,6 +876,7 @@ class Project:
                 pbx_build_files.append( build_file_ref )
 
         build_phase_framework = PBXBuildPhase( "Frameworks", "PBXFrameworksBuildPhase" )
+        build_phase_shell_script = PBXBuildPhase("ShellScript", "PBXShellScriptBuildPhase")
 
         header_search_paths = set()
 
@@ -921,6 +954,13 @@ class Project:
 
                 build_phase_framework.add_file(project_build_file_ref)
 
+                dylib_name = os.path.basename(third_party_library_paths[item])
+                dylib_file_name, dylib_ext = os.path.splitext(dylib_name)
+
+                # need to change the dynamic library linking search path for third party dylibs so it's looking inside executable directory
+                if dylib_ext == ".dylib":
+                    build_phase_shell_script.add_shell_script("\"install_name_tool -change @rpath/%(n)s @executable_path/%(n)s %(p)s/%(d)s\\n\"" % {'n': dylib_name, 'p': project_to_binaries_debug_relative_path, 'd': product_ref_name})
+
                 group_main.add_file("Frameworks", project_ref_file)
 
                 copy_files_build_phase_sources.add_file(project_build_file_ref)
@@ -944,6 +984,9 @@ class Project:
         native_target.add_build_phase( build_phase_sources )
         native_target.add_build_phase( build_phase_framework )
         native_target.add_build_phase( build_phase_headers )
+
+        if build_phase_shell_script.shell_script != "":
+            native_target.add_build_phase(build_phase_shell_script)
 
         project_object = PBXProjectObject( organization, native_target.uuid, group_main.uuid, group_products.uuid,
                                           project_build_configuration_list )
@@ -1054,6 +1097,11 @@ class Project:
         builder.begin_section( "PBXProject" )
         builder.save_project_object( project_object )
         builder.end_section( "PBXProject" )
+
+        if build_phase_shell_script.shell_script != "":
+            builder.begin_section( "PBXShellScriptBuildPhase" )
+            builder.save_build_phase_run_script( build_phase_shell_script )
+            builder.end_section("PBXShellScriptBuildPhase")
 
         builder.begin_section( "PBXSourcesBuildPhase" )
         builder.save_build_phase( build_phase_sources )
