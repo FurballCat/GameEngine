@@ -15,6 +15,7 @@ extern "C"
 	
 typedef struct fm_xform fm_xform;
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
+typedef struct fc_mem_arena_alloc_t fc_mem_arena_alloc_t;
 typedef uint32_t fc_string_hash_t;
 typedef struct fm_vec4 fm_vec4;
 typedef struct fm_mat4 fm_mat4;
@@ -191,8 +192,7 @@ typedef struct fa_character_animate_ctx_t
 {
 	float dt;
 	
-	void* scratchpadBuffer;
-	uint32_t scratchpadBufferSize;
+	fc_mem_arena_alloc_t* arenaAlloc;
 	
 	bool showDebug;
 } fa_character_animate_ctx_t;

@@ -11,6 +11,7 @@ extern "C"
 #include <inttypes.h>
 	
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
+typedef struct fc_mem_arena_alloc_t fc_mem_arena_alloc_t;
 	
 typedef struct fm_xform fm_xform;
 typedef struct fm_vec4 fm_vec4;
@@ -52,8 +53,7 @@ typedef struct fp_bvh_t
 typedef struct fp_bvh_build_ctx_t
 {
 	// scratchpad memory to be used during build, to avoid unnecessary dynamic allocations
-	void* scratchpad;
-	uint32_t scratchpadSize;
+	fc_mem_arena_alloc_t* arenaAlloc;
 	
 	// boxes for leaf objects, also IDs will be based on this array
 	fm_box* objectBoxes;

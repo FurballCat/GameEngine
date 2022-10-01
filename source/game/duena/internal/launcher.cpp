@@ -1320,11 +1320,12 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		
 		const uint32_t numBoxes = FUR_ARRAY_SIZE(boxes);
 		
+		fc_mem_arena_alloc_t memArena = fc_mem_arena_make(pEngine->scratchpadBuffer, pEngine->scratchpadBufferSize);
+		
 		fp_bvh_build_ctx_t bvhCtx = {};
 		bvhCtx.numObjects = numBoxes;
 		bvhCtx.objectBoxes = boxes;
-		bvhCtx.scratchpad = pEngine->scratchpadBuffer;
-		bvhCtx.scratchpadSize = pEngine->scratchpadBufferSize;
+		bvhCtx.arenaAlloc = &memArena;
 		
 		fp_bvh_build(&bvhCtx, &pEngine->testBVH, pAllocCallbacks);
 	}
@@ -2045,11 +2046,12 @@ void fg_animation_update(FurGameEngine* pEngine, float dt)
 	pEngine->animCharacterZelda.animInfo.worldPos[1] = playerLocator.pos.y;
 	pEngine->animCharacterZelda.animInfo.worldPos[2] = playerLocator.pos.z;
 	
+	fc_mem_arena_alloc_t arenaAlloc = fc_mem_arena_make(pEngine->scratchpadBuffer, pEngine->scratchpadBufferSize);
+	
 	// animation states update
 	fa_character_animate_ctx_t animateCtx = {};
 	animateCtx.dt = dt;
-	animateCtx.scratchpadBuffer = pEngine->scratchpadBuffer;
-	animateCtx.scratchpadBufferSize = pEngine->scratchpadBufferSize;
+	animateCtx.arenaAlloc = &arenaAlloc;
 	animateCtx.showDebug = pEngine->zeldaGameObject.showAnimStateDebug;
 	
 	fa_character_animate(&pEngine->animCharacterZelda, &animateCtx);

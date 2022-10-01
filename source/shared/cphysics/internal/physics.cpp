@@ -316,19 +316,9 @@ void fp_bvh_box_recursive_build(fp_bvh_node_t* nodes, uint32_t maxNodes, uint32_
 
 void fp_bvh_build(const fp_bvh_build_ctx_t* ctx, fp_bvh_t* bvh, fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	FUR_ASSERT(ctx->scratchpad);
-	FUR_ASSERT(ctx->numObjects > 0);
-	
-	uint8_t* scratchpad = (uint8_t*)ctx->scratchpad;
-	uint32_t scratchpadSize = ctx->scratchpadSize;
-	
 	// allocate array of indices on scratchpad
 	const uint32_t sizeMemIndices = ctx->numObjects * sizeof(uint32_t);
-	FUR_ASSERT(scratchpadSize > sizeMemIndices);
-	
-	uint32_t* objectIndices = (uint32_t*)scratchpad;
-	scratchpad += sizeMemIndices;
-	scratchpadSize -= sizeMemIndices;
+	uint32_t* objectIndices = (uint32_t*)fc_mem_arena_alloc(ctx->arenaAlloc, sizeMemIndices, 0);
 	
 	for(uint32_t i=0; i<ctx->numObjects; ++i)
 	{
@@ -336,15 +326,11 @@ void fp_bvh_build(const fp_bvh_build_ctx_t* ctx, fp_bvh_t* bvh, fc_alloc_callbac
 	}
 	
 	// allocate array of temporary BVH nodes on scratchpad, later on they will be copied to proper memory
-	const uint32_t numMaxNodes = scratchpadSize / sizeof(fp_bvh_node_t);
+	const uint32_t numMaxNodes = (ctx->arenaAlloc->capacity - ctx->arenaAlloc->size) / sizeof(fp_bvh_node_t);
 	FUR_ASSERT(numMaxNodes > 0);
 	
 	// init nodes by zero
-	fp_bvh_node_t* tmpNodes = (fp_bvh_node_t*)scratchpad;
-	memset(tmpNodes, 0, sizeof(fp_bvh_node_t) * numMaxNodes);
-	
-	scratchpad += numMaxNodes * sizeof(fp_bvh_node_t);
-	scratchpadSize -= numMaxNodes * sizeof(fp_bvh_node_t);
+	fp_bvh_node_t* tmpNodes = (fp_bvh_node_t*)fc_mem_arena_alloc_and_zero(ctx->arenaAlloc, sizeof(fp_bvh_node_t) * numMaxNodes, 0);
 	
 	uint32_t nextFreeIndex = 1; // 1 because root is assumed to be already allocated
 	

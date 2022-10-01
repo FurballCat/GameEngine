@@ -111,7 +111,7 @@ bool fc_validate_memory(void)
 	return true;
 }
 
-CCORE_API fc_mem_stats_t fc_memory_stats(void)
+fc_mem_stats_t fc_memory_stats(void)
 {
 	fc_mem_stats_t stats = {};
 	
@@ -127,7 +127,7 @@ CCORE_API fc_mem_stats_t fc_memory_stats(void)
 	return stats;
 }
 
-CCORE_API const char* fc_memory_get_scope_debug_name(enum fc_memory_scope_t scope)
+const char* fc_memory_get_scope_debug_name(enum fc_memory_scope_t scope)
 {
 	switch(scope)
 	{
@@ -151,6 +151,8 @@ CCORE_API const char* fc_memory_get_scope_debug_name(enum fc_memory_scope_t scop
 			return "render";
 		case FC_MEMORY_SCOPE_GAME:
 			return "game";
+		case FC_MEMORY_SCOPE_ARENA:
+			return "game";
 		default:
 			FUR_ASSERT(false);	// unknown name of the memory scope, please implement
 	}
@@ -158,7 +160,7 @@ CCORE_API const char* fc_memory_get_scope_debug_name(enum fc_memory_scope_t scop
 	return "unknown";
 }
 
-CCORE_API fc_mem_stats_t fc_memory_stats_for_scope(enum fc_memory_scope_t scope)
+fc_mem_stats_t fc_memory_stats_for_scope(enum fc_memory_scope_t scope)
 {
 	fc_mem_stats_t stats = {};
 	
@@ -175,4 +177,39 @@ CCORE_API fc_mem_stats_t fc_memory_stats_for_scope(enum fc_memory_scope_t scope)
 	}
 	
 	return stats;
+}
+
+fc_mem_arena_alloc_t fc_mem_arena_make(void* buffer, uint32_t capacity)
+{
+	fc_mem_arena_alloc_t res = {};
+	res.size = 0;
+	res.capacity = capacity;
+	res.buffer = buffer;
+	return res;
+}
+
+fc_mem_arena_alloc_t fc_mem_arena_sub(fc_mem_arena_alloc_t alloc)
+{
+	fc_mem_arena_alloc_t res = {};
+	res.size = 0;
+	res.capacity = alloc.capacity - alloc.size;
+	res.buffer = alloc.buffer + alloc.size;
+	return res;
+}
+
+void* fc_mem_arena_alloc(fc_mem_arena_alloc_t* pAlloc, uint32_t size, uint32_t alignment)
+{
+	FUR_ASSERT(pAlloc->size + size <= pAlloc->capacity);
+	
+	// todo: add alignment
+	size_t offset = pAlloc->size;
+	pAlloc->size += size;
+	return pAlloc->buffer + offset;
+}
+
+void* fc_mem_arena_alloc_and_zero(fc_mem_arena_alloc_t* pAlloc, uint32_t size, uint32_t alignment)
+{
+	void* mem = fc_mem_arena_alloc(pAlloc, size, alignment);
+	memset(mem, 0, size);
+	return mem;
 }

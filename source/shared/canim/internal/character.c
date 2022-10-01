@@ -719,36 +719,11 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	}
 	
 	// allocate pose stack and command buffer memory
-	uint32_t scratchpadBufferSizeUsed = 0;
-	void* scratchpadBufferPtr = ctx->scratchpadBuffer;
-	
 	const uint32_t poseStackSize = 128 * 1024;
-	void* animPoseStackMemory = NULL;
-	{
-		uint32_t sizeRequired = poseStackSize;
-		FUR_ASSERT(scratchpadBufferSizeUsed + sizeRequired < ctx->scratchpadBufferSize);
-		
-		animPoseStackMemory = scratchpadBufferPtr;
-		
-		uint8_t* ptr = (uint8_t*)scratchpadBufferPtr;
-		ptr += sizeRequired;
-		scratchpadBufferPtr = (void*)ptr;
-		scratchpadBufferSizeUsed += sizeRequired;
-	}
+	void* animPoseStackMemory = fc_mem_arena_alloc(ctx->arenaAlloc, poseStackSize, 8);
 	
 	const uint32_t animCmdBufferSize = 32 * 1024;
-	void* animCmdBufferMemory = NULL;
-	{
-		uint32_t sizeRequired = animCmdBufferSize;
-		FUR_ASSERT(scratchpadBufferSizeUsed + sizeRequired < ctx->scratchpadBufferSize);
-		
-		animCmdBufferMemory = scratchpadBufferPtr;
-		
-		uint8_t* ptr = (uint8_t*)scratchpadBufferPtr;
-		ptr += sizeRequired;
-		scratchpadBufferPtr = (void*)ptr;
-		scratchpadBufferSizeUsed += sizeRequired;
-	}
+	void* animCmdBufferMemory = fc_mem_arena_alloc(ctx->arenaAlloc, animCmdBufferSize, 0);
 	
 	// init pose stack - pose stack is shared across multiple command buffers
 	fa_pose_stack_t poseStack = {};
