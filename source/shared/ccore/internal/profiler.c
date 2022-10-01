@@ -8,7 +8,7 @@
 #include "furAssert.h"
 #include "debugDraw.h"
 
-#define FC_PROFILER_MAX_SCOPES 4096
+#define FC_PROFILER_MAX_SCOPES 8192
 #define FC_PROFILER_MAX_FRAMES 5
 #define FC_PROFILER_FRAMES_DRAWN 4
 

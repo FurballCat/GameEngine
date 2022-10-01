@@ -21,6 +21,9 @@ fc_mem_debug_info_t g_rootDebugMemInfo;
 void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t alignment,
 							  enum fc_memory_scope_t scope, const char* info)
 {
+	if(size == 0)
+		return NULL;
+	
 #if FUR_MEMORY_DEBUG == 1
 	size_t originalSize = size;
 	size += sizeof(fc_mem_debug_info_t);
@@ -59,6 +62,9 @@ void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t
 void* fc_alloc_and_zero(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t alignment,
 								  enum fc_memory_scope_t scope, const char* info)
 {
+	if(size == 0)
+		return NULL;
+	
 	void* ptr = fc_alloc(pAllocCallbacks, size, alignment, scope, info);
 	memset(ptr, 0, size);
 	return ptr;
@@ -66,6 +72,9 @@ void* fc_alloc_and_zero(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t siz
 
 void fc_dealloc(struct fc_alloc_callbacks_t* pAllocCallbacks, void* pMemory, const char* info)
 {
+	if(pMemory == NULL)
+		return;
+	
 #if FUR_MEMORY_DEBUG == 1
 	// move ptr back, to include info part
 	pMemory = ((uint8_t*)pMemory) - sizeof(fc_mem_debug_info_t);

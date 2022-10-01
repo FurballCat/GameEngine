@@ -520,6 +520,15 @@ float fa_decompress_key_time(const uint16_t time)
 	return ((float)time) / 24.0f;
 }
 
+bool fi_is_same_key(const fi_temp_anim_curve_key_t* a, const fi_temp_anim_curve_key_t* b)
+{
+	return a->isLastCompMinus == b->isLastCompMinus
+	&& a->isRotation == b->isRotation
+	&& a->keyValues[0] == b->keyValues[0]
+	&& a->keyValues[1] == b->keyValues[1]
+	&& a->keyValues[2] == b->keyValues[2];
+}
+
 fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_clip_ctx_t* ctx, fa_anim_clip_t** ppAnimClip, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	std::string absolutePath = depot->path;
@@ -598,8 +607,6 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 				tempCurve.keys.resize(numKeys);
 				tempCurve.index = boneIdx;
 				
-				numAllKeys += numKeys;
-				
 				for(uint32_t i=0; i<numKeys; ++i)
 				{
 					const float time = uniqueTimesSorted[i];
@@ -623,6 +630,14 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 					
 					tempCurve.keys[i].isLastCompMinus = quat.r < 0.0f;
 				}
+				
+				// if constant, then remove one key
+				if(numKeys == 2 && fi_is_same_key(&tempCurve.keys[0], &tempCurve.keys[1]))
+				{
+					tempCurve.keys.pop_back();
+				}
+				
+				numAllKeys += tempCurve.keys.size();
 			}
 			
 			// positions
@@ -664,8 +679,6 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 				const uint32_t numKeys = (uint32_t)uniqueTimesSorted.size();
 				tempCurve.posKeys.resize(numKeys);
 				
-				numAllKeys += numKeys;
-				
 				for(uint32_t i=0; i<numKeys; ++i)
 				{
 					const float time = uniqueTimesSorted[i];
@@ -692,6 +705,14 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 					
 					tempCurve.posKeys[i].isLastCompMinus = false;
 				}
+				
+				// if constant, then remove one key
+				if(numKeys == 2 && fi_is_same_key(&tempCurve.posKeys[0], &tempCurve.posKeys[1]))
+				{
+					tempCurve.posKeys.pop_back();
+				}
+				
+				numAllKeys += tempCurve.posKeys.size();
 			}
 			
 			fa_anim_clip_t* animClip = (fa_anim_clip_t*)FUR_ALLOC_AND_ZERO(sizeof(fa_anim_clip_t), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);

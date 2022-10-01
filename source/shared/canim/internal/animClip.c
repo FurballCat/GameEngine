@@ -124,6 +124,11 @@ float fa_decompress_key_time(const uint16_t time)
 void fa_anim_curve_sample(const fa_anim_curve_t* curve, float time, bool asAdditive, fm_xform* xform)
 {
 	// rotation
+	if(curve->numRotKeys == 1)
+	{
+		fa_decompress_rotation_key(&curve->rotKeys[0], &xform->rot);
+	}
+	else
 	{
 		const uint16_t numKeys = curve->numRotKeys;
 	
@@ -164,6 +169,11 @@ void fa_anim_curve_sample(const fa_anim_curve_t* curve, float time, bool asAddit
 	}
 	
 	// position
+	if(curve->numPosKeys == 1)
+	{
+		fa_decompress_position_key(&curve->posKeys[0], &xform->pos);
+	}
+	else
 	{
 		const uint16_t numKeys = curve->numPosKeys;
 	
@@ -217,31 +227,34 @@ void fa_anim_curve_sample(const fa_anim_curve_t* curve, float time, bool asAddit
 
 void fa_anim_clip_sample(const fa_anim_clip_t* clip, float time, bool asAdditive, fa_pose_t* pose, const uint8_t* mask)
 {
-	for(uint32_t i=0; i<pose->numXforms; ++i)
+	FUR_PROFILE("anim-clip-sample")
 	{
-		pose->weightsXforms[i] = 0;
-	}
-	
-	for(uint32_t i=0; i<pose->numTracks; ++i)
-	{
-		pose->weightsTracks[i] = 0;
-	}
-	
-	const uint32_t numCurves = clip->numCurves;
-	for(uint32_t i_c=0; i_c<numCurves; ++i_c)
-	{
-		const fa_anim_curve_t* curve = &clip->curves[i_c];
-		const uint16_t idxXform = curve->index;
-		
-		fa_anim_curve_sample(curve, time, asAdditive, &pose->xforms[idxXform]);
-		
-		if(mask)
+		for(uint32_t i=0; i<pose->numXforms; ++i)
 		{
-			pose->weightsXforms[idxXform] = mask[idxXform];
+			pose->weightsXforms[i] = 0;
 		}
-		else
+		
+		for(uint32_t i=0; i<pose->numTracks; ++i)
 		{
-			pose->weightsXforms[idxXform] = 255;
+			pose->weightsTracks[i] = 0;
+		}
+		
+		const uint32_t numCurves = clip->numCurves;
+		for(uint32_t i_c=0; i_c<numCurves; ++i_c)
+		{
+			const fa_anim_curve_t* curve = &clip->curves[i_c];
+			const uint16_t idxXform = curve->index;
+			
+			fa_anim_curve_sample(curve, time, asAdditive, &pose->xforms[idxXform]);
+			
+			if(mask)
+			{
+				pose->weightsXforms[idxXform] = mask[idxXform];
+			}
+			else
+			{
+				pose->weightsXforms[idxXform] = 255;
+			}
 		}
 	}
 }
