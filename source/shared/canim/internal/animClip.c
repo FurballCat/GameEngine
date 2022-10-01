@@ -124,11 +124,6 @@ float fa_decompress_key_time(const uint16_t time)
 void fa_anim_curve_sample(const fa_anim_curve_t* curve, float time, bool asAdditive, fm_xform* xform)
 {
 	// rotation
-	if(curve->numRotKeys == 1)
-	{
-		fa_decompress_rotation_key(&curve->rotKeys[0], &xform->rot);
-	}
-	else
 	{
 		const uint16_t numKeys = curve->numRotKeys;
 	
@@ -169,11 +164,6 @@ void fa_anim_curve_sample(const fa_anim_curve_t* curve, float time, bool asAddit
 	}
 	
 	// position
-	if(curve->numPosKeys == 1)
-	{
-		fa_decompress_position_key(&curve->posKeys[0], &xform->pos);
-	}
-	else
 	{
 		const uint16_t numKeys = curve->numPosKeys;
 	
