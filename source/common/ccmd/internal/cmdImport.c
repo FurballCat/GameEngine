@@ -419,6 +419,59 @@ int fc_cmd_import_anim(int argc, char* argv[], fc_cmd_execute_ctx_t* ctx, fc_all
 	return 0;
 }
 
+int fc_cmd_import_mesh(int argc, char* argv[], fc_cmd_execute_ctx_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	const char* srcPath = CMD_ARG("-p");
+	if(!srcPath)
+	{
+		CMD_LOG_ERROR("No source path provided, please use -p path argument");
+		return 1;
+	}
+	
+	const char* dstName = CMD_ARG("-o");
+	if(!dstName)
+	{
+		CMD_LOG_ERROR("No output name provided, please use -o name argument");
+		return 1;
+	}
+	
+	fr_resource_mesh_t* meshResource = NULL;
+	
+	// import mesh
+	{
+		fi_depot_t depot = {};
+		depot.path = "";	// todo: remove that
+		
+		char pathSource[256] = {};
+		fc_path_concat(pathSource, ctx->assetsPath, srcPath, "", "");
+		
+		fi_import_mesh_ctx_t loadCtx;
+		loadCtx.path = pathSource;
+		
+		CMD_LOG("Importing %s", pathSource);
+		fi_import_mesh(&depot, &loadCtx, &meshResource, pAllocCallbacks);
+	}
+	
+	// load or save serialized file
+	{
+		char pathEngine[256] = {};
+		fc_path_concat(pathEngine, ctx->enginePath, "mesh/", dstName, ".mesh");
+		
+		fc_serializer_t ser = {};
+		ser.file = fopen(pathEngine, "wb");
+		ser.isWriting = true;
+		
+		CMD_LOG("Saving %s", pathEngine);
+		fr_resource_mesh_serialize(&ser, meshResource, pAllocCallbacks);
+		
+		fclose(ser.file);
+	}
+	
+	FUR_FREE(meshResource, pAllocCallbacks);
+	
+	return 0;
+}
+
 int fc_cmd_import(int argc, char* argv[], fc_cmd_execute_ctx_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	if(CMD_FLAG("-help"))
@@ -442,6 +495,11 @@ int fc_cmd_import(int argc, char* argv[], fc_cmd_execute_ctx_t* ctx, fc_alloc_ca
 	if(CMD_FLAG("-anim"))
 	{
 		return fc_cmd_import_anim(argc, argv, ctx, pAllocCallbacks);
+	}
+	
+	if(CMD_FLAG("-mesh"))
+	{
+		return fc_cmd_import_mesh(argc, argv, ctx, pAllocCallbacks);
 	}
 	
 	CMD_LOG_ERROR("Please provide resource flag type for import (example: -anim)");
