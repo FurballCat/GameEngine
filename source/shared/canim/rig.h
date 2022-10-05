@@ -15,6 +15,7 @@ typedef struct fm_xform fm_xform;
 typedef struct fm_vec4 fm_vec4;
 typedef uint32_t fc_string_hash_t;
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
+typedef struct fc_serializer_t fc_serializer_t;
 
 void fm_axis_to_vec4(fm_axis_t axis, fm_vec4* v);
 
@@ -67,6 +68,7 @@ typedef struct fa_rig_t
 CANIM_API void fa_rig_release(fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks);
 CANIM_API int16_t fa_rig_find_bone_idx(const fa_rig_t* rig, fc_string_hash_t name);
 CANIM_API const uint8_t* fa_rig_get_mask(const fa_rig_t* rig, fa_mask_t mask);
+CANIM_API void fa_rig_serialize(fc_serializer_t* pSerializer, fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks);
 
 #ifdef __cplusplus
 }

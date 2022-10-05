@@ -749,8 +749,25 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		depot.path = depotPath;
 
 		const char* characterRigPath = "assets/characters/zelda/animations/zelda-a-pose.fbx";
-
-		// import animation resources
+		char pathRigEngine[256] = {};
+		fc_path_concat(pathRigEngine, depotPath, "assets/characters/zelda/animations/", "zelda-a-pose", ".rig");
+		
+		// load rig
+		{
+			FILE* engineFile = fopen(pathRigEngine, "rb");
+			
+			if(engineFile)
+			{
+				fc_serializer_t ser = {};
+				ser.file = engineFile;
+				ser.isWriting = false;
+				pEngine->pRig = (fa_rig_t*)FUR_ALLOC_AND_ZERO(sizeof(fa_rig_t), 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+				fa_rig_serialize(&ser, pEngine->pRig, pAllocCallbacks);
+			}
+		}
+		
+		// import rig
+		if(!pEngine->pRig)
 		{
 			fi_import_rig_ctx_t ctx = {};
 			ctx.path = characterRigPath;
@@ -1017,6 +1034,13 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 					}
 				}
 			}
+			
+			FILE* engineFile = fopen(pathRigEngine, "wb");
+			
+			fc_serializer_t ser = {};
+			ser.file = engineFile;
+			ser.isWriting = true;
+			fa_rig_serialize(&ser, pEngine->pRig, pAllocCallbacks);
 		}
 
 		pEngine->pAnimClipWindProtect = fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-upper-wind-protect", pEngine->pRig, pAllocCallbacks);
