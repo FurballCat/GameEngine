@@ -15,7 +15,11 @@ typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 // context of the command (depot, etc.)
 typedef struct fc_cmd_execute_ctx_t
 {
-	const char* depotPath;
+	// path to FBX and other assets (input)
+	const char* assetsPath;
+	
+	// path to generated engine files path (output)
+	const char* enginePath;
 } fc_cmd_execute_ctx_t;
 
 typedef int (*fc_cmd_execute_fn_t)(int argc, char* argv[], fc_cmd_execute_ctx_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks);

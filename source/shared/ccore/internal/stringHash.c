@@ -43,7 +43,8 @@ fc_string_hash_t fc_make_string_hash_and_register(const char* name)
 {
 	fc_string_hash_t hash = fc_make_string_hash(name);
 	
-	FUR_ASSERT(g_hashRegister.buffer);
+	if(!g_hashRegister.buffer)
+		return hash;
 	
 	// check if this name is registered
 	bool isRegistered = false;

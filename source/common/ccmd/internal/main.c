@@ -26,6 +26,8 @@ int main(int argc, char* argv[])
 	}
 	
 	fc_cmd_execute_ctx_t ctx = {};
+	ctx.assetsPath = "../../assets/";
+	ctx.enginePath = "../../data/";
 	
 	const int err = cmd->execute(argc, argv, &ctx, NULL);
 	if(err != 0)
