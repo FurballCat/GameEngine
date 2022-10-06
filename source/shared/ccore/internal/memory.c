@@ -13,8 +13,10 @@ typedef struct fc_memory_map_entry_t
 	size_t capacity;
 } fc_memory_map_entry_t;
 
+#define FUR_SIZE_MB(x) x * 1024 * 1024
+
 fc_memory_map_entry_t g_memoryMap[] = {
-	{FC_MEMORY_SCOPE_GLOBAL}
+	{FC_MEMORY_SCOPE_GLOBAL, FC_MEMORY_SCOPE_SYSTEM, FUR_SIZE_MB(256)}
 };
 
 typedef struct fc_mem_debug_info_t
