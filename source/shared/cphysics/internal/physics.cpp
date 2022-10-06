@@ -138,21 +138,21 @@ void fp_physics_update(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, const
 		scene->fetchResults(true); // true to block the thread until simulate is finished
 	}
 	
-	const float red[4] = FUR_COLOR_RED;
-	const float green[4] = FUR_COLOR_GREEN;
-	const float blue[4] = FUR_COLOR_BLUE;
+	//const float red[4] = FUR_COLOR_RED;
+	//const float green[4] = FUR_COLOR_GREEN;
+	//const float blue[4] = FUR_COLOR_BLUE;
 	
 	// text capsule rigid body
 	{
-		const PxTransform t = pPhysics->testCapsule->getGlobalPose();
-		const PxVec3 x = t.q.getBasisVector0();
-		const PxVec3 y = t.q.getBasisVector1();
-		const PxVec3 z = t.q.getBasisVector2();
+		//const PxTransform t = pPhysics->testCapsule->getGlobalPose();
+		//const PxVec3 x = t.q.getBasisVector0();
+		//const PxVec3 y = t.q.getBasisVector1();
+		//const PxVec3 z = t.q.getBasisVector2();
 		
-		const float start[3] = {t.p.x, t.p.y, t.p.z};
-		const float end_x[3] = {t.p.x + x.x, t.p.y + x.y, t.p.z + x.z};
-		const float end_y[3] = {t.p.x + y.x, t.p.y + y.y, t.p.z + y.z};
-		const float end_z[3] = {t.p.x + z.x, t.p.y + z.y, t.p.z + z.z};
+		//const float start[3] = {t.p.x, t.p.y, t.p.z};
+		//const float end_x[3] = {t.p.x + x.x, t.p.y + x.y, t.p.z + x.z};
+		//const float end_y[3] = {t.p.x + y.x, t.p.y + y.y, t.p.z + y.z};
+		//const float end_z[3] = {t.p.x + z.x, t.p.y + z.y, t.p.z + z.z};
 		
 		/*
 		fc_dbg_line(start, end_x, red);
