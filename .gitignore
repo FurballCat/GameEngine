@@ -132,7 +132,6 @@ assets
 rawAssets
 thirdparty
 __pycache__
-.*
 
 # python
 *.pyc
