@@ -2969,7 +2969,7 @@ void fr_temp_create_skinning_mapping(struct fr_renderer_t* pRenderer, const fr_p
 
 fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, const fr_load_mesh_ctx_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	fr_resource_mesh_t* meshResource;
+	fr_resource_mesh_t* meshResource = NULL;
 	
 	char pathEngine[256] = {};
 	fc_path_concat(pathEngine, depot->path, ctx->path, ctx->fileName, ".mesh");

@@ -6,6 +6,17 @@
 #include <stdio.h>
 #include <string.h>
 
+typedef struct fc_memory_map_entry_t
+{
+	fc_memory_scope_t name;
+	fc_memory_scope_t parent;
+	size_t capacity;
+} fc_memory_map_entry_t;
+
+fc_memory_map_entry_t g_memoryMap[] = {
+	{FC_MEMORY_SCOPE_GLOBAL}
+};
+
 typedef struct fc_mem_debug_info_t
 {
 	struct fc_mem_debug_info_t* next;
@@ -140,8 +151,8 @@ const char* fc_memory_get_scope_debug_name(enum fc_memory_scope_t scope)
 {
 	switch(scope)
 	{
-		case FC_MEMORY_SCOPE_DEFAULT:
-			return "default";
+		case FC_MEMORY_SCOPE_GLOBAL:
+			return "global";
 		case FC_MEMORY_SCOPE_INPUT:
 			return "input";
 		case FC_MEMORY_SCOPE_PHYSICS:

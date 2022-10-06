@@ -736,7 +736,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	
 	// init scratchpad buffer
 	pEngine->scratchpadBufferSize = 256 * 1024;
-	pEngine->scratchpadBuffer = FUR_ALLOC_AND_ZERO(pEngine->scratchpadBufferSize, 16, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+	pEngine->scratchpadBuffer = FUR_ALLOC_AND_ZERO(pEngine->scratchpadBufferSize, 16, FC_MEMORY_SCOPE_GLOBAL, pAllocCallbacks);
 	
 	// init type factories
 	fg_register_type_factories();

@@ -15,7 +15,7 @@ bool fc_load_binary_file_into_binary_buffer(const char* path, fc_binary_buffer_t
 		size_t size = ftell(pFile);
 		fseek(pFile, 0, SEEK_SET);
 		
-		pBuffer->pData = FUR_ALLOC(size, 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+		pBuffer->pData = FUR_ALLOC(size, 8, FC_MEMORY_SCOPE_GLOBAL, pAllocCallbacks);
 		pBuffer->size = size;
 		
 		fread(pBuffer->pData, size, 1, pFile);
@@ -77,7 +77,7 @@ bool fc_load_text_file_into_text_buffer(const char* path, fc_text_buffer_t* pBuf
 		size_t size = ftell(pFile);
 		fseek(pFile, 0, SEEK_SET);
 		
-		pBuffer->pData = (char*)FUR_ALLOC(size, 8, FC_MEMORY_SCOPE_DEFAULT, pAllocCallbacks);
+		pBuffer->pData = (char*)FUR_ALLOC(size, 8, FC_MEMORY_SCOPE_GLOBAL, pAllocCallbacks);
 		pBuffer->size = size;
 		
 		fread(pBuffer->pData, size, 1, pFile);

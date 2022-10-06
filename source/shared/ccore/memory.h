@@ -24,7 +24,8 @@ typedef enum fc_memory_type_t
 
 typedef enum fc_memory_scope_t
 {
-	FC_MEMORY_SCOPE_DEFAULT = 0,
+	FC_MEMORY_SCOPE_SYSTEM = 0,
+	FC_MEMORY_SCOPE_GLOBAL,
 	FC_MEMORY_SCOPE_INPUT,
 	FC_MEMORY_SCOPE_PHYSICS,
 	FC_MEMORY_SCOPE_ANIMATION,
