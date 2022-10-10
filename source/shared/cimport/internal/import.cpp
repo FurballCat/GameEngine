@@ -791,8 +791,17 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 		const uint32_t locoNumPosKeys = curveLoco->numPosKeys;
 		const uint32_t locoNumRotKeys = curveLoco->numRotKeys;
 		
-		fm_vec4 posLoop = vec4_decom_16bit(curveLoco->posKeys[locoNumPosKeys-1].keyData);
-		fm_quat rotLoop = quat_ihm_16bit(curveLoco->rotKeys[locoNumRotKeys-1].keyData);
+		fm_vec4 posBegin = vec4_decom_16bit(curveLoco->posKeys[0].keyData);
+		fm_vec4 posEnd = vec4_decom_16bit(curveLoco->posKeys[locoNumPosKeys-1].keyData);
+		fm_quat rotBegin = quat_ihm_16bit(curveLoco->rotKeys[0].keyData);
+		fm_quat rotEnd = quat_ihm_16bit(curveLoco->rotKeys[locoNumRotKeys-1].keyData);
+		
+		fm_vec4 posLoop = {};
+		fm_vec4_sub(&posEnd, &posBegin, &posLoop);
+		
+		fm_quat_conj(&rotBegin);
+		fm_quat rotLoop = {};
+		fm_quat_mul(&rotBegin, &rotEnd, &rotLoop);
 		
 		animClip->motionDelta[0] = posLoop.x;
 		animClip->motionDelta[1] = posLoop.y;
