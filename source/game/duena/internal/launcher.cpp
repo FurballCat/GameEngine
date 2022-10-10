@@ -1857,7 +1857,9 @@ typedef struct fc_dev_menu_option_t
 void fc_draw_debug_menu(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	const float color[4] = {0.8f, 0.8f, 0.8f, 1.0f};
-	const float colorSelected[4] = FUR_COLOR_WHITE;
+	const float colorCursor[4] = {0.9f, 0.9f, 0.9f, 1.0f};
+	const float colorLabel[4] = FUR_COLOR_CYAN;
+	const float colorSelected[4] = FUR_COLOR_YELLOW;
 	
 	if(g_drawDevMenu)
 	{
@@ -1886,13 +1888,18 @@ void fc_draw_debug_menu(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCall
 		
 		fc_dbg_rect(x - 40.0f, y + 40.0f, 450.0f, 110.0f + 28.0f * numOptions, bgColor);
 		
-		fc_dbg_text(x, y, "Dev Menu:", color);
+		fc_dbg_text(x, y, "Dev Menu:", colorLabel);
 		
 		for(uint32_t i=0; i<numOptions; ++i)
 		{
 			const bool isSelected = (i == g_devMenuOption);
 			
 			fc_dbg_text(x + ident, y - lineHeight * (1+i), options[i].name, isSelected ? colorSelected : color);
+			
+			if(isSelected)
+			{
+				fc_dbg_text(x + ident - 18.0f, y - lineHeight * (1+i), ">", colorCursor);
+			}
 			
 			// execute option
 			if(isSelected && g_devMenuOptionClick)
@@ -2106,6 +2113,18 @@ void fc_dbg_mat4(const fm_mat4* m)
 	fc_dbg_line(pos, axisZ, blue);
 }
 
+void fc_dbg_stats_for_mem_to_text(fc_memory_scope_t scope, char* txt, const char* displayName)
+{
+	fc_mem_stats_t stats = fc_memory_stats_for_scope(scope);
+	
+	const float numMBs = ((float)stats.numBytesUsed) / (1024.0f * 1024.0f);
+	const float numCapacityMBs = ((float)stats.numBytesCapacity) / (1024.0f * 1024.0f);
+	
+	const char* name = fc_memory_get_scope_debug_name(scope);
+	
+	sprintf(txt, "%s: %1.2f / %1.2f MBs (%u allocs)", displayName ? displayName : name, numMBs, numCapacityMBs, stats.numAllocs);
+}
+
 void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	// test BVH debug draw
@@ -2131,38 +2150,44 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		{
 			fc_mem_stats_t stats = fc_memory_stats();
 			
-			const float numMBs = ((float)stats.numBytes) / 1000000.0f;
+			const float numMBs = ((float)stats.numBytesUsed) / (1024.0f * 1024.0f);
+			const float numCapacityMBs = ((float)stats.numBytesCapacity) / (1024.0f * 1024.0f);
 			
 			char txt[50];
-			sprintf(txt, "MEM: %1.1f MBs (%u allocs)", numMBs, stats.numAllocs);
+			sprintf(txt, "MEM: %1.2f / %1.2f MBs (%u allocs)", numMBs, numCapacityMBs, stats.numAllocs);
 			
 			const float green[4] = FUR_COLOR_GREEN;
 			const float yellow[4] = FUR_COLOR_YELLOW;
 			const float red[4] = FUR_COLOR_RED;
-			fc_dbg_text(-1050, 600, txt, numMBs < 1500.0f ? green : numMBs < 2000.0f ? yellow : red);
+			fc_dbg_text(-1050, 600, txt, numMBs < numCapacityMBs * 0.95f ? green : numMBs < numCapacityMBs ? yellow : red);
 		}
 	}
 	
 	// show memory statistics for each memory scope
 	if(pEngine->debugShowMemoryStats)
 	{
-		for(uint32_t i=0; i<FC_MEMORY_SCOPE_COUNT; ++i)
-		{
-			enum fc_memory_scope_t scopeId = (enum fc_memory_scope_t)i;
-			fc_mem_stats_t stats = fc_memory_stats_for_scope(scopeId);
-			
-			const float numKBs = ((float)stats.numBytes) / 1000.0f;
-			
-			const char* name = fc_memory_get_scope_debug_name(scopeId);
-			
-			char txt[128];
-			sprintf(txt, "%s: %1.1f KBs (%u allocs)", name, numKBs, stats.numAllocs);
-			
-			const float green[4] = FUR_COLOR_GREEN;
-			const float yellow[4] = FUR_COLOR_YELLOW;
-			const float red[4] = FUR_COLOR_RED;
-			fc_dbg_text(-1050, 500 - i*24, txt, numKBs < 1500000.0f ? green : numKBs < 2000000.0f ? yellow : red);
-		}
+		const float white[4] = FUR_COLOR_WHITE;
+		int32_t textLineCounter = 0;
+		
+		fc_dbg_text(-1050, 500 + 24, "-[ Retail Memory ]-----------------------------------------------", white);
+		
+		char txt[128] = {};
+		
+		fc_dbg_stats_for_mem_to_text(FC_MEMORY_SCOPE_SYSTEM, txt, "OS Memory");
+		fc_dbg_text(-1050, 500 - textLineCounter*24, txt, white);
+		textLineCounter++;
+		
+		fc_dbg_stats_for_mem_to_text(FC_MEMORY_SCOPE_GLOBAL, txt, "Code And Static Data");
+		fc_dbg_text(-1050, 500 - textLineCounter*24, txt, white);
+		textLineCounter++;
+		
+		textLineCounter++;
+		fc_dbg_text(-1050, 500 - textLineCounter*24, "-[ Debug Memory ]------------------------------------------------", white);
+		textLineCounter++;
+		
+		fc_dbg_stats_for_mem_to_text(FC_MEMORY_SCOPE_DEBUG, txt, "Debug Memory");
+		fc_dbg_text(-1050, 500 - textLineCounter*24, txt, white);
+		textLineCounter++;
 	}
 	
 	// slow-time debug mode - this needs to be after debugShowFPS

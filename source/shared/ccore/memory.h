@@ -112,7 +112,8 @@ CCORE_API bool fc_validate_memory(void);
 typedef struct fc_mem_stats_t
 {
 	uint32_t numAllocs;
-	uint64_t numBytes;
+	uint64_t numBytesUsed;
+	uint64_t numBytesCapacity;
 } fc_mem_stats_t;
 
 CCORE_API fc_mem_stats_t fc_memory_stats(void);

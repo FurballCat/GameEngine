@@ -16,8 +16,60 @@ typedef struct fc_memory_map_entry_t
 #define FUR_SIZE_MB(x) x * 1024 * 1024
 
 fc_memory_map_entry_t g_memoryMap[] = {
-	{FC_MEMORY_SCOPE_GLOBAL, FC_MEMORY_SCOPE_SYSTEM, FUR_SIZE_MB(256)}
+	{FC_MEMORY_SCOPE_SYSTEM, FC_MEMORY_SCOPE_SYSTEM, FUR_SIZE_MB(1024)},
+		{FC_MEMORY_SCOPE_GLOBAL, FC_MEMORY_SCOPE_SYSTEM, FUR_SIZE_MB(256)},
+			{FC_MEMORY_SCOPE_ARENA, FC_MEMORY_SCOPE_GLOBAL, FUR_SIZE_MB(2)},
+			{FC_MEMORY_SCOPE_PHYSICS, FC_MEMORY_SCOPE_GLOBAL, FUR_SIZE_MB(16)},
+			{FC_MEMORY_SCOPE_ANIMATION, FC_MEMORY_SCOPE_GLOBAL, FUR_SIZE_MB(60)},
+		
+			{FC_MEMORY_SCOPE_GAME, FC_MEMORY_SCOPE_GLOBAL, FUR_SIZE_MB(128)},
+				{FC_MEMORY_SCOPE_INPUT, FC_MEMORY_SCOPE_GAME, FUR_SIZE_MB(4)},
+				{FC_MEMORY_SCOPE_CAMERA, FC_MEMORY_SCOPE_GAME, FUR_SIZE_MB(1)},
+				{FC_MEMORY_SCOPE_SCRIPT, FC_MEMORY_SCOPE_GAME, FUR_SIZE_MB(4)},
+				{FC_MEMORY_SCOPE_PROFILER, FC_MEMORY_SCOPE_DEBUG, FUR_SIZE_MB(4)},
+				{FC_MEMORY_SCOPE_RENDER, FC_MEMORY_SCOPE_GLOBAL, FUR_SIZE_MB(56)},
+		
+		{FC_MEMORY_SCOPE_DEBUG, FC_MEMORY_SCOPE_SYSTEM, FUR_SIZE_MB(128)}
 };
+
+bool g_mapSorted = false;
+
+int fc_mem_entry_compare( const void* a, const void* b)
+{
+	const fc_memory_map_entry_t* entryA = (const fc_memory_map_entry_t*)a;
+	const fc_memory_map_entry_t* entryB = (const fc_memory_map_entry_t*)b;
+	
+	if(entryA->name == entryB->name)
+		return 0;
+	else if(entryA->name < entryB->name)
+		return -1;
+	else
+		return 1;
+}
+
+fc_memory_map_entry_t fc_mem_map_find(fc_memory_scope_t scope)
+{
+	// todo: rethink, not the best way to init
+	if(!g_mapSorted)
+	{
+		g_mapSorted = true;
+		qsort(g_memoryMap, FUR_ARRAY_SIZE(g_memoryMap), sizeof(fc_memory_map_entry_t), fc_mem_entry_compare);
+	}
+	
+	return g_memoryMap[scope];
+}
+
+bool fc_mem_map_belongs_to(fc_memory_scope_t scope, fc_memory_scope_t ancestor)
+{
+	fc_memory_scope_t parent = scope;
+	
+	while(parent != ancestor && parent != FC_MEMORY_SCOPE_SYSTEM)
+	{
+		parent = fc_mem_map_find(parent).parent;
+	}
+	
+	return parent == ancestor;
+}
 
 typedef struct fc_mem_debug_info_t
 {
@@ -136,12 +188,16 @@ bool fc_validate_memory(void)
 fc_mem_stats_t fc_memory_stats(void)
 {
 	fc_mem_stats_t stats = {};
+	stats.numBytesCapacity = fc_mem_map_find(FC_MEMORY_SCOPE_SYSTEM).capacity;
 	
 	fc_mem_debug_info_t* ptr = &g_rootDebugMemInfo;
 	while(ptr != NULL)
 	{
-		stats.numBytes += ptr->size;
-		stats.numAllocs += 1;
+		if(fc_mem_map_belongs_to(ptr->scope, FC_MEMORY_SCOPE_SYSTEM))
+		{
+			stats.numBytesUsed += ptr->size;
+			stats.numAllocs += 1;
+		}
 		
 		ptr = ptr->next;
 	}
@@ -153,6 +209,8 @@ const char* fc_memory_get_scope_debug_name(enum fc_memory_scope_t scope)
 {
 	switch(scope)
 	{
+		case FC_MEMORY_SCOPE_SYSTEM:
+			return "system";
 		case FC_MEMORY_SCOPE_GLOBAL:
 			return "global";
 		case FC_MEMORY_SCOPE_INPUT:
@@ -174,7 +232,7 @@ const char* fc_memory_get_scope_debug_name(enum fc_memory_scope_t scope)
 		case FC_MEMORY_SCOPE_GAME:
 			return "game";
 		case FC_MEMORY_SCOPE_ARENA:
-			return "game";
+			return "arena";
 		default:
 			FUR_ASSERT(false);	// unknown name of the memory scope, please implement
 	}
@@ -185,13 +243,14 @@ const char* fc_memory_get_scope_debug_name(enum fc_memory_scope_t scope)
 fc_mem_stats_t fc_memory_stats_for_scope(enum fc_memory_scope_t scope)
 {
 	fc_mem_stats_t stats = {};
+	stats.numBytesCapacity = fc_mem_map_find(scope).capacity;
 	
 	fc_mem_debug_info_t* ptr = &g_rootDebugMemInfo;
 	while(ptr != NULL)
 	{
-		if(ptr->scope == scope)
+		if(fc_mem_map_belongs_to(ptr->scope, scope))
 		{
-			stats.numBytes += ptr->size;
+			stats.numBytesUsed += ptr->size;
 			stats.numAllocs += 1;
 		}
 		
