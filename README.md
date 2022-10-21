@@ -26,7 +26,6 @@ Most of the pipelines like importing or packaging are commandline based (ccmd).
 Scripts are written using Racket (yes, LISP style). There's no debugging to scripts. It's a program that generates data readable for engine.
 Scripts are also holding the definitions for game structures or game objects.
 Debug tools are simple rect + text UI that can be navigated with PlayStation Gamepad (press left stick + options to open debug menu).
-World editor is achieved through Blender add-on (version 3.3.0+).
 
 ### Fast launch
 Engine should take no longer than 5 seconds to launch. Level loading might take longer though.
