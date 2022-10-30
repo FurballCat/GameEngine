@@ -405,6 +405,7 @@ fa_action_animate_t* fg_animate_action_slots_get_free(fg_animate_action_slots_t*
 
 typedef struct fg_game_object_t
 {
+	fm_xform worldTransform;
 	fc_string_hash_t name;	// access in scripts example: 'zelda
 	fg_animate_action_slots_t animateActionSlots;
 	
@@ -418,6 +419,8 @@ typedef struct fg_game_object_t
 	bool equipItemNow;
 	bool showAnimStateDebug;
 	bool isJump;
+	bool isGrounded;
+	fm_vec4 velocity;
 	
 } fg_game_object_t;
 
@@ -1530,6 +1533,10 @@ fs_variant_t fs_native_get_variable(fs_script_ctx_t* ctx, uint32_t numArgs, cons
 	{
 		result.asBool = gameObj->isJump;
 	}
+	else if(varName == SID("is-grounded"))
+	{
+		result.asBool = gameObj->isGrounded;
+	}
 	
 	return result;
 }
@@ -2075,7 +2082,30 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		}
 	}
 	
-	if(pEngine->inActionPressed)
+	// is grounnded raycast check
+	{
+		bool isGrounded = false;
+		
+		fm_vec4 pos = pEngine->zeldaGameObject.worldTransform.pos;
+		pos.z += 0.1f;
+		const fm_vec4 dir = {0.0f, 0.0f, -1.0f, 0.0f};
+		const float distance = 0.12f;
+		
+		fp_physics_raycast_hit_t hit = {};
+		const bool isHit = fp_physics_raycast(pEngine->pPhysics, &pos, &dir, distance, &hit);
+		if(isHit)
+		{
+			isGrounded = true;
+			const float extent[3] = {0.02f, 0.02f, 0.02f};
+			const float color[4] = FUR_COLOR_RED;
+			fc_dbg_box_wire(&hit.pos.x, extent, color);
+		}
+		
+		pEngine->zeldaGameObject.isGrounded = isGrounded;
+	}
+	
+	// jumping
+	if(pEngine->inActionPressed && pEngine->zeldaGameObject.isGrounded)
 	{
 		pEngine->zeldaGameObject.isJump = true;
 	}
@@ -2308,14 +2338,29 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		fp_physics_update_ctx_t physicsCtx = {};
 		physicsCtx.dt = dt;
 		
+		fm_vec4 playerDisplacement = pEngine->zeldaGameObject.velocity;
+		
 		// apply root motion from anim info to physics
-		fm_vec4 playerDisplacement;
-		playerDisplacement.x = pEngine->animCharacterZelda.animInfo.rootMotionDeltaX;
-		playerDisplacement.y = pEngine->animCharacterZelda.animInfo.rootMotionDeltaY;
-		playerDisplacement.z = -2.0f * dt;
-		playerDisplacement.w = 0.0f;
+		if(pEngine->zeldaGameObject.isJump)
+		{
+			pEngine->zeldaGameObject.velocity.z = 4.0f;
+		}
+		else if(pEngine->zeldaGameObject.isGrounded)
+		{
+			pEngine->zeldaGameObject.velocity.x = pEngine->animCharacterZelda.animInfo.rootMotionDeltaX / dt;
+			pEngine->zeldaGameObject.velocity.y = pEngine->animCharacterZelda.animInfo.rootMotionDeltaY / dt;
+		}
+		
+		// apply gravity
+		pEngine->zeldaGameObject.velocity.z += -9.81f * dt;
+		
+		fm_vec4_mulf(&pEngine->zeldaGameObject.velocity, dt, &playerDisplacement);
 		physicsCtx.playerDisplacement = &playerDisplacement;
 		fp_physics_update(pEngine->pPhysics, &physicsCtx);
+		
+		fp_physics_player_info_t playerPhysics;
+		playerPhysics.locator = &pEngine->zeldaGameObject.worldTransform;
+		fp_physics_get_player_info(pEngine->pPhysics, &playerPhysics);
 
 		if(pEngine->zeldaGameObject.playerWindProtecting)
 		{
@@ -2458,10 +2503,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 	FUR_PROFILE("render-update")
 	{
 		// get zelda position
-		fm_xform playerLocator;
-		fp_physics_player_info_t playerPhysics;
-		playerPhysics.locator = &playerLocator;
-		fp_physics_get_player_info(pEngine->pPhysics, &playerPhysics);
+		fm_xform playerLocator = pEngine->zeldaGameObject.worldTransform;
 		
 		fm_mat4 zeldaMat;
 		fm_mat4_rot_z(pEngine->animCharacterZelda.animInfo.currentYaw, &zeldaMat);

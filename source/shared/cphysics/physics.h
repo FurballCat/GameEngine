@@ -44,7 +44,8 @@ typedef struct fp_physics_raycast_hit_t
 	float distance;
 } fp_physics_raycast_hit_t;
 
-CPHYSICS_API bool fp_physics_raycast(fp_physics_t* physics, const fm_vec4* start, const fm_vec4* dir, fp_physics_raycast_hit_t* hit);
+CPHYSICS_API bool fp_physics_raycast(fp_physics_t* physics, const fm_vec4* start, const fm_vec4* dir,
+									 float distance, fp_physics_raycast_hit_t* hit);
 
 // ----- BOUNDING VOLUME HIERARCHY -----
 typedef struct fm_box fm_box;

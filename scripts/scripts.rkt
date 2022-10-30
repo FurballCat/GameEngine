@@ -376,9 +376,9 @@
 (define-state-script 'zelda
   (state 'idle
          (on (start)
-             [wait-animate 'self 'zelda-run-to-idle-sharp
-                      (animate-arg fade-in-sec) 0.1
-                      (animate-arg fade-out-sec) 0.3]
+             ;;[wait-animate 'self 'zelda-run-to-idle-sharp
+               ;;       (animate-arg fade-in-sec) 0.1
+                 ;;     (animate-arg fade-out-sec) 0.3]
              [animate 'self 'zelda-idle-stand-01
                       (animate-arg fade-in-sec) 0.3]
              [animate 'self 'zelda-face-idle
@@ -387,25 +387,35 @@
              [animate 'self 'zelda-hands-idle
                       (animate-arg fade-in-sec) 0.3
                       (animate-arg layer-name) 'hands]
-             [wait-seconds 2.0]
-             [camera-enable 'self 'follow-vista 2.0]
-             [wait-seconds 2.0]
-             [camera-enable 'self 'follow 2.0]
          )
          (on (update)
              [go-when 'run [cmp-eq [get-variable 'self 'is-running] 1]]
+             [go-when 'jump [cmp-eq [get-variable 'self 'is-grounded] 0]]
          )
   )
   (state 'run
          (on (start)
-             [wait-animate 'self 'zelda-loco-idle-to-run-0
-                      (animate-arg fade-in-sec) 0.3
-                      (animate-arg fade-out-sec) 0.2]
+             ;;[wait-animate 'self 'zelda-loco-idle-to-run-0
+               ;;       (animate-arg fade-in-sec) 0.3
+                 ;;     (animate-arg fade-out-sec) 0.2]
+             ;;[animate 'self 'zelda-wind-01
+               ;;       (animate-arg fade-in-sec) 0.0
+                 ;;     (animate-arg layer-name) 'partial]
              [animate 'self 'zelda-loco-run-relaxed
-                      (animate-arg fade-in-sec) 0.2]
+                      (animate-arg fade-in-sec) 0.3]
          )
          (on (update)
              [go-when 'idle [cmp-eq [get-variable 'self 'is-running] 0]]
+             [go-when 'jump [cmp-eq [get-variable 'self 'is-grounded] 0]]
+         )
+  )
+  (state 'jump
+         (on (start)
+             [animate 'self 'zelda-jump-loop
+                      (animate-arg fade-in-sec) 0.3]
+         )
+         (on (update)
+             [go-when 'run [cmp-eq [get-variable 'self 'is-grounded] 1]]
          )
   )
 )
