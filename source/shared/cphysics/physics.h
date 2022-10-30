@@ -9,6 +9,7 @@ extern "C"
 
 #include "api.h"
 #include <inttypes.h>
+#include "cmath/mathtypes.h"
 	
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 typedef struct fc_mem_arena_alloc_t fc_mem_arena_alloc_t;
@@ -39,7 +40,8 @@ CPHYSICS_API void fp_physics_get_player_info(fp_physics_t* physics, fp_physics_p
 
 typedef struct fp_physics_raycast_hit_t
 {
-	fm_vec4* hitPosition;
+	fm_vec4 pos;
+	float distance;
 } fp_physics_raycast_hit_t;
 
 CPHYSICS_API bool fp_physics_raycast(fp_physics_t* physics, const fm_vec4* start, const fm_vec4* dir, fp_physics_raycast_hit_t* hit);

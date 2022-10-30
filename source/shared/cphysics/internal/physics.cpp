@@ -137,11 +137,26 @@ void fp_physics_release(fp_physics_t* physics, fc_alloc_callbacks_t* pAllocCallb
 	FUR_FREE(physics, pAllocCallbacks);
 }
 
-bool fp_physics_raycast(fp_physics_t* physics, const fm_vec4* start, const fm_vec4* dir, fp_physics_raycast_hit_t* hit)
+bool fp_physics_raycast(fp_physics_t* physics, const fm_vec4* start, const fm_vec4* dir, const float distance, fp_physics_raycast_hit_t* hit)
 {
 	PxScene* scene = physics->scene;
 	
-	return false;
+	PxRaycastBuffer hitPx;
+	
+	PxQueryFilterData fd;
+	fd.flags |= PxQueryFlag::eANY_HIT; // note the OR with the default value
+	bool status = scene->raycast(PxVec3(start->x, start->y, start->z), PxVec3(dir->x, dir->y, dir->z), distance, hitPx, PxHitFlags(PxHitFlag::eDEFAULT), fd);
+	
+	if(hitPx.hasBlock)
+	{
+		const PxRaycastHit& rHit = hitPx.getAnyHit(0);
+		hit->pos.x = rHit.position.x;
+		hit->pos.y = rHit.position.y;
+		hit->pos.z = rHit.position.z;
+		hit->distance = rHit.distance;
+	}
+	
+	return status;
 }
 
 void fp_physics_update(fp_physics_t* physics, const fp_physics_update_ctx_t* pCtx)
