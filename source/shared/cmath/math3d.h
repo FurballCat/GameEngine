@@ -16,89 +16,10 @@ extern "C"
 	
 #include <immintrin.h>
 #include <stdbool.h>
-	
+#include "cmath/mathtypes.h"
+
 #define FM_PI 3.14159265358979323846264338327950288
 #define FM_DEG_TO_RAD(_x) _x * FM_PI / 180.0
-	
-	typedef struct fm_vec3
-	{
-		float x, y, z;
-	} fm_vec3;
-	
-	typedef struct fm_vec4
-	{
-		float x, y, z, w;
-	} fm_vec4;
-	
-	typedef struct fm_mat4
-	{
-		fm_vec4 x, y, z, w;
-	} fm_mat4_t;
-
-	typedef struct fm_mat4 fm_mat4;
-	
-	typedef struct fm_quat
-	{
-		float i, j, k, r;
-	} fm_quat;
-	
-	typedef struct fm_xform
-	{
-		fm_vec4 pos;
-		fm_quat rot;
-	} fm_xform;
-	
-	typedef struct fm_euler_angles
-	{
-		float yaw, pitch, roll;
-	} fm_euler_angles;
-	
-	// axis-aligned bounding box
-	typedef struct fm_box
-	{
-		fm_vec3 center;
-		fm_vec3 extent;
-	} fm_box;
-
-	// frustum
-	typedef struct fm_frustum
-	{
-		fm_vec4 leftPlane;
-		fm_vec4 rightPlane;
-		fm_vec4 topPlane;
-		fm_vec4 bottomPlane;
-		fm_vec4 nearPlane;
-		fm_vec4 farPlane;
-	} fm_frustum;
-
-	// vector math version (intrin)
-	typedef __m128 xm_float4_v;
-	
-	typedef struct xm_vec3
-	{
-		xm_float4_v vec128;
-	} xm_vec3;
-	
-	typedef struct xm_vec4
-	{
-		xm_float4_v vec128;
-	} xm_vec4;
-	
-	typedef struct xm_mat3
-	{
-		xm_vec3 c0;
-		xm_vec3 c1;
-		xm_vec3 c2;
-		xm_vec3 c3;
-	} xm_mat3;
-	
-	typedef struct xm_mat4
-	{
-		xm_vec4 c0;
-		xm_vec4 c1;
-		xm_vec4 c2;
-		xm_vec4 c3;
-	} xm_mat4;
 	
 	static inline void xm_vec4_add(const xm_vec4 v1, const xm_vec4 v2, xm_vec4* result);
 	static inline void xm_vec4_sub(const xm_vec4 v1, const xm_vec4 v2, xm_vec4* result);
@@ -166,36 +87,36 @@ extern "C"
 	/***** MATRIX *****/
 	
 	// identity matrix
-	static inline void fm_mat4_identity(fm_mat4_t* m);
+	static inline void fm_mat4_identity(fm_mat4* m);
 	
 	// rotation matrix around axis x
-	static inline void fm_mat4_rot_x(const float phi, fm_mat4_t* m);
+	static inline void fm_mat4_rot_x(const float phi, fm_mat4* m);
 	
 	// rotation matrix around axis y
-	static inline void fm_mat4_rot_y(const float phi, fm_mat4_t* m);
+	static inline void fm_mat4_rot_y(const float phi, fm_mat4* m);
 	
 	// rotation matrix around axis Z
-	static inline void fm_mat4_rot_z(const float phi, fm_mat4_t* m);
+	static inline void fm_mat4_rot_z(const float phi, fm_mat4* m);
 	
 	// look at matrix for graphics (view)
-	static inline void fm_mat4_lookat(const fm_vec4* eye, const fm_vec4* at, const fm_vec4* up, fm_mat4_t* m);
+	static inline void fm_mat4_lookat(const fm_vec4* eye, const fm_vec4* at, const fm_vec4* up, fm_mat4* m);
 	
 	// projection matrix, b - bottom, t - top, l - left, r - right, n - near, f - far
 	static inline void fm_mat4_projection(const float b, const float t, const float l, const float r,
-							const float n, const float f, fm_mat4_t* m);
+							const float n, const float f, fm_mat4* m);
 	
 	// projection matrix based on fov and aspect ratio
 	static inline void fm_mat4_projection_fov(const float fov, const float aspectRatio,
-								const float near, const float far, fm_mat4_t* m);
+								const float near, const float far, fm_mat4* m);
 	
 	// transpose matrix
-	static inline void fm_mat4_transpose(fm_mat4_t* m);
+	static inline void fm_mat4_transpose(fm_mat4* m);
 	
 	// multiply matrix a by b and save to m
-	static inline void fm_mat4_mul(const fm_mat4_t* a, const fm_mat4_t* b, fm_mat4_t* m);
+	static inline void fm_mat4_mul(const fm_mat4* a, const fm_mat4* b, fm_mat4* m);
 	
 	// transform vector or position by matrix
-	static inline void fm_mat4_transform(const fm_mat4_t* m, const fm_vec4* a, fm_vec4* b);
+	static inline void fm_mat4_transform(const fm_mat4* m, const fm_vec4* a, fm_vec4* b);
 	
 	// clamps value to range min..max
 	static inline float fm_clamp(const float value, const float min, const float max);
@@ -233,7 +154,7 @@ extern "C"
 	static inline void fm_quat_lerp(const fm_quat* a, const fm_quat* b, float alpha, fm_quat* c);
 	
 	// convert quaternion to rotation matrix
-	static inline void fm_quat_to_mat4(const fm_quat* q, fm_mat4_t* m);
+	static inline void fm_quat_to_mat4(const fm_quat* q, fm_mat4* m);
 
 	// convert quaternion to euler angles
 	static inline void fm_quat_to_euler(const fm_quat* q, fm_euler_angles* e);
@@ -283,7 +204,7 @@ extern "C"
 	static inline void fm_xform_slerp(const fm_xform* a, const fm_xform* b, float alpha, fm_xform* c);
 	
 	// convert transform to matrix
-	static inline void fm_xform_to_mat4(const fm_xform* x, fm_mat4_t* m);
+	static inline void fm_xform_to_mat4(const fm_xform* x, fm_mat4* m);
 	
 	// apply xform to vec4 a and store in v
 	static inline void fm_xform_apply(const fm_xform* x, const fm_vec4* a, fm_vec4* v);

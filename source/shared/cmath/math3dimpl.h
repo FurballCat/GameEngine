@@ -209,7 +209,7 @@ static inline float fm_vec4_distance(const fm_vec4* a, const fm_vec4* b)
 	return fm_vec4_mag(&diff);
 }
 
-static inline void fm_mat4_identity(fm_mat4_t* m)
+static inline void fm_mat4_identity(fm_mat4* m)
 {
 	m->x.x = 1.0f;
 	m->x.y = 0.0f;
@@ -232,7 +232,7 @@ static inline void fm_mat4_identity(fm_mat4_t* m)
 	m->w.w = 1.0f;
 }
 
-static inline void fm_mat4_rot_x(const float phi, fm_mat4_t* m)
+static inline void fm_mat4_rot_x(const float phi, fm_mat4* m)
 {
 	m->x.x = 1; m->x.y = 0; m->x.z = 0; m->x.w = 0;
 	m->y.x = 0; m->y.y = cos(phi); m->y.z = -sin(phi); m->y.w = 0;
@@ -240,7 +240,7 @@ static inline void fm_mat4_rot_x(const float phi, fm_mat4_t* m)
 	m->w.x = 0; m->w.y = 0; m->w.z = 0; m->w.w = 1;
 }
 
-static inline void fm_mat4_rot_y(const float phi, fm_mat4_t* m)
+static inline void fm_mat4_rot_y(const float phi, fm_mat4* m)
 {
 	m->x.x = cos(phi); m->x.y = 0; m->x.z = sin(phi); m->x.w = 0;
 	m->y.x = 0; m->y.y = 1; m->y.z = 0; m->y.w = 0;
@@ -248,7 +248,7 @@ static inline void fm_mat4_rot_y(const float phi, fm_mat4_t* m)
 	m->w.x = 0; m->w.y = 0; m->w.z = 0; m->w.w = 1;
 }
 
-static inline void fm_mat4_rot_z(const float phi, fm_mat4_t* m)
+static inline void fm_mat4_rot_z(const float phi, fm_mat4* m)
 {
 	m->x.x = cos(phi); m->x.y = -sin(phi); m->x.z = 0; m->x.w = 0;
 	m->y.x = sin(phi); m->y.y = cos(phi); m->y.z = 0; m->y.w = 0;
@@ -256,7 +256,7 @@ static inline void fm_mat4_rot_z(const float phi, fm_mat4_t* m)
 	m->w.x = 0; m->w.y = 0; m->w.z = 0; m->w.w = 1;
 }
 
-static inline void fm_mat4_lookat_lh(const fm_vec4* eye, const fm_vec4* at, const fm_vec4* up, fm_mat4_t* m)
+static inline void fm_mat4_lookat_lh(const fm_vec4* eye, const fm_vec4* at, const fm_vec4* up, fm_mat4* m)
 {
 	fm_vec4 axis_y;
 	fm_vec4_sub(at, eye, &axis_y);
@@ -290,7 +290,7 @@ static inline void fm_mat4_lookat_lh(const fm_vec4* eye, const fm_vec4* at, cons
 	m->w.w = 1.0f;
 }
 
-static inline void fm_mat4_lookat_rh(const fm_vec4* eye, const fm_vec4* at, const fm_vec4* up, fm_mat4_t* m)
+static inline void fm_mat4_lookat_rh(const fm_vec4* eye, const fm_vec4* at, const fm_vec4* up, fm_mat4* m)
 {
 	fm_vec4 axis_z;
 	fm_vec4_sub(eye, at, &axis_z);
@@ -326,7 +326,7 @@ static inline void fm_mat4_lookat_rh(const fm_vec4* eye, const fm_vec4* at, cons
 	
 // projection matrix, b - bottom, t - top, l - left, r - right, n - near, f - far
 static inline void fm_mat4_ortho_projection(const float b, const float t, const float l, const float r,
-									  const float n, const float f, fm_mat4_t* m)
+									  const float n, const float f, fm_mat4* m)
 {
 	float sum_rl, sum_tb, sum_nf, inv_rl, inv_tb, inv_nf;
 	sum_rl = (r + l);
@@ -359,7 +359,7 @@ static inline void fm_mat4_ortho_projection(const float b, const float t, const 
 	
 // projection matrix, b - bottom, t - top, l - left, r - right, n - near, f - far
 static inline void fm_mat4_projection(const float b, const float t, const float l, const float r,
-						const float n, const float f, fm_mat4_t* m)
+						const float n, const float f, fm_mat4* m)
 {
 	/*
 	 return {{2 * n / (r - l), 0, (r + l) / (r - l), 0},
@@ -391,7 +391,7 @@ static inline void fm_mat4_projection(const float b, const float t, const float 
 
 // projection matrix based on fov and aspect ratio
 static inline void fm_mat4_projection_fov(const float fov, const float aspectRatio,
-							const float near, const float far, fm_mat4_t* m)
+							const float near, const float far, fm_mat4* m)
 {
 	const float scale = tan(FM_DEG_TO_RAD(fov * 0.5f)) * near;
 	const float top = scale;
@@ -409,7 +409,7 @@ static inline void fm_swapf(float* a, float* b)
 	*b = c;
 }
 
-static inline void fm_mat4_transpose(fm_mat4_t* m)
+static inline void fm_mat4_transpose(fm_mat4* m)
 {
 	fm_swapf(&m->x.y, &m->y.x);
 	fm_swapf(&m->x.z, &m->z.x);
@@ -419,7 +419,7 @@ static inline void fm_mat4_transpose(fm_mat4_t* m)
 	fm_swapf(&m->z.w, &m->w.z);
 }
 
-static inline void fm_mat4_mul(const fm_mat4_t* a, const fm_mat4_t* b, fm_mat4_t* m)
+static inline void fm_mat4_mul(const fm_mat4* a, const fm_mat4* b, fm_mat4* m)
 {
 	const float m00 = a->x.x * b->x.x + a->x.y * b->y.x + a->x.z * b->z.x + a->x.w * b->w.x;
 	const float m01 = a->x.x * b->x.y + a->x.y * b->y.y + a->x.z * b->z.y + a->x.w * b->w.y;
@@ -462,7 +462,7 @@ static inline void fm_mat4_mul(const fm_mat4_t* a, const fm_mat4_t* b, fm_mat4_t
 	m->w.w = m33;
 }
 	
-static inline void fm_mat4_transform(const fm_mat4_t* m, const fm_vec4* a, fm_vec4* b)
+static inline void fm_mat4_transform(const fm_mat4* m, const fm_vec4* a, fm_vec4* b)
 {
 	b->x = fm_vec4_dot(a, &m->x);
 	b->y = fm_vec4_dot(a, &m->y);
@@ -627,7 +627,7 @@ static inline void fm_quat_lerp(const fm_quat* a, const fm_quat* b, float alpha,
 	c->r = a->r * alpha_inv + b->r * alpha;
 }
 
-static inline void fm_quat_to_mat4(const fm_quat* q, fm_mat4_t* m)
+static inline void fm_quat_to_mat4(const fm_quat* q, fm_mat4* m)
 {
 	m->x.x = 1.0f - 2.0f * q->j * q->j - 2.0f * q->k * q->k;
 	m->x.y = 2.0f * q->i * q->j - 2.0f * q->k * q->r;
@@ -818,7 +818,7 @@ static inline void fm_xform_slerp(const fm_xform* a, const fm_xform* b, float al
 	fm_quat_slerp(&a->rot, &b->rot, alpha, &c->rot);
 }
 
-static inline void fm_xform_to_mat4(const fm_xform* x, fm_mat4_t* m)
+static inline void fm_xform_to_mat4(const fm_xform* x, fm_mat4* m)
 {
 	const fm_quat* q = &x->rot;
 	

@@ -618,15 +618,15 @@ typedef struct fr_vertex_t
 
 typedef struct fr_uniform_buffer_t
 {
-	fm_mat4_t model;
-	fm_mat4_t view;
-	fm_mat4_t proj;
-	fm_mat4_t padding;	// when using offset for buffers, it has to be a multiple of 256
+	fm_mat4 model;
+	fm_mat4 view;
+	fm_mat4 proj;
+	fm_mat4 padding;	// when using offset for buffers, it has to be a multiple of 256
 } fr_uniform_buffer_t;
 
 typedef struct fr_skinning_buffer_t
 {
-	fm_mat4_t bones[512];
+	fm_mat4 bones[512];
 } fr_skinning_buffer_t;
 
 typedef enum fr_mesh_chunk_buffer_offset_t
@@ -2459,7 +2459,7 @@ void fr_wait_for_device(struct fr_renderer_t* pRenderer)
 	vkDeviceWaitIdle(pRenderer->device);
 }
 
-void fr_dbg_draw_mat4(const fm_mat4_t* m)
+void fr_dbg_draw_mat4(const fm_mat4* m)
 {
 	const float pos[3] = {m->w.x, m->w.y, m->w.z};
 	const float scale = 0.1f;
@@ -2492,7 +2492,7 @@ fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera, f
 	
 	fm_mat4_projection_fov(fov, aspectRatio, 0.1f, 1000.0f, &pvs->projection);
 	
-	fm_mat4_t rot_x_vulkan_correction;
+	fm_mat4 rot_x_vulkan_correction;
 	fm_mat4_rot_x(FM_DEG_TO_RAD(-90), &rot_x_vulkan_correction);
 	fm_mat4_mul(&rot_x_vulkan_correction, &tempView, &pvs->view);
 	

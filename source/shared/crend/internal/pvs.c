@@ -19,7 +19,7 @@ typedef struct fr_world_view_proj_t
 
 typedef struct fr_skinning_buffer_t
 {
-	fm_mat4_t bones[512];
+	fm_mat4 bones[512];
 } fr_skinning_buffer_t;
 
 // add renderable thing to given potentially visible set and pass skinning matrices for it
