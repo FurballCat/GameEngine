@@ -417,6 +417,7 @@ typedef struct fg_game_object_t
 	bool playerWindProtecting;
 	bool equipItemNow;
 	bool showAnimStateDebug;
+	bool isJump;
 	
 } fg_game_object_t;
 
@@ -568,8 +569,6 @@ struct FurGameEngine
 	
 	fg_world_t* pWorld;
 	
-	fp_physics_scene_t* pPhysicsScene;
-	
 	fi_input_manager_t* pInputManager;
 	
 	// animation
@@ -581,6 +580,7 @@ struct FurGameEngine
 	bool inActionPressed;
 	bool inputTriangleActionPressed;
 	bool inputCircleActionPressed;
+	bool inputXPressed;
 	float actionRotationLeftX;
 	float actionRotationLeftY;
 	float actionZoomIn;
@@ -691,7 +691,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = fp_init_physics(&pEngine->pPhysics, pAllocCallbacks) == 0 ? FR_RESULT_OK : FR_RESULT_PHYSICS_INIT_ERROR;
+		pEngine->pPhysics = fp_physics_create(pAllocCallbacks);
 	}
 	
 	if(res == FR_RESULT_OK)
@@ -703,12 +703,6 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		furSetLastError(fr_get_last_error());
 		free(pEngine);
 		return false;
-	}
-	
-	// create physics scene
-	if(res == FR_RESULT_OK)
-	{
-		fp_physics_scene_create(pEngine->pPhysics, &pEngine->pPhysicsScene, pAllocCallbacks);
 	}
 	
 	// create world
@@ -1062,6 +1056,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-idle-stand-01", pEngine->pRig, pAllocCallbacks);
 		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-hands-idle", pEngine->pRig, pAllocCallbacks);
 		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-wind-01", pEngine->pRig, pAllocCallbacks);
+		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-jump-loop", pEngine->pRig, pAllocCallbacks);
 		
 		// load meshes
 		{
@@ -1531,6 +1526,10 @@ fs_variant_t fs_native_get_variable(fs_script_ctx_t* ctx, uint32_t numArgs, cons
 	{
 		result.asBool = fm_vec4_mag2(&gameObj->logicMove) > 0.0f;
 	}
+	else if(varName == SID("is-jump"))
+	{
+		result.asBool = gameObj->isJump;
+	}
 	
 	return result;
 }
@@ -1633,6 +1632,8 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 	static bool triangleActionWasPressed = false;
 	bool circleActionPressed = false;
 	static bool circleActionWasPressed = false;
+	bool xPressed = false;
+	static bool xWasPressed = false;
 	
 	static bool wasLeftThumbPressed = false;
 	bool leftThumbPressed = false;
@@ -1813,6 +1814,16 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 		else
 		{
 			pEngine->inputCircleActionPressed = false;
+		}
+		
+		if(xWasPressed != xPressed)
+		{
+			pEngine->inputXPressed = xPressed;
+			xPressed = xPressed;
+		}
+		else
+		{
+			pEngine->inputXPressed = false;
 		}
 	}
 }
@@ -2063,6 +2074,15 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			pEngine->zeldaGameObject.playerWindProtecting = true;
 		}
 	}
+	
+	if(pEngine->inActionPressed)
+	{
+		pEngine->zeldaGameObject.isJump = true;
+	}
+	else
+	{
+		pEngine->zeldaGameObject.isJump = false;
+	}
 }
 
 void fg_animation_update(FurGameEngine* pEngine, float dt)
@@ -2071,7 +2091,7 @@ void fg_animation_update(FurGameEngine* pEngine, float dt)
 	fm_xform playerLocator;
 	fp_physics_player_info_t playerPhysics;
 	playerPhysics.locator = &playerLocator;
-	fp_physics_get_player_info(pEngine->pPhysics, pEngine->pPhysicsScene, &playerPhysics);
+	fp_physics_get_player_info(pEngine->pPhysics, &playerPhysics);
 	
 	pEngine->animCharacterZelda.animInfo.worldPos[0] = playerLocator.pos.x;
 	pEngine->animCharacterZelda.animInfo.worldPos[1] = playerLocator.pos.y;
@@ -2223,7 +2243,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		fm_xform playerLocator;
 		fp_physics_player_info_t playerPhysics;
 		playerPhysics.locator = &playerLocator;
-		fp_physics_get_player_info(pEngine->pPhysics, pEngine->pPhysicsScene, &playerPhysics);
+		fp_physics_get_player_info(pEngine->pPhysics, &playerPhysics);
 		
 		static float time = 0.0f;
 		time += dt;
@@ -2295,7 +2315,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		playerDisplacement.z = -2.0f * dt;
 		playerDisplacement.w = 0.0f;
 		physicsCtx.playerDisplacement = &playerDisplacement;
-		fp_physics_update(pEngine->pPhysics, pEngine->pPhysicsScene, &physicsCtx);
+		fp_physics_update(pEngine->pPhysics, &physicsCtx);
 
 		if(pEngine->zeldaGameObject.playerWindProtecting)
 		{
@@ -2441,7 +2461,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		fm_xform playerLocator;
 		fp_physics_player_info_t playerPhysics;
 		playerPhysics.locator = &playerLocator;
-		fp_physics_get_player_info(pEngine->pPhysics, pEngine->pPhysicsScene, &playerPhysics);
+		fp_physics_get_player_info(pEngine->pPhysics, &playerPhysics);
 		
 		fm_mat4 zeldaMat;
 		fm_mat4_rot_z(pEngine->animCharacterZelda.animInfo.currentYaw, &zeldaMat);
@@ -2620,11 +2640,9 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	FUR_FREE(pEngine->scratchpadBuffer, pAllocCallbacks);
 	fa_rig_release(pEngine->pRig, pAllocCallbacks);
 	
-	fp_physics_scene_release(pEngine->pPhysics, pEngine->pPhysicsScene, pAllocCallbacks);
-	
 	fg_camera_system_release(pEngine->cameraSystem, pAllocCallbacks);
 	
-	fp_release_physics(pEngine->pPhysics, pAllocCallbacks);
+	fp_physics_release(pEngine->pPhysics, pAllocCallbacks);
 	fr_release_renderer(pEngine->pRenderer, pAllocCallbacks);
 	
 	fi_input_manager_release(pEngine->pInputManager, pAllocCallbacks);

@@ -19,11 +19,8 @@ typedef struct fm_vec4 fm_vec4;
 typedef struct fp_physics_t fp_physics_t;
 typedef struct fp_physics_scene_t fp_physics_scene_t;
 
-CPHYSICS_API uint32_t fp_init_physics(fp_physics_t** ppPhysics, fc_alloc_callbacks_t* pAllocCallbacks);
-CPHYSICS_API void fp_release_physics(fp_physics_t* pPhysics, fc_alloc_callbacks_t* pAllocCallbacks);
-	
-CPHYSICS_API uint32_t fp_physics_scene_create(fp_physics_t* pPhysics, fp_physics_scene_t** ppScene, fc_alloc_callbacks_t* pAllocCallbacks);
-CPHYSICS_API void fp_physics_scene_release(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, fc_alloc_callbacks_t* pAllocCallbacks);
+CPHYSICS_API fp_physics_t* fp_physics_create(fc_alloc_callbacks_t* pAllocCallbacks);
+CPHYSICS_API void fp_physics_release(fp_physics_t* physics, fc_alloc_callbacks_t* pAllocCallbacks);
 
 typedef struct fp_physics_update_ctx_t
 {
@@ -31,14 +28,21 @@ typedef struct fp_physics_update_ctx_t
 	fm_vec4* playerDisplacement;
 } fp_physics_update_ctx_t;
 	
-CPHYSICS_API void fp_physics_update(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, const fp_physics_update_ctx_t* pCtx);
+CPHYSICS_API void fp_physics_update(fp_physics_t* physics, const fp_physics_update_ctx_t* pCtx);
 	
 typedef struct fp_physics_player_info_t
 {
 	fm_xform* locator;
 } fp_physics_player_info_t;
 
-CPHYSICS_API void fp_physics_get_player_info(fp_physics_t* pPhysics, fp_physics_scene_t* pScene, fp_physics_player_info_t* playerInfo);
+CPHYSICS_API void fp_physics_get_player_info(fp_physics_t* physics, fp_physics_player_info_t* playerInfo);
+
+typedef struct fp_physics_raycast_hit_t
+{
+	fm_vec4* hitPosition;
+} fp_physics_raycast_hit_t;
+
+CPHYSICS_API bool fp_physics_raycast(fp_physics_t* physics, const fm_vec4* start, const fm_vec4* dir, fp_physics_raycast_hit_t* hit);
 
 // ----- BOUNDING VOLUME HIERARCHY -----
 typedef struct fm_box fm_box;
