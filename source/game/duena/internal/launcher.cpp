@@ -2350,6 +2350,17 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 			pEngine->zeldaGameObject.velocity.x = pEngine->animCharacterZelda.animInfo.rootMotionDeltaX / dt;
 			pEngine->zeldaGameObject.velocity.y = pEngine->animCharacterZelda.animInfo.rootMotionDeltaY / dt;
 		}
+		else
+		{
+			const float speed = fm_vec4_mag(&pEngine->zeldaGameObject.velocity);
+			if(speed > 0.0f)
+			{
+				pEngine->zeldaGameObject.velocity.x += pEngine->animCharacterZelda.animInfo.desiredMoveX * 1.2f;
+				pEngine->zeldaGameObject.velocity.y += pEngine->animCharacterZelda.animInfo.desiredMoveY * 1.2f;
+				fm_vec4_normalize(&pEngine->zeldaGameObject.velocity);
+				fm_vec4_mulf(&pEngine->zeldaGameObject.velocity, speed, &pEngine->zeldaGameObject.velocity);
+			}
+		}
 		
 		// apply gravity
 		pEngine->zeldaGameObject.velocity.z += -9.81f * dt;
