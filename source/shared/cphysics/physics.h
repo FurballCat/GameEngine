@@ -23,6 +23,9 @@ typedef struct fp_physics_scene_t fp_physics_scene_t;
 CPHYSICS_API fp_physics_t* fp_physics_create(fc_alloc_callbacks_t* pAllocCallbacks);
 CPHYSICS_API void fp_physics_release(fp_physics_t* physics, fc_alloc_callbacks_t* pAllocCallbacks);
 
+CPHYSICS_API void fp_physics_add_static_box(fp_physics_t* physics, const fm_xform* worldLocation,
+											const fm_vec3* halfExtents, fc_alloc_callbacks_t* pAllocCallbacks);
+
 typedef struct fp_physics_update_ctx_t
 {
 	float dt;

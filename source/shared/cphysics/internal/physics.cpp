@@ -137,6 +137,21 @@ void fp_physics_release(fp_physics_t* physics, fc_alloc_callbacks_t* pAllocCallb
 	FUR_FREE(physics, pAllocCallbacks);
 }
 
+void fp_physics_add_static_box(fp_physics_t* physics, const fm_xform* worldLocation,
+							   const fm_vec3* halfExtents, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	PxScene* scene = physics->scene;
+	
+	PxTransform xform(PxVec3(worldLocation->pos.x, worldLocation->pos.y, worldLocation->pos.z),
+					  PxQuat(worldLocation->rot.i, worldLocation->rot.j, worldLocation->rot.k, worldLocation->rot.r));
+	PxRigidStatic* obj = physics->physics->createRigidStatic(xform);
+	
+	PxBoxGeometry box(halfExtents->x, halfExtents->y, halfExtents->z);
+	PxRigidActorExt::createExclusiveShape(*obj, box, &physics->testMaterial, 1);
+	
+	scene->addActor(*obj);
+}
+
 bool fp_physics_raycast(fp_physics_t* physics, const fm_vec4* start, const fm_vec4* dir, const float distance, fp_physics_raycast_hit_t* hit)
 {
 	PxScene* scene = physics->scene;

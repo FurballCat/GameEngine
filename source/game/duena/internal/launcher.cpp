@@ -609,6 +609,9 @@ struct FurGameEngine
 	fr_proxy_t* chestMesh;
 	
 	fr_proxy_t* rockMeshes[5];
+	fr_proxy_t* blockMesh;
+	
+	fm_xform blockPositions[2];
 	
 	fr_proxy_t* zeldaMesh;
 	
@@ -1075,7 +1078,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			pEngine->swordMesh = fr_load_mesh(pEngine->pRenderer, &depot, &meshCtx, pAllocCallbacks);
 		}
 		
-		// load meshes
+		// load chest mesh
 		{
 			fr_load_mesh_ctx_t meshCtx = {};
 			meshCtx.path = "assets/chest/";
@@ -1087,6 +1090,33 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			meshCtx.textureIndices = textureIndices;
 			meshCtx.numTextureIndices = FUR_ARRAY_SIZE(textureIndices);
 			pEngine->chestMesh = fr_load_mesh(pEngine->pRenderer, &depot, &meshCtx, pAllocCallbacks);
+		}
+		
+		// load block mesh
+		{
+			fr_load_mesh_ctx_t meshCtx = {};
+			meshCtx.path = "assets/sketchfab/cube-world-stone-block-1-pbr-series/source/";
+			meshCtx.fileName = "skull_block_PBR_fc";
+			const char* texturePaths[] = {"assets/sketchfab/cube-world-stone-block-1-pbr-series/textures/b_stone1_Color.png"};
+			const int32_t textureIndices[] = {0};
+			meshCtx.texturePaths = texturePaths;
+			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
+			meshCtx.textureIndices = textureIndices;
+			meshCtx.numTextureIndices = FUR_ARRAY_SIZE(textureIndices);
+			pEngine->blockMesh = fr_load_mesh(pEngine->pRenderer, &depot, &meshCtx, pAllocCallbacks);
+		}
+		
+		// set block positions and create colliders
+		{
+			pEngine->blockPositions[0] = {{4.0f, 4.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 0.0f, 1.0f}};
+			pEngine->blockPositions[1] = {{6.0f, 4.0f, 0.5f, 1.0f}, {0.0f, 0.0f, 0.0f, 1.0f}};
+			
+			const fm_vec3 halfExtents = {0.5f, 0.5f, 0.5f};
+			
+			for(int32_t i=0; i<2; ++i)
+			{
+				fp_physics_add_static_box(pEngine->pPhysics, &pEngine->blockPositions[i], &halfExtents, pAllocCallbacks);
+			}
 		}
 		
 		// load rock meshes
@@ -2349,6 +2379,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		{
 			pEngine->zeldaGameObject.velocity.x = pEngine->animCharacterZelda.animInfo.rootMotionDelta.x / dt;
 			pEngine->zeldaGameObject.velocity.y = pEngine->animCharacterZelda.animInfo.rootMotionDelta.y / dt;
+			pEngine->zeldaGameObject.velocity.z = 0.0f;
 		}
 		else
 		{
@@ -2594,6 +2625,19 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		staticMeshesLocator.w.y = 2.0f;
 		fr_pvs_add(framePVS, pEngine->chestMesh, &staticMeshesLocator);
 		
+		// block mesh
+		staticMeshesLocator.w.x = pEngine->blockPositions[0].pos.x;
+		staticMeshesLocator.w.y = pEngine->blockPositions[0].pos.y;
+		staticMeshesLocator.w.z = pEngine->blockPositions[0].pos.z;
+		fr_pvs_add(framePVS, pEngine->blockMesh, &staticMeshesLocator);
+		
+		staticMeshesLocator.w.x = pEngine->blockPositions[1].pos.x;
+		staticMeshesLocator.w.y = pEngine->blockPositions[1].pos.y;
+		staticMeshesLocator.w.z = pEngine->blockPositions[1].pos.z;
+		fr_pvs_add(framePVS, pEngine->blockMesh, &staticMeshesLocator);
+		
+		staticMeshesLocator.w.z = 0.0f;
+		
 		// rocks
 		staticMeshesLocator.w.x = 14.0f;
 		staticMeshesLocator.w.y = -15.0f;
@@ -2664,6 +2708,7 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	fr_release_proxy(pEngine->pRenderer, pEngine->zeldaMesh, pAllocCallbacks);
 	fr_release_proxy(pEngine->pRenderer, pEngine->swordMesh, pAllocCallbacks);
 	fr_release_proxy(pEngine->pRenderer, pEngine->chestMesh, pAllocCallbacks);
+	fr_release_proxy(pEngine->pRenderer, pEngine->blockMesh, pAllocCallbacks);
 	
 	// load rock meshes
 	for(uint32_t i=0; i<5; ++i)
