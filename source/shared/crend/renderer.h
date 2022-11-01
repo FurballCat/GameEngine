@@ -12,6 +12,7 @@ extern "C"
 
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 typedef struct fm_mat4 fm_mat4;
+typedef uint32_t fc_string_hash_t;
 
 // Render result code
 enum fr_result_t
@@ -82,6 +83,8 @@ typedef struct fr_load_mesh_ctx_t
 	uint32_t numTextures;
 	
 	bool isSkinned;
+	fc_string_hash_t* boneNames;
+	int32_t numBones;	// rig num bones might be higher than mesh num bones
 } fr_load_mesh_ctx_t;
 
 // load mesh, the ownership is kept inside renderer, so no need to
@@ -100,23 +103,16 @@ CREND_API fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4*
 CREND_API void fr_pvs_add(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator);
 
 // add renderable thing to given potentially visible set and pass skinning matrices for it
-CREND_API void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator, const fm_mat4* skinMatrices);
+CREND_API void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator,
+								   const fm_mat4* skinMatrices, int32_t numSkinMatrices);
 
 typedef struct fr_draw_frame_context_t
 {
-	const fm_mat4* skinMatrices;
-	uint32_t numSkinMatrices;
-	
-	const fm_mat4* zeldaMatrix;
-	const fm_mat4* propMatrix;
-	
 	fr_pvs_t* pvs;	// what's visible in this frame
 } fr_draw_frame_context_t;
 	
 CREND_API void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks);
 
-CREND_API void fr_temp_create_skinning_mapping(struct fr_renderer_t* pRenderer, const fr_proxy_t* meshProxy, const uint32_t* boneNameHashes, uint32_t numBones, fc_alloc_callbacks_t* pAllocCallbacks);
-	
 #ifdef __cplusplus
 }
 #endif // __cplusplus

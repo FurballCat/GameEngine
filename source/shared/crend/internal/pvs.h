@@ -3,7 +3,7 @@
 #pragma once
 
 #include <inttypes.h>
-#include "cmath/public.h"
+#include "cmath/mathtypes.h"
 #include "renderBuffer.h"
 
 typedef struct fr_buffer_t fr_buffer_t;
@@ -11,12 +11,18 @@ typedef struct fr_mesh_t fr_mesh_t;
 typedef struct fr_image_t fr_image_t;
 typedef struct fr_resource_mesh_t fr_resource_mesh_t;
 
+#define FUR_MAX_SKIN_MATRICES_IN_BUFFER 512 //16384	// 32 * 512
+
 typedef struct fr_proxy_t
 {
 	fr_mesh_t* mesh;
-	fr_resource_mesh_t* meshResource;
 	fr_image_t* textures;
 	uint32_t numTextures;
+	
+	// only for skinned meshes
+	fm_mat4* invBindPose;
+	int16_t* skinningMappinng;
+	int32_t numBones;
 } fr_proxy_t;
 
 typedef enum fr_pvs_proxy_flag_t
@@ -44,7 +50,8 @@ typedef struct fr_pvs_t
 	
 	// values modified with adding proxies
 	uint32_t worldViewProjOffset;	// adding proxies moves the offset
-	size_t skinningBufferOffset;	// same here, adding skinned proxies moves the offset in skinning buffer
+	uint32_t numSkinningMatrices;	// same here, adding skinned proxies moves the number of skinned matrices, then mapped to buffer offset
+	fm_mat4* skinningMatrices;		// all the matrices for all skinned objects
 	
 	const fr_proxy_t** proxies;		// collection of all proxies visible this frame
 	uint32_t* proxiesFlags;			// flags like - is skinned

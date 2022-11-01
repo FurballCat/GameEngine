@@ -1155,11 +1155,11 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			meshCtx.textureIndices = textureIndices;
 			meshCtx.numTextureIndices = FUR_ARRAY_SIZE(textureIndices);
 			meshCtx.isSkinned = true;
+			meshCtx.boneNames = pEngine->pRig->boneNameHashes;
+			meshCtx.numBones = pEngine->pRig->numBones;
 			pEngine->zeldaMesh = fr_load_mesh(pEngine->pRenderer, &depot, &meshCtx, pAllocCallbacks);
 		}
 	}
-	
-	fr_temp_create_skinning_mapping(pEngine->pRenderer, pEngine->zeldaMesh, pEngine->pRig->boneNameHashes, pEngine->pRig->numBones, pAllocCallbacks);
 	
 	// init game
 	{
@@ -2661,14 +2661,10 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		
 		staticMeshesLocator.w.x = 0.0f;
 		staticMeshesLocator.w.y = 0.0f;
-		fr_pvs_add_and_skin(framePVS, pEngine->zeldaMesh, &zeldaMat, pEngine->skinMatrices);
+		fr_pvs_add_and_skin(framePVS, pEngine->zeldaMesh, &zeldaMat, pEngine->skinMatrices, pEngine->pRig->numBones);
 		
 		// draw frame
 		fr_draw_frame_context_t renderCtx = {};
-		renderCtx.zeldaMatrix = &zeldaMat;
-		renderCtx.skinMatrices = pEngine->skinMatrices;
-		renderCtx.numSkinMatrices = pEngine->pRig->numBones;
-		renderCtx.propMatrix = &slotMS;
 		renderCtx.pvs = framePVS;
 		fr_draw_frame(pEngine->pRenderer, &renderCtx, pAllocCallbacks);
 	}

@@ -3,9 +3,11 @@
 #include "vulkansdk/macOS/include/vulkan/vulkan.h"
 #include <assert.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "pvs.h"
 #include "renderUtils.h"
+#include "cmath/public.h"
 
 #define FUR_ASSERT(x) assert(x)
 
@@ -19,11 +21,11 @@ typedef struct fr_world_view_proj_t
 
 typedef struct fr_skinning_buffer_t
 {
-	fm_mat4 bones[512];
+	fm_mat4* bones;
 } fr_skinning_buffer_t;
 
 // add renderable thing to given potentially visible set and pass skinning matrices for it
-void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator, const fm_mat4* skinMatrices)
+void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator, const fm_mat4* skinMatrices, int32_t numSkinMatrices)
 {
 	FUR_ASSERT(pvs->numProxies < pvs->numMaxDescriptorSets);
 	
@@ -67,10 +69,27 @@ void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locato
 	if(skinMatrices != NULL)
 	{
 		desc.skinningBuffer = &pvs->skinningBuffer;
-		desc.skinningBufferSize = sizeof(fr_skinning_buffer_t);
-		desc.skinningBufferOffset = pvs->skinningBufferOffset;
+		desc.skinningBufferSize = proxy->numBones * sizeof(fm_mat4);
+		desc.skinningBufferOffset = pvs->numSkinningMatrices * sizeof(fm_mat4);
 		
-		pvs->skinningBufferOffset += sizeof(fr_skinning_buffer_t);
+		// copy matrices into temporary CPU buffer with all skinning matrices
+		FUR_ASSERT(pvs->numSkinningMatrices + numSkinMatrices < FUR_MAX_SKIN_MATRICES_IN_BUFFER);
+		
+		const fm_mat4* invBindPose = proxy->invBindPose;
+		FUR_ASSERT(invBindPose);
+		
+		fm_mat4* skinBufferMatrices = pvs->skinningMatrices + pvs->numSkinningMatrices;
+		
+		FUR_ASSERT(proxy->numBones <= numSkinMatrices); // make sure we have enough matrices to choose from
+		
+		for(uint32_t i=0; i<proxy->numBones; ++i)
+		{
+			const int16_t srcBoneIndex = proxy->skinningMappinng[i];
+			fm_mat4_mul(&invBindPose[i], &skinMatrices[srcBoneIndex], &skinBufferMatrices[i]);
+		}
+		
+		pvs->numSkinningMatrices += numSkinMatrices;
+		
 		pvs->proxiesFlags[descriptorIndex] |= FR_PVS_PROXY_FLAG_SKINNED;
 	}
 	
@@ -80,12 +99,12 @@ void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locato
 // add renderable thing to given potentially visible set
 void fr_pvs_add(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator)
 {
-	fr_pvs_add_and_skin(pvs, proxy, locator, NULL);
+	fr_pvs_add_and_skin(pvs, proxy, locator, NULL, 0);
 }
 
 void fr_pvs_clear(fr_pvs_t* pvs)
 {
 	pvs->numProxies = 0;
-	pvs->skinningBufferOffset = 0;
+	pvs->numSkinningMatrices = 0;
 	pvs->worldViewProjOffset = 0;
 }

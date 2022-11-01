@@ -766,11 +766,8 @@ typedef struct fr_renderer_t
 	VkSampler textTextureSampler;
 	
 	fr_buffer_t stagingBuffer;
-	fr_buffer_t aUniformBuffer[NUM_SWAP_CHAIN_IMAGES];
-	fr_buffer_t aSkinningBuffer[NUM_SWAP_CHAIN_IMAGES];
 	
 	VkDescriptorPool descriptorPool;
-	VkDescriptorSet uniformBufferDescriptorSets[NUM_SWAP_CHAIN_IMAGES];
 	
 	VkDescriptorPool pvsDescriptorPool;
 	fr_pvs_t pvs[NUM_SWAP_CHAIN_IMAGES];
@@ -1394,34 +1391,6 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 	}
 	
-	// create uniform buffer
-	if(res == FR_RESULT_OK)
-	{
-		fr_buffer_desc_t desc;
-		desc.size = sizeof(fr_uniform_buffer_t) * NUM_MAX_MESH_UNIFORM_BUFFERS;
-		desc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-		desc.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-		
-		for(uint32_t i=0; i<3; ++i)
-		{
-			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->aUniformBuffer[i], pAllocCallbacks);
-		}
-	}
-	
-	// create skinning buffer
-	if(res == FR_RESULT_OK)
-	{
-		fr_buffer_desc_t desc;
-		desc.size = sizeof(fr_skinning_buffer_t);
-		desc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-		desc.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-		
-		for(uint32_t i=0; i<3; ++i)
-		{
-			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->aSkinningBuffer[i], pAllocCallbacks);
-		}
-	}
-	
 	// create 2D rects uniform buffer
 	if(res == FR_RESULT_OK)
 	{
@@ -1994,47 +1963,6 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 	}
 	
-	// create descriptor sets for 3D debug UBO
-	if(res == FR_RESULT_OK)
-	{
-		VkDescriptorSetLayout layouts[NUM_SWAP_CHAIN_IMAGES] = {pRenderer->descriptorSetLayout,
-			pRenderer->descriptorSetLayout, pRenderer->descriptorSetLayout};
-		
-		VkDescriptorSetAllocateInfo allocInfo = {};
-		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		allocInfo.descriptorPool = pRenderer->descriptorPool;
-		allocInfo.descriptorSetCount = NUM_SWAP_CHAIN_IMAGES;
-		allocInfo.pSetLayouts = layouts;
-		
-		if (vkAllocateDescriptorSets(pRenderer->device, &allocInfo, pRenderer->uniformBufferDescriptorSets) != VK_SUCCESS)
-		{
-			FUR_ASSERT(false); // can't allocate descriptor sets for some reason
-		}
-		
-		for (size_t i = 0; i < NUM_SWAP_CHAIN_IMAGES; ++i)
-		{
-			VkDescriptorBufferInfo bufferInfo[1] = {};
-			bufferInfo[0].buffer = pRenderer->aUniformBuffer[i].buffer;
-			bufferInfo[0].offset = 0;
-			bufferInfo[0].range = sizeof(fr_uniform_buffer_t);
-			
-			const uint32_t numBindings = 1;
-			VkWriteDescriptorSet descriptorWrites[numBindings] = {};
-			
-			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[0].dstSet = pRenderer->uniformBufferDescriptorSets[i];
-			descriptorWrites[0].dstBinding = 0;
-			descriptorWrites[0].dstArrayElement = 0;
-			descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			descriptorWrites[0].descriptorCount = 1;
-			descriptorWrites[0].pBufferInfo = &bufferInfo[0];
-			descriptorWrites[0].pImageInfo = NULL; // Optional
-			descriptorWrites[0].pTexelBufferView = NULL; // Optional
-			
-			vkUpdateDescriptorSets(pRenderer->device, numBindings, descriptorWrites, 0, NULL);
-		}
-	}
-	
 	// create descriptor sets for 2D rect drawing
 	if(res == FR_RESULT_OK)
 	{
@@ -2167,6 +2095,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			pvs->descriptorSets = FUR_ALLOC_ARRAY_AND_ZERO(VkDescriptorSet, NUM_MAX_MESH_UNIFORM_BUFFERS, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 			pvs->proxies = FUR_ALLOC_ARRAY_AND_ZERO(const fr_proxy_t*, NUM_MAX_MESH_UNIFORM_BUFFERS, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 			pvs->proxiesFlags = FUR_ALLOC_ARRAY_AND_ZERO(uint32_t, NUM_MAX_MESH_UNIFORM_BUFFERS, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+			pvs->skinningMatrices = FUR_ALLOC_ARRAY_AND_ZERO(fm_mat4, FUR_MAX_SKIN_MATRICES_IN_BUFFER, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 			
 			// allocate descriptor sets
 			VkDescriptorSetLayout layouts[20] = {};	// max layouts
@@ -2204,7 +2133,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			if(res == FR_RESULT_OK)
 			{
 				fr_buffer_desc_t desc;
-				desc.size = sizeof(fr_skinning_buffer_t);	// todo: need to specify size
+				desc.size = FUR_MAX_SKIN_MATRICES_IN_BUFFER * sizeof(fm_mat4);
 				desc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 				desc.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 				
@@ -2346,6 +2275,7 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 			FUR_FREE(pvs->descriptorSets, pAllocCallbacks);
 			FUR_FREE(pvs->proxies, pAllocCallbacks);
 			FUR_FREE(pvs->proxiesFlags, pAllocCallbacks);
+			FUR_FREE(pvs->skinningMatrices, pAllocCallbacks);
 		}
 		
 		vkDestroyDescriptorPool(pRenderer->device, pRenderer->pvsDescriptorPool, NULL);
@@ -2361,9 +2291,6 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 		// destroy uniform buffer
 		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			fr_buffer_release(pRenderer->device, &pRenderer->aUniformBuffer[i], pAllocCallbacks);
-			fr_buffer_release(pRenderer->device, &pRenderer->aSkinningBuffer[i], pAllocCallbacks);
-			
 			fr_buffer_release(pRenderer->device, &pRenderer->aTextUniformBuffer[i], pAllocCallbacks);
 			fr_buffer_release(pRenderer->device, &pRenderer->aRectsUniformBuffer[i], pAllocCallbacks);
 		}
@@ -2516,46 +2443,14 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 	
 	FUR_PROFILE("rend-skinning")
 	{
-		fr_skinning_buffer_t skinBuffer = {};
-		
-		// pass skinning
-		// todo: skinning mapping should be per proxy
-		const uint32_t skinNumBones = pRenderer->skinningMapping.count;
-		FUR_ASSERT(skinNumBones <= ctx->numSkinMatrices);
-		for(uint32_t i=0; i<skinNumBones; ++i)
-		{
-			const uint32_t srcBoneIndex = pRenderer->skinningMapping.indicesMapping[i];
-			skinBuffer.bones[i] = ctx->skinMatrices[srcBoneIndex];
-		}
-		
-		// todo: fix that
-		// find zelda skinned mesh
-		fr_resource_mesh_t* zeldaMesh = NULL;
-		for(uint32_t i=0; i<ctx->pvs->numProxies; ++i)
-		{
-			if(ctx->pvs->proxiesFlags[i] & FR_PVS_PROXY_FLAG_SKINNED)
-			{
-				zeldaMesh = ctx->pvs->proxies[i]->meshResource;
-				break;
-			}
-		}
-		
-		if(zeldaMesh)
-		{
-			const fm_mat4* bindPose = zeldaMesh->chunks[0].bindPose;
-			fm_mat4 testMatrices[400];
-			
-			for(uint32_t i=0; i<skinNumBones; ++i)
-			{
-				fm_mat4_mul(&bindPose[i], &skinBuffer.bones[i], &testMatrices[i]);
-				skinBuffer.bones[i] = testMatrices[i];
-			}
-			
+		if(pvs->numSkinningMatrices > 0)
+		{	
 			// pass skinning matrices to skin buffer
-			fr_copy_data_to_buffer(pRenderer->device, pvs->skinningBuffer.memory, &skinBuffer, 0, sizeof(fr_skinning_buffer_t));
+			fr_copy_data_to_buffer(pRenderer->device, pvs->skinningBuffer.memory, pvs->skinningMatrices, 0,
+								   (uint32_t)pvs->numSkinningMatrices * sizeof(fm_mat4));
 		}
 	}
-
+	
 	// update uniform buffers for debug draw (3D and 2D)
 	FUR_PROFILE("rend-update-ubs")
 	{
@@ -2564,21 +2459,6 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		ubo.view = pvs->view;
 		
 		fm_mat4_transpose(&ubo.model);
-		
-		uint32_t uniformBufferOffset = 0;
-		
-		// set player position and orientation
-		if(ctx->zeldaMatrix)
-		{
-			ubo.model = *ctx->zeldaMatrix;
-		}
-		else
-		{
-			fm_mat4_identity(&ubo.model);
-		}
-		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aUniformBuffer[imageIndex].memory, &ubo,
-							   sizeof(fr_uniform_buffer_t) * uniformBufferOffset, sizeof(fr_uniform_buffer_t));
-		uniformBufferOffset += 1;
 		
 		const float scale = pRenderer->swapChainExtent.height * 0.18f;
 		const float aspectRatio = pRenderer->swapChainExtent.width / (float)pRenderer->swapChainExtent.height;
@@ -2784,10 +2664,6 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		 
 		VkDeviceSize offsets[] = {0};
 		
-		// bind 3D descriptor set for UBO (world, view, projection)
-		vkCmdBindDescriptorSets(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-								pRenderer->pipelineLayout, 0, 1, &pRenderer->uniformBufferDescriptorSets[imageIndex], 0, NULL);
-		
 		// debug draw 3D lines
 		vkCmdBindPipeline(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugLinesPSO);
 		vkCmdBindVertexBuffers(primaryCommandBuffer, 0, 1, &pRenderer->debugLinesVertexBuffer[imageIndex].buffer, offsets);
@@ -2945,28 +2821,6 @@ void frSerialize_example(fr_serializer_t* ser, fr_example_struct_t* data)
 	FR_ADD_FIELD(FR_VER_INITIAL, fieldA);
 }
 
-void fr_temp_create_skinning_mapping(struct fr_renderer_t* pRenderer, const fr_proxy_t* meshProxy, const uint32_t* boneNameHashes, uint32_t rigNumBones, fc_alloc_callbacks_t* pAllocCallbacks)
-{
-	const fr_resource_mesh_chunk_t* meshChunk = &meshProxy->meshResource->chunks[0];
-	const uint32_t meshNumBones = meshChunk->numBones;
-	pRenderer->skinningMapping.indicesMapping = FUR_ALLOC_ARRAY_AND_ZERO(uint32_t, meshNumBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-	pRenderer->skinningMapping.count = meshNumBones;
-	
-	uint32_t* mapping = pRenderer->skinningMapping.indicesMapping;
-	
-	for(uint32_t i=0; i<meshNumBones; ++i)
-	{
-		mapping[i] = 0;
-		for(uint32_t r=0; r<rigNumBones; ++r)
-		{
-			if(meshChunk->boneNameHashes[i] == boneNameHashes[r])
-			{
-				mapping[i] = r;
-			}
-		}
-	}
-}
-
 fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, const fr_load_mesh_ctx_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	fr_resource_mesh_t* meshResource = NULL;
@@ -3111,8 +2965,34 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 	fr_proxy_t* proxy = &pRenderer->proxies[proxyIndex];
 	proxy->numTextures = ctx->numTextures;
 	proxy->mesh = mesh;
-	proxy->meshResource = meshResource;
 	proxy->textures = textures;
+	
+	const fr_resource_mesh_chunk_t* masterSkinnedMeshChunk = &meshResource->chunks[0]; // todo: fix that, it's just an assumption chunk[0] works
+	const uint32_t meshNumBones = masterSkinnedMeshChunk->numBones;
+	
+	if(meshNumBones > 0)
+	{
+		FUR_ASSERT(ctx->boneNames);
+		
+		proxy->numBones = meshNumBones;
+		proxy->invBindPose = FUR_ALLOC_ARRAY(fm_mat4, meshNumBones, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+		proxy->skinningMappinng = FUR_ALLOC_ARRAY_AND_ZERO(int16_t, meshNumBones, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+		
+		memcpy(proxy->invBindPose, masterSkinnedMeshChunk->bindPose, meshNumBones * sizeof(fm_mat4));
+		
+		int16_t* mapping = proxy->skinningMappinng;
+		for(uint32_t i=0; i<meshNumBones; ++i)	// note that rig num bones doesn't have to equal mesh num bones
+		{
+			mapping[i] = 0;
+			for(uint32_t r=0; r<ctx->numBones; ++r)
+			{
+				if(masterSkinnedMeshChunk->boneNameHashes[i] == ctx->boneNames[r])
+				{
+					mapping[i] = (int16_t)r;
+				}
+			}
+		}
+	}
 	
 	// load data onto GPU
 	{
@@ -3202,17 +3082,13 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 		vkDestroyCommandPool(pRenderer->device, stagingCommandPool, NULL);
 	}
 	
+	fr_mesh_release(meshResource, pAllocCallbacks);
+	
 	return proxy;
 }
 
 void fr_release_proxy(fr_renderer_t* pRenderer, fr_proxy_t* proxy, fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	// release mesh resource
-	if(proxy->meshResource)
-	{
-		fr_mesh_release(proxy->meshResource, pAllocCallbacks);
-	}
-	
 	// release mesh
 	for(uint32_t i=0; i<proxy->mesh->numChunks; ++i)
 	{
@@ -3231,4 +3107,6 @@ void fr_release_proxy(fr_renderer_t* pRenderer, fr_proxy_t* proxy, fc_alloc_call
 	FUR_FREE(proxy->mesh->chunks, pAllocCallbacks);
 	FUR_FREE(proxy->mesh, pAllocCallbacks);
 	FUR_FREE(proxy->textures, pAllocCallbacks);
+	FUR_FREE(proxy->invBindPose, pAllocCallbacks);
+	FUR_FREE(proxy->skinningMappinng, pAllocCallbacks);
 }
