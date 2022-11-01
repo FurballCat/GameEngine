@@ -705,12 +705,12 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		fa_character_anim_info_t* info = &character->animInfo;
 		
 		// get world locator of the character
-		const fm_vec4 posWS = {info->worldPos[0], info->worldPos[1], info->worldPos[2], 1.0f};
+		const fm_vec4 posWS = {info->worldPos.x, info->worldPos.y, info->worldPos.z, 1.0f};
 		fm_quat rotWS = {};
 		fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, info->currentYaw, &rotWS);
 		
 		// move look-at WS to MS
-		const fm_vec4 lookAtWS = {info->lookAtPoint[0], info->lookAtPoint[1], info->lookAtPoint[2], 1.0f};
+		const fm_vec4 lookAtWS = {info->lookAtPoint.x, info->lookAtPoint.y, info->lookAtPoint.z, 1.0f};
 		fm_vec4_sub(&lookAtWS, &posWS, &lookAtMS);
 		
 		fm_quat invRotWS = rotWS;
@@ -889,7 +889,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			fm_quat_rot(&rotWS, &animMotionDelta.pos, &animMotionDelta.pos);
 			
 			// motion from logic
-			const fm_vec4 logicMotionDelta = {character->animInfo.desiredMoveX, character->animInfo.desiredMoveY, 0.0f};
+			const fm_vec4 logicMotionDelta = {character->animInfo.desiredMove.x, character->animInfo.desiredMove.y, 0.0f};
 			fm_vec4 logicMotionDir = logicMotionDelta;
 			
 			float logicCurrentYaw = character->animInfo.currentYaw;
@@ -913,9 +913,9 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			fm_vec4 finalMotionDelta = {};
 			fm_vec4_lerp(&logicMotionDelta, &animMotionDelta.pos, animToLogicMotionSpeedAlpha, &finalMotionDelta);
 			
-			character->animInfo.rootMotionDeltaX = finalMotionDelta.x;
-			character->animInfo.rootMotionDeltaY = finalMotionDelta.y;
-			character->animInfo.rootMotionDeltaZ = finalMotionDelta.z;
+			character->animInfo.rootMotionDelta.x = finalMotionDelta.x;
+			character->animInfo.rootMotionDelta.y = finalMotionDelta.y;
+			character->animInfo.rootMotionDelta.z = finalMotionDelta.z;
 		}
 	}
 }
@@ -1171,7 +1171,7 @@ void fa_action_player_jump_update(const fa_action_ctx_t* ctx, void* userData)
 	fa_character_anim_info_t* animInfo = ctx->animInfo;
 	
 	const float t = ctx->localTime;
-	const bool doMove = fabs(animInfo->desiredMoveX) > 0.05f || fabs(animInfo->desiredMoveY) > 0.05f;
+	const bool doMove = fabs(animInfo->desiredMove.x) > 0.05f || fabs(animInfo->desiredMove.x) > 0.05f;
 	
 	if(data->jumpType == 0)
 	{

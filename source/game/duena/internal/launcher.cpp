@@ -2123,9 +2123,9 @@ void fg_animation_update(FurGameEngine* pEngine, float dt)
 	playerPhysics.locator = &playerLocator;
 	fp_physics_get_player_info(pEngine->pPhysics, &playerPhysics);
 	
-	pEngine->animCharacterZelda.animInfo.worldPos[0] = playerLocator.pos.x;
-	pEngine->animCharacterZelda.animInfo.worldPos[1] = playerLocator.pos.y;
-	pEngine->animCharacterZelda.animInfo.worldPos[2] = playerLocator.pos.z;
+	pEngine->animCharacterZelda.animInfo.worldPos.x = playerLocator.pos.x;
+	pEngine->animCharacterZelda.animInfo.worldPos.y = playerLocator.pos.y;
+	pEngine->animCharacterZelda.animInfo.worldPos.z = playerLocator.pos.z;
 	
 	fc_mem_arena_alloc_t arenaAlloc = fc_mem_arena_make(pEngine->scratchpadBuffer, pEngine->scratchpadBufferSize);
 	
@@ -2306,9 +2306,9 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 			pEngine->animCharacterZelda.animInfo.useLookAt = distanceToLookAtPoint < 6.0f;
 		}
 		
-		pEngine->animCharacterZelda.animInfo.lookAtPoint[0] = lookAtPoint.x;
-		pEngine->animCharacterZelda.animInfo.lookAtPoint[1] = lookAtPoint.y;
-		pEngine->animCharacterZelda.animInfo.lookAtPoint[2] = lookAtPoint.z;
+		pEngine->animCharacterZelda.animInfo.lookAtPoint.x = lookAtPoint.x;
+		pEngine->animCharacterZelda.animInfo.lookAtPoint.y = lookAtPoint.y;
+		pEngine->animCharacterZelda.animInfo.lookAtPoint.z = lookAtPoint.z;
 	}
 	
 	// animation
@@ -2347,16 +2347,16 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		}
 		else if(pEngine->zeldaGameObject.isGrounded)
 		{
-			pEngine->zeldaGameObject.velocity.x = pEngine->animCharacterZelda.animInfo.rootMotionDeltaX / dt;
-			pEngine->zeldaGameObject.velocity.y = pEngine->animCharacterZelda.animInfo.rootMotionDeltaY / dt;
+			pEngine->zeldaGameObject.velocity.x = pEngine->animCharacterZelda.animInfo.rootMotionDelta.x / dt;
+			pEngine->zeldaGameObject.velocity.y = pEngine->animCharacterZelda.animInfo.rootMotionDelta.y / dt;
 		}
 		else
 		{
 			const float speed = fm_vec4_mag(&pEngine->zeldaGameObject.velocity);
 			if(speed > 0.0f)
 			{
-				pEngine->zeldaGameObject.velocity.x += pEngine->animCharacterZelda.animInfo.desiredMoveX * 1.2f;
-				pEngine->zeldaGameObject.velocity.y += pEngine->animCharacterZelda.animInfo.desiredMoveY * 1.2f;
+				pEngine->zeldaGameObject.velocity.x += pEngine->animCharacterZelda.animInfo.desiredMove.x * 1.2f;
+				pEngine->zeldaGameObject.velocity.y += pEngine->animCharacterZelda.animInfo.desiredMove.y * 1.2f;
 				fm_vec4_normalize(&pEngine->zeldaGameObject.velocity);
 				fm_vec4_mulf(&pEngine->zeldaGameObject.velocity, speed, &pEngine->zeldaGameObject.velocity);
 			}
@@ -2561,8 +2561,8 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		
 		pEngine->animCharacterZelda.animInfo.animToLogicMotionRotationAlpha = 1.0f;
 		pEngine->animCharacterZelda.animInfo.animToLogicMotionTranslationAlpha = 0.0f;
-		pEngine->animCharacterZelda.animInfo.desiredMoveX = playerMove.x * dt;
-		pEngine->animCharacterZelda.animInfo.desiredMoveY = playerMove.y * dt;
+		pEngine->animCharacterZelda.animInfo.desiredMove.x = playerMove.x * dt;
+		pEngine->animCharacterZelda.animInfo.desiredMove.y = playerMove.y * dt;
 		
 		pEngine->zeldaGameObject.logicMove.x = playerMove.x * dt;
 		pEngine->zeldaGameObject.logicMove.y = playerMove.y * dt;

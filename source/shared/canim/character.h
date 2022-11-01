@@ -10,6 +10,7 @@ extern "C"
 #include "api.h"
 #include "enums.h"
 #include "animCommands.h"	// todo: remove, because of fa_pose_cache_t
+#include "cmath/mathtypes.h"
 #include <inttypes.h>
 #include <stdbool.h>
 	
@@ -39,11 +40,10 @@ typedef enum fa_character_layer_t
 typedef struct fa_character_anim_info_t
 {
 	// last world locator
-	float worldPos[3];
+	fm_vec3 worldPos;
 	
 	// desired movement
-	float desiredMoveX;
-	float desiredMoveY;
+	fm_vec2 desiredMove;
 	float animToLogicMotionRotationAlpha;	// 0.0f anim, 1.0f logic
 	float animToLogicMotionTranslationAlpha;	// 0.0f anim, 1.0f logic
 	
@@ -51,13 +51,11 @@ typedef struct fa_character_anim_info_t
 	float currentYaw;
 	
 	// output motion
-	float rootMotionDeltaX;
-	float rootMotionDeltaY;
-	float rootMotionDeltaZ;
+	fm_vec3 rootMotionDelta;
 	float rootMotionDeltaYaw;
 	
 	// look-at (already in model space)
-	float lookAtPoint[3];
+	fm_vec3 lookAtPoint;
 	bool useLookAt;
 } fa_character_anim_info_t;
 

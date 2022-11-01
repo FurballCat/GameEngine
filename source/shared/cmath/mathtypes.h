@@ -9,6 +9,11 @@ extern "C"
 	
 #include <immintrin.h>
 
+typedef struct fm_vec2
+{
+	float x, y;
+} fm_vec2;
+
 typedef struct fm_vec3
 {
 	float x, y, z;
