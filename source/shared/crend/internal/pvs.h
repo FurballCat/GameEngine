@@ -11,7 +11,7 @@ typedef struct fr_mesh_t fr_mesh_t;
 typedef struct fr_image_t fr_image_t;
 typedef struct fr_resource_mesh_t fr_resource_mesh_t;
 
-#define FUR_MAX_SKIN_MATRICES_IN_BUFFER 512 //16384	// 32 * 512
+#define FUR_MAX_SKIN_MATRICES_IN_BUFFER 16384	// 32 * 512
 
 typedef struct fr_proxy_t
 {
