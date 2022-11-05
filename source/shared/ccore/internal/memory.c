@@ -21,6 +21,7 @@ fc_memory_map_entry_t g_memoryMap[] = {
 			{FC_MEMORY_SCOPE_ARENA, FC_MEMORY_SCOPE_GLOBAL, FUR_SIZE_MB(2)},
 			{FC_MEMORY_SCOPE_PHYSICS, FC_MEMORY_SCOPE_GLOBAL, FUR_SIZE_MB(16)},
 			{FC_MEMORY_SCOPE_ANIMATION, FC_MEMORY_SCOPE_GLOBAL, FUR_SIZE_MB(60)},
+			{FC_MEMORY_SCOPE_JOBS, FC_MEMORY_SCOPE_GLOBAL, FUR_SIZE_MB(2)},
 		
 			{FC_MEMORY_SCOPE_GAME, FC_MEMORY_SCOPE_GLOBAL, FUR_SIZE_MB(128)},
 				{FC_MEMORY_SCOPE_INPUT, FC_MEMORY_SCOPE_GAME, FUR_SIZE_MB(4)},
@@ -233,6 +234,8 @@ const char* fc_memory_get_scope_debug_name(enum fc_memory_scope_t scope)
 			return "game";
 		case FC_MEMORY_SCOPE_ARENA:
 			return "arena";
+		case FC_MEMORY_SCOPE_JOBS:
+			return "jobs";
 		default:
 			FUR_ASSERT(false);	// unknown name of the memory scope, please implement
 	}
