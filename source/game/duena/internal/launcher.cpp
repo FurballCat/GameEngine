@@ -1737,27 +1737,27 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 		}
 		else if(inputEvents[i].eventID == Gamepad_rightAnalogX)
 		{
-			rightAnalogX = fm_snap_near_zero(inputEvents[i].value, 0.1f);
+			rightAnalogX = fm_snap_near_zero(inputEvents[i].value, 0.15f);
 		}
 		else if(inputEvents[i].eventID == Gamepad_rightAnalogY)
 		{
-			rightAnalogY = fm_snap_near_zero(inputEvents[i].value, 0.1f);
+			rightAnalogY = fm_snap_near_zero(inputEvents[i].value, 0.15f);
 		}
 		else if(inputEvents[i].eventID == Gamepad_leftAnalogX)
 		{
-			leftAnalogX = -fm_snap_near_zero(inputEvents[i].value, 0.1f);
+			leftAnalogX = -fm_snap_near_zero(inputEvents[i].value, 0.15f);
 		}
 		else if(inputEvents[i].eventID == Gamepad_leftAnalogY)
 		{
-			leftAnalogY = fm_snap_near_zero(inputEvents[i].value, 0.1f);
+			leftAnalogY = fm_snap_near_zero(inputEvents[i].value, 0.15f);
 		}
 		else if(inputEvents[i].eventID == Gamepad_rightTrigger)
 		{
-			rightTrigger = fm_snap_near_zero(inputEvents[i].value, 0.1f);
+			rightTrigger = fm_snap_near_zero(inputEvents[i].value, 0.15f);
 		}
 		else if(inputEvents[i].eventID == Gamepad_leftTrigger)
 		{
-			leftTrigger = fm_snap_near_zero(inputEvents[i].value, 0.1f);
+			leftTrigger = fm_snap_near_zero(inputEvents[i].value, 0.15f);
 		}
 	}
 	
