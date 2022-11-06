@@ -21,6 +21,9 @@ Scratchpad buffer's life time is single system update. Arena memory's life time 
 Levels are loaded into level heap, then the data stays.
 Streaming is achieved through swapping sectors data on level heap.
 
+### Fiber-based job system
+It's still early version. Fibers allow for in-place interruption of the code to wait for other jobs to finish and help executing them, then getting back to whatever was suspended.
+
 ### Minimalistic tools
 Most of the pipelines like importing or packaging are commandline based (ccmd).
 Scripts are written using Racket (yes, LISP style). There's no debugging to scripts. It's a program that generates data readable for engine.
