@@ -19,6 +19,8 @@ typedef struct fc_profiler_thread_info_t
 	uint32_t currentDepth;
 	fc_profiler_scope_t* scopes[FC_PROFILER_MAX_FRAMES];	// one frame is for pause mode
 	uint32_t frameNumScopes[FC_PROFILER_MAX_FRAMES];
+	
+	fc_profiler_scope_t* current;
 } fc_profiler_thread_info_t;
 
 typedef struct fc_profiler_t
@@ -89,6 +91,11 @@ fc_profiler_scope_t* fc_profiler_scope_begin(const char* name)
 	fc_profiler_scope_t* pScope = &thread->scopes[g_profiler.currentFrame][idx];
 	*pScope = scope;
 	
+	// keep track of scope stack because of fibers (so we can store and load stack)
+	fc_profiler_scope_t* parent = thread->current;
+	thread->current = pScope;
+	pScope->parent = parent;
+	
 	return pScope;
 }
 
@@ -103,6 +110,8 @@ void fc_profiler_scope_end(fc_profiler_scope_t* scope)
 	gettimeofday(&time, NULL);
 	
 	scope->stopTime = time.tv_usec;
+	
+	thread->current = scope->parent;
 }
 
 void fc_profiler_start_frame(void)
@@ -259,4 +268,63 @@ void fc_log_profiler_end(const char* scopeName, uint64_t startTime)
 	const float scopeTime = (float)(endTime - startTime) / 1000.0f;
 	
 	printf("%s: %1.3fms\n", scopeName, scopeTime);
+}
+
+int32_t fc_profiler_store_scopestack(fc_profiler_scope_t* stack[32])
+{
+	const int32_t threadIndex = fc_job_system_get_this_thread_index();
+	fc_profiler_thread_info_t* thread = &g_profiler.threads[threadIndex];
+	const int8_t currFrame = g_profiler.currentFrame;
+	fc_profiler_scope_t* scopes = thread->scopes[currFrame];
+	
+	int32_t numStack = 0;
+	
+	fc_profiler_scope_t* scope = thread->current;
+	fc_profiler_scope_t* child = NULL;
+	while(scope)
+	{
+		// finish this scope
+		fc_profiler_scope_end(scope);
+		
+		// copy it to new scope
+		FUR_ASSERT(thread->currentNumScopes < FC_PROFILER_MAX_SCOPES);
+		const uint32_t idx = thread->currentNumScopes;
+		thread->currentNumScopes += 1;
+		scopes[idx] = *scope;
+		
+		// fix pointer to parent for new child
+		if(child)
+			child->parent = &scopes[idx];
+		
+		// save scope
+		stack[numStack] = scope;
+		
+		// continnue
+		child = &scopes[idx];
+		scope = scope->parent;
+		numStack += 1;
+	}
+	
+	return numStack;
+}
+
+void fc_profiler_load_scopestack(fc_profiler_scope_t* stack[32], int32_t numDepth)
+{
+	FUR_ASSERT(numDepth <= 32);
+	
+	// we will assume all scopes start at the same time after jumping back to fiber
+	struct timeval time = {};
+	gettimeofday(&time, NULL);
+	
+	// just fake the time for old scopes (as these were stored in original stack on fiber)
+	for(int32_t i=0; i<numDepth; ++i)
+	{
+		fc_profiler_scope_t* scope = stack[i];
+		scope->startTime = time.tv_usec;
+	}
+	
+	// set proper depth for the profiler
+	const int32_t threadIndex = fc_job_system_get_this_thread_index();
+	fc_profiler_thread_info_t* thread = &g_profiler.threads[threadIndex];
+	thread->currentDepth = numDepth;
 }

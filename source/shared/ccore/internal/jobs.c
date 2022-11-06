@@ -3,6 +3,7 @@
 #include "jobs.h"
 #include "memory.h"
 #include "furAssert.h"
+#include "profiler.h"
 #include <stdatomic.h>
 #include <immintrin.h>	// for _mm_pause()
 
@@ -431,15 +432,26 @@ void fc_wait_for_counter_and_free(fc_job_counter_t* counter)
 	// if counnter is not 0, then suspend the fiber
 	if(atomic_load(&counter->value) != 0)
 	{
+#if FUR_USE_PROFILER
+		// store profiler state before jump
+		fc_profiler_scope_t* stack[32];
+		const int32_t numStack = fc_profiler_store_scopestack(stack);
+#endif
+		
+		// return from fiber into worker thread function
 		fc_job_result_t result = {};
 		result.isFinished = false;
 		result.counterToWaitFor = counter;
 		
-		// return from fiber into worker thread function
 		fcontext_t fctx = g_threadLocalGoToWorker;
 		g_threadLocalGoToWorker = NULL;
 		transfer_t transfer = jump_fcontext(fctx, &result);
 		g_threadLocalGoToWorker = transfer.fctx;
+		
+#if FUR_USE_PROFILER
+		// load profiler state after jump
+		fc_profiler_load_scopestack(stack, numStack);
+#endif
 	}
 	
 	// otherwise release the counter and continue

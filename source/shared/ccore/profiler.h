@@ -29,6 +29,7 @@ CCORE_API void fc_profiler_release(fc_alloc_callbacks_t* pAllocCallbacks);
 typedef struct fc_profiler_scope_t
 {
 	const char* name;
+	struct fc_profiler_scope_t* parent;	// kept only because of fibers
 	uint32_t startTime;	// in microseconds (s > ms > us)
 	uint32_t stopTime;
 	uint32_t depth;	// depth in callstack
@@ -53,6 +54,9 @@ CCORE_API void fc_profiler_zoom_and_pan_delta(float zoomDelta, float panDelta);
 
 CCORE_API uint64_t fc_log_profiler_begin(void);
 CCORE_API void fc_log_profiler_end(const char* scopeName, uint64_t startTime);
+
+int32_t fc_profiler_store_scopestack(fc_profiler_scope_t* stack[32]);
+void fc_profiler_load_scopestack(fc_profiler_scope_t* stack[32], int32_t numDepth);
 
 #ifdef __cplusplus
 }
