@@ -21,10 +21,13 @@ extern "C"
  // Job function definition
  FUR_JOB_ENTRY_POINT(fc_test_job_func)
  {
+	my_data_t* userData = FUR_JOB_USER_DATA(my_data_t);
 	...
  }
  
  ...
+ 
+ my_data_t myData = (...);	// it can be on the stack, that's the cool part about fibers
  
  fc_job_decl_t jobDecl = {};
  jobDecl.func = fc_test_job_func;
@@ -33,7 +36,7 @@ extern "C"
  fc_job_counter_t* counter = NULL;
  fc_run_jobs(&jobDecl, 1, &counter);	// at this point the job is scheduled
  
- fc_wait_for_counter_and_free(counter, 0);	// this waits until the job is done
+ fc_wait_for_counter_and_free(counter);	// this waits until the job is done
  */
 
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
@@ -80,7 +83,7 @@ CCORE_API int32_t fc_job_system_num_max_threads(void);
 typedef pthread_rwlock_t fc_rwlock_t;
 
 /* Usage
-	FUR_SCOPED_WRITE_LOCK(&rwlock)
+	FUR_SCOPED_WRITE_LOCK(rwlock)
 	{
 		// locked section code ...
 	}
