@@ -4,6 +4,7 @@
 #include "memory.h"
 #include "furAssert.h"
 #include <stdatomic.h>
+#include <immintrin.h>	// for _mm_pause()
 
 #define FUR_NUM_THREADS 5
 #define FUR_MAX_JOB_COUNTERS 4096
@@ -284,7 +285,8 @@ void fc_worker_thread_evaluate(int32_t threadIndex)
 	// if there's nothing to resome and nothing pending, then put on sleep
 	if(fiberIndexToRun == -1)
 	{
-		// todo: put on sleep
+		// hint CPU that we're spinning
+		_mm_pause();
 	}
 }
 
