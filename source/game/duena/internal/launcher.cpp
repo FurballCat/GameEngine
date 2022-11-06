@@ -12,6 +12,7 @@
 #include "cmath/public.h"
 #include "ccore/public.h"
 #include "ccore/buffer.h"
+#include "ccore/jobs.h"
 #include "ccore/textParsing.h"
 #include "ccore/serialize.h"
 #include "cinput/public.h"
@@ -665,6 +666,12 @@ struct FurGameEngine
 	bool debugShowMemoryStats;
 };
 
+typedef struct fc_main_thread_user_data_t
+{
+	FurGameEngine* pEngine;
+	fc_alloc_callbacks_t* pAllocCallbacks;
+} fc_main_thread_user_data_t;
+
 // Furball Cat - Platform
 bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, fc_alloc_callbacks_t* pAllocCallbacks)
 {
@@ -698,6 +705,11 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	if(res == FR_RESULT_OK)
 	{
 		pEngine->pPhysics = fp_physics_create(pAllocCallbacks);
+	}
+	
+	if(res == FR_RESULT_OK)
+	{
+		fc_job_system_init(pAllocCallbacks);
 	}
 	
 	if(res == FR_RESULT_OK)
@@ -1725,27 +1737,27 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 		}
 		else if(inputEvents[i].eventID == Gamepad_rightAnalogX)
 		{
-			rightAnalogX = fm_snap_near_zero(inputEvents[i].value, 0.05f);
+			rightAnalogX = fm_snap_near_zero(inputEvents[i].value, 0.1f);
 		}
 		else if(inputEvents[i].eventID == Gamepad_rightAnalogY)
 		{
-			rightAnalogY = fm_snap_near_zero(inputEvents[i].value, 0.05f);
+			rightAnalogY = fm_snap_near_zero(inputEvents[i].value, 0.1f);
 		}
 		else if(inputEvents[i].eventID == Gamepad_leftAnalogX)
 		{
-			leftAnalogX = -fm_snap_near_zero(inputEvents[i].value, 0.05f);
+			leftAnalogX = -fm_snap_near_zero(inputEvents[i].value, 0.1f);
 		}
 		else if(inputEvents[i].eventID == Gamepad_leftAnalogY)
 		{
-			leftAnalogY = fm_snap_near_zero(inputEvents[i].value, 0.05f);
+			leftAnalogY = fm_snap_near_zero(inputEvents[i].value, 0.1f);
 		}
 		else if(inputEvents[i].eventID == Gamepad_rightTrigger)
 		{
-			rightTrigger = fm_snap_near_zero(inputEvents[i].value, 0.05f);
+			rightTrigger = fm_snap_near_zero(inputEvents[i].value, 0.1f);
 		}
 		else if(inputEvents[i].eventID == Gamepad_leftTrigger)
 		{
-			leftTrigger = fm_snap_near_zero(inputEvents[i].value, 0.05f);
+			leftTrigger = fm_snap_near_zero(inputEvents[i].value, 0.1f);
 		}
 	}
 	
@@ -2670,8 +2682,13 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 	}
 }
 
-void furMainEngineLoop(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
+FUR_JOB_ENTRY_POINT(fur_engine_main_thread_loop)
 {
+	fc_main_thread_user_data_t* userData = FUR_JOB_USER_DATA(fc_main_thread_user_data_t);
+	
+	FurGameEngine* pEngine = userData->pEngine;
+	fc_alloc_callbacks_t* pAllocCallbacks = userData->pAllocCallbacks;
+	
 	pEngine->prevTimePoint = std::chrono::system_clock::now();
 	
 	while(fr_update_app(pEngine->pApp))
@@ -2693,6 +2710,21 @@ void furMainEngineLoop(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallb
 	}
 	
 	fr_wait_for_device(pEngine->pRenderer);
+	
+	fc_job_system_exit_all_jobs();
+}
+
+void furMainEngineLoop(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
+{
+	fc_main_thread_user_data_t data = {pEngine, pAllocCallbacks};
+	
+	fc_job_decl_t mainThreadJob = {};
+	mainThreadJob.userData = &data;
+	mainThreadJob.func = fur_engine_main_thread_loop;
+	fc_job_system_setup_main_thread_job(&mainThreadJob);
+	
+	// see fur_engine_main_thread_loop for the actual main thread loop
+	fc_job_system_enter_worker_thread_mode();
 }
 
 bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
@@ -2736,6 +2768,7 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	
 	fg_camera_system_release(pEngine->cameraSystem, pAllocCallbacks);
 	
+	fc_job_system_release(pAllocCallbacks);
 	fp_physics_release(pEngine->pPhysics, pAllocCallbacks);
 	fr_release_renderer(pEngine->pRenderer, pAllocCallbacks);
 	

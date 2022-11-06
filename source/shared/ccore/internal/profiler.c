@@ -7,18 +7,27 @@
 #include "memory.h"
 #include "furAssert.h"
 #include "debugDraw.h"
+#include "jobs.h"
 
 #define FC_PROFILER_MAX_SCOPES 8192
 #define FC_PROFILER_MAX_FRAMES 5
 #define FC_PROFILER_FRAMES_DRAWN 4
 
-typedef struct fc_profiler_t
+typedef struct fc_profiler_thread_info_t
 {
 	uint32_t currentNumScopes;
 	uint32_t currentDepth;
 	fc_profiler_scope_t* scopes[FC_PROFILER_MAX_FRAMES];	// one frame is for pause mode
 	uint32_t frameNumScopes[FC_PROFILER_MAX_FRAMES];
+} fc_profiler_thread_info_t;
+
+typedef struct fc_profiler_t
+{
+	fc_profiler_thread_info_t* threads;
+	int32_t numThreads;	// includign main thread, use thread index to access threads array
+	
 	uint32_t frameStartTimes[FC_PROFILER_MAX_FRAMES];
+	
 	uint8_t currentFrame;
 	uint8_t pausedOnFrame;
 	bool debugDraw;
@@ -32,28 +41,43 @@ void fc_profiler_init(fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	g_profiler.zoom = 50.0f;
 	
-	for(uint32_t i=0; i<FC_PROFILER_MAX_FRAMES; ++i)
+	g_profiler.numThreads = fc_job_system_num_max_threads();
+	
+	g_profiler.threads = FUR_ALLOC_ARRAY_AND_ZERO(fc_profiler_thread_info_t, g_profiler.numThreads, 0, FC_MEMORY_SCOPE_PROFILER, pAllocCallbacks);
+	
+	for(int32_t t=0; t<g_profiler.numThreads; ++t)
 	{
-		g_profiler.scopes[i] = FUR_ALLOC_ARRAY_AND_ZERO(fc_profiler_scope_t, FC_PROFILER_MAX_SCOPES, 0, FC_MEMORY_SCOPE_PROFILER, pAllocCallbacks);
+		for(uint32_t i=0; i<FC_PROFILER_MAX_FRAMES; ++i)
+		{
+			g_profiler.threads[t].scopes[i] = FUR_ALLOC_ARRAY_AND_ZERO(fc_profiler_scope_t, FC_PROFILER_MAX_SCOPES, 0, FC_MEMORY_SCOPE_PROFILER, pAllocCallbacks);
+		}
 	}
 }
 
 void fc_profiler_release(fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	for(uint32_t i=0; i<FC_PROFILER_MAX_FRAMES; ++i)
+	for(int32_t t=0; t<g_profiler.numThreads; ++t)
 	{
-		FUR_FREE(g_profiler.scopes[i], pAllocCallbacks);
+		for(uint32_t i=0; i<FC_PROFILER_MAX_FRAMES; ++i)
+		{
+			FUR_FREE(g_profiler.threads[t].scopes[i], pAllocCallbacks);
+		}
 	}
+	
+	FUR_FREE(g_profiler.threads, pAllocCallbacks);
 }
 
 fc_profiler_scope_t* fc_profiler_scope_begin(const char* name)
 {
-	FUR_ASSERT(g_profiler.currentNumScopes < FC_PROFILER_MAX_SCOPES);
+	const int32_t threadIndex = fc_job_system_get_this_thread_index();
+	fc_profiler_thread_info_t* thread = &g_profiler.threads[threadIndex];
 	
-	const uint32_t idx = g_profiler.currentNumScopes;
-	g_profiler.currentNumScopes += 1;
-	const uint32_t depth = g_profiler.currentDepth;
-	g_profiler.currentDepth += 1;
+	FUR_ASSERT(thread->currentNumScopes < FC_PROFILER_MAX_SCOPES);
+	
+	const uint32_t idx = thread->currentNumScopes;
+	thread->currentNumScopes += 1;
+	const uint32_t depth = thread->currentDepth;
+	thread->currentDepth += 1;
 	
 	struct timeval time = {};
 	gettimeofday(&time, NULL);
@@ -62,7 +86,7 @@ fc_profiler_scope_t* fc_profiler_scope_begin(const char* name)
 	scope.name = name;
 	scope.depth = depth;
 	scope.startTime = time.tv_usec;
-	fc_profiler_scope_t* pScope = &g_profiler.scopes[g_profiler.currentFrame][idx];
+	fc_profiler_scope_t* pScope = &thread->scopes[g_profiler.currentFrame][idx];
 	*pScope = scope;
 	
 	return pScope;
@@ -70,7 +94,10 @@ fc_profiler_scope_t* fc_profiler_scope_begin(const char* name)
 
 void fc_profiler_scope_end(fc_profiler_scope_t* scope)
 {
-	g_profiler.currentDepth -= 1;
+	const int32_t threadIndex = fc_job_system_get_this_thread_index();
+	fc_profiler_thread_info_t* thread = &g_profiler.threads[threadIndex];
+	
+	thread->currentDepth -= 1;
 	
 	struct timeval time = {};
 	gettimeofday(&time, NULL);
@@ -80,15 +107,21 @@ void fc_profiler_scope_end(fc_profiler_scope_t* scope)
 
 void fc_profiler_start_frame(void)
 {
+	FUR_ASSERT(fc_job_system_is_main_thread());
+	
 	// tick profiler
 	{
-		FUR_ASSERT(g_profiler.currentDepth == 0); // make sure all scopes were closed
-
 		struct timeval frameStartTime = {};
 		gettimeofday(&frameStartTime, NULL);
-
+		
 		g_profiler.frameStartTimes[g_profiler.currentFrame] = frameStartTime.tv_usec;
-		g_profiler.currentNumScopes = 0;
+		
+		for(int32_t t=0; t<g_profiler.numThreads; ++t)
+		{
+			FUR_ASSERT(g_profiler.threads[t].currentDepth == 0); // make sure all scopes were closed
+			
+			g_profiler.threads[t].currentNumScopes = 0;
+		}
 	}
 	
 	// draw last frame
@@ -102,6 +135,7 @@ void fc_profiler_start_frame(void)
 		const float blue[4] = {0.0f, 0.8f, 0.8f, 0.8f};
 		const float green[4] = {0.0f, 0.8f, 0.0f, 0.8f};
 		const float yellow[4] = {0.8f, 0.8f, 0.0f, 0.8f};
+		const float grey[4] = {0.6f, 0.6f, 0.6f, 0.8f};
 		
 		fc_dbg_rect(x, y, 1, 1200.0f, blue);
 		fc_dbg_rect(x + 16.6f * g_profiler.zoom, y, 1, 1200.0f, green);
@@ -111,36 +145,50 @@ void fc_profiler_start_frame(void)
 		uint32_t frameIdx = (g_profiler.pausedOnFrame + 1) % FC_PROFILER_FRAMES_DRAWN;
 		const uint32_t firstFrameStartTime = g_profiler.frameStartTimes[frameIdx];
 		
-		for(uint32_t f=0; f<FC_PROFILER_FRAMES_DRAWN-1; ++f, frameIdx = (frameIdx + 1) % FC_PROFILER_FRAMES_DRAWN)
+		char coreTxt[16] = {};
+		
+		for(int32_t t=0; t<g_profiler.numThreads; ++t)
 		{
-			fc_profiler_scope_t* scopes = g_profiler.scopes[frameIdx];
-			const uint32_t numScopes = g_profiler.frameNumScopes[frameIdx];
+			const fc_profiler_thread_info_t* thread = &g_profiler.threads[t];
 			
-			for(uint32_t i=0; i<numScopes; ++i)
+			float y = 600.0f - t * 200.0f;	// place thread scopes in their own horizontal panels
+			
+			// line for each core/thread
+			fc_dbg_rect(x - 120.0f, y, 8000.0f, 1.0f, grey);
+			sprintf(coreTxt, "Core %i", t);
+			fc_dbg_text(x - 120.0f, y, coreTxt, white);
+			
+			for(uint32_t f=0; f<FC_PROFILER_FRAMES_DRAWN-1; ++f, frameIdx = (frameIdx + 1) % FC_PROFILER_FRAMES_DRAWN)
 			{
-				fc_profiler_scope_t scope = scopes[i];
+				fc_profiler_scope_t* scopes = thread->scopes[frameIdx];
+				const uint32_t numScopes = thread->frameNumScopes[frameIdx];
 				
-				color[0] = ((uint8_t)scope.name[0]) / 255.0f;
-				color[1] = ((uint8_t)scope.name[1]) / 255.0f;
-				color[2] = ((uint8_t)scope.name[2]) / 255.0f;
-				
-				const float startTime_ms = (scope.startTime - firstFrameStartTime) / 1000.0f;
-				const float stopTime_ms = (scope.stopTime - firstFrameStartTime) / 1000.0f;
-				const float x_offset = startTime_ms * g_profiler.zoom;
-				const float width = stopTime_ms * g_profiler.zoom - x_offset;
-				
-				// draw scope rectangle
-				if(width > 4.0f)
+				for(uint32_t i=0; i<numScopes; ++i)
 				{
-					fc_dbg_rect(x + x_offset, y - 30.0 * scope.depth, width, 28.0, color);
-				}
-				
-				// draw scope name
-				if(width > 150)
-				{
-					char txt[256];
-					sprintf(txt, "%s (%1.3fms)", scope.name, stopTime_ms - startTime_ms);
-					fc_dbg_text(x + x_offset, y - 30.0 * scope.depth, txt, white);
+					fc_profiler_scope_t scope = scopes[i];
+					
+					color[0] = ((uint8_t)scope.name[0]) / 255.0f;
+					color[1] = ((uint8_t)scope.name[1]) / 255.0f;
+					color[2] = ((uint8_t)scope.name[2]) / 255.0f;
+					
+					const float startTime_ms = (scope.startTime - firstFrameStartTime) / 1000.0f;
+					const float stopTime_ms = (scope.stopTime - firstFrameStartTime) / 1000.0f;
+					const float x_offset = startTime_ms * g_profiler.zoom;
+					const float width = stopTime_ms * g_profiler.zoom - x_offset;
+					
+					// draw scope rectangle
+					if(width > 4.0f)
+					{
+						fc_dbg_rect(x + x_offset, y - 30.0 * scope.depth, width, 28.0, color);
+					}
+					
+					// draw scope name
+					if(width > 150)
+					{
+						char txt[256];
+						sprintf(txt, "%s (%1.3fms)", scope.name, stopTime_ms - startTime_ms);
+						fc_dbg_text(x + x_offset, y - 30.0 * scope.depth, txt, white);
+					}
 				}
 			}
 		}
@@ -149,7 +197,12 @@ void fc_profiler_start_frame(void)
 
 void fc_profiler_end_frame(void)
 {
-	g_profiler.frameNumScopes[g_profiler.currentFrame] = g_profiler.currentNumScopes;
+	FUR_ASSERT(fc_job_system_is_main_thread());
+	
+	for(int32_t t=0; t<g_profiler.numThreads; ++t)
+	{
+		g_profiler.threads[t].frameNumScopes[g_profiler.currentFrame] = g_profiler.threads[t].currentNumScopes;
+	}
 	
 	// if not profiler pause, then rotate frames
 	if(g_profiler.currentFrame != FC_PROFILER_FRAMES_DRAWN)
