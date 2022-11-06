@@ -330,6 +330,7 @@ void fc_job_system_init(fc_alloc_callbacks_t* pAllocCallbacks)
 	
 	g_jobSystem.pendingJobsIndices = FUR_ALLOC_ARRAY_AND_ZERO(int32_t, FUR_MAX_JOBS, 0, FC_MEMORY_SCOPE_JOBS, pAllocCallbacks);
 	
+	// todo: debug memory size case (remove 2+)
 	g_jobSystem.fiberStackMemory = FUR_ALLOC_AND_ZERO((2 + FUR_NUM_SMALL_FIBERS) * FUR_SMALL_FIBER_STACK_MEMORY, 0, FC_MEMORY_SCOPE_JOBS, pAllocCallbacks);
 	
 	// when this flag will become false, all worker threads will exit as soon as possible
