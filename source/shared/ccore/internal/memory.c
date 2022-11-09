@@ -74,11 +74,14 @@ bool fc_mem_map_belongs_to(fc_memory_scope_t scope, fc_memory_scope_t ancestor)
 
 typedef struct fc_mem_debug_info_t
 {
+	uint32_t markerBegin;
 	struct fc_mem_debug_info_t* next;
 	struct fc_mem_debug_info_t* prev;
 	const char* line;
-	enum fc_memory_scope_t scope;
 	size_t size;
+	enum fc_memory_scope_t scope;
+	uint16_t offsetToOriginalPtr;
+	uint32_t markerEnd;
 	
 } fc_mem_debug_info_t;
 
@@ -93,6 +96,7 @@ void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t
 #if FUR_MEMORY_DEBUG == 1
 	size_t originalSize = size;
 	size += sizeof(fc_mem_debug_info_t);
+	size += alignment-1;
 #endif
 	
 	void* ptr = NULL;
@@ -102,27 +106,36 @@ void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t
 	else
 		ptr = malloc(size);
 	
+	uint16_t offset_forward = 0;
+	if(alignment != 0)
+	{
+		void* ptr_candidate = ((uint8_t*)ptr) + (sizeof(fc_mem_debug_info_t) + alignment-1);
+		offset_forward = (size_t)ptr_candidate % alignment;
+	}
+	
+	void* debug_ptr = ((uint8_t*)ptr) + offset_forward;
+	void* alignedPtr = ((uint8_t*)ptr) + (sizeof(fc_mem_debug_info_t) + offset_forward);
+	
 #if FUR_MEMORY_DEBUG == 1
 	// put info in front of allocated memory
-	fc_mem_debug_info_t* debugPtr = (fc_mem_debug_info_t*)ptr;
+	fc_mem_debug_info_t* debugPtr = (fc_mem_debug_info_t*)debug_ptr;
+	debugPtr->markerBegin = 'memb';
+	debugPtr->markerEnd = 'meme';
 	debugPtr->next = g_rootDebugMemInfo.next;
 	debugPtr->prev = &g_rootDebugMemInfo;
 	debugPtr->line = info;
 	debugPtr->size = originalSize;
 	debugPtr->scope = scope;
+	debugPtr->offsetToOriginalPtr = offset_forward;
 	
 	if(g_rootDebugMemInfo.next && g_rootDebugMemInfo.next->prev)
 	{
 		g_rootDebugMemInfo.next->prev = debugPtr;
 	}
 	g_rootDebugMemInfo.next = debugPtr;
-	
-	// move pointer by 8 bytes, so it skips the info part
-	// we will move back 8 bytes when deallocating
-	ptr = ((uint8_t*)ptr) + sizeof(fc_mem_debug_info_t);
 #endif
 	
-	return ptr;
+	return alignedPtr;
 }
 
 void* fc_alloc_and_zero(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t alignment,
@@ -143,9 +156,8 @@ void fc_dealloc(struct fc_alloc_callbacks_t* pAllocCallbacks, void* pMemory, con
 	
 #if FUR_MEMORY_DEBUG == 1
 	// move ptr back, to include info part
-	pMemory = ((uint8_t*)pMemory) - sizeof(fc_mem_debug_info_t);
-	
-	fc_mem_debug_info_t* debugPtr = (fc_mem_debug_info_t*)pMemory;
+	fc_mem_debug_info_t* debugPtr = (fc_mem_debug_info_t*)(((uint8_t*)pMemory) - sizeof(fc_mem_debug_info_t));
+	void* originalPtr = ((uint8_t*)debugPtr) - debugPtr->offsetToOriginalPtr;
 	
 	FUR_ASSERT((uint64_t)debugPtr->next != 0xfefefefefefefefe);	// either double-free or memory stomp (someone else freed this memory before you)
 	
@@ -156,14 +168,14 @@ void fc_dealloc(struct fc_alloc_callbacks_t* pAllocCallbacks, void* pMemory, con
 	size_t fullSize = debugPtr->size + sizeof(fc_mem_debug_info_t);
 	
 	// debug pattern for dealloc
-	memset(pMemory, 0xFE, fullSize);
+	memset(originalPtr, 0xFE, fullSize);
 	
 #endif
 	
 	if(pAllocCallbacks)
 		pAllocCallbacks->pfnFree(pAllocCallbacks->pUserData, pMemory);
 	else
-		free(pMemory);
+		free(originalPtr);
 }
 
 bool fc_validate_memory(void)
