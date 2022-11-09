@@ -11,7 +11,7 @@
 #define FUR_MAX_JOB_COUNTERS 4096
 #define FUR_MAX_JOBS 4096
 #define FUR_NUM_SMALL_FIBERS 128
-#define FUR_SMALL_FIBER_STACK_MEMORY 64 * 1024
+#define FUR_SMALL_FIBER_STACK_MEMORY 128 * 1024
 
 #define thread_local _Thread_local
 
@@ -32,7 +32,8 @@ transfer_t ontop_fcontext(fcontext_t const to, void * vp, transfer_t (*fn)(trans
 // free list - locless implementation
 typedef struct fc_free_list_lockless
 {
-	atomic_int tail;
+	fc_rwlock_t lock;
+	int32_t tail;
 	int32_t* indices;
 	int32_t capcity;
 } fc_free_list_lockless;
@@ -40,8 +41,9 @@ typedef struct fc_free_list_lockless
 void fc_free_list_alloc(fc_free_list_lockless* list, int32_t capacity, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	list->capcity = capacity;
-	atomic_store(&list->tail, capacity-1);
+	list->tail = capacity-1;
 	list->indices = FUR_ALLOC_ARRAY(int32_t, capacity, 0, FC_MEMORY_SCOPE_JOBS, pAllocCallbacks);
+	fc_rwlock_init(&list->lock);
 	
 	for(int32_t i=0; i<capacity; ++i)
 	{
@@ -56,16 +58,29 @@ void fc_free_list_free(fc_free_list_lockless* list, fc_alloc_callbacks_t* pAlloc
 
 int32_t fc_free_list_acquire(fc_free_list_lockless* list)
 {
-	int32_t slotIndex = atomic_fetch_sub(&list->tail, 1);
-	FUR_ASSERT(slotIndex >= 0);
-	return list->indices[slotIndex];
+	int32_t index = -1;
+	
+	FUR_SCOPED_WRITE_LOCK(list->lock)
+	{
+		const int32_t slotIndex = list->tail;
+		list->tail--;
+		FUR_ASSERT(slotIndex >= 0);
+		index = list->indices[slotIndex];
+	}
+	
+	return index;
 }
 
 void fc_free_list_release(fc_free_list_lockless* list, int32_t index)
 {
-	int32_t slotIndex = atomic_fetch_add(&list->tail, 1);
-	FUR_ASSERT(slotIndex < list->capcity);
-	list->indices[slotIndex] = index;
+	FUR_SCOPED_WRITE_LOCK(list->lock)
+	{
+		list->tail++;
+		int32_t slotIndex = list->tail;
+		FUR_ASSERT(slotIndex < list->capcity);
+		
+		list->indices[slotIndex] = index;
+	}
 }
 
 typedef struct fc_scheduled_job_t
@@ -198,6 +213,7 @@ void fc_worker_thread_evaluate(int32_t threadIndex)
 				
 				// return fiber index to resume
 				fiberIndexToRun = fiberIndex;
+				
 				break;
 			}
 		}
@@ -210,31 +226,40 @@ void fc_worker_thread_evaluate(int32_t threadIndex)
 		
 		FUR_SCOPED_WRITE_LOCK(g_jobSystem.pendingJobsIndicesLock)
 		{
+			//printf("Thread %i found no fiber to acquire, lookingn for job\n", threadIndex);
+			
 			if(g_jobSystem.numPendingJobsIndices > 0)
 			{
 				const int32_t candidateIndex = g_jobSystem.pendingJobsIndices[g_jobSystem.numPendingJobsIndices - 1];
 				
 				// this condition will skip only at the beginning, as there will be one pending job for main thread
 				if(g_jobSystem.pendingJobs[candidateIndex].isMainThreadJob != isMainThread)
+				{
+					//printf("Thread %i sees main job %i, skipping\n", threadIndex, jobIndexToInit);
 					continue;	// func fact: I can use continue here because scoped lock is a for loop
+				}
 				
 				jobIndexToInit = candidateIndex;
 				
 				g_jobSystem.numPendingJobsIndices -= 1;
+				
+				//printf("Thread %i acquires job %i\n", threadIndex, jobIndexToInit);
 			}
 		}
 		
 		if(jobIndexToInit != -1)
 		{
+			int32_t fiberIndex = -1;
+			
 			// reserve fiber
-			const int32_t fiberIndex = fc_free_list_acquire(&g_jobSystem.fibersFreeList);
+			fiberIndex = fc_free_list_acquire(&g_jobSystem.fibersFreeList);
 			
 			// copy job info and release the slot
 			g_jobSystem.fiberJobs[fiberIndex] = g_jobSystem.pendingJobs[jobIndexToInit];
 			fc_free_list_release(&g_jobSystem.pendingJobsFreeList, jobIndexToInit);
 			
-			// initialise fiber
-			void* memStack = g_jobSystem.fiberStackMemory + (fiberIndex+2) * FUR_SMALL_FIBER_STACK_MEMORY;
+			// initialise fiber (memory is fiberIndex+1 because stack starts from the other end)
+			void* memStack = g_jobSystem.fiberStackMemory + (fiberIndex+1) * FUR_SMALL_FIBER_STACK_MEMORY;
 			g_jobSystem.fibers[fiberIndex] = make_fcontext(memStack, FUR_SMALL_FIBER_STACK_MEMORY, fc_fiber_func);
 			
 			fiberIndexToRun = fiberIndex;
@@ -330,8 +355,7 @@ void fc_job_system_init(fc_alloc_callbacks_t* pAllocCallbacks)
 	
 	g_jobSystem.pendingJobsIndices = FUR_ALLOC_ARRAY_AND_ZERO(int32_t, FUR_MAX_JOBS, 0, FC_MEMORY_SCOPE_JOBS, pAllocCallbacks);
 	
-	// todo: debug memory size case (remove 2+)
-	g_jobSystem.fiberStackMemory = FUR_ALLOC_AND_ZERO((2 + FUR_NUM_SMALL_FIBERS) * FUR_SMALL_FIBER_STACK_MEMORY, 0, FC_MEMORY_SCOPE_JOBS, pAllocCallbacks);
+	g_jobSystem.fiberStackMemory = FUR_ALLOC_AND_ZERO(FUR_NUM_SMALL_FIBERS * FUR_SMALL_FIBER_STACK_MEMORY, 16, FC_MEMORY_SCOPE_JOBS, pAllocCallbacks);
 	
 	// when this flag will become false, all worker threads will exit as soon as possible
 	g_jobSystem.isRunning = true;
@@ -402,7 +426,7 @@ void fc_run_jobs_internal(const fc_job_decl_t* jobs, int32_t numJobs, fc_job_cou
 			g_jobSystem.pendingJobsIndices[startIndex + i] = jobsBatchIndices[i];
 		}
 		
-		g_jobSystem.numPendingJobsIndices += 1;
+		g_jobSystem.numPendingJobsIndices += numJobs;
 	}
 }
 
