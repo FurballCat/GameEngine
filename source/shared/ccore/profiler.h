@@ -26,13 +26,20 @@ typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 CCORE_API void fc_profiler_init(fc_alloc_callbacks_t* pAllocCallbacks);
 CCORE_API void fc_profiler_release(fc_alloc_callbacks_t* pAllocCallbacks);
 
+typedef struct fc_profiler_time_value_t
+{
+	uint64_t sec;	// seconds
+	uint32_t usec;	// microseconds
+} fc_profiler_time_value_t;
+
 typedef struct fc_profiler_scope_t
 {
 	const char* name;
 	struct fc_profiler_scope_t* parent;	// kept only because of fibers
-	uint32_t startTime;	// in microseconds (s > ms > us)
-	uint32_t stopTime;
-	uint32_t depth;	// depth in callstack
+	fc_profiler_time_value_t startTime;
+	fc_profiler_time_value_t stopTime;
+	uint16_t depth;	// depth in callstack
+	uint16_t threadID;	// the thread that closed the scope
 } fc_profiler_scope_t;
 
 CCORE_API fc_profiler_scope_t* fc_profiler_scope_begin(const char* name);
