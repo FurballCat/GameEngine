@@ -7,6 +7,10 @@
 #include <stdatomic.h>
 #include <immintrin.h>	// for _mm_pause()
 
+// platform mac
+#include <mach/thread_policy.h>
+#include <mach/thread_act.h>
+
 #define FUR_NUM_THREADS 5
 #define FUR_MAX_JOB_COUNTERS 4096
 #define FUR_MAX_JOBS 4096
@@ -360,16 +364,31 @@ void fc_job_system_init(fc_alloc_callbacks_t* pAllocCallbacks)
 	// when this flag will become false, all worker threads will exit as soon as possible
 	g_jobSystem.isRunning = true;
 	
-	g_jobSystem.mainThreadID = pthread_self();
-	
 	fc_rwlock_init(&g_jobSystem.pendingJobsIndicesLock);
 	fc_rwlock_init(&g_jobSystem.suspendedFiberIndicesLock);
+	
+	// mac note: I'm not sure mac is actually taking my affinity requests into account
+	
+	// set main thread affinity
+	{
+		thread_affinity_policy_data_t policyData = {0};
+		g_jobSystem.mainThreadID = pthread_self();
+		mach_port_t mach_thread = pthread_mach_thread_np(g_jobSystem.mainThreadID);
+		thread_policy_set(mach_thread, THREAD_AFFINITY_POLICY, (thread_policy_t)&policyData, THREAD_AFFINITY_POLICY_COUNT);
+	}
 	
 	// start worker threads
 	for(int32_t i=0; i<FUR_NUM_THREADS; ++i)
 	{
 		g_jobSystem.threadIndices[i] = i+1;
-		pthread_create(&g_jobSystem.threadIDs[i], NULL, fc_thread_func, &g_jobSystem.threadIndices[i]);
+		int32_t res = pthread_create_suspended_np(&g_jobSystem.threadIDs[i], NULL, fc_thread_func, &g_jobSystem.threadIndices[i]);
+		FUR_ASSERT(res == 0);
+		
+		// mac affinity
+		thread_affinity_policy_data_t policyData = {i+1};
+		mach_port_t mach_thread = pthread_mach_thread_np(g_jobSystem.threadIDs[i]);
+		thread_policy_set(mach_thread, THREAD_AFFINITY_POLICY, (thread_policy_t)&policyData, THREAD_AFFINITY_POLICY_COUNT);
+		thread_resume(mach_thread);
 	}
 }
 

@@ -436,7 +436,7 @@ void fc_profiler_exit_contention(const char* name)
 	gettimeofday(&time, NULL);
 	
 	// skip short contention times, as it might be no contention at all
-	if(time.tv_sec != thread->tempContentionStartTime.tv_sec || time.tv_usec - thread->tempContentionStartTime.tv_usec > 20)
+	if(time.tv_sec != thread->tempContentionStartTime.tv_sec || time.tv_usec - thread->tempContentionStartTime.tv_usec > 30)
 	{
 		fc_contention_scope_t* scopes = thread->contentionScopes[g_profiler.currentFrame];
 		const int32_t idx = thread->currentNumContentionScopes;
