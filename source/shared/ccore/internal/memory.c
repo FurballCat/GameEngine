@@ -74,14 +74,14 @@ bool fc_mem_map_belongs_to(fc_memory_scope_t scope, fc_memory_scope_t ancestor)
 
 typedef struct fc_mem_debug_info_t
 {
-	uint32_t markerBegin;
+	//uint32_t markerBegin;
 	struct fc_mem_debug_info_t* next;
 	struct fc_mem_debug_info_t* prev;
 	const char* line;
 	size_t size;
 	enum fc_memory_scope_t scope;
 	uint16_t offsetToOriginalPtr;
-	uint32_t markerEnd;
+	//uint32_t markerEnd;
 	
 } fc_mem_debug_info_t;
 
@@ -119,8 +119,8 @@ void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t
 #if FUR_MEMORY_DEBUG == 1
 	// put info in front of allocated memory
 	fc_mem_debug_info_t* debugPtr = (fc_mem_debug_info_t*)debug_ptr;
-	debugPtr->markerBegin = 'memb';
-	debugPtr->markerEnd = 'meme';
+	//debugPtr->markerBegin = 'memb';
+	//debugPtr->markerEnd = 'meme';
 	debugPtr->next = g_rootDebugMemInfo.next;
 	debugPtr->prev = &g_rootDebugMemInfo;
 	debugPtr->line = info;
