@@ -12,15 +12,29 @@
 #define FC_PROFILER_MAX_SCOPES 8192
 #define FC_PROFILER_MAX_FRAMES 5
 #define FC_PROFILER_FRAMES_DRAWN 4
+#define FC_PROFILER_MAX_CONTENTION_SCOPES 8192
+
+typedef struct fc_contention_scope_t
+{
+	const char* name;
+	struct timeval startTime;
+	struct timeval endTime;
+} fc_contention_scope_t;
 
 typedef struct fc_profiler_thread_info_t
 {
 	uint32_t currentNumScopes;
 	uint32_t currentDepth;
+	fc_profiler_scope_t* current;
 	fc_profiler_scope_t* scopes[FC_PROFILER_MAX_FRAMES];	// one frame is for pause mode
 	uint32_t frameNumScopes[FC_PROFILER_MAX_FRAMES];
 	
-	fc_profiler_scope_t* current;
+	uint32_t frameNumContentionScopes[FC_PROFILER_MAX_FRAMES];
+	fc_contention_scope_t* contentionScopes[FC_PROFILER_MAX_FRAMES];
+	uint32_t currentNumContentionScopes;
+	
+	struct timeval tempContentionStartTime;	// used on enter contention
+	
 } fc_profiler_thread_info_t;
 
 typedef struct fc_profiler_t
@@ -52,6 +66,7 @@ void fc_profiler_init(fc_alloc_callbacks_t* pAllocCallbacks)
 		for(uint32_t i=0; i<FC_PROFILER_MAX_FRAMES; ++i)
 		{
 			g_profiler.threads[t].scopes[i] = FUR_ALLOC_ARRAY_AND_ZERO(fc_profiler_scope_t, FC_PROFILER_MAX_SCOPES, 0, FC_MEMORY_SCOPE_PROFILER, pAllocCallbacks);
+			g_profiler.threads[t].contentionScopes[i] = FUR_ALLOC_ARRAY_AND_ZERO(fc_contention_scope_t, FC_PROFILER_MAX_CONTENTION_SCOPES, 0, FC_MEMORY_SCOPE_PROFILER, pAllocCallbacks);
 		}
 	}
 }
@@ -63,6 +78,7 @@ void fc_profiler_release(fc_alloc_callbacks_t* pAllocCallbacks)
 		for(uint32_t i=0; i<FC_PROFILER_MAX_FRAMES; ++i)
 		{
 			FUR_FREE(g_profiler.threads[t].scopes[i], pAllocCallbacks);
+			FUR_FREE(g_profiler.threads[t].contentionScopes[i], pAllocCallbacks);
 		}
 	}
 	
@@ -145,6 +161,7 @@ void fc_profiler_start_frame(void)
 			FUR_ASSERT(g_profiler.threads[t].currentDepth == 0); // make sure all scopes were closed
 			
 			g_profiler.threads[t].currentNumScopes = 0;
+			g_profiler.threads[t].currentNumContentionScopes = 0;
 		}
 	}
 	
@@ -185,43 +202,85 @@ void fc_profiler_start_frame(void)
 			
 			for(uint32_t f=0; f<FC_PROFILER_FRAMES_DRAWN-1; ++f, frameIdx = (frameIdx + 1) % FC_PROFILER_FRAMES_DRAWN)
 			{
-				fc_profiler_scope_t* scopes = thread->scopes[frameIdx];
-				const uint32_t numScopes = thread->frameNumScopes[frameIdx];
-				
-				for(uint32_t i=0; i<numScopes; ++i)
+				// draw instrumentation scopes
 				{
-					fc_profiler_scope_t scope = scopes[i];
+					fc_profiler_scope_t* scopes = thread->scopes[frameIdx];
+					const uint32_t numScopes = thread->frameNumScopes[frameIdx];
 					
-					// scope could be closed by another thread in case of fiber switch
-					y = 600.0f - scope.threadID * 200.0f;
-					
-					color[0] = ((uint8_t)scope.name[0]) / 255.0f;
-					color[1] = ((uint8_t)scope.name[1]) / 255.0f;
-					color[2] = ((uint8_t)scope.name[2]) / 255.0f;
-					
-					const float startTime_ms = scope.startTime.sec * 1000.0 + scope.startTime.usec / 1000.0 - firstFrameStartTime_ms;
-					const float stopTime_ms = scope.stopTime.sec * 1000.0 + scope.stopTime.usec / 1000.0 - firstFrameStartTime_ms;
-					const float x_offset = startTime_ms * g_profiler.zoom;
-					const float width = stopTime_ms * g_profiler.zoom - x_offset;
-					
-					// draw scope rectangle
-					if(width > 4.0f)
+					for(uint32_t i=0; i<numScopes; ++i)
 					{
-						fc_dbg_rect(x + x_offset, y - 30.0 * scope.depth, width, 28.0, color);
-					}
-					
-					// draw scope name
-					if(width > 150)
-					{
-						char txt[256];
-						const float elapsedTime_ms = stopTime_ms - startTime_ms;
-						sprintf(txt, "%s (%1.3fms)", scope.name, elapsedTime_ms);
-						fc_dbg_text(x + x_offset, y - 30.0 * scope.depth, txt, white);
+						fc_profiler_scope_t scope = scopes[i];
 						
-						/*if(elapsedTime_ms > 20.0f)
+						// scope could be closed by another thread in case of fiber switch
+						y = 600.0f - scope.threadID * 200.0f;
+						
+						color[0] = ((uint8_t)scope.name[0]) / 255.0f;
+						color[1] = ((uint8_t)scope.name[1]) / 255.0f;
+						color[2] = ((uint8_t)scope.name[2]) / 255.0f;
+						
+						const float startTime_ms = scope.startTime.sec * 1000.0 + scope.startTime.usec / 1000.0 - firstFrameStartTime_ms;
+						const float stopTime_ms = scope.stopTime.sec * 1000.0 + scope.stopTime.usec / 1000.0 - firstFrameStartTime_ms;
+						const float x_offset = startTime_ms * g_profiler.zoom;
+						const float width = stopTime_ms * g_profiler.zoom - x_offset;
+						
+						// draw scope rectangle
+						if(width > 4.0f)
 						{
-							fc_profiler_pause();
-						}*/
+							fc_dbg_rect(x + x_offset, y - 30.0 * scope.depth, width, 28.0, color);
+						}
+						
+						// draw scope name
+						if(width > 150)
+						{
+							char txt[256];
+							const float elapsedTime_ms = stopTime_ms - startTime_ms;
+							sprintf(txt, "%s (%1.3fms)", scope.name, elapsedTime_ms);
+							fc_dbg_text(x + x_offset, y - 30.0 * scope.depth, txt, white);
+							
+							/*if(elapsedTime_ms > 20.0f)
+							{
+								fc_profiler_pause();
+							}*/
+						}
+					}
+				}
+				
+				// draw contention scopes
+				{
+					fc_contention_scope_t* scopes = thread->contentionScopes[frameIdx];
+					const uint32_t numScopes = thread->frameNumContentionScopes[frameIdx];
+					
+					for(uint32_t i=0; i<numScopes; ++i)
+					{
+						fc_contention_scope_t scope = scopes[i];
+						
+						// scope could be closed by another thread in case of fiber switch
+						y = 600.0f - t * 200.0f;
+						
+						const float startTime_ms = scope.startTime.tv_sec * 1000.0 + scope.startTime.tv_usec / 1000.0 - firstFrameStartTime_ms;
+						const float stopTime_ms = scope.endTime.tv_sec * 1000.0 + scope.endTime.tv_usec / 1000.0 - firstFrameStartTime_ms;
+						const float x_offset = startTime_ms * g_profiler.zoom;
+						const float width = stopTime_ms * g_profiler.zoom - x_offset;
+						
+						// draw scope rectangle
+						if(width > 4.0f)
+						{
+							fc_dbg_rect(x + x_offset, y + 10, width, 5.0, yellow);
+						}
+						
+						// draw scope name
+						if(width > 150)
+						{
+							char txt[256];
+							const float elapsedTime_ms = stopTime_ms - startTime_ms;
+							sprintf(txt, "%s (%1.3fms)", scope.name, elapsedTime_ms);
+							fc_dbg_text(x + x_offset, y + 35, txt, white);
+							
+							/*if(elapsedTime_ms > 20.0f)
+							{
+								fc_profiler_pause();
+							}*/
+						}
 					}
 				}
 			}
@@ -236,6 +295,7 @@ void fc_profiler_end_frame(void)
 	for(int32_t t=0; t<g_profiler.numThreads; ++t)
 	{
 		g_profiler.threads[t].frameNumScopes[g_profiler.currentFrame] = g_profiler.threads[t].currentNumScopes;
+		g_profiler.threads[t].frameNumContentionScopes[g_profiler.currentFrame] = g_profiler.threads[t].currentNumContentionScopes;
 	}
 	
 	// if not profiler pause, then rotate frames
@@ -358,4 +418,33 @@ void fc_profiler_load_scopestack(fc_profiler_scope_t* stack[32], int32_t numDept
 	fc_profiler_thread_info_t* thread = &g_profiler.threads[threadIndex];
 	thread->currentDepth = numDepth;
 	thread->current = stack[0];
+}
+
+void fc_profiler_enter_contention(void)
+{
+	const int32_t threadIndex = fc_job_system_get_this_thread_index();
+	fc_profiler_thread_info_t* thread = &g_profiler.threads[threadIndex];
+	gettimeofday(&thread->tempContentionStartTime, NULL);
+}
+
+void fc_profiler_exit_contention(const char* name)
+{
+	const int32_t threadIndex = fc_job_system_get_this_thread_index();
+	fc_profiler_thread_info_t* thread = &g_profiler.threads[threadIndex];
+	
+	struct timeval time = {};
+	gettimeofday(&time, NULL);
+	
+	// skip short contention times, as it might be no contention at all
+	if(time.tv_sec != thread->tempContentionStartTime.tv_sec || time.tv_usec - thread->tempContentionStartTime.tv_usec > 20)
+	{
+		fc_contention_scope_t* scopes = thread->contentionScopes[g_profiler.currentFrame];
+		const int32_t idx = thread->currentNumContentionScopes;
+		
+		scopes[idx].name = name;
+		scopes[idx].startTime = thread->tempContentionStartTime;
+		scopes[idx].endTime = time;
+		
+		thread->currentNumContentionScopes++;
+	}
 }

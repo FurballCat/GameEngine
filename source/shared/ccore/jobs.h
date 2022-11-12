@@ -88,23 +88,11 @@ typedef pthread_rwlock_t fc_rwlock_t;
 		// locked section code ...
 	}
  */
-#define FUR_SCOPED_WRITE_LOCK(_lock) for(int32_t _lock_check = fc_rwlock_write_lock(&_lock); _lock_check == 1; _lock_check = fc_rwlock_unlock(&_lock))
+#define FUR_SCOPED_WRITE_LOCK(_lock, _name) for(int32_t _lock_check = fc_rwlock_write_lock(&_lock, _name); _lock_check == 1; _lock_check = fc_rwlock_unlock(&_lock))
 
 static inline void fc_rwlock_init(fc_rwlock_t* lock)
 {
 	pthread_rwlock_init(lock, NULL);
-}
-
-static inline int32_t fc_rwlock_read_lock(fc_rwlock_t* lock)
-{
-	pthread_rwlock_rdlock(lock);
-	return 1;
-}
-
-static inline int32_t fc_rwlock_write_lock(fc_rwlock_t* lock)
-{
-	pthread_rwlock_wrlock(lock);
-	return 1;
 }
 
 static inline int32_t fc_rwlock_unlock(fc_rwlock_t* lock)
@@ -112,6 +100,9 @@ static inline int32_t fc_rwlock_unlock(fc_rwlock_t* lock)
 	pthread_rwlock_unlock(lock);
 	return 0;
 }
+
+CCORE_API int32_t fc_rwlock_read_lock(fc_rwlock_t* lock, const char* name);
+CCORE_API int32_t fc_rwlock_write_lock(fc_rwlock_t* lock, const char* name);
 
 #ifdef __cplusplus
 }

@@ -60,7 +60,7 @@ int32_t fc_free_list_acquire(fc_free_list_lockless* list)
 {
 	int32_t index = -1;
 	
-	FUR_SCOPED_WRITE_LOCK(list->lock)
+	FUR_SCOPED_WRITE_LOCK(list->lock, "free-list")
 	{
 		const int32_t slotIndex = list->tail;
 		list->tail--;
@@ -73,7 +73,7 @@ int32_t fc_free_list_acquire(fc_free_list_lockless* list)
 
 void fc_free_list_release(fc_free_list_lockless* list, int32_t index)
 {
-	FUR_SCOPED_WRITE_LOCK(list->lock)
+	FUR_SCOPED_WRITE_LOCK(list->lock, "free-list")
 	{
 		list->tail++;
 		int32_t slotIndex = list->tail;
@@ -191,7 +191,7 @@ void fc_worker_thread_evaluate(int32_t threadIndex)
 	// check if there is any fiber to resume
 	int32_t fiberIndexToRun = -1;
 	
-	FUR_SCOPED_WRITE_LOCK(g_jobSystem.suspendedFiberIndicesLock)
+	FUR_SCOPED_WRITE_LOCK(g_jobSystem.suspendedFiberIndicesLock, "fiber-suspended-fibers-eval")
 	{
 		for(int32_t i=0; i<g_jobSystem.numSuspendedFiberIndices; ++i)
 		{
@@ -224,9 +224,9 @@ void fc_worker_thread_evaluate(int32_t threadIndex)
 	{
 		int32_t jobIndexToInit = -1;
 		
-		FUR_SCOPED_WRITE_LOCK(g_jobSystem.pendingJobsIndicesLock)
+		FUR_SCOPED_WRITE_LOCK(g_jobSystem.pendingJobsIndicesLock, "fiber-pending-jobs-eval")
 		{
-			//printf("Thread %i found no fiber to acquire, lookingn for job\n", threadIndex);
+			//printf("Thread %i found no fiber to acquire, looking for job\n", threadIndex);
 			
 			if(g_jobSystem.numPendingJobsIndices > 0)
 			{
@@ -287,7 +287,7 @@ void fc_worker_thread_evaluate(int32_t threadIndex)
 			g_jobSystem.fiberJobs[fiberIndexToRun].counterToWaitFor = result->counterToWaitFor;
 			
 			// put fiber on wait list
-			FUR_SCOPED_WRITE_LOCK(g_jobSystem.suspendedFiberIndicesLock)
+			FUR_SCOPED_WRITE_LOCK(g_jobSystem.suspendedFiberIndicesLock, "fiber-suspended-fibers")
 			{
 				const int32_t slotIndex = g_jobSystem.numSuspendedFiberIndices;
 				FUR_ASSERT(slotIndex < FUR_NUM_SMALL_FIBERS);
@@ -416,7 +416,7 @@ void fc_run_jobs_internal(const fc_job_decl_t* jobs, int32_t numJobs, fc_job_cou
 	}
 	
 	// add all jobs indices to pending list
-	FUR_SCOPED_WRITE_LOCK(g_jobSystem.pendingJobsIndicesLock)
+	FUR_SCOPED_WRITE_LOCK(g_jobSystem.pendingJobsIndicesLock, "fiber-pending-jobs")
 	{
 		const int32_t startIndex = g_jobSystem.numPendingJobsIndices;
 		FUR_ASSERT(startIndex + numJobs <= FUR_MAX_JOBS);
@@ -481,4 +481,34 @@ void fc_wait_for_counter_and_free(fc_job_counter_t* counter)
 	
 	// otherwise release the counter and continue
 	fc_job_system_release_counter(&g_jobSystem, counter);
+}
+
+int32_t fc_rwlock_read_lock(fc_rwlock_t* lock, const char* name)
+{
+#if FUR_USE_PROFILER
+	fc_profiler_enter_contention();
+#endif
+	
+	pthread_rwlock_rdlock(lock);
+	
+#if FUR_USE_PROFILER
+	fc_profiler_exit_contention(name);
+#endif
+	
+	return 1;
+}
+
+int32_t fc_rwlock_write_lock(fc_rwlock_t* lock, const char* name)
+{
+#if FUR_USE_PROFILER
+	fc_profiler_enter_contention();
+#endif
+	
+	pthread_rwlock_wrlock(lock);
+	
+#if FUR_USE_PROFILER
+	fc_profiler_exit_contention(name);
+#endif
+	
+	return 1;
 }

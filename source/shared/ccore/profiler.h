@@ -62,8 +62,13 @@ CCORE_API void fc_profiler_zoom_and_pan_delta(float zoomDelta, float panDelta);
 CCORE_API uint64_t fc_log_profiler_begin(void);
 CCORE_API void fc_log_profiler_end(const char* scopeName, uint64_t startTime);
 
+// for fibers, to not loose callstack when switching fiber
 int32_t fc_profiler_store_scopestack(fc_profiler_scope_t* stack[32]);
 void fc_profiler_load_scopestack(fc_profiler_scope_t* stack[32], int32_t numDepth);
+
+// to detect locks and thread contention
+void fc_profiler_enter_contention(void);
+void fc_profiler_exit_contention(const char* name);
 
 #ifdef __cplusplus
 }
