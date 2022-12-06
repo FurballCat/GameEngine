@@ -1880,7 +1880,7 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 void fc_dev_menu_reload_scripts(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	fc_release_binary_buffer(&pEngine->zeldaStateScript, pAllocCallbacks);
-	fc_load_binary_file_into_binary_buffer("../../../../../scripts/zelda.fs", &pEngine->zeldaStateScript, pAllocCallbacks);
+	fc_load_binary_file_into_binary_buffer("../../../../../scripts/zelda-state-script.bin", &pEngine->zeldaStateScript, pAllocCallbacks);
 }
 
 void fc_dev_menu_show_player_anim_state(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)

@@ -168,17 +168,17 @@
  )
 
 ;; write list of pairs of (type value) code into file - recursive iteration
-(define (lambda-to-bytecode code file)
+(define (c-type-list-to-bytecode elems file)
   (cond
     ;; if this is the leaf pair - write to file
-    [(and (pair? code) (not (pair? (car code)))) (write-bytes (c-type-to-bytes code) file)]
+    [(and (pair? elems) (not (pair? (car elems)))) (write-bytes (c-type-to-bytes elems) file)]
     ;; otherwise - keep iterating
     [else
      (cond
-       [(empty? (cdr code)) (lambda-to-bytecode (car code) file)]
+       [(empty? (cdr elems)) (c-type-list-to-bytecode (car elems) file)]
        [else
-        (lambda-to-bytecode (car code) file)
-        (lambda-to-bytecode (cdr code) file)
+        (c-type-list-to-bytecode (car elems) file)
+        (c-type-list-to-bytecode (cdr elems) file)
         ]
        )
      ]
@@ -188,7 +188,7 @@
 ;; gets lambda code list and converts to stream of bytes (p)
 (define (code-to-bytes code)
   (let ((p (open-output-bytes)))
-    (lambda-to-bytecode code p)
+    (c-type-list-to-bytecode code p)
     (close-output-port p)
     (get-output-bytes p)
     )
@@ -267,8 +267,8 @@
   (let ((p (open-output-bytes)))
      (write-bytes (code-to-bytes (fs-segment seg-id-state-script script-name states-data)) p)
      (close-output-port p)
-     (bytes-to-file (string-append (symbol->string script-name) ".fs") (get-output-bytes p))
-     (printf "compiled state-script ~a.fs\n" script-name)
+     (bytes-to-file (string-append (symbol->string script-name) ".bin") (get-output-bytes p))
+     (printf "compiled state-script ~a.bin\n" script-name)
    )
  )
 
@@ -317,6 +317,20 @@
         chunks)
   )
 
+;; syntax for creating animsets
+(define-syntax define-anim-set
+  (syntax-rules ()
+    [(_ anim-set-name (set-name-0 <- unique-name-0) ...)
+     (let ((p (list
+      (cons (symbol set-name-0) (symbol unique-name-0))
+      ...
+      )))
+     (bytes-to-file (string-append (symbol->string anim-set-name) ".bin") (code-to-bytes (cons (int32 (length p)) p)))
+     (printf "compiled anim-set ~a.bin\n" anim-set-name)
+     )]
+  )
+ )
+
 ;; =================
 ;; write script here
 
@@ -338,6 +352,8 @@
 (define-c-function camera-enable (object-name symbol) (camera-type symbol) (fade-in-sec float))
 (define-c-function camera-abandon (object-name symbol))
 (define-c-function camera-fade-out (object-name symbol) (fade-out-sec float))
+
+;; --- end of import ---
 
 ;; enums
 (defenum animate-arg
@@ -369,11 +385,15 @@
    legs
    ))
 
-;; --- end of import ---
+;; sample anim-set
+(define-anim-set 'zelda-anims
+  ('run <- 'zelda-run)
+  ('idle <- 'zelda-idle)
+  )
 
 ;; simple script example
 
-(define-state-script 'zelda
+(define-state-script 'zelda-state-script
   (state 'idle
          (on (start)
              ;;[wait-animate 'self 'zelda-run-to-idle-sharp
