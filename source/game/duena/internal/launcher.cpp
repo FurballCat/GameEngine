@@ -730,7 +730,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	
 	// load scripts
 	{
-		fc_load_binary_file_into_binary_buffer("../../../../../scripts/zelda.fs", &pEngine->zeldaStateScript, pAllocCallbacks);
+		fc_load_binary_file_into_binary_buffer("../../../../../scripts/zelda-state-script.bin", &pEngine->zeldaStateScript, pAllocCallbacks);
 	}
 	
 	// init camera
