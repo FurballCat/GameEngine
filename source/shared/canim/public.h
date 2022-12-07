@@ -11,3 +11,4 @@
 #include "animCommands.h"
 #include "character.h"
 #include "pbd.h"
+#include "animSystem.h"

@@ -567,6 +567,7 @@ struct FurGameEngine
 	struct fr_app_t* pApp;
 	struct fr_renderer_t* pRenderer;
 	fp_physics_t* pPhysics;
+	fa_anim_sys_t* animSystem;
 	
 	std::chrono::system_clock::time_point prevTimePoint;
 	float globalTime;
@@ -598,7 +599,6 @@ struct FurGameEngine
 	fg_camera_system_t* cameraSystem;
 	
 	// gameplay animation states
-	fa_character_t animCharacterZelda;
 	fa_action_animate_t actionWeaponEquipped;
 	fa_action_animate_t actionWindProtect;
 	
@@ -722,6 +722,9 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		free(pEngine);
 		return false;
 	}
+	
+	// init anim system
+	pEngine->animSystem = fa_anim_sys_init(pAllocCallbacks);
 	
 	// create world
 	pEngine->pWorld = (fg_world_t*)FUR_ALLOC_AND_ZERO(sizeof(fg_world_t), 0, FC_MEMORY_SCOPE_GAME, pAllocCallbacks);
@@ -1181,23 +1184,23 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		pEngine->gameObjectRegister.numObjects = 0;
 		
 		// create Zelda
-		fa_character_init(&pEngine->animCharacterZelda, pEngine->pRig, pAllocCallbacks);
-		
 		pEngine->actionWeaponEquipped.animation = pEngine->pAnimClipHoldSword;
 		pEngine->actionWeaponEquipped.forceLoop = true;
 		
 		pEngine->actionWindProtect.animation = pEngine->pAnimClipWindProtect;
 		pEngine->actionWindProtect.forceLoop = true;
 		
-		pEngine->animCharacterZelda.globalTime = pEngine->globalTime;
-		
 		fa_action_args_t args = {};
 		args.fadeInSec = 0.3f;
 		args.ikMode = FA_IK_MODE_LEGS;
 		//fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->animSimpleAction, &args);
 		
+		fa_character_desc_t animCharacterDesc = {};
+		animCharacterDesc.rig = pEngine->pRig;
+		animCharacterDesc.globalTime = pEngine->globalTime;
+		
 		pEngine->zeldaGameObject.name = SID_REG("zelda");
-		pEngine->zeldaGameObject.animCharacter = &pEngine->animCharacterZelda;
+		pEngine->zeldaGameObject.animCharacter = fa_anim_sys_create_character(&animCharacterDesc, pAllocCallbacks);
 		
 		// register Zelda (player) game object
 		pEngine->gameObjectRegister.objects[pEngine->gameObjectRegister.numObjects] = &pEngine->zeldaGameObject;
@@ -1976,7 +1979,7 @@ void fc_draw_debug_menu(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCall
 void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 {
 	uint64_t globalTime = (uint64_t)(pEngine->globalTime * 1000000);
-	pEngine->animCharacterZelda.globalTime = globalTime;
+	pEngine->zeldaGameObject.animCharacter->globalTime = globalTime;
 	
 	static uint32_t actionRandomizer = 0;
 	static uint32_t actionRandomizer2 = 0;
@@ -2081,7 +2084,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 				fa_action_args_t args = {};
 				args.fadeInSec = 0.5f;
 				args.layer = FA_CHAR_LAYER_PARTIAL;
-				fa_character_schedule_none_action(&pEngine->animCharacterZelda, &args);
+				fa_character_schedule_none_action(pEngine->zeldaGameObject.animCharacter, &args);
 				
 				pEngine->zeldaGameObject.playerWeaponEquipped = false;
 			}
@@ -2090,7 +2093,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 				fa_action_args_t args = {};
 				args.fadeInSec = 0.5f;
 				args.layer = FA_CHAR_LAYER_PARTIAL;
-				fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionWeaponEquipped, &args);
+				fa_character_schedule_action_simple(pEngine->zeldaGameObject.animCharacter, &pEngine->actionWeaponEquipped, &args);
 				
 				pEngine->zeldaGameObject.playerWeaponEquipped = true;
 			}
@@ -2109,7 +2112,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			fa_action_args_t args = {};
 			args.fadeInSec = 0.5f;
 			args.layer = FA_CHAR_LAYER_PARTIAL;
-			fa_character_schedule_none_action(&pEngine->animCharacterZelda, &args);
+			fa_character_schedule_none_action(pEngine->zeldaGameObject.animCharacter, &args);
 			
 			pEngine->zeldaGameObject.playerWindProtecting = false;
 		}
@@ -2118,7 +2121,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 			fa_action_args_t args = {};
 			args.fadeInSec = 0.5f;
 			args.layer = FA_CHAR_LAYER_PARTIAL;
-			fa_character_schedule_action_simple(&pEngine->animCharacterZelda, &pEngine->actionWindProtect, &args);
+			fa_character_schedule_action_simple(pEngine->zeldaGameObject.animCharacter, &pEngine->actionWindProtect, &args);
 			
 			pEngine->zeldaGameObject.playerWindProtecting = true;
 		}
@@ -2165,9 +2168,9 @@ void fg_animation_update(FurGameEngine* pEngine, float dt)
 	playerPhysics.locator = &playerLocator;
 	fp_physics_get_player_info(pEngine->pPhysics, &playerPhysics);
 	
-	pEngine->animCharacterZelda.animInfo.worldPos.x = playerLocator.pos.x;
-	pEngine->animCharacterZelda.animInfo.worldPos.y = playerLocator.pos.y;
-	pEngine->animCharacterZelda.animInfo.worldPos.z = playerLocator.pos.z;
+	pEngine->zeldaGameObject.animCharacter->animInfo.worldPos.x = playerLocator.pos.x;
+	pEngine->zeldaGameObject.animCharacter->animInfo.worldPos.y = playerLocator.pos.y;
+	pEngine->zeldaGameObject.animCharacter->animInfo.worldPos.z = playerLocator.pos.z;
 	
 	fc_mem_arena_alloc_t arenaAlloc = fc_mem_arena_make(pEngine->scratchpadBuffer, pEngine->scratchpadBufferSize);
 	
@@ -2177,10 +2180,10 @@ void fg_animation_update(FurGameEngine* pEngine, float dt)
 	animateCtx.arenaAlloc = &arenaAlloc;
 	animateCtx.showDebug = pEngine->zeldaGameObject.showAnimStateDebug;
 	
-	fa_character_animate(&pEngine->animCharacterZelda, &animateCtx);
+	fa_character_animate(pEngine->zeldaGameObject.animCharacter, &animateCtx);
 	
 	// skinning
-	const fm_xform* poseMS = pEngine->animCharacterZelda.poseMS;
+	const fm_xform* poseMS = pEngine->zeldaGameObject.animCharacter->poseMS;
 	const uint32_t numSkinMatrices = pEngine->pRig->numBones;
 	for(uint32_t i=0; i<numSkinMatrices; ++i)
 	{
@@ -2215,6 +2218,63 @@ void fc_dbg_stats_for_mem_to_text(fc_memory_scope_t scope, char* txt, const char
 	const char* name = fc_memory_get_scope_debug_name(scope);
 	
 	sprintf(txt, "%s: %1.2f / %1.2f MBs (%u allocs)", displayName ? displayName : name, numMBs, numCapacityMBs, stats.numAllocs);
+}
+
+FUR_JOB_ENTRY_POINT(test_job)
+{
+	const int32_t numStuff = *FUR_JOB_USER_DATA(int32_t);
+	
+	FUR_PROFILE("test-job")
+	{
+		fm_mat4 mats[12];
+		fm_mat4 res;
+		
+		for(int32_t i=0; i<12; ++i)
+		{
+			fm_mat4_identity(&mats[i]);
+		}
+		
+		for(int32_t i=0; i<numStuff; ++i)
+		{
+			for(int32_t j=0; j<numStuff; ++j)
+			{
+				fm_mat4_mul(&mats[i%12], &mats[j%12], &res);
+				fm_mat4_identity(&res);
+			}
+		}
+	}
+}
+
+FUR_JOB_ENTRY_POINT(test_job_with_sub_job)
+{
+	const int32_t numStuff = *FUR_JOB_USER_DATA(int32_t);
+	
+	FUR_PROFILE("test-job-sub")
+	{
+		fm_mat4 mats[12];
+		fm_mat4 res;
+		
+		for(int32_t i=0; i<12; ++i)
+		{
+			fm_mat4_identity(&mats[i]);
+		}
+		
+		{
+			int32_t subNumStuff = 40;
+			fc_job_decl_t job = {test_job, &subNumStuff};
+			fc_job_counter_t* counter = {};
+			fc_run_jobs(&job, 1, &counter);
+			fc_wait_for_counter_and_free(counter);
+		}
+		
+		for(int32_t i=0; i<numStuff; ++i)
+		{
+			for(int32_t j=0; j<numStuff; ++j)
+			{
+				fm_mat4_mul(&mats[i%12], &mats[j%12], &res);
+			}
+		}
+	}
 }
 
 void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callbacks_t* pAllocCallbacks)
@@ -2339,18 +2399,18 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		
 		const float distanceToLookAtPoint = fm_vec4_distance(&lookAtPoint, &playerLocator.pos);
 		
-		if(pEngine->animCharacterZelda.animInfo.useLookAt)
+		if(pEngine->zeldaGameObject.animCharacter->animInfo.useLookAt)
 		{
-			pEngine->animCharacterZelda.animInfo.useLookAt = distanceToLookAtPoint < 10.0f;
+			pEngine->zeldaGameObject.animCharacter->animInfo.useLookAt = distanceToLookAtPoint < 10.0f;
 		}
 		else
 		{
-			pEngine->animCharacterZelda.animInfo.useLookAt = distanceToLookAtPoint < 6.0f;
+			pEngine->zeldaGameObject.animCharacter->animInfo.useLookAt = distanceToLookAtPoint < 6.0f;
 		}
 		
-		pEngine->animCharacterZelda.animInfo.lookAtPoint.x = lookAtPoint.x;
-		pEngine->animCharacterZelda.animInfo.lookAtPoint.y = lookAtPoint.y;
-		pEngine->animCharacterZelda.animInfo.lookAtPoint.z = lookAtPoint.z;
+		pEngine->zeldaGameObject.animCharacter->animInfo.lookAtPoint.x = lookAtPoint.x;
+		pEngine->zeldaGameObject.animCharacter->animInfo.lookAtPoint.y = lookAtPoint.y;
+		pEngine->zeldaGameObject.animCharacter->animInfo.lookAtPoint.z = lookAtPoint.z;
 	}
 	
 	// animation
@@ -2389,8 +2449,8 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		}
 		else if(pEngine->zeldaGameObject.isGrounded)
 		{
-			pEngine->zeldaGameObject.velocity.x = pEngine->animCharacterZelda.animInfo.rootMotionDelta.x / dt;
-			pEngine->zeldaGameObject.velocity.y = pEngine->animCharacterZelda.animInfo.rootMotionDelta.y / dt;
+			pEngine->zeldaGameObject.velocity.x = pEngine->zeldaGameObject.animCharacter->animInfo.rootMotionDelta.x / dt;
+			pEngine->zeldaGameObject.velocity.y = pEngine->zeldaGameObject.animCharacter->animInfo.rootMotionDelta.y / dt;
 			pEngine->zeldaGameObject.velocity.z = 0.0f;
 		}
 		else
@@ -2398,8 +2458,8 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 			const float speed = fm_vec4_mag(&pEngine->zeldaGameObject.velocity);
 			if(speed > 0.0f)
 			{
-				pEngine->zeldaGameObject.velocity.x += pEngine->animCharacterZelda.animInfo.desiredMove.x * 1.2f;
-				pEngine->zeldaGameObject.velocity.y += pEngine->animCharacterZelda.animInfo.desiredMove.y * 1.2f;
+				pEngine->zeldaGameObject.velocity.x += pEngine->zeldaGameObject.animCharacter->animInfo.desiredMove.x * 1.2f;
+				pEngine->zeldaGameObject.velocity.y += pEngine->zeldaGameObject.animCharacter->animInfo.desiredMove.y * 1.2f;
 				fm_vec4_normalize(&pEngine->zeldaGameObject.velocity);
 				fm_vec4_mulf(&pEngine->zeldaGameObject.velocity, speed, &pEngine->zeldaGameObject.velocity);
 			}
@@ -2432,7 +2492,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 			fm_vec4 playerMove = pEngine->playerMove;
 			
 			fm_mat4 playerMat;
-			fm_mat4_rot_z(pEngine->animCharacterZelda.animInfo.currentYaw, &playerMat);
+			fm_mat4_rot_z(pEngine->zeldaGameObject.animCharacter->animInfo.currentYaw, &playerMat);
 			
 			fm_vec4 invPlayerMove;
 			fm_mat4_transform(&playerMat, &playerMove, &invPlayerMove);
@@ -2553,6 +2613,22 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		}
 	}
 	
+	// test jobs
+	{
+		int32_t numStuff = 40;
+		
+		fc_job_decl_t jobs[40] = {};
+		for(int32_t i=0; i<40; ++i)
+		{
+			jobs[i].func = test_job;
+			jobs[i].userData = &numStuff;
+		}
+		
+		fc_job_counter_t* counter = {};
+		fc_run_jobs(jobs, 40, &counter);
+		fc_wait_for_counter_and_free(counter);
+	}
+	
 	// rendering
 	FUR_PROFILE("render-update")
 	{
@@ -2560,7 +2636,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		fm_xform playerLocator = pEngine->zeldaGameObject.worldTransform;
 		
 		fm_mat4 zeldaMat;
-		fm_mat4_rot_z(pEngine->animCharacterZelda.animInfo.currentYaw, &zeldaMat);
+		fm_mat4_rot_z(pEngine->zeldaGameObject.animCharacter->animInfo.currentYaw, &zeldaMat);
 		zeldaMat.w = playerLocator.pos;
 		
 		// get zelda right hand slot
@@ -2602,10 +2678,10 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		fm_vec4 playerMove;
 		fm_vec4_add(&playerMoveForward, &playerMoveLeft, &playerMove);
 		
-		pEngine->animCharacterZelda.animInfo.animToLogicMotionRotationAlpha = 1.0f;
-		pEngine->animCharacterZelda.animInfo.animToLogicMotionTranslationAlpha = 0.0f;
-		pEngine->animCharacterZelda.animInfo.desiredMove.x = playerMove.x * dt;
-		pEngine->animCharacterZelda.animInfo.desiredMove.y = playerMove.y * dt;
+		pEngine->zeldaGameObject.animCharacter->animInfo.animToLogicMotionRotationAlpha = 1.0f;
+		pEngine->zeldaGameObject.animCharacter->animInfo.animToLogicMotionTranslationAlpha = 0.0f;
+		pEngine->zeldaGameObject.animCharacter->animInfo.desiredMove.x = playerMove.x * dt;
+		pEngine->zeldaGameObject.animCharacter->animInfo.desiredMove.y = playerMove.y * dt;
 		
 		pEngine->zeldaGameObject.logicMove.x = playerMove.x * dt;
 		pEngine->zeldaGameObject.logicMove.y = playerMove.y * dt;
@@ -2755,7 +2831,7 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	fa_dangle_release(&pEngine->zeldaCapeC, pAllocCallbacks);
 	fa_dangle_release(&pEngine->zeldaCapeR, pAllocCallbacks);
 	
-	fa_character_release(&pEngine->animCharacterZelda, pAllocCallbacks);
+	fa_anim_sys_release_character(pEngine->zeldaGameObject.animCharacter, pAllocCallbacks);
 	
 	fg_world_release(pEngine->pWorld, pAllocCallbacks);
 	FUR_FREE(pEngine->pWorld, pAllocCallbacks);
@@ -2765,6 +2841,8 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	
 	FUR_FREE(pEngine->scratchpadBuffer, pAllocCallbacks);
 	fa_rig_release(pEngine->pRig, pAllocCallbacks);
+	
+	fa_anim_sys_release(pEngine->animSystem, pAllocCallbacks);
 	
 	fg_camera_system_release(pEngine->cameraSystem, pAllocCallbacks);
 	
