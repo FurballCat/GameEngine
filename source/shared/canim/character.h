@@ -170,6 +170,9 @@ typedef struct fa_character_t
 	fm_xform* poseMS;
 	float* tracks;
 	
+	// assigned skinning matrices (might be NULL, as character is not owning memory for skin matrices)
+	fm_mat4* skinMatrices;
+	
 	uint64_t globalTime;
 	
 	float lookAtHeadYaw;

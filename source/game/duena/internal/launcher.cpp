@@ -1201,6 +1201,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		
 		pEngine->zeldaGameObject.name = SID_REG("zelda");
 		pEngine->zeldaGameObject.animCharacter = fa_anim_sys_create_character(&animCharacterDesc, pAllocCallbacks);
+		fa_anim_sys_add_character(pEngine->animSystem, pEngine->zeldaGameObject.animCharacter);
+		pEngine->zeldaGameObject.animCharacter->skinMatrices = pEngine->skinMatrices;
 		
 		// register Zelda (player) game object
 		pEngine->gameObjectRegister.objects[pEngine->gameObjectRegister.numObjects] = &pEngine->zeldaGameObject;
@@ -2174,21 +2176,12 @@ void fg_animation_update(FurGameEngine* pEngine, float dt)
 	
 	fc_mem_arena_alloc_t arenaAlloc = fc_mem_arena_make(pEngine->scratchpadBuffer, pEngine->scratchpadBufferSize);
 	
-	// animation states update
-	fa_character_animate_ctx_t animateCtx = {};
-	animateCtx.dt = dt;
-	animateCtx.arenaAlloc = &arenaAlloc;
-	animateCtx.showDebug = pEngine->zeldaGameObject.showAnimStateDebug;
+	fa_anim_sys_update_ctx_t animCtx = {};
+	animCtx.dt = dt;
+	animCtx.globalTime = pEngine->globalTime;
+	animCtx.arenaAlloc = &arenaAlloc;
 	
-	fa_character_animate(pEngine->zeldaGameObject.animCharacter, &animateCtx);
-	
-	// skinning
-	const fm_xform* poseMS = pEngine->zeldaGameObject.animCharacter->poseMS;
-	const uint32_t numSkinMatrices = pEngine->pRig->numBones;
-	for(uint32_t i=0; i<numSkinMatrices; ++i)
-	{
-		fm_xform_to_mat4(&poseMS[i], &pEngine->skinMatrices[i]);
-	}
+	fa_anim_sys_update(pEngine->animSystem, &animCtx);
 }
 
 void fc_dbg_mat4(const fm_mat4* m)
@@ -2831,6 +2824,7 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	fa_dangle_release(&pEngine->zeldaCapeC, pAllocCallbacks);
 	fa_dangle_release(&pEngine->zeldaCapeR, pAllocCallbacks);
 	
+	fa_anim_sys_remove_character(pEngine->animSystem, pEngine->zeldaGameObject.animCharacter);
 	fa_anim_sys_release_character(pEngine->zeldaGameObject.animCharacter, pAllocCallbacks);
 	
 	fg_world_release(pEngine->pWorld, pAllocCallbacks);
