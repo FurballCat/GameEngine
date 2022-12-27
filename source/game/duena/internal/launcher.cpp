@@ -513,10 +513,8 @@ typedef struct fg_go_zelda_t
 	
 	fs_script_lambda_t script;
 	
-	fg_animate_action_slots_t animateActionSlots;
-	
 	fa_character_t* animCharacter;
-	fr_proxy_t* mesh;
+	const fr_proxy_t* mesh;
 	
 	fm_vec4 logicMove;
 	
@@ -534,6 +532,19 @@ bool fg_go_zelda_init(fg_game_object_2_t* gameObject, fg_game_object_init_ctx_t*
 		fg_go_zelda_t* zelda = (fg_go_zelda_t*)gameObject;
 		
 		zelda->playerState = fg_spawn_info_get_string_hash(ctx->info, SID("state"), SID("idle"));
+		
+		fa_character_desc_t desc = {};
+		desc.globalTime = ctx->globalTime;
+		desc.rig = fg_resource_find_rig(ctx->resources, SID("zelda-rig"));
+		zelda->animCharacter = fa_anim_sys_create_character(&desc, ctx->stackAlloc);
+		
+		zelda->mesh = fg_resource_find_mesh(ctx->resources, SID("zelda-mesh"));
+		
+		const fc_string_hash_t scriptName = fg_spawn_info_get_string_hash(ctx->info, SID("state-script"), SID("none"));
+		zelda->script.scriptBlob = fg_resource_find_script(ctx->resources, scriptName);
+		zelda->script.lambdaName = zelda->playerState;
+		zelda->script.isActive = true;
+		zelda->script.eventName = SID("start");
 	}
 	
 	return true;
@@ -734,6 +745,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	// load scripts
 	{
 		fc_load_binary_file_into_binary_buffer("../../../../../scripts/zelda-state-script.bin", &pEngine->zeldaStateScript, pAllocCallbacks);
+		fg_resource_add_script(&pEngine->pWorld->resources, SID("ss-zelda"), &pEngine->zeldaStateScript);
 	}
 	
 	// init camera
@@ -1176,6 +1188,12 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		}
 	}
 	
+	// add resources to world resource register
+	{
+		fg_resource_add_rig(&pEngine->pWorld->resources, SID("zelda-rig"), pEngine->pRig);
+		fg_resource_add_mesh(&pEngine->pWorld->resources, SID("zelda-mesh"), pEngine->zeldaMesh);
+	}
+	
 	// init game
 	{
 		pEngine->gameObjectRegister.capacity = 128;
@@ -1372,6 +1390,24 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			refPose.pos.w = 0.0f;
 			pEngine->zeldaCapeR.d[j] = fm_vec4_mag(&refPose.pos);
 		}
+	}
+	
+	// spawn zelda game object
+	{
+		const int32_t props_num = 1;
+		fc_string_hash_t prop_names[props_num] = {SID("state-script")};
+		fg_spawn_info_prop_value_t prop_values[props_num] = {};
+		prop_values[0].asStringHash = SID("ss-zelda");
+		
+		fg_spawner_t spawner = {};
+		spawner.name = SID("zelda");
+		spawner.typeName = SID("zelda");
+		spawner.info.gameObjectName = SID("zelda");
+		spawner.info.props.num = props_num;
+		spawner.info.props.names = prop_names;
+		spawner.info.props.values = prop_values;
+		
+		//fg_spawn(&spawner, pEngine->pWorld);
 	}
 	
 	// test BVH
@@ -2360,6 +2396,10 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 	{
 		fg_scripts_update(pEngine, dt);
 		fg_gameplay_update(pEngine, dt);
+		
+		fg_world_update_ctx_t worldUpdateCtx = {};
+		worldUpdateCtx.dt = dt;
+		fg_world_update(pEngine->pWorld, &worldUpdateCtx, FG_UPDATE_BUCKET_CHARACTERS);
 	}
 	
 	// test set look-at point
@@ -2813,9 +2853,6 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 		fr_release_proxy(pEngine->pRenderer, pEngine->rockMeshes[i], pAllocCallbacks);
 	}
 	
-	// release scripts
-	fc_release_binary_buffer(&pEngine->zeldaStateScript, pAllocCallbacks);
-	
 	fa_dangle_release(&pEngine->dangle, pAllocCallbacks);
 	fa_dangle_release(&pEngine->zeldaDangleHairLeft, pAllocCallbacks);
 	fa_dangle_release(&pEngine->zeldaDangleHairRight, pAllocCallbacks);
@@ -2834,7 +2871,6 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	FUR_FREE(pEngine->gameObjectRegister.ids, pAllocCallbacks);
 	
 	FUR_FREE(pEngine->scratchpadBuffer, pAllocCallbacks);
-	fa_rig_release(pEngine->pRig, pAllocCallbacks);
 	
 	fa_anim_sys_release(pEngine->animSystem, pAllocCallbacks);
 	

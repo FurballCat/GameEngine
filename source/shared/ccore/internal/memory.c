@@ -93,6 +93,9 @@ void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t
 	if(size == 0)
 		return NULL;
 	
+	if(pAllocCallbacks)
+		return pAllocCallbacks->pfnAllocate(pAllocCallbacks->pUserData, size, alignment, scope);
+	
 #if FUR_MEMORY_DEBUG == 1
 	size_t originalSize = size;
 	size += sizeof(fc_mem_debug_info_t);
@@ -101,10 +104,7 @@ void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t
 	
 	void* ptr = NULL;
 	
-	if(pAllocCallbacks)
-		ptr = pAllocCallbacks->pfnAllocate(pAllocCallbacks->pUserData, size, alignment, scope);
-	else
-		ptr = malloc(size);
+	ptr = malloc(size);
 	
 	uint16_t offset_forward = 0;
 	if(alignment != 0)
@@ -154,6 +154,12 @@ void fc_dealloc(struct fc_alloc_callbacks_t* pAllocCallbacks, void* pMemory, con
 	if(pMemory == NULL)
 		return;
 	
+	if(pAllocCallbacks)
+	{
+		pAllocCallbacks->pfnFree(pAllocCallbacks->pUserData, pMemory);
+		return;
+	}
+	
 #if FUR_MEMORY_DEBUG == 1
 	// move ptr back, to include info part
 	fc_mem_debug_info_t* debugPtr = (fc_mem_debug_info_t*)(((uint8_t*)pMemory) - sizeof(fc_mem_debug_info_t));
@@ -172,10 +178,7 @@ void fc_dealloc(struct fc_alloc_callbacks_t* pAllocCallbacks, void* pMemory, con
 	
 #endif
 	
-	if(pAllocCallbacks)
-		pAllocCallbacks->pfnFree(pAllocCallbacks->pUserData, pMemory);
-	else
-		free(originalPtr);
+	free(originalPtr);
 }
 
 bool fc_validate_memory(void)
@@ -186,7 +189,7 @@ bool fc_validate_memory(void)
 		
 		while(debugInfo != NULL)
 		{
-			printf("Memory leak: size=%lu, line=%s\n", debugInfo->size, debugInfo->line);
+ 			printf("Memory leak: size=%lu, line=%s\n", debugInfo->size, debugInfo->line);
 			debugInfo = debugInfo->next;
 		}
 		
@@ -308,4 +311,63 @@ void* fc_mem_arena_alloc_and_zero(fc_mem_arena_alloc_t* pAlloc, uint32_t size, u
 	void* mem = fc_mem_arena_alloc(pAlloc, size, alignment);
 	memset(mem, 0, size);
 	return mem;
+}
+
+// relocatable heap alloc functions
+void* fc_mem_rel_heap_fn_alloc(void* pUserData, size_t size, size_t alignment, enum fc_memory_scope_t scope)
+{
+	fc_mem_rel_heap_alloc_t* alloc = pUserData;
+	
+	// todo: implement alignment
+	FUR_ASSERT(alloc->size + size < alloc->capacity);
+	
+	void* ptr = alloc->freePtr;
+	
+	alloc->freePtr += size;
+	alloc->size += size;
+	
+	return ptr;
+}
+
+void* fc_mem_rel_heap_fn_realloc(void* pUserData, void* pOriginalMemory, size_t size, size_t alignment, enum fc_memory_scope_t scope)
+{
+	FUR_ASSERT(false);	// not implemented
+	return NULL;
+}
+
+void fc_mem_rel_heap_fn_free(void* pUserData, void* pMemory)
+{
+	// empty
+}
+
+void fc_mem_rel_heap_fn_internal_alloc_notify(void* pUserData, size_t size, enum fc_memory_type_t type, enum fc_memory_scope_t scope)
+{
+	// empty
+}
+
+void fc_mem_rel_heap_fn_internal_free_notify(void* pUserData, size_t size)
+{
+	// empty
+}
+
+fc_alloc_callbacks_t fc_mem_rel_heap_get_callbacks(fc_mem_rel_heap_alloc_t* pAlloc)
+{
+	fc_alloc_callbacks_t res = {};
+	
+	res.pUserData = pAlloc;
+	res.pfnAllocate = fc_mem_rel_heap_fn_alloc;
+	res.pfnReallocate = fc_mem_rel_heap_fn_realloc;
+	res.pfnFree = fc_mem_rel_heap_fn_free;
+	res.pfnInternalAllocate = fc_mem_rel_heap_fn_internal_alloc_notify;
+	res.pfnInternalFree = fc_mem_rel_heap_fn_internal_free_notify;
+	
+	return res;
+}
+
+void fc_relocate_pointer(void** ptr, int32_t delta, void* lowerBound, void* upperBound)
+{
+	if(lowerBound <= *ptr && *ptr < upperBound)
+	{
+		*ptr = *ptr + delta;
+	}
 }

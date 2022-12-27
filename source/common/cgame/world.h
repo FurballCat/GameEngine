@@ -12,6 +12,7 @@ extern "C"
 
 typedef uint32_t fc_string_hash_t;
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
+typedef struct fc_mem_rel_heap_alloc_t fc_mem_rel_heap_alloc_t;
 
 typedef union fg_spawn_info_prop_value_t
 {
@@ -68,10 +69,13 @@ typedef struct fg_game_object_init_ctx_t
 	const fg_spawn_info_t* info;
 	
 	// each object can allocate its memory on stack in level heap during init
-	fg_stack_allocator_t* stackAlloc;
+	fc_alloc_callbacks_t* stackAlloc;
 	
 	// register of all available resources
 	const fg_resource_register_t* resources;
+	
+	// current global time
+	double globalTime;	// todo: remove?
 } fg_game_object_init_ctx_t;
 
 typedef bool (*fg_game_object_init_func_t)(fg_game_object_2_t* gameObject, fg_game_object_init_ctx_t* ctx);
@@ -98,9 +102,13 @@ typedef struct fg_game_object_2_t
 
 typedef struct fc_binary_buffer_t fc_binary_buffer_t;
 typedef struct fa_anim_clip_t fa_anim_clip_t;
+typedef struct fa_rig_t fa_rig_t;
+typedef struct fr_proxy_t fr_proxy_t;
 
 #define FG_MAX_NUM_SCRIPTS 512
 #define FG_MAX_NUM_ANIMATIONS 1024
+#define FG_MAX_NUM_RIGS 128
+#define FG_MAX_NUM_MESHES 2048
 
 typedef struct fg_resource_register_t
 {
@@ -112,10 +120,25 @@ typedef struct fg_resource_register_t
 	const fa_anim_clip_t* animations[FG_MAX_NUM_ANIMATIONS];
 	int32_t numAnimations;
 	
+	fc_string_hash_t rigsNames[FG_MAX_NUM_ANIMATIONS];
+	const fa_rig_t* rigs[FG_MAX_NUM_ANIMATIONS];
+	int32_t numRigs;
+	
+	fc_string_hash_t meshesNames[FG_MAX_NUM_ANIMATIONS];
+	const fr_proxy_t* meshes[FG_MAX_NUM_ANIMATIONS];
+	int32_t numMeshes;
+	
 } fg_resource_register_t;
 
 const fa_anim_clip_t* fg_resource_find_anim(const fg_resource_register_t* reg, fc_string_hash_t name);
 const fc_binary_buffer_t* fg_resource_find_script(const fg_resource_register_t* reg, fc_string_hash_t name);
+const fa_rig_t* fg_resource_find_rig(const fg_resource_register_t* reg, fc_string_hash_t name);
+const fr_proxy_t* fg_resource_find_mesh(const fg_resource_register_t* reg, fc_string_hash_t name);
+
+void fg_resource_add_anim(fg_resource_register_t* reg, fc_string_hash_t name, const fa_anim_clip_t* res);
+void fg_resource_add_script(fg_resource_register_t* reg, fc_string_hash_t name, const fc_binary_buffer_t* res);
+void fg_resource_add_rig(fg_resource_register_t* reg, fc_string_hash_t name, const fa_rig_t* res);
+void fg_resource_add_mesh(fg_resource_register_t* reg, fc_string_hash_t name, const fr_proxy_t* res);
 
 typedef struct fr_renderer_t fr_renderer_t;
 
@@ -164,18 +187,6 @@ typedef struct fg_game_object_handle_map_t
 	int32_t capacity;
 } fg_game_object_handle_map_t;
 
-// preallocated memory for level, used to in-place allocate memory for game objects
-typedef struct fg_level_heap_t
-{
-	void* memory;
-	int32_t memoryCapacity;
-	
-	void* freePtr;
-	
-	void** allocatedObjects;
-	int32_t numAllocatedObjects;
-} fg_level_heap_t;
-
 typedef struct fg_spawner_t
 {
 	fc_string_hash_t typeName;
@@ -189,6 +200,12 @@ typedef struct fg_game_object_info_storage_t
 {
 	fg_game_object_2_t* ptr[MAX_GAME_OBJECTS_SPAWNED];
 	const fg_spawner_t* spawner[MAX_GAME_OBJECTS_SPAWNED];
+	
+	// number of initialised game objects
+	int32_t numInit;
+	
+	// total number of game objects
+	int32_t num;
 } fg_game_object_info_storage_t;
 
 typedef struct fg_world_t
@@ -200,7 +217,7 @@ typedef struct fg_world_t
 	fg_game_object_handle_map_t gameObjectMap;
 	
 	// memory for dynamic objects (game objects), does not include resources like animation, meshes, textures
-	fg_level_heap_t levelHeap;
+	fc_mem_rel_heap_alloc_t* levelHeap;
 	
 	// all available resources in the world
 	fg_resource_register_t resources;
@@ -229,8 +246,6 @@ void fg_world_update(fg_world_t* world, fg_world_update_ctx_t* ctx, fg_update_bu
 // all resources should be already loaded at the time of spawn call
 fg_game_object_handle_t fg_spawn(const fg_spawner_t* spawner, fg_world_t* world);
 void fg_despawn(fg_game_object_handle_t handle, fg_world_t* world);
-
-void fg_relocate_pointer(void** ptr, int32_t delta, void* lowerBound, void* upperBound);
 
 #ifdef __cplusplus
 }

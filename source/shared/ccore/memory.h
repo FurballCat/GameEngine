@@ -37,6 +37,7 @@ typedef enum fc_memory_scope_t
 	FC_MEMORY_SCOPE_RENDER,
 	FC_MEMORY_SCOPE_GAME,
 	FC_MEMORY_SCOPE_ARENA,
+	FC_MEMORY_SCOPE_CORE,
 	
 	// note: remember to add name to the fc_memory_get_scope_debug_name
 	
@@ -122,7 +123,7 @@ CCORE_API const char* fc_memory_get_scope_debug_name(enum fc_memory_scope_t scop
 CCORE_API fc_mem_stats_t fc_memory_stats_for_scope(enum fc_memory_scope_t scope);
 
 // arena allocator - acts like stack allocator with limited memory, size is reset once at the end of the scope
-// it's a alloc and forget type of memory
+// it's an alloc and forget type of memory
 typedef struct fc_mem_arena_alloc_t
 {
 	void* buffer;
@@ -139,6 +140,20 @@ CCORE_API fc_mem_arena_alloc_t fc_mem_arena_sub(fc_mem_arena_alloc_t alloc);
 // call alloc to allocate memory on arena allocator (not real allocation, just stack allocation on preallocated memory)
 CCORE_API void* fc_mem_arena_alloc(fc_mem_arena_alloc_t* pAlloc, uint32_t size, uint32_t alignment);
 CCORE_API void* fc_mem_arena_alloc_and_zero(fc_mem_arena_alloc_t* pAlloc, uint32_t size, uint32_t alignment);
+
+// relocatable heap allocator - used for level allocations (including game objects)
+// it basically acts like a stack allocator, but when released in the middle, can relocate memory
+typedef struct fc_mem_rel_heap_alloc_t
+{
+	void* buffer;
+	void* freePtr;
+	uint32_t capacity;
+	uint32_t size;
+} fc_mem_rel_heap_alloc_t;
+
+CCORE_API fc_alloc_callbacks_t fc_mem_rel_heap_get_callbacks(fc_mem_rel_heap_alloc_t* pAlloc);
+
+CCORE_API void fc_relocate_pointer(void** ptr, int32_t delta, void* lowerBound, void* upperBound);
 
 #define FUR_ARRAY_SIZE(_arr) sizeof(_arr) / sizeof(_arr[0])
 	

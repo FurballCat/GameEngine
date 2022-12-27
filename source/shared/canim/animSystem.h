@@ -24,7 +24,7 @@ CANIM_API void fa_anim_sys_release(fa_anim_sys_t* sys, fc_alloc_callbacks_t* pAl
 // create single character
 typedef struct fa_character_desc_t
 {
-	fa_rig_t* rig;
+	const fa_rig_t* rig;
 	double globalTime;
 } fa_character_desc_t;
 
