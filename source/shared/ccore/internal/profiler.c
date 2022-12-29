@@ -171,16 +171,38 @@ void fc_profiler_start_frame(void)
 		float x = -1000.0f + g_profiler.pan * g_profiler.zoom;
 		float y = 600.0f;
 		
-		float color[4] = {0.0f, 0.0f, 0.4f, 0.6f};
+		float color[4] = {0.0f, 0.0f, 0.4f, 1.0f};
 		const float white[4] = FUR_COLOR_WHITE;
-		const float blue[4] = {0.0f, 0.8f, 0.8f, 0.8f};
-		const float green[4] = {0.0f, 0.8f, 0.0f, 0.8f};
+		const float blue[4] = {0.0f, 0.0f, 0.4f, 0.6f};
+		const float green[4] = {0.0f, 0.4f, 0.0f, 0.6f};
+		const float red[4] = {0.4f, 0.0f, 0.0f, 0.6f};
 		const float yellow[4] = {0.8f, 0.8f, 0.0f, 0.8f};
-		const float grey[4] = {0.6f, 0.6f, 0.6f, 0.8f};
+		const float grey[4] = {0.6f, 0.6f, 0.6f, 1.0f};
 		
-		fc_dbg_rect(x, y, 1, 1200.0f, blue);
-		fc_dbg_rect(x + 16.6f * g_profiler.zoom, y, 1, 1200.0f, green);
-		fc_dbg_rect(x + 33.3f * g_profiler.zoom, y, 1, 1200.0f, yellow);
+		// lines for ms
+		{
+			char txt[8];
+			
+			for(int32_t i=0; i<60; ++i)
+			{
+				const bool isRound = (i % 5 == 0);
+				
+				// with big zoom-out, display only round numbers (every 5 ms)
+				if(!isRound && g_profiler.zoom < 80.0f)
+					continue;
+				
+				int32_t x_offset = i * g_profiler.zoom;
+				fc_dbg_rect(x + x_offset, y, isRound ? 3 : 1, 1200.0f, white);
+				
+				sprintf(txt, "%i ms", i);
+				fc_dbg_text(x + x_offset + 2, y - 1200.0f + 24.0f, txt, white);
+			}
+		}
+		
+		// areas of FPS
+		fc_dbg_rect(x, y, 16.6666f * g_profiler.zoom, 1200.0f, green);	// 60 FPS
+		fc_dbg_rect(x + 16.6666f * g_profiler.zoom, y, 16.6666f * g_profiler.zoom, 1200.0f, blue);	// 30 FPS
+		fc_dbg_rect(x + 33.3333f * g_profiler.zoom, y, 70.0f * g_profiler.zoom, 1200.0f, red);	// less than 30 FPS
 		
 		// start drawing from the oldest frame (which is current + 1, as we rotate frames)
 		uint32_t frameIdx = (g_profiler.pausedOnFrame + 1) % FC_PROFILER_FRAMES_DRAWN;
