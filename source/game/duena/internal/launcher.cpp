@@ -537,6 +537,7 @@ bool fg_go_zelda_init(fg_game_object_2_t* gameObject, fg_game_object_init_ctx_t*
 		desc.globalTime = ctx->globalTime;
 		desc.rig = fg_resource_find_rig(ctx->resources, SID("zelda-rig"));
 		zelda->animCharacter = fa_anim_sys_create_character(&desc, ctx->stackAlloc);
+		fa_anim_sys_add_character(ctx->systems->animation, zelda->animCharacter);
 		
 		zelda->mesh = fg_resource_find_mesh(ctx->resources, SID("zelda-mesh"));
 		
@@ -741,6 +742,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	pEngine->pWorld = (fg_world_t*)FUR_ALLOC_AND_ZERO(sizeof(fg_world_t), 0, FC_MEMORY_SCOPE_GAME, pAllocCallbacks);
 	fg_world_init(pEngine->pWorld, pAllocCallbacks);
 	pEngine->pWorld->systems.renderer = pEngine->pRenderer;
+	pEngine->pWorld->systems.animation = pEngine->animSystem;
 	
 	// load scripts
 	{
@@ -1407,7 +1409,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		spawner.info.props.names = prop_names;
 		spawner.info.props.values = prop_values;
 		
-		//fg_spawn(&spawner, pEngine->pWorld);
+		fg_spawn(&spawner, pEngine->pWorld);
 	}
 	
 	// test BVH

@@ -61,6 +61,7 @@ typedef enum fg_update_bucket_t
 } fg_update_bucket_t;
 
 typedef struct fg_resource_register_t fg_resource_register_t;
+typedef struct fg_systems_register_t fg_systems_register_t;
 typedef struct fg_game_object_2_t fg_game_object_2_t;
 
 typedef struct fg_game_object_init_ctx_t
@@ -73,6 +74,9 @@ typedef struct fg_game_object_init_ctx_t
 	
 	// register of all available resources
 	const fg_resource_register_t* resources;
+	
+	// all systems
+	const fg_systems_register_t* systems;
 	
 	// current global time
 	double globalTime;	// todo: remove?
@@ -141,10 +145,12 @@ void fg_resource_add_rig(fg_resource_register_t* reg, fc_string_hash_t name, con
 void fg_resource_add_mesh(fg_resource_register_t* reg, fc_string_hash_t name, const fr_proxy_t* res);
 
 typedef struct fr_renderer_t fr_renderer_t;
+typedef struct fa_anim_sys_t fa_anim_sys_t;
 
 typedef struct fg_systems_register_t
 {
 	fr_renderer_t* renderer;
+	fa_anim_sys_t* animation;
 } fg_systems_register_t;
 
 // used for defining how to initialise specific type of game object

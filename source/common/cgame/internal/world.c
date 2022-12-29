@@ -171,6 +171,7 @@ void fg_world_update(fg_world_t* world, fg_world_update_ctx_t* ctx, fg_update_bu
 				fg_game_object_init_ctx_t initCtx = {};
 				initCtx.info = &info->spawner[i]->info;
 				initCtx.resources = &world->resources;
+				initCtx.systems = &world->systems;
 				initCtx.stackAlloc = &levelHeapAlloc;
 				
 				gameObject->fn->init(gameObject, &initCtx);

@@ -85,10 +85,13 @@ void fa_anim_sys_update(fa_anim_sys_t* sys, const fa_anim_sys_update_ctx_t* ctx)
 	{
 		fa_character_t* character = sys->characters[i];
 		
+		// sub arena allocator
+		fc_mem_arena_alloc_t arenaAlloc = fc_mem_arena_sub(*(ctx->arenaAlloc));	// note: when using jobs, remember to split the memory
+		
 		// animation states update
 		fa_character_animate_ctx_t animateCtx = {};
 		animateCtx.dt = ctx->dt;
-		animateCtx.arenaAlloc = ctx->arenaAlloc;	// note: when using jobs, remember to split the memory
+		animateCtx.arenaAlloc = &arenaAlloc;
 		animateCtx.showDebug = false;
 		
 		fa_character_animate(character, &animateCtx);
