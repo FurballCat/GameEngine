@@ -23,7 +23,8 @@ extern "C"
 	uint64_t*: fc_serialize_uint64, \
 	float*: fc_serialize_float, \
 	double*: fc_serialize_double, \
-	fa_anim_curve_t*: fa_serialize_anim_curve \
+	fa_anim_curve_t*: fa_serialize_anim_curve, \
+	enum fm_axis_t*: fc_serialize_uint32 \
 )(_serializer, _property)
 
 #define FUR_SER_VERSION(_versionLatest)	\
@@ -56,7 +57,12 @@ extern "C"
 		fc_serialize(pSerializer, &_property); \
 	}
 
+#ifdef PLATFORM_OSX
 typedef struct __sFILE FILE;
+#elif PLATFORM_WINDOWS
+typedef struct _iobuf FILE;
+#else
+#endif
 
 // interface - use this + FUR_SER_ADD, FUR_SER_REM macros
 typedef struct fc_serializer_t

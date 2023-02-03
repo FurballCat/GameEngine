@@ -228,7 +228,7 @@ void fa_character_action_animate(fa_character_t* character, fa_layer_t* layer, f
 	FUR_ASSERT(action->fnUpdate != NULL);
 	
 	fa_cmd_buffer_t animCmdBuffer = { ctx->scratchMemory, ctx->scratchMemorySize };
-	fa_cmd_buffer_recorder_t recorder = {};
+	fa_cmd_buffer_recorder_t recorder = {0};
 	fa_cmd_buffer_recorder_init(&recorder, animCmdBuffer.data, animCmdBuffer.size);
 	
 	// record commands
@@ -237,7 +237,7 @@ void fa_character_action_animate(fa_character_t* character, fa_layer_t* layer, f
 	
 	const float localTime = fa_action_get_local_time(action, character);
 	
-	fa_action_ctx_t actionCtx = {};
+	fa_action_ctx_t actionCtx = {0};
 	actionCtx.dt = ctx->dt;
 	actionCtx.cmdRecorder = &recorder;
 	actionCtx.animInfo = &character->animInfo;
@@ -252,7 +252,7 @@ void fa_character_action_animate(fa_character_t* character, fa_layer_t* layer, f
 	}
 	
 	// evaluate commands
-	fa_cmd_context_t animCtx = {};
+	fa_cmd_context_t animCtx = {0};
 	animCtx.animClips = action->fnGetAnims(action->userData, &animCtx.numAnimClips);
 	animCtx.rig = character->rig;
 	animCtx.poseStack = ctx->poseStack;
@@ -378,7 +378,7 @@ void fa_character_release(fa_character_t* character, fc_alloc_callbacks_t* pAllo
 
 void fa_action_queue_resolve_pre_animate(fa_character_t* character, fa_action_queue_t* queue)
 {
-	fa_action_begin_end_ctx_t ctx = {};
+	fa_action_begin_end_ctx_t ctx = {0};
 	ctx.animInfo = &character->animInfo;
 	
 	// check if any of the pending actions should be instantly activated
@@ -425,7 +425,7 @@ void fa_action_queue_resolve_pre_animate(fa_character_t* character, fa_action_qu
 
 void fa_action_queue_resolve_post_animate(fa_character_t* character, fa_action_queue_t* queue)
 {
-	fa_action_begin_end_ctx_t ctx = {};
+	fa_action_begin_end_ctx_t ctx = {0};
 	ctx.animInfo = &character->animInfo;
 	
 	if(queue->cachePoseAfterNextAction) // case of cache for 2 actions
@@ -501,7 +501,7 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 	}
 	
 	// todo: refactor that
-	fa_action_begin_end_ctx_t beginEndCtx = {};
+	fa_action_begin_end_ctx_t beginEndCtx = {0};
 	beginEndCtx.animInfo = &character->animInfo;
 	fa_action_safely_begin(&beginEndCtx, currAction);
 	fa_action_safely_begin(&beginEndCtx, nextAction);
@@ -636,7 +636,7 @@ void fa_character_look_at(fa_character_t* character, fa_pose_t* poseLS, fa_pose_
 	
 	// transform look at from model space to head space
 	fm_xform locator = poseMS->xforms[setup->idxHead];
-	fm_vec4 lookAtLocatorSpace = {};
+	fm_vec4 lookAtLocatorSpace = {0};
 	fm_xform_apply_inv(&locator, &lookAtMS, &lookAtLocatorSpace);
 	
 	// assume +X axis is forward direction (depends on the rig)
@@ -647,8 +647,8 @@ void fa_character_look_at(fa_character_t* character, fa_pose_t* poseLS, fa_pose_
 		// remainder: head space here means (+z right, -z left, +y up, -y down, +x forward, -x backward)
 		fm_vec4 dir = lookAtLocatorSpace;
 		
-		float yaw = -acosf(dir.z / sqrtf(dir.x * dir.x + dir.z * dir.z)) + M_PI_2;
-		float pitch = -acosf(dir.y / sqrtf(dir.x * dir.x + dir.y * dir.y)) + M_PI_2;
+		float yaw = -acosf(dir.z / sqrtf(dir.x * dir.x + dir.z * dir.z)) + FM_PI_2;
+		float pitch = -acosf(dir.y / sqrtf(dir.x * dir.x + dir.y * dir.y)) + FM_PI_2;
 		
 		// fixed yaw to either side when direction is facing backwards
 		if(dir.x < 0.0f)
@@ -671,10 +671,10 @@ void fa_character_look_at(fa_character_t* character, fa_pose_t* poseLS, fa_pose_
 		character->lookAtHeadPitch = character->lookAtHeadPitch * 0.95f + pitch * 0.05f;
 		
 		// prepare new look-at position
-		fm_quat yawRot = {};
+		fm_quat yawRot = {0};
 		fm_quat_make_from_axis_angle(0.0f, 1.0f, 0.0f, character->lookAtHeadYaw, &yawRot);
 		
-		fm_quat pitchRot = {};
+		fm_quat pitchRot = {0};
 		fm_quat_make_from_axis_angle(0.0f, 0.0f, -1.0f, character->lookAtHeadPitch, &pitchRot);
 		
 		fm_quat_rot(&yawRot, &forward, &dir);
@@ -684,11 +684,11 @@ void fa_character_look_at(fa_character_t* character, fa_pose_t* poseLS, fa_pose_
 	}
 	
 	// calculate final look-at rotation correction with weight
-	fm_quat headCorrection = {};
+	fm_quat headCorrection = {0};
 	fm_vec4_rot_between(&forward, &lookAtLocatorSpace, &headCorrection);
 	
 	// apply weight to look-at
-	fm_quat identity = {};
+	fm_quat identity = {0};
 	fm_quat_identity(&identity);
 	fm_quat_slerp(&identity, &headCorrection, weight, &headCorrection);
 	
@@ -699,14 +699,14 @@ void fa_character_look_at(fa_character_t* character, fa_pose_t* poseLS, fa_pose_
 void fa_character_animate(fa_character_t* character, const fa_character_animate_ctx_t* ctx)
 {
 	// pre-process inputs in anim info
-	fm_vec4 lookAtMS = {};
+	fm_vec4 lookAtMS = {0};
 	
 	{
 		fa_character_anim_info_t* info = &character->animInfo;
 		
 		// get world locator of the character
 		const fm_vec4 posWS = {info->worldPos.x, info->worldPos.y, info->worldPos.z, 1.0f};
-		fm_quat rotWS = {};
+		fm_quat rotWS = {0};
 		fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, info->currentYaw, &rotWS);
 		
 		// move look-at WS to MS
@@ -726,10 +726,10 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	void* animCmdBufferMemory = fc_mem_arena_alloc(ctx->arenaAlloc, animCmdBufferSize, 0);
 	
 	// init pose stack - pose stack is shared across multiple command buffers
-	fa_pose_stack_t poseStack = {};
+	fa_pose_stack_t poseStack = {0};
 	
 	{
-		fa_pose_stack_desc_t desc = {};
+		fa_pose_stack_desc_t desc = {0};
 		
 		desc.numBonesPerPose = character->rig->numBones;
 		desc.numTracksPerPose = 0;
@@ -738,10 +738,10 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		fa_pose_stack_init(&poseStack, &desc, animPoseStackMemory, poseStackSize);
 	}
 	
-	fa_cmd_context_debug_t debug = {};
+	fa_cmd_context_debug_t debug = {0};
 	
 	// update layers
-	fa_cross_layer_context_t layerCtx = {};
+	fa_cross_layer_context_t layerCtx = {0};
 	layerCtx.dt = ctx->dt;
 	layerCtx.poseStack = &poseStack;
 	layerCtx.scratchMemory = animCmdBufferMemory;
@@ -850,7 +850,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	FUR_PROFILE("ls-to-ms")
 	{
 		const int16_t* parentIndices = character->rig->parents;
-		fa_pose_t poseMS = {};
+		fa_pose_t poseMS = {0};
 		poseMS.xforms = character->poseMS;
 		poseMS.numXforms = character->rig->numBones;
 		fa_pose_local_to_model(&poseMS, &poseLS, parentIndices);
@@ -858,7 +858,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	
 	// apply root motion
 	{
-		fa_pose_t poseMS = {};
+		fa_pose_t poseMS = {0};
 		poseMS.xforms = character->poseMS;
 		poseMS.numXforms = character->rig->numBones;
 		
@@ -878,13 +878,13 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			fm_quat_norm(&animMotionDelta.rot);
 			
 			// we know it's gonna be motion 2D (for now) so axis should be vertical in pose space
-			fm_vec4 axis = {};
+			fm_vec4 axis = {0};
 			float animYawDelta = 0.0f;
 			fm_quat_to_axis_angle(&animMotionDelta.rot, &axis, &animYawDelta);
 			
 			animYawDelta *= -fm_sign(axis.y);	// the axis flips depending on direction of rotation (to left, to right)
 			
-			fm_quat rotWS = {};
+			fm_quat rotWS = {0};
 			fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, character->animInfo.currentYaw, &rotWS);
 			fm_quat_rot(&rotWS, &animMotionDelta.pos, &animMotionDelta.pos);
 			
@@ -910,7 +910,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			
 			const float animToLogicMotionSpeedAlpha = character->animInfo.animToLogicMotionTranslationAlpha;
 			
-			fm_vec4 finalMotionDelta = {};
+			fm_vec4 finalMotionDelta = {0};
 			fm_vec4_lerp(&logicMotionDelta, &animMotionDelta.pos, animToLogicMotionSpeedAlpha, &finalMotionDelta);
 			
 			character->animInfo.rootMotionDelta.x = finalMotionDelta.x;

@@ -36,18 +36,18 @@ void fc_init_binary_buffer_stream(const fc_binary_buffer_t* buffer, fc_binary_bu
 {
 	outStream->buffer = buffer;
 	outStream->pos = buffer->pData;
-	outStream->endPos = buffer->pData + buffer->size;
+	outStream->endPos = (uint8_t*)buffer->pData + buffer->size;
 }
 
 uint32_t fc_read_binary_buffer(fc_binary_buffer_stream_t* stream, uint32_t numBytes, void* output)
 {
-	if(stream->pos + numBytes <= stream->endPos)
+	if((uint8_t*)stream->pos + numBytes <= (uint8_t*)stream->endPos)
 	{
 		if(output != NULL)
 		{
 			memcpy(output, stream->pos, numBytes);
 		}
-		stream->pos += numBytes;
+		stream->pos = ((uint8_t*)stream->pos) + numBytes;
 		return numBytes;
 	}
 	
@@ -56,7 +56,7 @@ uint32_t fc_read_binary_buffer(fc_binary_buffer_stream_t* stream, uint32_t numBy
 
 uint32_t fc_peek_binary_buffer(fc_binary_buffer_stream_t* stream, uint32_t numBytes, void* output)
 {
-	if(stream->pos + numBytes <= stream->endPos)
+	if((uint8_t*)stream->pos + numBytes <= (uint8_t*)stream->endPos)
 	{
 		if(output != NULL)
 		{

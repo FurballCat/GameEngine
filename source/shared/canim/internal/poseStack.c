@@ -64,7 +64,7 @@ CANIM_API void fa_pose_stack_get(const fa_pose_stack_t* pStack, fa_pose_t* pPose
 	
 	const uint32_t poseIndex = pStack->numPoses - 1 - depth;
 	const uint32_t poseOffset = poseIndex * pStack->poseSize;
-	void* poseData = pStack->buffer + poseOffset;
+	uint8_t* poseData = (const uint8_t*)pStack->buffer + poseOffset;
 	
 	pPose->numXforms = pStack->numBones;
 	pPose->numTracks = pStack->numTracks;
