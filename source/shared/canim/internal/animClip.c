@@ -43,7 +43,7 @@ const float Khi = 0.17157287895679473876953125;      // 3-2sqrt(2)
 
 void quat_fhm(fm_quat q, fm_vec3* v)
 {
-	float s = Khf / (1.0 + q.r + sqrt(2.0 + 2.0 * q.r));
+	float s = Khf / (1.0f + q.r + sqrtf(2.0f + 2.0f * q.r));
 	
 	v->x = q.i * s;
 	v->y = q.j * s;
@@ -53,9 +53,9 @@ void quat_fhm(fm_quat q, fm_vec3* v)
 fm_quat quat_ihm(const fm_vec3* v)
 {
 	float d = Khi * fm_vec3_dot(v, v);
-	float a = (1.0+d);
-	float b = (1.0-d)*Km;
-	float c = 1.0/(a*a);
+	float a = (1.0f + d);
+	float b = (1.0f - d) * Km;
+	float c = 1.0f / (a * a);
 	fm_quat q;
 	
 	float bc = b * c;
@@ -63,7 +63,7 @@ fm_quat quat_ihm(const fm_vec3* v)
 	q.i = v->x * bc;
 	q.j = v->y * bc;
 	q.k = v->z * bc;
-	q.r = (1.0 + d * (d - 6.0)) * c;
+	q.r = (1.0f + d * (d - 6.0f)) * c;
 	
 	return q;
 }

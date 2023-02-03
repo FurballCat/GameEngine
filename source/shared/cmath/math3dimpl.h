@@ -124,10 +124,10 @@ static inline float fm_vec4_mag2(const fm_vec4* v)
 
 static inline void fm_vec4_abs(fm_vec4* v)
 {
-	v->x = fabs(v->x);
-	v->y = fabs(v->y);
-	v->z = fabs(v->z);
-	v->w = fabs(v->w);
+	v->x = fabsf(v->x);
+	v->y = fabsf(v->y);
+	v->z = fabsf(v->z);
+	v->w = fabsf(v->w);
 }
 
 static inline float fm_vec4_dot(const fm_vec4* a, const fm_vec4* b)
@@ -204,7 +204,7 @@ static inline void fm_vec4_rot_between(const fm_vec4* from, const fm_vec4* to, f
 
 static inline float fm_vec4_distance(const fm_vec4* a, const fm_vec4* b)
 {
-	fm_vec4 diff = {};
+	fm_vec4 diff = {0};
 	fm_vec4_sub(a, b, &diff);
 	return fm_vec4_mag(&diff);
 }
@@ -235,23 +235,23 @@ static inline void fm_mat4_identity(fm_mat4* m)
 static inline void fm_mat4_rot_x(const float phi, fm_mat4* m)
 {
 	m->x.x = 1; m->x.y = 0; m->x.z = 0; m->x.w = 0;
-	m->y.x = 0; m->y.y = cos(phi); m->y.z = -sin(phi); m->y.w = 0;
-	m->z.x = 0; m->z.y = sin(phi); m->z.z = cos(phi); m->z.w = 0;
+	m->y.x = 0; m->y.y = cosf(phi); m->y.z = -sinf(phi); m->y.w = 0;
+	m->z.x = 0; m->z.y = sinf(phi); m->z.z = cosf(phi); m->z.w = 0;
 	m->w.x = 0; m->w.y = 0; m->w.z = 0; m->w.w = 1;
 }
 
 static inline void fm_mat4_rot_y(const float phi, fm_mat4* m)
 {
-	m->x.x = cos(phi); m->x.y = 0; m->x.z = sin(phi); m->x.w = 0;
+	m->x.x = cosf(phi); m->x.y = 0; m->x.z = sinf(phi); m->x.w = 0;
 	m->y.x = 0; m->y.y = 1; m->y.z = 0; m->y.w = 0;
-	m->z.x = -sin(phi); m->z.y = 0; m->z.z = cos(phi); m->z.w = 0;
+	m->z.x = -sinf(phi); m->z.y = 0; m->z.z = cosf(phi); m->z.w = 0;
 	m->w.x = 0; m->w.y = 0; m->w.z = 0; m->w.w = 1;
 }
 
 static inline void fm_mat4_rot_z(const float phi, fm_mat4* m)
 {
-	m->x.x = cos(phi); m->x.y = -sin(phi); m->x.z = 0; m->x.w = 0;
-	m->y.x = sin(phi); m->y.y = cos(phi); m->y.z = 0; m->y.w = 0;
+	m->x.x = cosf(phi); m->x.y = -sinf(phi); m->x.z = 0; m->x.w = 0;
+	m->y.x = sinf(phi); m->y.y = cosf(phi); m->y.z = 0; m->y.w = 0;
 	m->z.x = 0; m->z.y = 0; m->z.z = 1; m->z.w = 0;
 	m->w.x = 0; m->w.y = 0; m->w.z = 0; m->w.w = 1;
 }
@@ -393,7 +393,7 @@ static inline void fm_mat4_projection(const float b, const float t, const float 
 static inline void fm_mat4_projection_fov(const float fov, const float aspectRatio,
 							const float near, const float far, fm_mat4* m)
 {
-	const float scale = tan(FM_DEG_TO_RAD(fov * 0.5f)) * near;
+	const float scale = tanf(FM_DEG_TO_RAD(fov * 0.5f)) * near;
 	const float top = scale;
 	const float bottom = -top;
 	const float right = aspectRatio * scale;
@@ -660,13 +660,13 @@ static inline void fm_quat_to_euler(const fm_quat* q, fm_euler_angles* angles)
 	// pitch (y-axis rotation)
 	float sinp = 2.0f * (q->r * q->j - q->k * q->i);
 	if (fabs(sinp) >= 1.0f)
-		angles->pitch = M_PI / 2.0f * fm_sign(sinp); // use 90 degrees if out of range
+		angles->pitch = (float)FM_PI / 2.0f * fm_sign(sinp); // use 90 degrees if out of range
 	else
 		angles->pitch = asinf(sinp);
 
 	// yaw (z-axis rotation)
-	double siny_cosp = 2.0f * (q->r * q->k + q->i * q->j);
-	double cosy_cosp = 1.0f - 2.0f * (q->j * q->j + q->k * q->k);
+	float siny_cosp = 2.0f * (q->r * q->k + q->i * q->j);
+	float cosy_cosp = 1.0f - 2.0f * (q->j * q->j + q->k * q->k);
 	angles->yaw = atan2f(siny_cosp, cosy_cosp);
 }
 

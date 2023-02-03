@@ -203,7 +203,7 @@ bool fc_validate_memory(void)
 
 fc_mem_stats_t fc_memory_stats(void)
 {
-	fc_mem_stats_t stats = {};
+	fc_mem_stats_t stats = {0};
 	stats.numBytesCapacity = fc_mem_map_find(FC_MEMORY_SCOPE_SYSTEM).capacity;
 	
 	fc_mem_debug_info_t* ptr = &g_rootDebugMemInfo;
@@ -260,7 +260,7 @@ const char* fc_memory_get_scope_debug_name(enum fc_memory_scope_t scope)
 
 fc_mem_stats_t fc_memory_stats_for_scope(enum fc_memory_scope_t scope)
 {
-	fc_mem_stats_t stats = {};
+	fc_mem_stats_t stats = {0};
 	stats.numBytesCapacity = fc_mem_map_find(scope).capacity;
 	
 	fc_mem_debug_info_t* ptr = &g_rootDebugMemInfo;
@@ -280,7 +280,7 @@ fc_mem_stats_t fc_memory_stats_for_scope(enum fc_memory_scope_t scope)
 
 fc_mem_arena_alloc_t fc_mem_arena_make(void* buffer, uint32_t capacity)
 {
-	fc_mem_arena_alloc_t res = {};
+	fc_mem_arena_alloc_t res = {0};
 	res.size = 0;
 	res.capacity = capacity;
 	res.buffer = buffer;
@@ -289,10 +289,10 @@ fc_mem_arena_alloc_t fc_mem_arena_make(void* buffer, uint32_t capacity)
 
 fc_mem_arena_alloc_t fc_mem_arena_sub(fc_mem_arena_alloc_t alloc)
 {
-	fc_mem_arena_alloc_t res = {};
+	fc_mem_arena_alloc_t res = {0};
 	res.size = 0;
 	res.capacity = alloc.capacity - alloc.size;
-	res.buffer = alloc.buffer + alloc.size;
+	res.buffer = (uint8_t*)alloc.buffer + alloc.size;
 	return res;
 }
 
@@ -303,7 +303,7 @@ void* fc_mem_arena_alloc(fc_mem_arena_alloc_t* pAlloc, uint32_t size, uint32_t a
 	// todo: add alignment
 	size_t offset = pAlloc->size;
 	pAlloc->size += size;
-	return pAlloc->buffer + offset;
+	return (uint8_t*)pAlloc->buffer + offset;
 }
 
 void* fc_mem_arena_alloc_and_zero(fc_mem_arena_alloc_t* pAlloc, uint32_t size, uint32_t alignment)
@@ -323,7 +323,7 @@ void* fc_mem_rel_heap_fn_alloc(void* pUserData, size_t size, size_t alignment, e
 	
 	void* ptr = alloc->freePtr;
 	
-	alloc->freePtr += size;
+	(uint8_t*)alloc->freePtr += size;
 	alloc->size += size;
 	
 	return ptr;
@@ -352,7 +352,7 @@ void fc_mem_rel_heap_fn_internal_free_notify(void* pUserData, size_t size)
 
 fc_alloc_callbacks_t fc_mem_rel_heap_get_callbacks(fc_mem_rel_heap_alloc_t* pAlloc)
 {
-	fc_alloc_callbacks_t res = {};
+	fc_alloc_callbacks_t res = {0};
 	
 	res.pUserData = pAlloc;
 	res.pfnAllocate = fc_mem_rel_heap_fn_alloc;
@@ -368,6 +368,6 @@ void fc_relocate_pointer(void** ptr, int32_t delta, void* lowerBound, void* uppe
 {
 	if(lowerBound <= *ptr && *ptr < upperBound)
 	{
-		*ptr = *ptr + delta;
+		*ptr = (uint8_t*) *ptr + delta;
 	}
 }

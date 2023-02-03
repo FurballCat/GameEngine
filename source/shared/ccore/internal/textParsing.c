@@ -73,7 +73,7 @@ bool fc_text_parse_int32(fc_text_stream_ro_t* stream, int32_t* out)
 {
 	fc_text_parse_whitespaces(stream);
 	
-	char buf[64] = {};
+	char buf[64] = {0};
 	
 	uint32_t i = 0;
 	while(!fc_text_stream_is_eof(stream, i) && fc_text_parse_is_numeric(stream->ptr[i]) && i < 63)
@@ -98,7 +98,7 @@ bool fc_text_parse_uint32(fc_text_stream_ro_t* stream, uint32_t* out)
 {
 	fc_text_parse_whitespaces(stream);
 	
-	char buf[64] = {};
+	char buf[64] = {0};
 	
 	uint32_t i = 0;
 	while(!fc_text_stream_is_eof(stream, i) && fc_text_parse_is_numeric(stream->ptr[i]) && i < 63)
@@ -123,7 +123,7 @@ bool fc_text_parse_float(fc_text_stream_ro_t* stream, float* out)
 {
 	fc_text_parse_whitespaces(stream);
 	
-	char buf[64] = {};
+	char buf[64] = {0};
 	
 	uint32_t i = 0;
 	while(!fc_text_stream_is_eof(stream, i) && (fc_text_parse_is_numeric(stream->ptr[i]) || stream->ptr[i] == '.') && i < 63)

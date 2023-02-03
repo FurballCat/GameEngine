@@ -14,7 +14,7 @@ void fa_cmd_buffer_evaluate(const fa_cmd_buffer_t* buffer, fa_cmd_context_t* ctx
 {
 	fa_cmd_status_t status = FA_CMD_STATUS_OK;
 	uint32_t dbgIndexCommand = 0;
-	const void* cmdPointer = buffer->data;
+	const uint8_t* cmdPointer = (const uint8_t*)buffer->data;
 	while(status == FA_CMD_STATUS_OK)
 	{
 		const fa_cmd_func_t* func = (const fa_cmd_func_t*)cmdPointer;
@@ -43,22 +43,24 @@ void fa_cmd_buffer_write(fa_cmd_buffer_recorder_t* recorder, fa_cmd_func_t func,
 	const uint32_t sizeRequired = sizeof(fa_cmd_func_t) + sizeof(uint32_t) + dataSize;
 	FUR_ASSERT(sizeRequired <= recorder->sizeLeft);
 
+	const uint8_t* currPointer = (const uint8_t*)recorder->currPointer;
+
 	// command function pointer
-	fa_cmd_func_t* funcPtr = (fa_cmd_func_t*)recorder->currPointer;
+	fa_cmd_func_t* funcPtr = (fa_cmd_func_t*)currPointer;
 	*funcPtr = func;
 	
 	// command data size (can be 0)
-	uint32_t* dataSizePtr = (uint32_t*)(recorder->currPointer + sizeof(fa_cmd_func_t));
+	uint32_t* dataSizePtr = (uint32_t*)(currPointer + sizeof(fa_cmd_func_t));
 	*dataSizePtr = dataSize;
 	
 	// command data
 	if(data)
 	{
-		void* dataPtr = recorder->currPointer + sizeof(fa_cmd_func_t) + sizeof(uint32_t);
+		void* dataPtr = currPointer + sizeof(fa_cmd_func_t) + sizeof(uint32_t);
 		memcpy(dataPtr, data, dataSize);
 	}
 	
-	recorder->currPointer += sizeRequired;
+	(uint8_t*)recorder->currPointer += sizeRequired;
 	recorder->sizeLeft -= sizeRequired;
 	recorder->sizeRecorded += sizeRequired;
 }
@@ -184,7 +186,7 @@ fa_cmd_status_t fa_cmd_impl_anim_sample(fa_cmd_context_t* ctx, const void* cmdDa
 	const int16_t idxLocoJoint = ctx->rig->idxLocoJoint;
 	if(idxLocoJoint != -1)
 	{
-		FUR_ASSERT(idxLocoJoint < ctx->rig->numBones);
+		FUR_ASSERT((int32_t)idxLocoJoint < ctx->rig->numBones);
 		fm_quat_identity(&pose.xforms[idxLocoJoint].rot);
 		fm_vec4_zeros(&pose.xforms[idxLocoJoint].pos);
 	}
@@ -268,8 +270,8 @@ fa_cmd_status_t fa_cmd_impl_anim_sample_with_locomotion(fa_cmd_context_t* ctx, c
 	fm_quat currLocoRot = currLocoXform.rot;
 	fm_vec4 currLocoPos = currLocoXform.pos;
 	
-	fm_quat prevLocoRot = {};
-	fm_vec4 prevLocoPos = {};
+	fm_quat prevLocoRot = {0};
+	fm_vec4 prevLocoPos = {0};
 	
 	if(data->resetLoco)
 	{
@@ -302,7 +304,7 @@ fa_cmd_status_t fa_cmd_impl_anim_sample_with_locomotion(fa_cmd_context_t* ctx, c
 	//if(clip->motionDelta != NULL) // todo: uncomment in future
 	if(data->loops != 0)
 	{
-		fm_xform singleMotionLoop = {};
+		fm_xform singleMotionLoop = {0};
 		singleMotionLoop.pos.x = clip->motionDelta[0];
 		singleMotionLoop.pos.y = clip->motionDelta[1];
 		singleMotionLoop.pos.z = clip->motionDelta[2];

@@ -19,6 +19,7 @@ extern "C"
 #include "cmath/mathtypes.h"
 
 #define FM_PI 3.14159265358979323846264338327950288
+#define FM_PI_2 1.57079632679489661923
 #define FM_DEG_TO_RAD(_x) _x * FM_PI / 180.0
 	
 	static inline void xm_vec4_add(const xm_vec4 v1, const xm_vec4 v2, xm_vec4* result);

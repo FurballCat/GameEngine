@@ -9,8 +9,7 @@ extern "C"
 
 #include <inttypes.h>
 #include <stdbool.h>
-#include <pthread.h>	// todo: remove?
-#include <stdatomic.h>	// todo: remove?
+#include "platform.h"
 #include "api.h"
 
 #define FUR_JOB_ENTRY_POINT(_funcName) void _funcName(void* _userData)
@@ -78,31 +77,6 @@ CCORE_API bool fc_job_system_is_main_thread(void);
 
 // this will return number of worker threads + 1 (main thread)
 CCORE_API int32_t fc_job_system_num_max_threads(void);
-
-// read-write lock
-typedef pthread_rwlock_t fc_rwlock_t;
-
-/* Usage
-	FUR_SCOPED_WRITE_LOCK(rwlock)
-	{
-		// locked section code ...
-	}
- */
-#define FUR_SCOPED_WRITE_LOCK(_lock, _name) for(int32_t _lock_check = fc_rwlock_write_lock(&_lock, _name); _lock_check == 1; _lock_check = fc_rwlock_unlock(&_lock))
-
-static inline void fc_rwlock_init(fc_rwlock_t* lock)
-{
-	pthread_rwlock_init(lock, NULL);
-}
-
-static inline int32_t fc_rwlock_unlock(fc_rwlock_t* lock)
-{
-	pthread_rwlock_unlock(lock);
-	return 0;
-}
-
-CCORE_API int32_t fc_rwlock_read_lock(fc_rwlock_t* lock, const char* name);
-CCORE_API int32_t fc_rwlock_write_lock(fc_rwlock_t* lock, const char* name);
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,5 @@
 /* Copyright (c) 2016-2020 Furball Cat */
 
-#include <sys/time.h>
 #include <stdio.h>
 
 #include "profiler.h"
@@ -17,8 +16,8 @@
 typedef struct fc_contention_scope_t
 {
 	const char* name;
-	struct timeval startTime;
-	struct timeval endTime;
+	fc_timeval_t startTime;
+	fc_timeval_t endTime;
 } fc_contention_scope_t;
 
 typedef struct fc_profiler_thread_info_t
@@ -33,7 +32,7 @@ typedef struct fc_profiler_thread_info_t
 	fc_contention_scope_t* contentionScopes[FC_PROFILER_MAX_FRAMES];
 	uint32_t currentNumContentionScopes;
 	
-	struct timeval tempContentionStartTime;	// used on enter contention
+	fc_timeval_t tempContentionStartTime;	// used on enter contention
 	
 } fc_profiler_thread_info_t;
 
@@ -42,7 +41,7 @@ typedef struct fc_profiler_t
 	fc_profiler_thread_info_t* threads;
 	int32_t numThreads;	// includign main thread, use thread index to access threads array
 	
-	struct timeval frameStartTimes[FC_PROFILER_MAX_FRAMES];
+	fc_timeval_t frameStartTimes[FC_PROFILER_MAX_FRAMES];
 	
 	uint8_t currentFrame;
 	uint8_t pausedOnFrame;
@@ -97,14 +96,10 @@ fc_profiler_scope_t* fc_profiler_scope_begin(const char* name)
 	const uint32_t depth = thread->currentDepth;
 	thread->currentDepth += 1;
 	
-	struct timeval time = {};
-	gettimeofday(&time, NULL);
-	
-	fc_profiler_scope_t scope = {};
+	fc_profiler_scope_t scope = {0};
 	scope.name = name;
 	scope.depth = depth;
-	scope.startTime.sec = time.tv_sec;
-	scope.startTime.usec = time.tv_usec;
+	fc_timeval_now(&scope.startTime);
 	fc_profiler_scope_t* pScope = &thread->scopes[g_profiler.currentFrame][idx];
 	*pScope = scope;
 	
@@ -125,11 +120,7 @@ void fc_profiler_scope_end(fc_profiler_scope_t* scope)
 	
 	thread->currentDepth -= 1;
 	
-	struct timeval time = {};
-	gettimeofday(&time, NULL);
-	
-	scope->stopTime.sec = time.tv_sec;
-	scope->stopTime.usec = time.tv_usec;
+	fc_timeval_now(&scope->stopTime);
 	scope->threadID = (int16_t)threadIndex;
 	
 	thread->current = scope->parent;
@@ -151,9 +142,9 @@ void fc_profiler_start_frame(void)
 	
 	// tick profiler
 	{
-		struct timeval frameStartTime = {};
-		gettimeofday(&frameStartTime, NULL);
-		
+		fc_timeval_t frameStartTime = {0};
+		fc_timeval_now(&frameStartTime);
+
 		g_profiler.frameStartTimes[g_profiler.currentFrame] = frameStartTime;
 		
 		for(int32_t t=0; t<g_profiler.numThreads; ++t)
@@ -206,10 +197,10 @@ void fc_profiler_start_frame(void)
 		
 		// start drawing from the oldest frame (which is current + 1, as we rotate frames)
 		uint32_t frameIdx = (g_profiler.pausedOnFrame + 1) % FC_PROFILER_FRAMES_DRAWN;
-		const struct timeval firstFrameStartTime = g_profiler.frameStartTimes[frameIdx];
-		const double firstFrameStartTime_ms = firstFrameStartTime.tv_sec * 1000.0 + firstFrameStartTime.tv_usec / 1000.0;
+		const fc_timeval_t firstFrameStartTime = g_profiler.frameStartTimes[frameIdx];
+		const double firstFrameStartTime_ms = firstFrameStartTime.sec * 1000.0 + firstFrameStartTime.usec / 1000.0;
 		
-		char coreTxt[16] = {};
+		char coreTxt[16] = {0};
 		
 		for(int32_t t=0; t<g_profiler.numThreads; ++t)
 		{
@@ -279,8 +270,8 @@ void fc_profiler_start_frame(void)
 						// scope could be closed by another thread in case of fiber switch
 						y = 600.0f - t * 200.0f;
 						
-						const float startTime_ms = scope.startTime.tv_sec * 1000.0 + scope.startTime.tv_usec / 1000.0 - firstFrameStartTime_ms;
-						const float stopTime_ms = scope.endTime.tv_sec * 1000.0 + scope.endTime.tv_usec / 1000.0 - firstFrameStartTime_ms;
+						const float startTime_ms = scope.startTime.sec * 1000.0 + scope.startTime.usec / 1000.0 - firstFrameStartTime_ms;
+						const float stopTime_ms = scope.endTime.sec * 1000.0 + scope.endTime.usec / 1000.0 - firstFrameStartTime_ms;
 						const float x_offset = startTime_ms * g_profiler.zoom;
 						const float width = stopTime_ms * g_profiler.zoom - x_offset;
 						
@@ -360,17 +351,17 @@ void fc_profiler_zoom_and_pan_delta(float zoomDelta, float panDelta)
 
 uint64_t fc_log_profiler_begin(void)
 {
-	struct timeval time = {};
-	gettimeofday(&time, NULL);
+	fc_timeval_t time = {0};
+	fc_timeval_now(&time);
 	
-	return (uint64_t)time.tv_sec * 1000000 + (uint64_t)time.tv_usec;
+	return (uint64_t)time.sec * 1000000 + (uint64_t)time.usec;
 }
 
 void fc_log_profiler_end(const char* scopeName, uint64_t startTime)
 {
-	struct timeval time = {};
-	gettimeofday(&time, NULL);
-	const uint64_t endTime = (uint64_t)time.tv_sec * 1000000 + (uint64_t)time.tv_usec;
+	fc_timeval_t time = {0};
+	fc_timeval_now(&time);
+	const uint64_t endTime = (uint64_t)time.sec * 1000000 + (uint64_t)time.usec;
 	
 	const float scopeTime = (float)(endTime - startTime) / 1000.0f;
 	
@@ -424,15 +415,15 @@ void fc_profiler_load_scopestack(fc_profiler_scope_t* stack[32], int32_t numDept
 	FUR_ASSERT(numDepth <= 32);
 	
 	// we will assume all scopes start at the same time after jumping back to fiber
-	struct timeval time = {};
-	gettimeofday(&time, NULL);
+	fc_timeval_t time = {0};
+	fc_timeval_now(&time);
 	
 	// just fake the time for old scopes (as these were stored in original stack on fiber)
 	for(int32_t i=0; i<numDepth; ++i)
 	{
 		fc_profiler_scope_t* scope = stack[i];
-		scope->startTime.sec = time.tv_sec;
-		scope->startTime.usec = time.tv_usec;
+		scope->startTime.sec = time.sec;
+		scope->startTime.usec = time.usec;
 	}
 	
 	// set proper depth for the profiler
@@ -446,7 +437,7 @@ void fc_profiler_enter_contention(void)
 {
 	const int32_t threadIndex = fc_job_system_get_this_thread_index();
 	fc_profiler_thread_info_t* thread = &g_profiler.threads[threadIndex];
-	gettimeofday(&thread->tempContentionStartTime, NULL);
+	fc_timeval_now(&thread->tempContentionStartTime);
 }
 
 void fc_profiler_exit_contention(const char* name)
@@ -454,11 +445,11 @@ void fc_profiler_exit_contention(const char* name)
 	const int32_t threadIndex = fc_job_system_get_this_thread_index();
 	fc_profiler_thread_info_t* thread = &g_profiler.threads[threadIndex];
 	
-	struct timeval time = {};
-	gettimeofday(&time, NULL);
+	fc_timeval_t time = { 0 };
+	fc_timeval_now(&time);
 	
 	// skip short contention times, as it might be no contention at all
-	if(time.tv_sec != thread->tempContentionStartTime.tv_sec || time.tv_usec - thread->tempContentionStartTime.tv_usec > 30)
+	if(time.sec != thread->tempContentionStartTime.sec || time.usec - thread->tempContentionStartTime.usec > 30)
 	{
 		fc_contention_scope_t* scopes = thread->contentionScopes[g_profiler.currentFrame];
 		const int32_t idx = thread->currentNumContentionScopes;

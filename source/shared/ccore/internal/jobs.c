@@ -4,12 +4,7 @@
 #include "memory.h"
 #include "furAssert.h"
 #include "profiler.h"
-#include <stdatomic.h>
 #include <immintrin.h>	// for _mm_pause()
-
-// platform mac
-#include <mach/thread_policy.h>
-#include <mach/thread_act.h>
 
 #define FUR_NUM_THREADS 5
 #define FUR_MAX_JOB_COUNTERS 4096
@@ -110,8 +105,8 @@ typedef struct fc_job_result_t
 
 typedef struct fc_job_system_t
 {
-	pthread_t mainThreadID;
-	pthread_t threadIDs[FUR_NUM_THREADS];
+	fc_thread_t mainThreadID;
+	fc_thread_t threadIDs[FUR_NUM_THREADS];
 	int32_t threadIndices[FUR_NUM_THREADS];
 	
 	// counters active and non-active
@@ -166,9 +161,8 @@ void fc_job_system_release_counter(fc_job_system_t* sys, fc_job_counter_t* count
 fc_job_system_t g_jobSystem;
 
 // a way to go back to worker thread, set only when inside specific job's fiber
-thread_local fcontext_t g_threadLocalGoToWorker;
-
-thread_local int32_t g_threadID;
+FUR_THREAD_LOCAL fcontext_t g_threadLocalGoToWorker;
+FUR_THREAD_LOCAL int32_t g_threadID;
 
 void fc_fiber_func(transfer_t t)
 {
@@ -263,7 +257,7 @@ void fc_worker_thread_evaluate(int32_t threadIndex)
 			fc_free_list_release(&g_jobSystem.pendingJobsFreeList, jobIndexToInit);
 			
 			// initialise fiber (memory is fiberIndex+1 because stack starts from the other end)
-			void* memStack = g_jobSystem.fiberStackMemory + (fiberIndex+1) * FUR_SMALL_FIBER_STACK_MEMORY;
+			void* memStack = (uint8_t*)(g_jobSystem.fiberStackMemory) + (fiberIndex+1) * FUR_SMALL_FIBER_STACK_MEMORY;
 			g_jobSystem.fibers[fiberIndex] = make_fcontext(memStack, FUR_SMALL_FIBER_STACK_MEMORY, fc_fiber_func);
 			
 			fiberIndexToRun = fiberIndex;
@@ -371,24 +365,19 @@ void fc_job_system_init(fc_alloc_callbacks_t* pAllocCallbacks)
 	
 	// set main thread affinity
 	{
-		thread_affinity_policy_data_t policyData = {0};
-		g_jobSystem.mainThreadID = pthread_self();
-		mach_port_t mach_thread = pthread_mach_thread_np(g_jobSystem.mainThreadID);
-		thread_policy_set(mach_thread, THREAD_AFFINITY_POLICY, (thread_policy_t)&policyData, THREAD_AFFINITY_POLICY_COUNT);
+		g_jobSystem.mainThreadID = fc_thread_self();
+		fc_thread_set_affinity(g_jobSystem.mainThreadID, 0);
 	}
 	
 	// start worker threads
 	for(int32_t i=0; i<FUR_NUM_THREADS; ++i)
 	{
 		g_jobSystem.threadIndices[i] = i+1;
-		int32_t res = pthread_create_suspended_np(&g_jobSystem.threadIDs[i], NULL, fc_thread_func, &g_jobSystem.threadIndices[i]);
+		int32_t res = fc_thread_create_suspended(&g_jobSystem.threadIDs[i], fc_thread_func, &g_jobSystem.threadIndices[i]);
 		FUR_ASSERT(res == 0);
 		
-		// mac affinity
-		thread_affinity_policy_data_t policyData = {i+1};
-		mach_port_t mach_thread = pthread_mach_thread_np(g_jobSystem.threadIDs[i]);
-		thread_policy_set(mach_thread, THREAD_AFFINITY_POLICY, (thread_policy_t)&policyData, THREAD_AFFINITY_POLICY_COUNT);
-		thread_resume(mach_thread);
+		fc_thread_set_affinity(g_jobSystem.threadIDs[i], i+1);
+		fc_thread_resume(g_jobSystem.threadIDs[i]);
 	}
 }
 
@@ -398,7 +387,7 @@ void fc_job_system_release(fc_alloc_callbacks_t* pAllocCallbacks)
 	
 	for(int32_t i=0; i<FUR_NUM_THREADS; ++i)
 	{
-		pthread_join(g_jobSystem.threadIDs[i], NULL);
+		fc_thread_join(g_jobSystem.threadIDs[i]);
 	}
 	
 	FUR_FREE(g_jobSystem.fiberStackMemory, pAllocCallbacks);
@@ -483,7 +472,7 @@ void fc_wait_for_counter_and_free(fc_job_counter_t* counter)
 #endif
 		
 		// return from fiber into worker thread function
-		fc_job_result_t result = {};
+		fc_job_result_t result = {0};
 		result.isFinished = false;
 		result.counterToWaitFor = counter;
 		
@@ -500,34 +489,4 @@ void fc_wait_for_counter_and_free(fc_job_counter_t* counter)
 	
 	// otherwise release the counter and continue
 	fc_job_system_release_counter(&g_jobSystem, counter);
-}
-
-int32_t fc_rwlock_read_lock(fc_rwlock_t* lock, const char* name)
-{
-#if FUR_USE_PROFILER
-	fc_profiler_enter_contention();
-#endif
-	
-	pthread_rwlock_rdlock(lock);
-	
-#if FUR_USE_PROFILER
-	fc_profiler_exit_contention(name);
-#endif
-	
-	return 1;
-}
-
-int32_t fc_rwlock_write_lock(fc_rwlock_t* lock, const char* name)
-{
-#if FUR_USE_PROFILER
-	fc_profiler_enter_contention();
-#endif
-	
-	pthread_rwlock_wrlock(lock);
-	
-#if FUR_USE_PROFILER
-	fc_profiler_exit_contention(name);
-#endif
-	
-	return 1;
 }
