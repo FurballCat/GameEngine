@@ -1,8 +1,0 @@
-{
-	"dependecies":
-	[
-		"ccore"
-	],
-	
-    "type": "dynamic_library"
-}

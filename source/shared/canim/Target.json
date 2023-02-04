@@ -1,9 +1,0 @@
-{
-	"dependecies":
-	[
-		"ccore",
-		"cmath"
-	],
-	
-    "type": "dynamic_library"
-}
