@@ -1,18 +1,8 @@
 @echo off
+echo Creating code projects for Furball Cat Game Engine
 
-python.exe --version >NUL 2>&1
-if errorlevel 1 goto error
-goto buildsolution
+cd intermediate
+cmake ..
 
-:ERROR
-echo Python.exe not found!
-goto endpause
-
-:BUILDSOLUTION
-python "projectBuilder/main.py"
-goto end
-
-:ENDPAUSE
-pause
-
-:END
+cd ..
+config\remove_all_build.bat intermediate\GameEngine.sln
