@@ -11,8 +11,7 @@
 
 typedef struct fg_world_global_t
 {
-	
-	
+	int stuff;
 } fg_world_global_t;
 
 fg_world_global_t g_worldExtended;
@@ -168,7 +167,7 @@ void fg_world_update(fg_world_t* world, fg_world_update_ctx_t* ctx, fg_update_bu
 				// game object can allocate its memory on level heap, through this stack allocator
 				fc_alloc_callbacks_t levelHeapAlloc = fc_mem_rel_heap_get_callbacks(world->levelHeap);
 				
-				fg_game_object_init_ctx_t initCtx = {};
+				fg_game_object_init_ctx_t initCtx = {0};
 				initCtx.info = &info->spawner[i]->info;
 				initCtx.resources = &world->resources;
 				initCtx.systems = &world->systems;
@@ -184,7 +183,7 @@ void fg_world_update(fg_world_t* world, fg_world_update_ctx_t* ctx, fg_update_bu
 		info->numInit = info->num;
 	}
 	
-	fg_game_object_update_ctx_t updateCtx = {};
+	fg_game_object_update_ctx_t updateCtx = {0};
 	updateCtx.dt = ctx->dt;
 	
 	// go through all update buckets
@@ -210,7 +209,7 @@ void* fg_stack_alloc(fg_stack_allocator_t* allocator, int32_t size)
 {
 	FUR_ASSERT(allocator->size + size <= allocator->capacity);
 	void* ptr = allocator->ptr;
-	allocator->ptr += size;
+	allocator->ptr = (uint8_t*)allocator->ptr + size;
 	allocator->size += size;
 	
 	memset(ptr, 0, size);
@@ -308,7 +307,7 @@ void fg_resource_add_mesh(fg_resource_register_t* reg, fc_string_hash_t name, co
 
 fg_game_object_handle_t fg_game_object_storage_find_free_handle(fg_game_object_info_storage_t* storage)
 {
-	fg_game_object_handle_t handle = {};
+	fg_game_object_handle_t handle = {0};
 	handle.index = -1;
 	
 	// find free storage slot

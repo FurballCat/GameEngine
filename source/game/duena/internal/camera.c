@@ -73,7 +73,7 @@ void fg_camera_system_release(fg_camera_system_t* sys, fc_alloc_callbacks_t* pAl
 
 void fg_camera_system_update(fg_camera_system_t* sys, const fg_camera_system_update_ctx* ctx)
 {
-	fg_camera_ctx_t slotCtx = {};
+	fg_camera_ctx_t slotCtx = {0};
 	slotCtx.dt = ctx->dt;
 	slotCtx.rotationYaw = ctx->rotationYaw;
 	slotCtx.rotationPitch = ctx->rotationPitch;
@@ -215,7 +215,7 @@ void fg_camera_follow_begin(fg_camera_ctx_t* ctx, void* userData)
 	const fg_camera_t* lastCamera = ctx->lastFrameFinalCamera;
 
 	// try to find the params that makes this camera the most similar to last frame
-	fm_euler_angles angles = {};
+	fm_euler_angles angles = {0};
 	fm_quat_to_euler(&lastCamera->locator.rot, &angles);
 	
 	fg_camera_follow_t* data = (fg_camera_follow_t*)userData;
@@ -231,10 +231,10 @@ void fg_camera_follow_update(fg_camera_ctx_t* ctx, void* userData)
 	fm_vec4 camera_at = {0, 0, data->height, 0};
 	const fm_vec4 up = {0, 0, 1, 0};
 	
-	fm_vec4 eye = {};
+	fm_vec4 eye = {0};
 	
-	fm_vec4 dir_forward = {};
-	fm_vec4 dir_left = {};
+	fm_vec4 dir_forward = {0};
+	fm_vec4 dir_left = {0};
 	
 	const float rotationSpeed = 2.5f * ctx->dt;
 	data->yaw += rotationSpeed * ctx->rotationYaw;
@@ -267,7 +267,7 @@ void fg_camera_follow_update(fg_camera_ctx_t* ctx, void* userData)
 	fm_vec4_mulf(&eye, cameraZoom, &eye);
 	fm_vec4_add(&eye, &camera_at, &eye);
 	
-	fm_euler_angles angles = {};
+	fm_euler_angles angles = {0};
 	angles.yaw = -data->yaw;
 	angles.pitch = -data->pitch;
 	
@@ -290,7 +290,7 @@ void fg_camera_system_enable_camera_follow(fg_camera_system_t* sys, const fg_cam
 	slot->fadeInTime = sys->numCameraStack == 1 ? fadeInSec : 0.0f;	// if it's the only camera, assume it's fully blended in
 	slot->fadeInSec = fadeInSec;
 	
-	slot->userData = sys->stackUserMemory + 128 * idx;
+	slot->userData = (uint8_t*)sys->stackUserMemory + 128 * idx;
 	slot->fnUpdate = fg_camera_follow_update;
 	slot->fnBegin = fg_camera_follow_begin;
 	slot->started = false;
