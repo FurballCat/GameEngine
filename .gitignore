@@ -130,7 +130,6 @@ intermediate
 binaries
 assets
 rawAssets
-thirdparty
 __pycache__
 
 # python
