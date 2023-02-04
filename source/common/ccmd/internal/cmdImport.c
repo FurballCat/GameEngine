@@ -287,7 +287,7 @@ int fc_cmd_import_rig(int argc, char* argv[], fc_cmd_execute_ctx_t* ctx, fc_allo
 		return 1;
 	}
 	
-	char pathSource[256] = {};
+	char pathSource[256] = {0};
 	fc_path_concat(pathSource, ctx->assetsPath, srcPath, "", "");
 	
 	char pathEngine[256];
@@ -297,10 +297,10 @@ int fc_cmd_import_rig(int argc, char* argv[], fc_cmd_execute_ctx_t* ctx, fc_allo
 	
 	// import rig
 	{
-		fi_depot_t depot = {};
+		fi_depot_t depot = {0};
 		depot.path = ""; // todo: remove
 		
-		fi_import_rig_ctx_t rigCtx = {};
+		fi_import_rig_ctx_t rigCtx = {0};
 		rigCtx.path = pathSource;
 		
 		CMD_LOG("Importing %s", pathSource);
@@ -318,7 +318,7 @@ int fc_cmd_import_rig(int argc, char* argv[], fc_cmd_execute_ctx_t* ctx, fc_allo
 	
 	// save engine file
 	{
-		fc_serializer_t serializer = {};
+		fc_serializer_t serializer = {0};
 		serializer.file = fopen(pathEngine, "wb");
 		serializer.isWriting = true;
 		
@@ -357,12 +357,12 @@ int fc_cmd_import_anim(int argc, char* argv[], fc_cmd_execute_ctx_t* ctx, fc_all
 		return 1;
 	}
 	
-	fa_rig_t rig = {};
+	fa_rig_t rig = {0};
 	
 	// load rig from engine file
 	{
 		// create rig engine file path
-		char rigFilePath[256] = {};
+		char rigFilePath[256] = {0};
 		fc_path_concat(rigFilePath, ctx->enginePath, "rig/", rigName, ".rig");
 		FILE* rigFile = fopen(rigFilePath, "rb");
 		if(!rigFile)
@@ -371,7 +371,7 @@ int fc_cmd_import_anim(int argc, char* argv[], fc_cmd_execute_ctx_t* ctx, fc_all
 			return 1;
 		}
 		
-		fc_serializer_t ser = {};
+		fc_serializer_t ser = {0};
 		ser.file = rigFile;
 		ser.isWriting = false;
 		
@@ -383,18 +383,18 @@ int fc_cmd_import_anim(int argc, char* argv[], fc_cmd_execute_ctx_t* ctx, fc_all
 	fa_anim_clip_t* animClip = NULL;
 	
 	{
-		fi_depot_t depot = {};
+		fi_depot_t depot = {0};
 		depot.path = "";	// todo: remove that
 		
-		char pathSource[256] = {};
+		char pathSource[256] = {0};
 		fc_path_concat(pathSource, ctx->assetsPath, srcPath, "", "");
 		
-		char pathEngine[256] = {};
+		char pathEngine[256] = {0};
 		fc_path_concat(pathEngine, ctx->enginePath, "anim/", dstName, ".anim");
 		
 		// import animation
 		{
-			fi_import_anim_clip_ctx_t ctx = {};
+			fi_import_anim_clip_ctx_t ctx = {0};
 			ctx.path = pathSource;
 			ctx.extractRootMotion = true;
 			ctx.rig = &rig;
@@ -405,7 +405,7 @@ int fc_cmd_import_anim(int argc, char* argv[], fc_cmd_execute_ctx_t* ctx, fc_all
 		
 		// save engine file
 		{
-			fc_serializer_t serializer = {};
+			fc_serializer_t serializer = {0};
 			serializer.file = fopen(pathEngine, "wb");
 			serializer.isWriting = true;
 			
@@ -439,10 +439,10 @@ int fc_cmd_import_mesh(int argc, char* argv[], fc_cmd_execute_ctx_t* ctx, fc_all
 	
 	// import mesh
 	{
-		fi_depot_t depot = {};
+		fi_depot_t depot = {0};
 		depot.path = "";	// todo: remove that
 		
-		char pathSource[256] = {};
+		char pathSource[256] = {0};
 		fc_path_concat(pathSource, ctx->assetsPath, srcPath, "", "");
 		
 		fi_import_mesh_ctx_t loadCtx;
@@ -454,10 +454,10 @@ int fc_cmd_import_mesh(int argc, char* argv[], fc_cmd_execute_ctx_t* ctx, fc_all
 	
 	// load or save serialized file
 	{
-		char pathEngine[256] = {};
+		char pathEngine[256] = {0};
 		fc_path_concat(pathEngine, ctx->enginePath, "mesh/", dstName, ".mesh");
 		
-		fc_serializer_t ser = {};
+		fc_serializer_t ser = {0};
 		ser.file = fopen(pathEngine, "wb");
 		ser.isWriting = true;
 		

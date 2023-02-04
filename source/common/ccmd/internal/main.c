@@ -25,7 +25,7 @@ int main(int argc, char* argv[])
 		return 2;
 	}
 	
-	fc_cmd_execute_ctx_t ctx = {};
+	fc_cmd_execute_ctx_t ctx = {0};
 	ctx.assetsPath = "../../assets/";
 	ctx.enginePath = "../../data/";
 	

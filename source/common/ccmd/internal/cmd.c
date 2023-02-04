@@ -63,7 +63,7 @@ void fc_cmd_log_error(const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	char txt[512] = {};
+	char txt[512] = {0};
 	vsprintf(txt, fmt, args);
 	va_end(args);
 	
@@ -74,7 +74,7 @@ void fc_cmd_log_warning(const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	char txt[512] = {};
+	char txt[512] = {0};
 	vsprintf(txt, fmt, args);
 	va_end(args);
 	
@@ -85,7 +85,7 @@ void fc_cmd_log(const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	char txt[512] = {};
+	char txt[512] = {0};
 	vsprintf(txt, fmt, args);
 	va_end(args);
 	
