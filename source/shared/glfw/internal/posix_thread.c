@@ -25,6 +25,10 @@
 //
 //========================================================================
 
+// FURBALL CAT MODIFICATION
+#ifdef PLATFORM_OSX
+// FURBALL CAT MODIFICATION
+
 #include "internal.h"
 
 #include <assert.h>
@@ -101,3 +105,6 @@ void _glfwPlatformUnlockMutex(_GLFWmutex* mutex)
     pthread_mutex_unlock(&mutex->posix.handle);
 }
 
+// FURBALL CAT MODIFICATION
+#endif
+// FURBALL CAT MODIFICATION

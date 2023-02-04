@@ -24,6 +24,10 @@
 //
 //========================================================================
 
+// FURBALL CAT MODIFICATION
+#ifdef PLATFORM_OSX
+// FURBALL CAT MODIFICATION
+
 #include "internal.h"
 
 #include <mach/mach_time.h>
@@ -58,3 +62,6 @@ uint64_t _glfwPlatformGetTimerFrequency(void)
     return _glfw.timer.ns.frequency;
 }
 
+// FURBALL CAT MODIFICATION
+#endif
+// FURBALL CAT MODIFICATION
