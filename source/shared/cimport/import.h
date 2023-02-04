@@ -8,6 +8,7 @@ extern "C"
 #endif // __cplusplus
 
 #include <inttypes.h>
+#include <stdbool.h>
 #include "api.h"
 	
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
