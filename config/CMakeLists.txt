@@ -44,6 +44,8 @@ endif()
 # exclude from ALL_BUILD
 set_property(TARGET ${ProjectName} PROPERTY EXCLUDE_FROM_ALL ON)
 
+set(FurThirdPartyPath ${CMAKE_CURRENT_SOURCE_DIR}/../../../thirdparty)
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/internal)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/..)

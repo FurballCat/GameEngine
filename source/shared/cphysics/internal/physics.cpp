@@ -6,10 +6,20 @@
 
 #include <stdlib.h>
 
-#define NDEBUG
 #include "PxPhysicsAPI.h"
 
 using namespace physx;
+
+void fc_sort(void* arrayData, size_t numElems, size_t size, void* context, int(*compar)(void*, const void*, const void*))
+{
+#if PLATFORM_OSX
+	qsort_r(arrayData, numElems, size, context, compar);
+#elif PLATFORM_WINDOWS
+	qsort_s(arrayData, numElems, size, compar, context);
+#else
+	#error No implementation of fc_sort for this platform
+#endif
+}
 
 typedef struct fp_physics_t
 {
@@ -336,15 +346,15 @@ void fp_bvh_box_recursive_build(fp_bvh_node_t* nodes, uint32_t maxNodes, uint32_
 	// check which axis of box is the longest and sort objects along this axis
 	if(box.extent.x > box.extent.y && box.extent.x > box.extent.z)	// x-axis
 	{
-		qsort_r(objectIndices, numObjects, sizeof(uint32_t), allObjectBoxes, fp_sort_comp_x);
+		fc_sort(objectIndices, numObjects, sizeof(uint32_t), allObjectBoxes, fp_sort_comp_x);
 	}
 	else if(box.extent.y > box.extent.z)	// y-axis
 	{
-		qsort_r(objectIndices, numObjects, sizeof(uint32_t), allObjectBoxes, fp_sort_comp_y);
+		fc_sort(objectIndices, numObjects, sizeof(uint32_t), allObjectBoxes, fp_sort_comp_y);
 	}
 	else	// z-axis
 	{
-		qsort_r(objectIndices, numObjects, sizeof(uint32_t), allObjectBoxes, fp_sort_comp_z);
+		fc_sort(objectIndices, numObjects, sizeof(uint32_t), allObjectBoxes, fp_sort_comp_z);
 	}
 	
 	// fill in this node
