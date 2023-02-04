@@ -1,8 +1,15 @@
-/* Copyright (c) 2016-2020 Furball Cat */
+/* Copyright (c) Furball Cat */
 
 #include "input.h"
 #include "ccore/public.h"
+
+#if PLATFORM_OSX
 #include "macHIDInput.h"
+#elif PLATFORM_WINDOWS
+#include "winHIDInput.h"
+#else
+	#error No HID input implementation for this platform
+#endif
 
 typedef struct fi_input_manager_t
 {

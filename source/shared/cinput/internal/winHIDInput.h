@@ -2,10 +2,10 @@
 
 #pragma once
 
-#if PLATFORM_OSX
+#if PLATFORM_WINDOWS
 
-#include <IOKit/hid/IOHIDLib.h>
 #include "input.h"
+#include <stdbool.h>
 
 struct TimeInfo;
 
@@ -14,10 +14,15 @@ struct TimeInfo;
 #define MAX_PENDING_EVENTS 128
 #define MAX_DEVICE_ELEMENTS 64
 
+typedef struct ToDoImplement
+{
+	int stuff;
+} ToDoImplement;
+
 typedef struct fi_hid_element_info_t
 {
-	IOHIDElementRef m_elementRef;
-	IOHIDElementType m_type;
+	ToDoImplement m_elementRef;
+	ToDoImplement m_type;
 	uint16_t m_usagePage;
 	uint16_t m_usage;
 	int32_t m_minValue;
@@ -26,7 +31,7 @@ typedef struct fi_hid_element_info_t
 
 typedef struct fi_device_info_t
 {
-	IOHIDDeviceRef m_deviceRef;
+	ToDoImplement m_deviceRef;
 	fi_hid_element_info_t m_elements[MAX_DEVICE_ELEMENTS];
 	uint32_t m_numElements;
 	
@@ -66,7 +71,7 @@ typedef struct fi_hid_input_t
 	
 	bool m_isGamepadAttached;
 	
-	IOHIDManagerRef m_hidManager;
+	ToDoImplement m_hidManager;
 	
 	fi_input_event_t m_pendingEvents[MAX_PENDING_EVENTS];
 	uint32_t m_numPendingEvents;
