@@ -30,8 +30,20 @@ file(GLOB INTERNAL_SOURCE_FILES
 file(GLOB INTERNAL_HEADER_FILES
 	${CMAKE_CURRENT_SOURCE_DIR}/internal/*.h
 	${CMAKE_CURRENT_SOURCE_DIR}/internal/*.hpp)
-	
-add_library(${ProjectName} ${HEADER_FILES} ${SOURCE_FILES} ${INTERNAL_HEADER_FILES} ${INTERNAL_SOURCE_FILES})
+
+if(DEFINED FUR_PROJECT_TYPE)
+	if(${FUR_PROJECT_TYPE} STREQUAL "executable")
+		add_executable(${ProjectName} ${HEADER_FILES} ${SOURCE_FILES} ${INTERNAL_HEADER_FILES} ${INTERNAL_SOURCE_FILES} )
+	else()
+		add_library(${ProjectName} ${HEADER_FILES} ${SOURCE_FILES} ${INTERNAL_HEADER_FILES} ${INTERNAL_SOURCE_FILES} )
+	endif()
+else()
+	add_library(${ProjectName} ${HEADER_FILES} ${SOURCE_FILES} ${INTERNAL_HEADER_FILES} ${INTERNAL_SOURCE_FILES} )
+endif()
+
+# exclude from ALL_BUILD
+set_property(TARGET ${ProjectName} PROPERTY EXCLUDE_FROM_ALL ON)
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/internal)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/..)
