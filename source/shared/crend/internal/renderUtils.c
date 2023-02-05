@@ -1,6 +1,6 @@
 /* Copyright (c) 2016-2019 Furball Cat */
 
-#include "vulkansdk/macOS/include/vulkan/vulkan.h"
+#include "vulkan.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <string.h>
@@ -87,7 +87,7 @@ void fr_staging_record_copy_commands(fr_staging_buffer_builder_t* builder, VkCom
 		
 		const fr_staging_buffer_entry_t* entry = &builder->entries[srcIndex];
 		
-		VkBufferCopy copyRegion = {};
+		VkBufferCopy copyRegion = {0};
 		copyRegion.srcOffset = entry->offset; // Optional
 		copyRegion.dstOffset = aDstOffsets[i]; // Optional
 		copyRegion.size = entry->size;
@@ -99,13 +99,13 @@ void fr_staging_record_copy_commands(fr_staging_buffer_builder_t* builder, VkCom
 void fr_alloc_descriptor_sets_mesh(VkDevice device, fr_alloc_descriptor_sets_mesh_ctx_t* ctx)
 {
 	// allocate descriptor sets - remember that the descriptorPool needs space for them
-	VkDescriptorSetLayout layouts[20] = {};	// max layouts
+	VkDescriptorSetLayout layouts[20] = {0};	// max layouts
 	for(uint32_t i=0; i<ctx->numDescriptors; ++i)
 	{
 		layouts[i] = ctx->layout;
 	}
 	
-	VkDescriptorSetAllocateInfo allocInfo = {};
+	VkDescriptorSetAllocateInfo allocInfo = {0};
 	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	allocInfo.descriptorPool = ctx->descriptorPool;
 	allocInfo.descriptorSetCount = ctx->numDescriptors;
@@ -117,7 +117,7 @@ void fr_alloc_descriptor_sets_mesh(VkDevice device, fr_alloc_descriptor_sets_mes
 	}
 	
 	// textures
-	VkDescriptorImageInfo imageInfo[20] = {};
+	VkDescriptorImageInfo imageInfo[20] = {0};
 	for(uint32_t i=0; i<ctx->numTextures; ++i)
 	{
 		imageInfo[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -128,7 +128,7 @@ void fr_alloc_descriptor_sets_mesh(VkDevice device, fr_alloc_descriptor_sets_mes
 	// do writes for each of the descriptor set
 	for (size_t i = 0; i < ctx->numDescriptors; ++i)
 	{
-		VkDescriptorBufferInfo bufferInfo[2] = {};
+		VkDescriptorBufferInfo bufferInfo[2] = {0};
 		bufferInfo[0].buffer = ctx->uniformBuffers[i].buffer;
 		bufferInfo[0].offset = ctx->uniformBufferOffset;
 		bufferInfo[0].range = ctx->uniformBufferSize;
@@ -137,8 +137,8 @@ void fr_alloc_descriptor_sets_mesh(VkDevice device, fr_alloc_descriptor_sets_mes
 		bufferInfo[1].offset = ctx->skinningBufferOffset;
 		bufferInfo[1].range = ctx->skinningBufferSize;
 		
-		const uint32_t numBindings = 3;
-		VkWriteDescriptorSet descriptorWrites[numBindings] = {};
+		VkWriteDescriptorSet descriptorWrites[3] = {0};
+		const uint32_t numBindings = ARRAYSIZE(descriptorWrites);
 		
 		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		descriptorWrites[0].dstSet = ctx->outDescriptorSets[i];
@@ -175,7 +175,7 @@ void fr_alloc_descriptor_sets_mesh(VkDevice device, fr_alloc_descriptor_sets_mes
 void fr_write_descriptor_set(VkDevice device, fr_write_descriptor_set_ctx_t* ctx, VkDescriptorSet descriptor)
 {
 	// textures
-	VkDescriptorImageInfo imageInfo[20] = {};
+	VkDescriptorImageInfo imageInfo[20] = {0};
 	for(uint32_t i=0; i<ctx->numTextures; ++i)
 	{
 		imageInfo[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -194,7 +194,7 @@ void fr_write_descriptor_set(VkDevice device, fr_write_descriptor_set_ctx_t* ctx
 	
 	const uint32_t numTextures = (ctx->numTextures < 3) ? 3 : ctx->numTextures;	// todo: hack, fix that
 	
-	VkDescriptorBufferInfo bufferInfo[2] = {};
+	VkDescriptorBufferInfo bufferInfo[2] = {0};
 	bufferInfo[0].buffer = ctx->uniformBuffer->buffer;
 	bufferInfo[0].offset = ctx->uniformBufferOffset;
 	bufferInfo[0].range = ctx->uniformBufferSize;
@@ -206,8 +206,8 @@ void fr_write_descriptor_set(VkDevice device, fr_write_descriptor_set_ctx_t* ctx
 		bufferInfo[1].range = ctx->skinningBufferSize;
 	}
 	
-	const uint32_t numBindings = 3;
-	VkWriteDescriptorSet descriptorWrites[numBindings] = {};
+	VkWriteDescriptorSet descriptorWrites[3] = {0};
+	const uint32_t numBindings = ARRAYSIZE(descriptorWrites);
 	
 	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	descriptorWrites[0].dstSet = descriptor;
@@ -244,7 +244,7 @@ void fr_write_descriptor_set(VkDevice device, fr_write_descriptor_set_ctx_t* ctx
 
 VkCommandBuffer fr_begin_simple_commands(VkDevice device, VkCommandPool commandPool, struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	VkCommandBufferAllocateInfo allocInfo = {};
+	VkCommandBufferAllocateInfo allocInfo = {0};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	allocInfo.commandPool = commandPool;
@@ -256,7 +256,7 @@ VkCommandBuffer fr_begin_simple_commands(VkDevice device, VkCommandPool commandP
 		FUR_ASSERT(false);
 	}
 	
-	VkCommandBufferBeginInfo beginInfo = {};
+	VkCommandBufferBeginInfo beginInfo = {0};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 	beginInfo.pInheritanceInfo = NULL; // Optional
@@ -276,7 +276,7 @@ void fr_end_simple_commands(VkDevice device, VkQueue graphicsQueue, VkCommandBuf
 		FUR_ASSERT(false);
 	}
 	
-	VkSubmitInfo submitInfo = {};
+	VkSubmitInfo submitInfo = {0};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffer;
@@ -290,7 +290,7 @@ void fr_end_simple_commands(VkDevice device, VkQueue graphicsQueue, VkCommandBuf
 // begin primary command buffer that will be disposed immediately after submission
 VkCommandBuffer fr_begin_primary_disposable_command_buffer(VkDevice device, VkCommandPool commandPool, struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	VkCommandBufferAllocateInfo allocInfo = {};
+	VkCommandBufferAllocateInfo allocInfo = {0};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	allocInfo.commandPool = commandPool;
@@ -302,7 +302,7 @@ VkCommandBuffer fr_begin_primary_disposable_command_buffer(VkDevice device, VkCo
 		FUR_ASSERT(false);
 	}
 	
-	VkCommandBufferBeginInfo beginInfo = {};
+	VkCommandBufferBeginInfo beginInfo = {0};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 	beginInfo.pInheritanceInfo = NULL; // Optional
@@ -324,7 +324,7 @@ void fr_end_primary_disposable_command_buffer(VkDevice device, VkQueue graphicsQ
 		FUR_ASSERT(false);
 	}
 	
-	VkSubmitInfo submitInfo = {};
+	VkSubmitInfo submitInfo = {0};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffer;
@@ -354,7 +354,7 @@ void fr_transition_image_layout(VkDevice device, VkQueue graphicsQueue, VkComman
 {
 	VkCommandBuffer commandBuffer = fr_begin_simple_commands(device, commandPool, pAllocCallbacks);
 	
-	VkImageMemoryBarrier barrier = {};
+	VkImageMemoryBarrier barrier = {0};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	barrier.oldLayout = oldLayout;
 	barrier.newLayout = newLayout;
@@ -435,7 +435,7 @@ void fr_copy_buffer_to_image(VkDevice device, VkQueue graphicsQueue, VkCommandPo
 {
 	VkCommandBuffer commandBuffer = fr_begin_simple_commands(device, commandPool, pAllocCallbacks);
 	
-	VkBufferImageCopy region = {};
+	VkBufferImageCopy region = {0};
 	region.bufferOffset = bufferOffset;
 	region.bufferRowLength = 0;
 	region.bufferImageHeight = 0;

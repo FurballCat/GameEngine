@@ -1,6 +1,6 @@
 /* Copyright (c) 2016-2020 Furball Cat */
 
-#include "vulkansdk/macOS/include/vulkan/vulkan.h"
+#include "vulkan.h"
 #include "ccore/furAssert.h"
 #include <stdbool.h>
 #include <string.h>
@@ -222,24 +222,24 @@ VkResult fr_render_pass_create_color_depth(VkDevice device, VkFormat colorFormat
 										   VkRenderPass* renderPass, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	// create render pass
-	VkAttachmentDescription colorAttachment = {};
-	VkAttachmentReference colorAttachmentRef = {};
+	VkAttachmentDescription colorAttachment = {0};
+	VkAttachmentReference colorAttachmentRef = {0};
 	fr_attachment_init_color(0, colorFormat, &colorAttachment, &colorAttachmentRef);
 	
-	VkAttachmentDescription depthAttachment = {};
-	VkAttachmentReference depthAttachmentRef = {};
+	VkAttachmentDescription depthAttachment = {0};
+	VkAttachmentReference depthAttachmentRef = {0};
 	fr_attachment_init_depth(1, depthFormat, &depthAttachment, &depthAttachmentRef);
 	
 	// subpass and dependency
-	VkSubpassDescription subpass = {};
-	VkSubpassDependency dependency = {};
+	VkSubpassDescription subpass = {0};
+	VkSubpassDependency dependency = {0};
 	fr_subpass_init_color_depth(&colorAttachmentRef, &depthAttachmentRef, &subpass, &dependency);
 	
-	const uint32_t numAttachments = 2;
-	VkAttachmentDescription attachments[numAttachments] = {colorAttachment, depthAttachment};
+	VkAttachmentDescription attachments[2] = {colorAttachment, depthAttachment};
+	const uint32_t numAttachments = ARRAYSIZE(attachments);
 	
 	// create render pass
-	VkRenderPassCreateInfo renderPassInfo = {};
+	VkRenderPassCreateInfo renderPassInfo = {0};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 	renderPassInfo.attachmentCount = numAttachments;
 	renderPassInfo.pAttachments = attachments;
@@ -256,13 +256,13 @@ void fr_pso_init_shader_stages_simple(VkShaderModule vertexShader, const char* v
 									  VkShaderModule fragmentShader, const char* fsFuncName,
 									  VkPipelineShaderStageCreateInfo outInfo[2])
 {
-	VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
+	VkPipelineShaderStageCreateInfo vertShaderStageInfo = {0};
 	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
 	vertShaderStageInfo.module = vertexShader;
 	vertShaderStageInfo.pName = vsFuncName;
 	
-	VkPipelineShaderStageCreateInfo fragShaderStageInfo = {};
+	VkPipelineShaderStageCreateInfo fragShaderStageInfo = {0};
 	fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 	fragShaderStageInfo.module = fragmentShader;

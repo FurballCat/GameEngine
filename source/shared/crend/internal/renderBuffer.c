@@ -1,6 +1,6 @@
 /* Copyright (c) 2016-2019 Furball Cat */
 
-#include "vulkansdk/macOS/include/vulkan/vulkan.h"
+#include "vulkan.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <string.h>
@@ -30,7 +30,7 @@ void fr_create_buffer(VkDevice device, VkPhysicalDevice physicalDevice,
 					VkBuffer* buffer, VkDeviceMemory* bufferMemory,
 					struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	VkBufferCreateInfo bufferInfo = {};
+	VkBufferCreateInfo bufferInfo = {0};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferInfo.size = size;
 	bufferInfo.usage = usage;
@@ -44,7 +44,7 @@ void fr_create_buffer(VkDevice device, VkPhysicalDevice physicalDevice,
 	VkMemoryRequirements memRequirements;
 	vkGetBufferMemoryRequirements(device, *buffer, &memRequirements);
 	
-	VkMemoryAllocateInfo allocInfo = {};
+	VkMemoryAllocateInfo allocInfo = {0};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocInfo.allocationSize = memRequirements.size;
 	allocInfo.memoryTypeIndex = fr_find_memory_type(physicalDevice, memRequirements.memoryTypeBits, properties);
@@ -63,7 +63,7 @@ void fr_create_image(VkDevice device, VkPhysicalDevice physicalDevice,
 					  VkImage* textureImage, VkDeviceMemory* textureImageMemory,
 					  struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	VkImageCreateInfo imageInfo = {};
+	VkImageCreateInfo imageInfo = {0};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageInfo.imageType = VK_IMAGE_TYPE_2D;
 	imageInfo.extent.width = width;
@@ -88,7 +88,7 @@ void fr_create_image(VkDevice device, VkPhysicalDevice physicalDevice,
 	VkMemoryRequirements memRequirements;
 	vkGetImageMemoryRequirements(device, *textureImage, &memRequirements);
 	
-	VkMemoryAllocateInfo allocInfo = {};
+	VkMemoryAllocateInfo allocInfo = {0};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocInfo.allocationSize = memRequirements.size;
 	allocInfo.memoryTypeIndex = fr_find_memory_type(physicalDevice, memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);

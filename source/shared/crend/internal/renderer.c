@@ -12,7 +12,7 @@
 #include "ccore/buffer.h"
 
 #include "renderer.h"
-#include "vulkansdk/macOS/include/vulkan/vulkan.h"
+#include "vulkan.h"
 #include "glfw/glfw3.h"
 
 #include "renderBuffer.h"
@@ -38,15 +38,8 @@
 #include <math.h>
 #include "cmath/public.h"
 
-#define MAX(a,b) \
-	({ __typeof__ (a) _a = (a); \
-	__typeof__ (b) _b = (b); \
-	_a > _b ? _a : _b; })
-
-#define MIN(a,b) \
-	({ __typeof__ (a) _a = (a); \
-	__typeof__ (b) _b = (b); \
-	_a < _b ? _a : _b; })
+#define MAX(a,b) a > b ? a : b
+#define MIN(a,b) a < b ? a : b
 
 #define S1(x) #x
 #define S2(x) S1(x)
@@ -56,7 +49,7 @@
 /*************************************************************/
 
 #define FC_ERROR_MESSAGE_MAX_LENGTH 512
-char g_lastError[FC_ERROR_MESSAGE_MAX_LENGTH] = {};
+char g_lastError[FC_ERROR_MESSAGE_MAX_LENGTH] = {0};
 
 const char* fr_get_last_error(void)
 {
@@ -259,7 +252,7 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 		// create texture image
 		if(res == FR_RESULT_OK)
 		{
-			fr_image_desc_t desc = {};
+			fr_image_desc_t desc = {0};
 			desc.size = imageSize;
 			desc.width = font->atlasWidth;
 			desc.height = font->atlasHeight;
@@ -274,7 +267,7 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 	// read glyph infos
 	if(res == FR_RESULT_OK)
 	{
-		fc_text_buffer_t textBuffer = {};
+		fc_text_buffer_t textBuffer = {0};
 		if(!fc_load_text_file_into_text_buffer(desc->glyphsInfoPath, &textBuffer, pAllocCallbacks))
 		{
 			char txt[256];
@@ -332,7 +325,7 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 					break;
 				}
 				
-				float uv[2] = {};
+				float uv[2] = {0};
 				
 				if(!fc_text_parse_float(&stream, &uv[0]))
 				{
@@ -572,7 +565,7 @@ enum fr_result_t fr_create_shader_module(VkDevice device, const char* path, VkSh
 	
 	if(fc_load_binary_file_into_binary_buffer(path, &buffer, pAllocCallbacks))
 	{
-		VkShaderModuleCreateInfo createInfo = {};
+		VkShaderModuleCreateInfo createInfo = {0};
 		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 		createInfo.codeSize = buffer.size;
 		createInfo.pCode = buffer.pData;
@@ -810,7 +803,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	{
 		pRenderer->pApp = pDesc->pApp;
 		
-		VkApplicationInfo appInfo = {};
+		VkApplicationInfo appInfo = {0};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 		appInfo.pApplicationName = pDesc->pApp->title;
 		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -818,7 +811,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
 		appInfo.apiVersion = VK_API_VERSION_1_0;
 		
-		VkInstanceCreateInfo createInfo = {};
+		VkInstanceCreateInfo createInfo = {0};
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 		
@@ -989,7 +982,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		pRenderer->idxQueuePresent = idxQueuePresent;
 		
-		VkDeviceQueueCreateInfo queueCreateInfo[2] = {};
+		VkDeviceQueueCreateInfo queueCreateInfo[2] = {0};
 		queueCreateInfo[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 		queueCreateInfo[0].queueFamilyIndex = idxQueueGraphics;
 		queueCreateInfo[0].queueCount = 1;
@@ -1000,9 +993,9 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		queueCreateInfo[1].queueCount = 1;
 		queueCreateInfo[1].pQueuePriorities = &queuePriority;
 		
-		VkPhysicalDeviceFeatures deviceFeatures = {};
+		VkPhysicalDeviceFeatures deviceFeatures = {0};
 		
-		VkDeviceCreateInfo createInfo = {};
+		VkDeviceCreateInfo createInfo = {0};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 		createInfo.pQueueCreateInfos = queueCreateInfo;
 		createInfo.queueCreateInfoCount = 2;
@@ -1054,7 +1047,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		const VkFormat surfaceFormat = VK_FORMAT_B8G8R8A8_UNORM;
 		
-		VkSwapchainCreateInfoKHR createInfo = {};
+		VkSwapchainCreateInfoKHR createInfo = {0};
 		createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 		createInfo.surface = pRenderer->surface;
 		createInfo.minImageCount = imageCount;
@@ -1108,7 +1101,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	{
 		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			VkImageViewCreateInfo createInfo = {};
+			VkImageViewCreateInfo createInfo = {0};
 			createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 			createInfo.image = pRenderer->aSwapChainImages[i];
 			
@@ -1293,7 +1286,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		// uniform buffer (UBO)
-		VkDescriptorSetLayoutBinding uboLayoutBinding = {};
+		VkDescriptorSetLayoutBinding uboLayoutBinding = {0};
 		uboLayoutBinding.binding = 0;
 		uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		uboLayoutBinding.descriptorCount = 1;
@@ -1301,7 +1294,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		uboLayoutBinding.pImmutableSamplers = NULL;
 		
 		// uniform buffer (UBO)
-		VkDescriptorSetLayoutBinding skinLayoutBinding = {};
+		VkDescriptorSetLayoutBinding skinLayoutBinding = {0};
 		skinLayoutBinding.binding = 1;
 		skinLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		skinLayoutBinding.descriptorCount = 1;
@@ -1309,17 +1302,17 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		skinLayoutBinding.pImmutableSamplers = NULL;
 		
 		// sampler
-		VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
+		VkDescriptorSetLayoutBinding samplerLayoutBinding = {0};
 		samplerLayoutBinding.binding = 2;
 		samplerLayoutBinding.descriptorCount = NUM_TEXTURES_IN_ARRAY;
 		samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		samplerLayoutBinding.pImmutableSamplers = NULL;
 		samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 		
-		const uint32_t numBindings = 3;
-		VkDescriptorSetLayoutBinding bindings[numBindings] = { uboLayoutBinding, skinLayoutBinding, samplerLayoutBinding };
+		VkDescriptorSetLayoutBinding bindings[3] = { uboLayoutBinding, skinLayoutBinding, samplerLayoutBinding };
+		const uint32_t numBindings = ARRAYSIZE(bindings);
 		
-		VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+		VkDescriptorSetLayoutCreateInfo layoutInfo = {0};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 		layoutInfo.bindingCount = numBindings;
 		layoutInfo.pBindings = bindings;
@@ -1335,17 +1328,17 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		// uniform buffer (UBO)
-		VkDescriptorSetLayoutBinding uboLayoutBinding = {};
+		VkDescriptorSetLayoutBinding uboLayoutBinding = {0};
 		uboLayoutBinding.binding = 0;
 		uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		uboLayoutBinding.descriptorCount = 1;
 		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 		uboLayoutBinding.pImmutableSamplers = NULL;
 		
-		const uint32_t numBindings = 1;
-		VkDescriptorSetLayoutBinding bindings[numBindings] = { uboLayoutBinding };
+		VkDescriptorSetLayoutBinding bindings[1] = { uboLayoutBinding };
+		const uint32_t numBindings = ARRAYSIZE(bindings);
 		
-		VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+		VkDescriptorSetLayoutCreateInfo layoutInfo = {0};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 		layoutInfo.bindingCount = numBindings;
 		layoutInfo.pBindings = bindings;
@@ -1361,7 +1354,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		// uniform buffer (UBO)
-		VkDescriptorSetLayoutBinding uboLayoutBinding = {};
+		VkDescriptorSetLayoutBinding uboLayoutBinding = {0};
 		uboLayoutBinding.binding = 0;
 		uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		uboLayoutBinding.descriptorCount = 1;
@@ -1369,17 +1362,17 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		uboLayoutBinding.pImmutableSamplers = NULL;
 		
 		// sampler
-		VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
+		VkDescriptorSetLayoutBinding samplerLayoutBinding = {0};
 		samplerLayoutBinding.binding = 1;
 		samplerLayoutBinding.descriptorCount = 1;
 		samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		samplerLayoutBinding.pImmutableSamplers = NULL;
 		samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 		
-		const uint32_t numBindings = 2;
-		VkDescriptorSetLayoutBinding bindings[numBindings] = { uboLayoutBinding, samplerLayoutBinding };
+		VkDescriptorSetLayoutBinding bindings[2] = { uboLayoutBinding, samplerLayoutBinding };
+		const uint32_t numBindings = ARRAYSIZE(bindings);
 		
-		VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+		VkDescriptorSetLayoutCreateInfo layoutInfo = {0};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 		layoutInfo.bindingCount = numBindings;
 		layoutInfo.pBindings = bindings;
@@ -1424,7 +1417,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create render stages
 	if(res == FR_RESULT_OK)
 	{
-		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
+		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {0};
 		fr_pso_init_layout(&pRenderer->descriptorSetLayout, &pipelineLayoutInfo);
 		
 		if (vkCreatePipelineLayout(pRenderer->device, &pipelineLayoutInfo, NULL, &pRenderer->pipelineLayout) != VK_SUCCESS)
@@ -1442,13 +1435,13 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 		
 		// create pipeline state object (PSO)
-		VkPipelineShaderStageCreateInfo shaderStages[2] = {};
+		VkPipelineShaderStageCreateInfo shaderStages[2] = {0};
 		
 		fr_pso_init_shader_stages_simple(pRenderer->vertexShaderModule, "main",
 										 pRenderer->fragmentShaderModule, "main",
 										 shaderStages);
 		
-		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
+		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {0};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 		vertexInputInfo.vertexBindingDescriptionCount = 2;
 		vertexInputInfo.vertexAttributeDescriptionCount = 5;
@@ -1456,43 +1449,43 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		vertexInputInfo.pVertexAttributeDescriptions = pRenderer->vertexAttributes;
 		
 		// create rasterizer state
-		VkPipelineRasterizationStateCreateInfo rasterizer = {};
+		VkPipelineRasterizationStateCreateInfo rasterizer = {0};
 		fr_pso_init_rasterization_state_polygon_fill(&rasterizer);
 		
 		// create input assembly state
-		VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
+		VkPipelineInputAssemblyStateCreateInfo inputAssembly = {0};
 		fr_pso_init_input_assembly_state_triangle_list(&inputAssembly);
 		
 		// create viewport
-		VkViewport viewport = {};
+		VkViewport viewport = {0};
 		fr_pso_init_viewport((float)pRenderer->swapChainExtent.width,
 							 (float)pRenderer->swapChainExtent.height,
 							 &viewport);
 		
-		VkRect2D scissor = {};
+		VkRect2D scissor = {0};
 		fr_pso_init_scissor(pRenderer->swapChainExtent, &scissor);
 		
-		VkPipelineViewportStateCreateInfo viewportState = {};
+		VkPipelineViewportStateCreateInfo viewportState = {0};
 		fr_pso_init_viewport_state(&viewport, &scissor, &viewportState);
 		
 		// create multi sampling state
-		VkPipelineMultisampleStateCreateInfo multisampling = {};
+		VkPipelineMultisampleStateCreateInfo multisampling = {0};
 		fr_pso_init_multisampling_state(&multisampling);
 		
 		// depth and stencil state
-		VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
+		VkPipelineColorBlendAttachmentState colorBlendAttachment = {0};
 		fr_pso_init_color_blend_attachment_state(&colorBlendAttachment);
 		
 		// for blending use fr_pso_init_color_blend_attachment_state_blending
 		
-		VkPipelineColorBlendStateCreateInfo colorBlending = {};
+		VkPipelineColorBlendStateCreateInfo colorBlending = {0};
 		fr_pso_init_color_blend_state(&colorBlendAttachment, &colorBlending);
 		
-		VkPipelineDepthStencilStateCreateInfo depthStencil = {};
+		VkPipelineDepthStencilStateCreateInfo depthStencil = {0};
 		fr_pso_init_depth_stencil_state(&depthStencil);
 		
 		// create graphics pipeline
-		VkGraphicsPipelineCreateInfo pipelineInfo = {};
+		VkGraphicsPipelineCreateInfo pipelineInfo = {0};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		pipelineInfo.stageCount = 2;
 		pipelineInfo.pStages = shaderStages;
@@ -1548,13 +1541,13 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		// create pipeline state object (PSO)
-		VkPipelineShaderStageCreateInfo shaderStages[2] = {};
+		VkPipelineShaderStageCreateInfo shaderStages[2] = {0};
 		
 		fr_pso_init_shader_stages_simple(pRenderer->debugVertexShaderModule, "main",
 										 pRenderer->debugFragmentShaderModule, "main",
 										 shaderStages);
 		
-		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
+		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {0};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 		vertexInputInfo.vertexBindingDescriptionCount = 1;
 		vertexInputInfo.vertexAttributeDescriptionCount = 2;
@@ -1562,44 +1555,44 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		vertexInputInfo.pVertexAttributeDescriptions = pRenderer->debugLinesVertexAttributes;
 		
 		// create rasterizer state
-		VkPipelineRasterizationStateCreateInfo rasterizer = {};
+		VkPipelineRasterizationStateCreateInfo rasterizer = {0};
 		fr_pso_init_rasterization_state_wireframe_no_cull(&rasterizer);
 		
 		// create input assembly state
-		VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
+		VkPipelineInputAssemblyStateCreateInfo inputAssembly = {0};
 		fr_pso_init_input_assembly_state_line_list(&inputAssembly);
 		
 		// create viewport
-		VkViewport viewport = {};
+		VkViewport viewport = {0};
 		fr_pso_init_viewport((float)pRenderer->swapChainExtent.width,
 							 (float)pRenderer->swapChainExtent.height,
 							 &viewport);
 		
-		VkRect2D scissor = {};
+		VkRect2D scissor = {0};
 		fr_pso_init_scissor(pRenderer->swapChainExtent, &scissor);
 		
-		VkPipelineViewportStateCreateInfo viewportState = {};
+		VkPipelineViewportStateCreateInfo viewportState = {0};
 		fr_pso_init_viewport_state(&viewport, &scissor, &viewportState);
 		
 		// create multi sampling state
-		VkPipelineMultisampleStateCreateInfo multisampling = {};
+		VkPipelineMultisampleStateCreateInfo multisampling = {0};
 		fr_pso_init_multisampling_state(&multisampling);
 		
 		// depth and stencil state - for blending use fr_pso_init_color_blend_attachment_state_blending
-		VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
+		VkPipelineColorBlendAttachmentState colorBlendAttachment = {0};
 		fr_pso_init_color_blend_attachment_state(&colorBlendAttachment);
 		
-		VkPipelineColorBlendStateCreateInfo colorBlending = {};
+		VkPipelineColorBlendStateCreateInfo colorBlending = {0};
 		fr_pso_init_color_blend_state(&colorBlendAttachment, &colorBlending);
 		
-		VkPipelineDepthStencilStateCreateInfo depthStencil = {};
+		VkPipelineDepthStencilStateCreateInfo depthStencil = {0};
 		fr_pso_init_depth_stencil_state(&depthStencil);
 		
-		VkPipelineDepthStencilStateCreateInfo depthStencilNoDepth = {};
+		VkPipelineDepthStencilStateCreateInfo depthStencilNoDepth = {0};
 		fr_pso_init_depth_stencil_state_no_depth_test(&depthStencilNoDepth);
 		
 		// create graphics pipeline
-		VkGraphicsPipelineCreateInfo pipelineInfo = {};
+		VkGraphicsPipelineCreateInfo pipelineInfo = {0};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		pipelineInfo.stageCount = 2;
 		pipelineInfo.pStages = shaderStages;
@@ -1650,10 +1643,10 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		}
 		
 		// depth and stencil state - for blending use fr_pso_init_color_blend_attachment_state_blending
-		VkPipelineColorBlendAttachmentState colorBlendAttachmentBlending = {};
+		VkPipelineColorBlendAttachmentState colorBlendAttachmentBlending = {0};
 		fr_pso_init_color_blend_attachment_state_blending(&colorBlendAttachmentBlending);
 		
-		VkPipelineColorBlendStateCreateInfo colorBlendingDoBlending = {};
+		VkPipelineColorBlendStateCreateInfo colorBlendingDoBlending = {0};
 		fr_pso_init_color_blend_state(&colorBlendAttachmentBlending, &colorBlendingDoBlending);
 		
 		pipelineInfo.pColorBlendState = &colorBlendingDoBlending;
@@ -1663,7 +1656,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		// create 2D rects debug PSO
 		{
-			VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
+			VkPipelineLayoutCreateInfo pipelineLayoutInfo = {0};
 			fr_pso_init_layout(&pRenderer->rectDescriptorSetLayout, &pipelineLayoutInfo);
 			
 			if (vkCreatePipelineLayout(pRenderer->device, &pipelineLayoutInfo, NULL, &pRenderer->rectsPipelineLayout) != VK_SUCCESS)
@@ -1699,7 +1692,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		// create 2D text debug PSO
 		{
-			VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
+			VkPipelineLayoutCreateInfo pipelineLayoutInfo = {0};
 			fr_pso_init_layout(&pRenderer->textDescriptorSetLayout, &pipelineLayoutInfo);
 			
 			if (vkCreatePipelineLayout(pRenderer->device, &pipelineLayoutInfo, NULL, &pRenderer->textPipelineLayout) != VK_SUCCESS)
@@ -1708,7 +1701,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 				res = FR_RESULT_ERROR_GPU;
 			}
 			
-			VkPipelineDepthStencilStateCreateInfo depthStencil = {};
+			VkPipelineDepthStencilStateCreateInfo depthStencil = {0};
 			fr_pso_init_depth_stencil_state_no_depth_test(&depthStencil);
 			
 			pipelineInfo.layout = pRenderer->textPipelineLayout;
@@ -1740,7 +1733,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// load debug font
 	if(res == FR_RESULT_OK)
 	{
-		fr_font_desc_t desc = {};
+		fr_font_desc_t desc = {0};
 		desc.atlasPath = "../../../../../assets/fonts/debug-font-2.png";
 		desc.glyphsInfoPath = "../../../../../assets/fonts/debug-font-data-2.txt";
 		
@@ -1752,7 +1745,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	{
 		const VkDeviceSize depthImageSize = 4 * pRenderer->swapChainExtent.width * pRenderer->swapChainExtent.height;
 		
-		fr_image_desc_t desc = {};
+		fr_image_desc_t desc = {0};
 		desc.size = depthImageSize;
 		desc.width = pRenderer->swapChainExtent.width;
 		desc.height = pRenderer->swapChainExtent.height;
@@ -1766,7 +1759,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create debug lines vertex buffer
 	if(res == FR_RESULT_OK)
 	{
-		fr_buffer_desc_t desc = {};
+		fr_buffer_desc_t desc = {0};
 		desc.size = fc_dbg_line_buffer_size();
 		desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
 		desc.properties = FR_STAGING_BUFFER_MEMORY_FLAGS;	// use vertex buffer usage, but staging buffer properties
@@ -1780,7 +1773,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create debug triangles vertex buffer
 	if(res == FR_RESULT_OK)
 	{
-		fr_buffer_desc_t desc = {};
+		fr_buffer_desc_t desc = {0};
 		desc.size = fc_dbg_triangle_buffer_size();
 		desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
 		desc.properties = FR_STAGING_BUFFER_MEMORY_FLAGS;	// use vertex buffer usage, but staging buffer properties
@@ -1794,7 +1787,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create debug 2D rects vertex buffer
 	if(res == FR_RESULT_OK)
 	{
-		fr_buffer_desc_t desc = {};
+		fr_buffer_desc_t desc = {0};
 		desc.size = fc_dbg_rects_buffer_size();
 		desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
 		desc.properties = FR_STAGING_BUFFER_MEMORY_FLAGS;	// use vertex buffer usage, but staging buffer properties
@@ -1808,7 +1801,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create debug text vertex buffer
 	if(res == FR_RESULT_OK)
 	{
-		fr_buffer_desc_t desc = {};
+		fr_buffer_desc_t desc = {0};
 		desc.size = fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6 * sizeof(float);
 		desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
 		desc.properties = FR_STAGING_BUFFER_MEMORY_FLAGS;	// use vertex buffer usage, but staging buffer properties
@@ -1824,14 +1817,15 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	{
 		for (size_t i = 0; i < NUM_SWAP_CHAIN_IMAGES; i++)
 		{
-			const uint32_t numAttachments = 2;
-			VkImageView attachments[numAttachments] =
+			VkImageView attachments[2] =
 			{
 				pRenderer->aSwapChainImagesViews[i],
 				pRenderer->depthImage.view
 			};
+
+			const uint32_t numAttachments = ARRAYSIZE(attachments);
 			
-			VkFramebufferCreateInfo framebufferInfo = {};
+			VkFramebufferCreateInfo framebufferInfo = {0};
 			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 			framebufferInfo.renderPass = pRenderer->renderPass;
 			framebufferInfo.attachmentCount = numAttachments;
@@ -1851,15 +1845,16 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create descriptor pool (for uniform buffer & sampler)
 	if(res == FR_RESULT_OK)
 	{
-		uint32_t numBindings = 2;
-		VkDescriptorPoolSize poolSizes[numBindings];
+		VkDescriptorPoolSize poolSizes[2];
+		uint32_t numBindings = ARRAYSIZE(poolSizes);
+
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		poolSizes[0].descriptorCount = NUM_SWAP_CHAIN_IMAGES;
 		
 		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		poolSizes[1].descriptorCount = NUM_SWAP_CHAIN_IMAGES;
 		
-		VkDescriptorPoolCreateInfo poolInfo = {};
+		VkDescriptorPoolCreateInfo poolInfo = {0};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		poolInfo.poolSizeCount = numBindings;
 		poolInfo.pPoolSizes = poolSizes;
@@ -1910,7 +1905,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create texture sampler
 	if(res == FR_RESULT_OK)
 	{
-		VkSamplerCreateInfo samplerInfo = {};
+		VkSamplerCreateInfo samplerInfo = {0};
 		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 		samplerInfo.magFilter = VK_FILTER_LINEAR;
 		samplerInfo.minFilter = VK_FILTER_LINEAR;
@@ -1938,7 +1933,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create text texture sampler
 	if(res == FR_RESULT_OK)
 	{
-		VkSamplerCreateInfo samplerInfo = {};
+		VkSamplerCreateInfo samplerInfo = {0};
 		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 		samplerInfo.magFilter = VK_FILTER_NEAREST;
 		samplerInfo.minFilter = VK_FILTER_NEAREST;
@@ -1969,7 +1964,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		VkDescriptorSetLayout layouts[NUM_SWAP_CHAIN_IMAGES] = {pRenderer->rectDescriptorSetLayout,
 			pRenderer->rectDescriptorSetLayout, pRenderer->rectDescriptorSetLayout};
 		
-		VkDescriptorSetAllocateInfo allocInfo = {};
+		VkDescriptorSetAllocateInfo allocInfo = {0};
 		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 		allocInfo.descriptorPool = pRenderer->descriptorPool;
 		allocInfo.descriptorSetCount = NUM_SWAP_CHAIN_IMAGES;
@@ -1983,13 +1978,13 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		for (size_t i = 0; i < NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			VkDescriptorBufferInfo bufferInfo[1] = {};
+			VkDescriptorBufferInfo bufferInfo[1] = {0};
 			bufferInfo[0].buffer = pRenderer->aRectsUniformBuffer[i].buffer;
 			bufferInfo[0].offset = 0;
 			bufferInfo[0].range = sizeof(fr_uniform_buffer_t);
 			
-			const uint32_t numBindings = 1;
-			VkWriteDescriptorSet descriptorWrites[numBindings] = {};
+			VkWriteDescriptorSet descriptorWrites[1] = {0};
+			const uint32_t numBindings = ARRAYSIZE(descriptorWrites);
 			
 			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			descriptorWrites[0].dstSet = pRenderer->aRectDescriptorSets[i];
@@ -2011,7 +2006,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		VkDescriptorSetLayout layouts[NUM_SWAP_CHAIN_IMAGES] = {pRenderer->textDescriptorSetLayout,
 			pRenderer->textDescriptorSetLayout, pRenderer->textDescriptorSetLayout};
 		
-		VkDescriptorSetAllocateInfo allocInfo = {};
+		VkDescriptorSetAllocateInfo allocInfo = {0};
 		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 		allocInfo.descriptorPool = pRenderer->descriptorPool;
 		allocInfo.descriptorSetCount = NUM_SWAP_CHAIN_IMAGES;
@@ -2025,18 +2020,18 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		for (size_t i = 0; i < NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			VkDescriptorBufferInfo bufferInfo[2] = {};
+			VkDescriptorBufferInfo bufferInfo[2] = {0};
 			bufferInfo[0].buffer = pRenderer->aTextUniformBuffer[i].buffer;
 			bufferInfo[0].offset = 0;
 			bufferInfo[0].range = sizeof(fr_uniform_buffer_t);
 			
-			VkDescriptorImageInfo imageInfo = {};
+			VkDescriptorImageInfo imageInfo = {0};
 			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			imageInfo.imageView = pRenderer->textFont.atlas.view;
 			imageInfo.sampler = pRenderer->textTextureSampler;
 			
-			const uint32_t numBindings = 2;
-			VkWriteDescriptorSet descriptorWrites[numBindings] = {};
+			VkWriteDescriptorSet descriptorWrites[2] = {0};
+			const uint32_t numBindings = ARRAYSIZE(descriptorWrites);
 			
 			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			descriptorWrites[0].dstSet = pRenderer->aTextDescriptorSets[i];
@@ -2063,15 +2058,16 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create descriptor pool for PVS (Potentially Visible Set)
 	if(res == FR_RESULT_OK)
 	{
-		uint32_t numBindings = 2;
-		VkDescriptorPoolSize poolSizes[numBindings];
+		VkDescriptorPoolSize poolSizes[2] = {0};
+		uint32_t numBindings = ARRAYSIZE(poolSizes);
+
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		poolSizes[0].descriptorCount = NUM_SWAP_CHAIN_IMAGES;
 		
 		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		poolSizes[1].descriptorCount = NUM_SWAP_CHAIN_IMAGES;
 		
-		VkDescriptorPoolCreateInfo poolInfo = {};
+		VkDescriptorPoolCreateInfo poolInfo = {0};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		poolInfo.poolSizeCount = numBindings;
 		poolInfo.pPoolSizes = poolSizes;
@@ -2098,13 +2094,13 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			pvs->skinningMatrices = FUR_ALLOC_ARRAY_AND_ZERO(fm_mat4, FUR_MAX_SKIN_MATRICES_IN_BUFFER, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 			
 			// allocate descriptor sets
-			VkDescriptorSetLayout layouts[20] = {};	// max layouts
+			VkDescriptorSetLayout layouts[20] = {0};	// max layouts
 			for(uint32_t i=0; i<NUM_MAX_MESH_UNIFORM_BUFFERS; ++i)
 			{
 				layouts[i] = pRenderer->descriptorSetLayout;
 			}
 			
-			VkDescriptorSetAllocateInfo allocInfo = {};
+			VkDescriptorSetAllocateInfo allocInfo = {0};
 			allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 			allocInfo.descriptorPool = pRenderer->pvsDescriptorPool;
 			allocInfo.descriptorSetCount = NUM_MAX_MESH_UNIFORM_BUFFERS;
@@ -2148,7 +2144,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create command pool
 	if(res == FR_RESULT_OK)
 	{
-		VkCommandPoolCreateInfo poolInfo = {};
+		VkCommandPoolCreateInfo poolInfo = {0};
 		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		poolInfo.queueFamilyIndex = pRenderer->idxQueueGraphics;
 		poolInfo.flags = 0; // Optional
@@ -2172,7 +2168,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		// create staging command pool
 		{
-			VkCommandPoolCreateInfo poolInfo = {};
+			VkCommandPoolCreateInfo poolInfo = {0};
 			poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 			poolInfo.queueFamilyIndex = pRenderer->idxQueueGraphics;
 			poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT; // Optional
@@ -2565,7 +2561,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 	// record PVS commands for each proxy
 	FUR_PROFILE("pvs-rec-cmds")
 	{
-		VkRenderPassBeginInfo renderPassInfo = {};
+		VkRenderPassBeginInfo renderPassInfo = {0};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		renderPassInfo.renderPass = pRenderer->renderPass;
 		renderPassInfo.framebuffer = pRenderer->aSwapChainFrameBuffers[imageIndex];
@@ -2574,8 +2570,9 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		renderPassInfo.renderArea.offset.y = 0;
 		renderPassInfo.renderArea.extent = pRenderer->swapChainExtent;
 		
-		const uint32_t numClearValues = 2;
-		VkClearValue clearColor[numClearValues] = {};
+		VkClearValue clearColor[2] = {0};
+		const uint32_t numClearValues = ARRAYSIZE(clearColor);
+
 		clearColor[0].color.float32[0] = 1.0f;
 		clearColor[0].color.float32[1] = 1.0f;
 		clearColor[0].color.float32[2] = 1.0f;
@@ -2704,7 +2701,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 	// present
 	FUR_PROFILE("rend-present")
 	{
-		VkPresentInfoKHR presentInfo = {};
+		VkPresentInfoKHR presentInfo = {0};
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 		
 		presentInfo.waitSemaphoreCount = 1;
@@ -2825,14 +2822,14 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 {
 	fr_resource_mesh_t* meshResource = NULL;
 	
-	char pathEngine[256] = {};
+	char pathEngine[256] = {0};
 	fc_path_concat(pathEngine, depot->path, ctx->path, ctx->fileName, ".mesh");
 	FILE* engineFile = fopen(pathEngine, "rb");
 	
 	// load mesh
 	if(!engineFile)
 	{
-		char pathImport[256] = {};
+		char pathImport[256] = {0};
 		fc_path_concat(pathImport, "", ctx->path, ctx->fileName, ".fbx");
 		
 		fi_import_mesh_ctx_t loadCtx;
@@ -2843,7 +2840,7 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 	
 	// load or save serialized file
 	{
-		fc_serializer_t ser = {};
+		fc_serializer_t ser = {0};
 		ser.file = engineFile ? engineFile : fopen(pathEngine, "wb");
 		ser.isWriting = (engineFile == NULL);
 		
@@ -2859,12 +2856,14 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 	
 	fr_mesh_t* mesh = FUR_ALLOC_AND_ZERO(sizeof(fr_mesh_t), 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 	
-	const uint32_t maxTextures = 40;
+#define TEMP_MAX_TEXTURES_NUM 40
+
+	VkDeviceSize imageStagingOffset[TEMP_MAX_TEXTURES_NUM] = {0};
+	const uint32_t maxTextures = TEMP_MAX_TEXTURES_NUM;
 	FUR_ASSERT(ctx->numTextures <= maxTextures);
-	
-	VkDeviceSize imageStagingOffset[maxTextures] = {};
-	int32_t imageWidth[maxTextures] = {};
-	int32_t imageHeight[maxTextures] = {};
+
+	int32_t imageWidth[TEMP_MAX_TEXTURES_NUM] = {0};
+	int32_t imageHeight[TEMP_MAX_TEXTURES_NUM] = {0};
 	fr_image_t* textures = FUR_ALLOC_ARRAY_AND_ZERO(fr_image_t, ctx->numTextures, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 	
 	// prepare staging buffer builder
@@ -2884,7 +2883,7 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 		// load texture
 		{
 			const char* texturePathRelative = ctx->texturePaths[i];
-			char texturePath[256] = {};
+			char texturePath[256] = {0};
 			sprintf(texturePath, "%s%s", depot->path, texturePathRelative);
 			
 			int texChannels;
@@ -2900,7 +2899,7 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 		}
 		
 		{
-			fr_image_desc_t desc = {};
+			fr_image_desc_t desc = {0};
 			desc.size = imageSize;
 			desc.width = imageWidth[i];
 			desc.height = imageHeight[i];
@@ -2936,7 +2935,7 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 			
 			// data buffer
 			{
-				fr_buffer_desc_t desc = {};
+				fr_buffer_desc_t desc = {0};
 				desc.size = sizeIndices + sizeVertices;
 				
 				// skinning data
@@ -2996,7 +2995,7 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 	
 	// load data onto GPU
 	{
-		fr_buffer_t stagingBuffer = {};
+		fr_buffer_t stagingBuffer = {0};
 		
 		// add vertices & indices data to staging buffer for mesh
 		for(uint32_t i=0; i<meshResource->numChunks; ++i)
@@ -3022,7 +3021,7 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 		VkCommandPool stagingCommandPool = NULL;
 		
 		{
-			VkCommandPoolCreateInfo poolInfo = {};
+			VkCommandPoolCreateInfo poolInfo = {0};
 			poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 			poolInfo.queueFamilyIndex = pRenderer->idxQueueGraphics;
 			poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT; // Optional

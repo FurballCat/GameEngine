@@ -1,6 +1,6 @@
 /* Copyright (c) 2016-2019 Furball Cat */
 
-#include "vulkansdk/macOS/include/vulkan/vulkan.h"
+#include "vulkan.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <string.h>
@@ -33,7 +33,7 @@ void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locato
 	
 	FUR_ASSERT(locator);
 	
-	fr_world_view_proj_t ubo = {};
+	fr_world_view_proj_t ubo = {0};
 	ubo.world = *locator;
 	ubo.view = pvs->view;
 	ubo.proj = pvs->projection;
@@ -49,13 +49,13 @@ void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locato
 	
 	pvs->proxies[descriptorIndex] = proxy;
 	
-	fr_write_descriptor_set_ctx_t desc = {};
+	fr_write_descriptor_set_ctx_t desc = {0};
 	desc.uniformBuffer = &pvs->worldViewProj;
 	desc.uniformBufferSize = size;
 	desc.uniformBufferOffset = offset;
 	
 	FUR_ASSERT(proxy->numTextures < 20);
-	VkSampler samplers[20] = {};
+	VkSampler samplers[20] = {0};
 	for(uint32_t i=0; i<20; ++i)
 	{
 		samplers[i] = pvs->defaultTextureSampler;
