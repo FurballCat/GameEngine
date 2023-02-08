@@ -128,8 +128,11 @@ DerivedDataCache/*
 # directories
 intermediate
 binaries
+bin
 assets
 rawAssets
+thirdparty/PhysX
+thirdparty/Vulkan
 __pycache__
 
 # python
