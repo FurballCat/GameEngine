@@ -1,6 +1,8 @@
 [submodule "thirdparty/PhysX"]
 	path = thirdparty/PhysX
 	url = https://github.com/NVIDIAGameWorks/PhysX.git
+	ignore = dirty
 [submodule "thirdparty/Vulkan"]
 	path = thirdparty/Vulkan
 	url = https://github.com/KhronosGroup/Vulkan-Headers.git
+	ignore = dirty
