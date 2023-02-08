@@ -44,8 +44,6 @@ endif()
 # exclude from ALL_BUILD
 set_property(TARGET ${ProjectName} PROPERTY EXCLUDE_FROM_ALL ON)
 
-set(FurThirdPartyPath ${CMAKE_CURRENT_SOURCE_DIR}/../../../thirdparty)
-
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/internal)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/..)
@@ -69,3 +67,9 @@ endif()
 get_filename_component(SubProjectPath ${CMAKE_CURRENT_SOURCE_DIR} DIRECTORY)
 	cmake_path(GET SubProjectPath FILENAME SubFolderName)
 set_target_properties(${ProjectName} PROPERTIES FOLDER ${SubFolderName})
+
+# set output directories for binaries
+set_target_properties(${ProjectName} PROPERTIES
+	LIBRARY_OUTPUT_DIRECTORY "${FurBinPath}/lib"
+	RUNTIME_OUTPUT_DIRECTORY "${FurBinPath}")
+	

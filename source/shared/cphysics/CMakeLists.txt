@@ -11,7 +11,11 @@ include_directories(${FurThirdPartyPath}/PhysX/pxshared/include)
 
 if(WIN32)
 target_link_libraries(${ProjectName}
-	${FurThirdPartyPath}/PhysX/physx/bin/win.x86_64.vc142.mt/release/PhysXDevice64.dll)
+	${FurThirdPartyPath}/PhysX/physX/bin/win.x86_64.vc142.mt/release/PhysX_64.lib
+	${FurThirdPartyPath}/PhysX/physX/bin/win.x86_64.vc142.mt/release/PhysXCommon_64.lib
+	${FurThirdPartyPath}/PhysX/physX/bin/win.x86_64.vc142.mt/release/PhysXFoundation_64.lib
+	${FurThirdPartyPath}/PhysX/physX/bin/win.x86_64.vc142.mt/release/PhysXCharacterKinematic_static_64.lib
+	${FurThirdPartyPath}/PhysX/physX/bin/win.x86_64.vc142.mt/release/PhysXExtensions_static_64.lib)
 	
 elseif(APPLE)
 target_link_libraries(${ProjectName}

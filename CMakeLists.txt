@@ -10,28 +10,28 @@ set (CMAKE_SUPPRESS_REGENERATION true)
 # enable filters/folders on project level
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-# add source files
-#file(GLOB_RECURSE SOURCE_FILES 
-#	${CMAKE_SOURCE_DIR}/src/*.c
-#	${CMAKE_SOURCE_DIR}/src/*.cpp)
-	
-# add header files
-#file(GLOB_RECURSE HEADER_FILES
-#	${CMAKE_SOURCE_DIR}/src/*.h
-#	${CMAKE_SOURCE_DIR}/src/*.hpp)
-	
-#include_directories(${CMAKE_SOURCE_DIR}/lib/glfw/include)
-#include_directories(${CMAKE_SOURCE_DIR}/lib/glad/include)
-#include_directories(${CMAKE_SOURCE_DIR}/lib/vectormath)
+# set paths for bin and thirdparty
+set(FurThirdPartyPath ${CMAKE_SOURCE_DIR}/thirdparty)
+set(FurBinPath ${CMAKE_SOURCE_DIR}/bin)
 
-#add_executable(${PROJECT_NAME} WIN32 ${HEADER_FILES} ${SOURCE_FILES})
-#add_library(glad "lib/glad/src/glad.c")
+# set output paths for executables and libraries (not sure it works...)
+set( CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin )
+set( CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/lib )
 
-#link_directories(${CMAKE_SOURCE_DIR}/lib)
-
-#set_target_properties(${PROJECT_NAME} PROPERTIES LINKER_LANGUAGE CXX)
-
-#target_link_libraries(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/lib/glfw/lib/glfw3.lib glad)
+# set static linking rather than dynamic linking for MSVC
+if(MSVC)
+  set(CompilerFlags
+    CMAKE_CXX_FLAGS
+    CMAKE_CXX_FLAGS_DEBUG
+    CMAKE_CXX_FLAGS_RELEASE
+    CMAKE_C_FLAGS
+    CMAKE_C_FLAGS_DEBUG
+    CMAKE_C_FLAGS_RELEASE
+    )
+  foreach(CompilerFlag ${CompilerFlags})
+    string(REPLACE "/MD" "/MT" ${CompilerFlag} "${${CompilerFlag}}")
+  endforeach()
+endif()
 
 file(GLOB_RECURSE SubProjects ${CMAKE_SOURCE_DIR}/source/*CMakeLists.txt)
 foreach(SubProj ${SubProjects})
