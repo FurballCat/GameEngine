@@ -6,11 +6,15 @@ target_link_libraries(${ProjectName}
 	cmath
 	cimport
 	glfw)
-	
+
+# using Vulkan includes from third party folder	
 include_directories(${FurThirdPartyPath}/Vulkan/include)
 
 # third party: "vulkan", "moltenvk"
-#find_package(VulkanHeaders REQUIRED CONFIG)
-#target_link_libraries(${ProjectName} PRIVATE Vulkan::Headers)
-#message(STATUS "Vulkan Headers Registry: ${VULKAN_HEADERS_REGISTRY_DIRECTORY}")
-#message(STATUS "Vulkan Headers Version: ${VulkanHeaders_VERSION}")
+# paths to the libs (note: if you can't find them, then make sure to install Vulkan SDK and set env variable)
+message(STATUS "Vulkan SDK Path: $ENV{VULKAN_SDK}")
+set(VULKAN_SDK_LIB_PATH "$ENV{VULKAN_SDK}/Lib")
+
+# link Vulkan SDK libs
+target_link_directories(${ProjectName} PUBLIC ${VULKAN_SDK_LIB_PATH})
+target_link_libraries(${ProjectName} vulkan-1)

@@ -54,6 +54,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../game)
 source_group("src" FILES ${HEADER_FILES} ${SOURCE_FILES})
 source_group("src/internal" FILES ${INTERNAL_HEADER_FILES} ${INTERNAL_SOURCE_FILES})
 
+# add custom defines to preprocessor
 if(WIN32)
 	add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 	add_compile_definitions(PLATFORM_WINDOWS)
