@@ -1310,7 +1310,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 		
 		VkDescriptorSetLayoutBinding bindings[3] = { uboLayoutBinding, skinLayoutBinding, samplerLayoutBinding };
-		const uint32_t numBindings = ARRAYSIZE(bindings);
+		const uint32_t numBindings = 3;
 		
 		VkDescriptorSetLayoutCreateInfo layoutInfo = {0};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -1336,7 +1336,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		uboLayoutBinding.pImmutableSamplers = NULL;
 		
 		VkDescriptorSetLayoutBinding bindings[1] = { uboLayoutBinding };
-		const uint32_t numBindings = ARRAYSIZE(bindings);
+		const uint32_t numBindings = 1;
 		
 		VkDescriptorSetLayoutCreateInfo layoutInfo = {0};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -1370,7 +1370,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 		
 		VkDescriptorSetLayoutBinding bindings[2] = { uboLayoutBinding, samplerLayoutBinding };
-		const uint32_t numBindings = ARRAYSIZE(bindings);
+		const uint32_t numBindings = 2;
 		
 		VkDescriptorSetLayoutCreateInfo layoutInfo = {0};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -1823,7 +1823,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 				pRenderer->depthImage.view
 			};
 
-			const uint32_t numAttachments = ARRAYSIZE(attachments);
+			const uint32_t numAttachments = 2;
 			
 			VkFramebufferCreateInfo framebufferInfo = {0};
 			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -1846,7 +1846,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		VkDescriptorPoolSize poolSizes[2];
-		uint32_t numBindings = ARRAYSIZE(poolSizes);
+		uint32_t numBindings = 2;
 
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		poolSizes[0].descriptorCount = NUM_SWAP_CHAIN_IMAGES;
@@ -1984,7 +1984,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			bufferInfo[0].range = sizeof(fr_uniform_buffer_t);
 			
 			VkWriteDescriptorSet descriptorWrites[1] = {0};
-			const uint32_t numBindings = ARRAYSIZE(descriptorWrites);
+			const uint32_t numBindings = 1;
 			
 			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			descriptorWrites[0].dstSet = pRenderer->aRectDescriptorSets[i];
@@ -2031,7 +2031,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			imageInfo.sampler = pRenderer->textTextureSampler;
 			
 			VkWriteDescriptorSet descriptorWrites[2] = {0};
-			const uint32_t numBindings = ARRAYSIZE(descriptorWrites);
+			const uint32_t numBindings = 2;
 			
 			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			descriptorWrites[0].dstSet = pRenderer->aTextDescriptorSets[i];
@@ -2059,7 +2059,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		VkDescriptorPoolSize poolSizes[2] = {0};
-		uint32_t numBindings = ARRAYSIZE(poolSizes);
+		uint32_t numBindings = 2;
 
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		poolSizes[0].descriptorCount = NUM_SWAP_CHAIN_IMAGES;
@@ -2571,7 +2571,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		renderPassInfo.renderArea.extent = pRenderer->swapChainExtent;
 		
 		VkClearValue clearColor[2] = {0};
-		const uint32_t numClearValues = ARRAYSIZE(clearColor);
+		const uint32_t numClearValues = 2;
 
 		clearColor[0].color.float32[0] = 1.0f;
 		clearColor[0].color.float32[1] = 1.0f;

@@ -236,7 +236,7 @@ VkResult fr_render_pass_create_color_depth(VkDevice device, VkFormat colorFormat
 	fr_subpass_init_color_depth(&colorAttachmentRef, &depthAttachmentRef, &subpass, &dependency);
 	
 	VkAttachmentDescription attachments[2] = {colorAttachment, depthAttachment};
-	const uint32_t numAttachments = ARRAYSIZE(attachments);
+	const uint32_t numAttachments = 2;
 	
 	// create render pass
 	VkRenderPassCreateInfo renderPassInfo = {0};

@@ -175,6 +175,11 @@ int32_t fc_thread_create_suspended(fc_thread_t* outThread, void (*func)(void*), 
 	return 0;
 }
 
+void fc_thread_resume(fc_thread_t thread)
+{
+	ResumeThread((HANDLE)thread.id);
+}
+
 void fc_thread_join(fc_thread_t thread)
 {
 	WaitForSingleObject((HANDLE)thread.id, INFINITE);

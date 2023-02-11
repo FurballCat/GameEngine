@@ -138,7 +138,7 @@ void fr_alloc_descriptor_sets_mesh(VkDevice device, fr_alloc_descriptor_sets_mes
 		bufferInfo[1].range = ctx->skinningBufferSize;
 		
 		VkWriteDescriptorSet descriptorWrites[3] = {0};
-		const uint32_t numBindings = ARRAYSIZE(descriptorWrites);
+		const uint32_t numBindings = 3;
 		
 		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		descriptorWrites[0].dstSet = ctx->outDescriptorSets[i];
@@ -207,7 +207,7 @@ void fr_write_descriptor_set(VkDevice device, fr_write_descriptor_set_ctx_t* ctx
 	}
 	
 	VkWriteDescriptorSet descriptorWrites[3] = {0};
-	const uint32_t numBindings = ARRAYSIZE(descriptorWrites);
+	const uint32_t numBindings = 3;
 	
 	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	descriptorWrites[0].dstSet = descriptor;

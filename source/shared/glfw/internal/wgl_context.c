@@ -26,7 +26,7 @@
 //========================================================================
 
 // FURBALL CAT MODIFICATION
-#ifdef PLATFORM_LINUX
+#if PLATFORM_LINUX | PLATFORM_WINDOWS
 // FURBALL CAT MODIFICATION
 
 #include "internal.h"
