@@ -145,7 +145,7 @@ fc_job_counter_t* fc_job_system_make_counter(fc_job_system_t* sys, int32_t value
 	
 	fc_job_counter_t* counter = &sys->counters[index];
 	counter->index = index;
-	atomic_store(&counter->value, value);
+	fc_atomic_store(&counter->value, value);
 	
 	return counter;
 }
@@ -153,7 +153,7 @@ fc_job_counter_t* fc_job_system_make_counter(fc_job_system_t* sys, int32_t value
 void fc_job_system_release_counter(fc_job_system_t* sys, fc_job_counter_t* counter)
 {
 	const int32_t index = counter->index;
-	FUR_ASSERT(atomic_load(&counter->value) == 0);
+	FUR_ASSERT(fc_atomic_load(&counter->value) == 0);
 	
 	fc_free_list_release(&sys->countersFreeList, index);
 }
@@ -200,7 +200,7 @@ void fc_worker_thread_evaluate(int32_t threadIndex)
 				continue;
 			
 			// we know that once counter reaches 0, it will stay 0
-			if(atomic_load(&g_jobSystem.fiberJobs[fiberIndex].counterToWaitFor->value) == 0)
+			if(fc_atomic_load(&g_jobSystem.fiberJobs[fiberIndex].counterToWaitFor->value) == 0)
 			{
 				// replace remove this index from suspended list
 				if(i+1 < g_jobSystem.numSuspendedFiberIndices)
@@ -299,7 +299,7 @@ void fc_worker_thread_evaluate(int32_t threadIndex)
 			FUR_ASSERT(g_jobSystem.fiberJobs[fiberIndexToRun].counter);
 			
 			// decrement counter
-			atomic_fetch_sub(&g_jobSystem.fiberJobs[fiberIndexToRun].counter->value, 1);
+			fc_atomic_fetch_sub(&g_jobSystem.fiberJobs[fiberIndexToRun].counter->value, 1);
 			
 			// release fiber
 			fc_free_list_release(&g_jobSystem.fibersFreeList, fiberIndexToRun);
@@ -463,7 +463,7 @@ void fc_run_jobs(const fc_job_decl_t* jobs, int32_t numJobs, fc_job_counter_t** 
 void fc_wait_for_counter_and_free(fc_job_counter_t* counter)
 {
 	// if counnter is not 0, then suspend the fiber
-	if(atomic_load(&counter->value) != 0)
+	if(fc_atomic_load(&counter->value) != 0)
 	{
 #if FUR_USE_PROFILER
 		// store profiler state before jump

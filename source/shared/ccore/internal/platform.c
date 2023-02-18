@@ -92,6 +92,21 @@ void fc_thread_set_affinity(fc_thread_t thread, int32_t coreID)
 	thread_policy_set(mach_thread, THREAD_AFFINITY_POLICY, (thread_policy_t)&policyData, THREAD_AFFINITY_POLICY_COUNT);
 }
 
+void fc_atomic_store(fc_atomic_int* dst, int src)
+{
+	atomic_store(dst, src);
+}
+
+int fc_atomic_load(fc_atomic_int* src)
+{
+	return atomic_load(src);
+}
+
+int fc_atomic_fetch_sub(fc_atomic_int* dst, int subValue)
+{
+	return atomic_fetch_sub(dst, subValue);
+}
+
 #elif PLATFORM_WINDOWS
 #include <windows.h>
 
@@ -156,6 +171,21 @@ void fc_timeval_now(fc_timeval_t* tv)
 
 	tv->sec = (uint64_t)elapsedTime;
 	tv->usec = (uint32_t)((elapsedTime - tv->sec) * 1000000);
+}
+
+void fc_atomic_store(fc_atomic_int* dst, int src)
+{
+	InterlockedExchange(dst, src);
+}
+
+int fc_atomic_load(fc_atomic_int* src)
+{
+	return InterlockedExchangeAdd(src, 0);
+}
+
+int fc_atomic_fetch_sub(fc_atomic_int* dst, int subValue)
+{
+	return InterlockedExchangeAdd(dst, -subValue);
 }
 
 fc_thread_t fc_thread_self()

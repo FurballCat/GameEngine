@@ -53,7 +53,7 @@ typedef struct fc_job_decl_t
 
 typedef struct fc_job_counter_t
 {
-	atomic_int value;
+	fc_atomic_int value;
 	int32_t index;
 } fc_job_counter_t;
 

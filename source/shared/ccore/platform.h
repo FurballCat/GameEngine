@@ -63,7 +63,17 @@ CCORE_API int32_t fc_rwlock_write_lock(fc_rwlock_t* lock, const char* name);
 // time
 CCORE_API void fc_timeval_now(fc_timeval_t* tv);
 
-typedef int atomic_int;
+// atomic
+typedef int fc_atomic_int;
+
+// store int inside atomic_int
+void fc_atomic_store(fc_atomic_int* dst, int src);
+
+// returns int from atomic_int
+int fc_atomic_load(fc_atomic_int* src);
+
+// fetches int from atomic_int and subtracts subValue
+int fc_atomic_fetch_sub(fc_atomic_int* dst, int subValue);
 
 // thread
 typedef struct fc_thread_t
