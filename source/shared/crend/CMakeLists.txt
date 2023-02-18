@@ -4,8 +4,11 @@ include(${CMAKE_SOURCE_DIR}/config/CMakeLists.txt)
 target_link_libraries(${ProjectName}
 	ccore
 	cmath
-	cimport
-	glfw)
+	cimport)
+
+# using GLFW
+include_directories(${FurThirdPartyPath}/glfw/include)
+target_link_libraries(${ProjectName} ${FurThirdPartyPath}/glfw/build/src/Release/glfw3.lib)
 
 # using Vulkan includes from third party folder	
 include_directories(${FurThirdPartyPath}/Vulkan/include)
