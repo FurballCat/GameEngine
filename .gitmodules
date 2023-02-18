@@ -6,3 +6,7 @@
 	path = thirdparty/Vulkan
 	url = https://github.com/KhronosGroup/Vulkan-Headers.git
 	ignore = dirty
+[submodule "thirdparty/glfw"]
+	path = thirdparty/glfw
+	url = https://github.com/glfw/glfw.git
+	ignore = dirty
