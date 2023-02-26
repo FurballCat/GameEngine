@@ -1131,6 +1131,17 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	
 	// todo: remove that, paths should be passed or something
 	// note: paths for mac when using fopen requires additional "../../../" because of bundle
+#ifdef PLATFORM_WINDOWS
+	const char* basicVertexShaderPath = "../../../shaders/compiled/basic_vs.spv";
+	const char* basicVertexShaderNoSkinPath = "../../../shaders/compiled/basic_vs_no_skin.spv";
+	const char* basicFragmentShaderPath = "../../../shaders/compiled/basic_fs.spv";
+	const char* debugVertexShaderPath = "../../../shaders/compiled/debug_vs.spv";
+	const char* debugFragmentShaderPath = "../../../shaders/compiled/debug_fs.spv";
+	const char* textVertexShaderPath = "../../../shaders/compiled/text_vs.spv";
+	const char* textFragmentShaderPath = "../../../shaders/compiled/text_fs.spv";
+	const char* rectVertexShaderPath = "../../../shaders/compiled/rect_vs.spv";
+	const char* rectFragmentShaderPath = "../../../shaders/compiled/rect_fs.spv";
+#elif PLATFORM_MAC
 	const char* basicVertexShaderPath = "../../../../../shaders/compiled/basic_vs.spv";
 	const char* basicVertexShaderNoSkinPath = "../../../../../shaders/compiled/basic_vs_no_skin.spv";
 	const char* basicFragmentShaderPath = "../../../../../shaders/compiled/basic_fs.spv";
@@ -1140,6 +1151,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	const char* textFragmentShaderPath = "../../../../../shaders/compiled/text_fs.spv";
 	const char* rectVertexShaderPath = "../../../../../shaders/compiled/rect_vs.spv";
 	const char* rectFragmentShaderPath = "../../../../../shaders/compiled/rect_fs.spv";
+#endif
 	
 	if(res == FR_RESULT_OK)
 	{

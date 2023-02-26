@@ -8,7 +8,9 @@ target_link_libraries(${ProjectName}
 
 # using GLFW
 include_directories(${FurThirdPartyPath}/glfw/include)
-target_link_libraries(${ProjectName} ${FurThirdPartyPath}/glfw/build/src/Release/glfw3.lib)
+target_link_libraries(${ProjectName}
+	$<$<CONFIG:Debug>:${FurThirdPartyPath}/glfw/build/src/Debug/glfw3.lib>
+	$<$<NOT:$<CONFIG:Debug>>:${FurThirdPartyPath}/glfw/build/src/Release/glfw3.lib>)
 
 # using Vulkan includes from third party folder	
 include_directories(${FurThirdPartyPath}/Vulkan/include)

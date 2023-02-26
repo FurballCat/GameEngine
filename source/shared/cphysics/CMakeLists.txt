@@ -11,22 +11,44 @@ include_directories(${FurThirdPartyPath}/PhysX/pxshared/include)
 
 if(WIN32)
 set(PHYSX_RELEASE_FOLDER ${FurThirdPartyPath}/PhysX/physX/bin/win.x86_64.vc142.mt/release)
+set(PHYSX_DEBUG_FOLDER ${FurThirdPartyPath}/PhysX/physX/bin/win.x86_64.vc142.mt/debug)
 target_link_libraries(${ProjectName}
-	# link .lib
-	${FurThirdPartyPath}/PhysX/physX/bin/win.x86_64.vc142.mt/release/PhysX_64.lib
-	${FurThirdPartyPath}/PhysX/physX/bin/win.x86_64.vc142.mt/release/PhysXCommon_64.lib
-	${FurThirdPartyPath}/PhysX/physX/bin/win.x86_64.vc142.mt/release/PhysXFoundation_64.lib
-	${FurThirdPartyPath}/PhysX/physX/bin/win.x86_64.vc142.mt/release/PhysXCharacterKinematic_static_64.lib
-	${FurThirdPartyPath}/PhysX/physX/bin/win.x86_64.vc142.mt/release/PhysXExtensions_static_64.lib)
+	$<$<NOT:$<CONFIG:Debug>>:${PHYSX_RELEASE_FOLDER}/PhysX_64.lib>
+	$<$<NOT:$<CONFIG:Debug>>:${PHYSX_RELEASE_FOLDER}/PhysXCommon_64.lib>
+	$<$<NOT:$<CONFIG:Debug>>:${PHYSX_RELEASE_FOLDER}/PhysXFoundation_64.lib>
+	$<$<NOT:$<CONFIG:Debug>>:${PHYSX_RELEASE_FOLDER}/PhysXCharacterKinematic_static_64.lib>
+	$<$<NOT:$<CONFIG:Debug>>:${PHYSX_RELEASE_FOLDER}/PhysXExtensions_static_64.lib>
 	
-	# copy .dll to bin folder
-	add_custom_command(TARGET ${ProjectName} POST_BUILD
+	$<$<CONFIG:Debug>:${PHYSX_DEBUG_FOLDER}/PhysX_64.lib>
+	$<$<CONFIG:Debug>:${PHYSX_DEBUG_FOLDER}/PhysXCommon_64.lib>
+	$<$<CONFIG:Debug>:${PHYSX_DEBUG_FOLDER}/PhysXFoundation_64.lib>
+	$<$<CONFIG:Debug>:${PHYSX_DEBUG_FOLDER}/PhysXCharacterKinematic_static_64.lib>
+	$<$<CONFIG:Debug>:${PHYSX_DEBUG_FOLDER}/PhysXExtensions_static_64.lib>)
+	
+# copy .dll to bin folder
+add_custom_command(TARGET ${ProjectName} POST_BUILD
 	COMMAND robocopy ${PHYSX_RELEASE_FOLDER} ${FurBinPath}/release PhysX_64.dll
 	COMMAND robocopy ${PHYSX_RELEASE_FOLDER} ${FurBinPath}/release PhysXFoundation_64.dll
 	COMMAND robocopy ${PHYSX_RELEASE_FOLDER} ${FurBinPath}/release PhysXCommon_64.dll
 	COMMAND robocopy ${PHYSX_RELEASE_FOLDER} ${FurBinPath}/release glut32.dll
 	COMMAND robocopy ${PHYSX_RELEASE_FOLDER} ${FurBinPath}/release PhysXDevice64.dll
 	COMMAND robocopy ${PHYSX_RELEASE_FOLDER} ${FurBinPath}/release PhysXCooking_64.dll)
+	
+add_custom_command(TARGET ${ProjectName} POST_BUILD
+	COMMAND robocopy ${PHYSX_RELEASE_FOLDER} ${FurBinPath}/debug PhysX_64.dll
+	COMMAND robocopy ${PHYSX_RELEASE_FOLDER} ${FurBinPath}/debug PhysXFoundation_64.dll
+	COMMAND robocopy ${PHYSX_RELEASE_FOLDER} ${FurBinPath}/debug PhysXCommon_64.dll
+	COMMAND robocopy ${PHYSX_RELEASE_FOLDER} ${FurBinPath}/debug glut32.dll
+	COMMAND robocopy ${PHYSX_RELEASE_FOLDER} ${FurBinPath}/debug PhysXDevice64.dll
+	COMMAND robocopy ${PHYSX_RELEASE_FOLDER} ${FurBinPath}/debug PhysXCooking_64.dll)
+	
+add_custom_command(TARGET ${ProjectName} POST_BUILD
+	COMMAND robocopy ${PHYSX_RELEASE_FOLDER} ${FurBinPath}/RelWithDebInfo PhysX_64.dll
+	COMMAND robocopy ${PHYSX_RELEASE_FOLDER} ${FurBinPath}/RelWithDebInfo PhysXFoundation_64.dll
+	COMMAND robocopy ${PHYSX_RELEASE_FOLDER} ${FurBinPath}/RelWithDebInfo PhysXCommon_64.dll
+	COMMAND robocopy ${PHYSX_RELEASE_FOLDER} ${FurBinPath}/RelWithDebInfo glut32.dll
+	COMMAND robocopy ${PHYSX_RELEASE_FOLDER} ${FurBinPath}/RelWithDebInfo PhysXDevice64.dll
+	COMMAND robocopy ${PHYSX_RELEASE_FOLDER} ${FurBinPath}/RelWithDebInfo PhysXCooking_64.dll)
 	
 elseif(APPLE)
 target_link_libraries(${ProjectName}
