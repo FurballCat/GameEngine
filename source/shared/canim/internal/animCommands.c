@@ -60,7 +60,7 @@ void fa_cmd_buffer_write(fa_cmd_buffer_recorder_t* recorder, fa_cmd_func_t func,
 		memcpy(dataPtr, data, dataSize);
 	}
 	
-	(uint8_t*)recorder->currPointer += sizeRequired;
+	recorder->currPointer = (uint8_t*)recorder->currPointer + sizeRequired;
 	recorder->sizeLeft -= sizeRequired;
 	recorder->sizeRecorded += sizeRequired;
 }

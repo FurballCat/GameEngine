@@ -12,6 +12,24 @@ extern "C"
 #include "api.h"
 
 // add custom types here
+#if PLATFORM_OSX
+
+#define fc_serialize(_serializer, _property) _Generic((_property), \
+	int8_t*: fc_serialize_int8,	\
+	int16_t*: fc_serialize_int16, \
+	int32_t*: fc_serialize_int32, \
+	int64_t*: fc_serialize_int64, \
+	uint8_t*: fc_serialize_uint8,	\
+	uint16_t*: fc_serialize_uint16, \
+	uint32_t*: fc_serialize_uint32, \
+	uint64_t*: fc_serialize_uint64, \
+	float*: fc_serialize_float, \
+	double*: fc_serialize_double, \
+	fa_anim_curve_t*: fa_serialize_anim_curve \
+)(_serializer, _property)
+
+#elif PLATFORM_WINDOWS
+
 #define fc_serialize(_serializer, _property) _Generic((_property), \
 	int8_t*: fc_serialize_int8,	\
 	int16_t*: fc_serialize_int16, \
@@ -26,6 +44,8 @@ extern "C"
 	fa_anim_curve_t*: fa_serialize_anim_curve, \
 	enum fm_axis_t*: fc_serialize_uint32 \
 )(_serializer, _property)
+
+#endif
 
 #define FUR_SER_VERSION(_versionLatest)	\
 	if(pSerializer->isWriting) \
