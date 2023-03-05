@@ -13,6 +13,7 @@ extern "C"
 
 #if PLATFORM_OSX
 #include <stdatomic.h>	// for atomic_int
+#include <pthread.h>
 
 // todo: fix this on OSX
 typedef pthread_rwlock_t fc_rwlock_t;
@@ -64,7 +65,11 @@ CCORE_API int32_t fc_rwlock_write_lock(fc_rwlock_t* lock, const char* name);
 CCORE_API void fc_timeval_now(fc_timeval_t* tv);
 
 // atomic
+#if PLATFORM_OSX
+typedef atomic_int fc_atomic_int;
+#elif PLATFORM_WINDOWS
 typedef int fc_atomic_int;
+#endif
 
 // store int inside atomic_int
 void fc_atomic_store(fc_atomic_int* dst, int src);

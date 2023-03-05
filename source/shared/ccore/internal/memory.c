@@ -323,7 +323,7 @@ void* fc_mem_rel_heap_fn_alloc(void* pUserData, size_t size, size_t alignment, e
 	
 	void* ptr = alloc->freePtr;
 	
-	(uint8_t*)alloc->freePtr += size;
+	alloc->freePtr = (uint8_t*)alloc->freePtr + size;
 	alloc->size += size;
 	
 	return ptr;

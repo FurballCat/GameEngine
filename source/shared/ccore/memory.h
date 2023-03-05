@@ -9,6 +9,7 @@ extern "C"
 	
 #include <inttypes.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include "api.h"
 	
 #define FUR_MEMORY_DEBUG 1
