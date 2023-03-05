@@ -18,6 +18,9 @@ set(FurBinPath ${CMAKE_SOURCE_DIR}/bin)
 set( CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin )
 set( CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/lib )
 
+# enable ASM
+enable_language(ASM)
+
 # set static linking rather than dynamic linking for MSVC
 if(MSVC)
   set(CompilerFlags
