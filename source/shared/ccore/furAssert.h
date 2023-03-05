@@ -10,7 +10,11 @@ extern "C"
 #include <assert.h>
 	
 #ifndef FUR_ASSERT
-#define FUR_ASSERT(x) assert(x)
+#if PLATFORM_OSX
+	#define FUR_ASSERT(x) assert(x)
+#elif PLATFORM_WINDOWS
+	#define FUR_ASSERT(x) do { if(!(x)) { __debugbreak(); } } while ((void)0,0)
+#endif
 #endif
 	
 #ifdef __cplusplus
