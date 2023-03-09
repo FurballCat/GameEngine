@@ -43,7 +43,7 @@ void fa_cmd_buffer_write(fa_cmd_buffer_recorder_t* recorder, fa_cmd_func_t func,
 	const uint32_t sizeRequired = sizeof(fa_cmd_func_t) + sizeof(uint32_t) + dataSize;
 	FUR_ASSERT(sizeRequired <= recorder->sizeLeft);
 
-	const uint8_t* currPointer = (const uint8_t*)recorder->currPointer;
+	uint8_t* const currPointer = (uint8_t* const)recorder->currPointer;
 
 	// command function pointer
 	fa_cmd_func_t* funcPtr = (fa_cmd_func_t*)currPointer;
