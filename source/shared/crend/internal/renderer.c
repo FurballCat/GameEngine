@@ -2092,6 +2092,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	}
 	
 	// prepare PVS
+	if (res == FR_RESULT_OK)
 	{
 		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
