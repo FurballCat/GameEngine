@@ -449,7 +449,7 @@ const fa_anim_clip_t* fg_load_anim(fg_resource_register_t* reg, const fi_depot_t
 	fa_anim_clip_t* animClip = NULL;
 	
 	{
-		const char* directory = "assets/characters/zelda/animations/";
+		const char* directory = "data/anim/";
 		const char* extension = ".fbx";
 		const char* engineExtension = ".anim";
 		const size_t dirLength = strlen(directory);
@@ -746,7 +746,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	
 	// load scripts
 	{
-		fc_load_binary_file_into_binary_buffer("../../../../../scripts/zelda-state-script.bin", &pEngine->zeldaStateScript, pAllocCallbacks);
+		fc_load_binary_file_into_binary_buffer("../../../scripts/zelda-state-script.bin", &pEngine->zeldaStateScript, pAllocCallbacks);
 		fg_resource_add_script(&pEngine->pWorld->resources, SID("ss-zelda"), &pEngine->zeldaStateScript);
 	}
 	
@@ -772,14 +772,18 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	
 	// load resources
 	{
+#if PLATFORM_OSX
 		const char* depotPath = "../../../../../";
+#elif PLATFORM_WINDOWS
+		const char* depotPath = "../../../";
+#endif
 
 		fi_depot_t depot;
 		depot.path = depotPath;
 
 		const char* characterRigPath = "assets/characters/zelda/animations/zelda-a-pose.fbx";
 		char pathRigEngine[256] = {};
-		fc_path_concat(pathRigEngine, depotPath, "assets/characters/zelda/animations/", "zelda-a-pose", ".rig");
+		fc_path_concat(pathRigEngine, depotPath, "data/rig/", "zelda-a-pose", ".rig");
 		
 		// load rig
 		{
@@ -1096,9 +1100,9 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		// load meshes
 		{
 			fr_load_mesh_ctx_t meshCtx = {};
-			meshCtx.path = "assets/characters/zelda/mesh/";
-			meshCtx.fileName = "zelda_sword";
-			const char* texturePaths[] = {"assets/characters/zelda/mesh/textures/melee_diff.png"};
+			meshCtx.path = "data/mesh/";
+			meshCtx.fileName = "zelda-sword";
+			const char* texturePaths[] = {"data/texture/melee_diff.png"};
 			const int32_t textureIndices[] = {0};
 			meshCtx.texturePaths = texturePaths;
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
@@ -1110,9 +1114,9 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		// load chest mesh
 		{
 			fr_load_mesh_ctx_t meshCtx = {};
-			meshCtx.path = "assets/chest/";
+			meshCtx.path = "data/mesh/";
 			meshCtx.fileName = "chest";
-			const char* texturePaths[] = {"assets/chest/chest_albedo.png"};
+			const char* texturePaths[] = {"data/texture/chest_albedo.png"};
 			const int32_t textureIndices[] = {0};
 			meshCtx.texturePaths = texturePaths;
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
@@ -1124,9 +1128,9 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		// load block mesh
 		{
 			fr_load_mesh_ctx_t meshCtx = {};
-			meshCtx.path = "assets/sketchfab/cube-world-stone-block-1-pbr-series/source/";
+			meshCtx.path = "data/mesh/";
 			meshCtx.fileName = "skull_block_PBR_fc";
-			const char* texturePaths[] = {"assets/sketchfab/cube-world-stone-block-1-pbr-series/textures/b_stone1_Color.png"};
+			const char* texturePaths[] = {"data/texture/b_stone1_Color.png"};
 			const int32_t textureIndices[] = {0};
 			meshCtx.texturePaths = texturePaths;
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
@@ -1155,10 +1159,10 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			sprintf(txtPath, "rock-0%i", i+1);
 			
 			char txtTexturePath[256];
-			sprintf(txtTexturePath, "assets/rocks/rock-0%i.png", i+1);
+			sprintf(txtTexturePath, "data/texture/rock-0%i.png", i+1);
 			
 			fr_load_mesh_ctx_t meshCtx = {};
-			meshCtx.path = "assets/rocks/";
+			meshCtx.path = "data/mesh/";
 			meshCtx.fileName = txtPath;
 			const char* texturePaths[] = {txtTexturePath};
 			const int32_t textureIndices[] = {0};
@@ -1172,11 +1176,11 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		// load zelda mesh
 		{
 			fr_load_mesh_ctx_t meshCtx = {};
-			meshCtx.path = "assets/characters/zelda/mesh/";
-			meshCtx.fileName = "zelda_mesh";
-			const char* texturePaths[] = {"assets/characters/zelda/mesh/textures/zelda_diff.png",
-				"assets/characters/zelda/mesh/textures/hair_diff.png",
-				"assets/characters/zelda/mesh/textures/eyes_diff2.png"
+			meshCtx.path = "data/mesh/";
+			meshCtx.fileName = "zelda-mesh";
+			const char* texturePaths[] = {"data/texture/zelda_diff.png",
+				"data/texture/hair_diff.png",
+				"data/texture/eyes_diff2.png"
 			};
 			const int32_t textureIndices[] = {0, 0, 1, 0, 2, 0, 1};
 			meshCtx.texturePaths = texturePaths;
@@ -1401,7 +1405,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		fg_spawn_info_prop_value_t prop_values[props_num] = {};
 		prop_values[0].asStringHash = SID("ss-zelda");
 		
-		fg_spawner_t spawner = {};
+		static fg_spawner_t spawner = {};
 		spawner.name = SID("zelda");
 		spawner.typeName = SID("zelda");
 		spawner.info.gameObjectName = SID("zelda");
@@ -1923,7 +1927,7 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 void fc_dev_menu_reload_scripts(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	fc_release_binary_buffer(&pEngine->zeldaStateScript, pAllocCallbacks);
-	fc_load_binary_file_into_binary_buffer("../../../../../scripts/zelda-state-script.bin", &pEngine->zeldaStateScript, pAllocCallbacks);
+	fc_load_binary_file_into_binary_buffer("../../../scripts/zelda-state-script.bin", &pEngine->zeldaStateScript, pAllocCallbacks);
 }
 
 void fc_dev_menu_show_player_anim_state(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)

@@ -1746,8 +1746,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		fr_font_desc_t desc = {0};
-		desc.atlasPath = "../../../../../assets/fonts/debug-font-2.png";
-		desc.glyphsInfoPath = "../../../../../assets/fonts/debug-font-data-2.txt";
+		desc.atlasPath = "../../../data/font/debug-font-2.png";
+		desc.glyphsInfoPath = "../../../data/font/debug-font-data-2.txt";
 		
 		res = fr_font_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->textFont, pAllocCallbacks);
 	}
