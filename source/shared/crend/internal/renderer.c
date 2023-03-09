@@ -244,7 +244,7 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 			{
 				char txt[256];
 				sprintf(txt, "Can't load font atlas \'%s\'", desc->atlasPath);
-				fur_set_last_error("Can't load font atlas");
+				fur_set_last_error(txt);
 				res = FR_RESULT_ERROR;
 			}
 		}
