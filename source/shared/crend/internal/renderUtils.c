@@ -339,8 +339,20 @@ void fr_end_primary_disposable_command_buffer(VkDevice device, VkQueue graphicsQ
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 	
-	vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	VkFence fence;
+	VkFenceCreateInfo fenceCreateInfo = {0};
+	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceCreateInfo.flags = 0;
+	vkCreateFence(device, &fenceCreateInfo, NULL, &fence);
+
+	vkQueueSubmit(graphicsQueue, 1, &submitInfo, fence);
+	vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
+
+	vkResetFences(device, 1, &fence);
+
 	vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+
+	vkDestroyFence(device, fence, NULL);
 }
 
 // --------------------
