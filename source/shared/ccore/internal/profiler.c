@@ -12,6 +12,7 @@
 #define FC_PROFILER_MAX_FRAMES 5
 #define FC_PROFILER_FRAMES_DRAWN 4
 #define FC_PROFILER_MAX_CONTENTION_SCOPES 8192
+#define FC_PROFILER_INIT_ZOOM 35.0f
 
 typedef struct fc_contention_scope_t
 {
@@ -54,7 +55,7 @@ fc_profiler_t g_profiler;
 
 void fc_profiler_init(fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	g_profiler.zoom = 35.0f;
+	g_profiler.zoom = FC_PROFILER_INIT_ZOOM;
 	
 	g_profiler.numThreads = fc_job_system_num_max_threads();
 	
@@ -163,15 +164,16 @@ void fc_profiler_start_frame(void)
 		const float margin = 20.0f;
 		const float line_height = fc_dbg_get_text_line_height(text_scale);
 		const float core_rect_height = 7 * line_height;
+
+		fc_dbg_screen_info_t screen = { 0 };
+		fc_dbg_get_screen_info(&screen);
+
+		const float offset_to_bottom = screen.height - 2.0f * margin;
 		
-		float x = 120.0f + margin + g_profiler.pan * g_profiler.zoom;
+		float x = 120.0f + margin + g_profiler.pan * g_profiler.zoom - screen.width * 0.5f * (g_profiler.zoom - FC_PROFILER_INIT_ZOOM) / FC_PROFILER_INIT_ZOOM;
 		float y = margin;
 
 		fc_dbg_apply_anchor(&x, &y, FC_DBG_ANCHOR_LEFT_UP_CORNER);
-
-		fc_dbg_screen_info_t screen = {0};
-		fc_dbg_get_screen_info(&screen);
-		const float offset_to_bottom = screen.height - 2.0f * margin;
 		
 		float color[4] = {0.0f, 0.0f, 0.4f, 1.0f};
 		const float white[4] = FUR_COLOR_WHITE;

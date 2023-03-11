@@ -2305,25 +2305,31 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 	{
 		const float white[4] = FUR_COLOR_WHITE;
 		int32_t textLineCounter = 0;
+
+		float x = 20.0f;
+		float y = 400.0f;
+		fc_dbg_apply_anchor(&x, &y, FC_DBG_ANCHOR_LEFT_UP_CORNER);
+		const float text_scale = 0.7f;
+		const float line_height = fc_dbg_get_text_line_height(text_scale);
 		
-		fc_dbg_text(-1050, 500 + 24, "-[ Retail Memory ]-----------------------------------------------", white, 0.5f);
+		fc_dbg_text(x, y - line_height, "-[ Retail Memory ]-----------------------------------------------", white, text_scale);
 		
 		char txt[128] = {};
 		
 		fc_dbg_stats_for_mem_to_text(FC_MEMORY_SCOPE_SYSTEM, txt, "OS Memory");
-		fc_dbg_text(-1050, 500 - textLineCounter*24, txt, white, 0.5f);
+		fc_dbg_text(x, y + textLineCounter * line_height, txt, white, text_scale);
 		textLineCounter++;
 		
 		fc_dbg_stats_for_mem_to_text(FC_MEMORY_SCOPE_GLOBAL, txt, "Code And Static Data");
-		fc_dbg_text(-1050, 500 - textLineCounter*24, txt, white, 0.5f);
+		fc_dbg_text(x, y + textLineCounter * line_height, txt, white, text_scale);
 		textLineCounter++;
 		
 		textLineCounter++;
-		fc_dbg_text(-1050, 500 - textLineCounter*24, "-[ Debug Memory ]------------------------------------------------", white, 0.5f);
+		fc_dbg_text(x, y + textLineCounter * line_height, "-[ Debug Memory ]------------------------------------------------", white, text_scale);
 		textLineCounter++;
 		
 		fc_dbg_stats_for_mem_to_text(FC_MEMORY_SCOPE_DEBUG, txt, "Debug Memory");
-		fc_dbg_text(-1050, 500 - textLineCounter*24, txt, white, 0.5f);
+		fc_dbg_text(x, y + textLineCounter * line_height, txt, white, text_scale);
 		textLineCounter++;
 	}
 	
