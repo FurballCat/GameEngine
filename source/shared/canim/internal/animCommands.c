@@ -111,7 +111,7 @@ fa_cmd_status_t fa_cmd_impl_ref_pose(fa_cmd_context_t* ctx, const void* cmdData)
 	{
 		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
 		const float color[4] = FA_DBG_COLOR;
-		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), "ref_pose", color);
+		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), "ref_pose", color, 0.5f);
 	}
 	
 	return FA_CMD_STATUS_OK;
@@ -137,7 +137,7 @@ fa_cmd_status_t fa_cmd_impl_identity(fa_cmd_context_t* ctx, const void* cmdData)
 	{
 		const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
 		const float color[4] = FA_DBG_COLOR;
-		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), "identity", color);
+		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), "identity", color, 0.5f);
 	}
 	
 	return FA_CMD_STATUS_OK;
@@ -178,7 +178,7 @@ fa_cmd_status_t fa_cmd_impl_anim_sample(fa_cmd_context_t* ctx, const void* cmdDa
 		const float color[4] = FA_DBG_COLOR;
 		char txt[256];
 		sprintf(txt, "anim_sample %s t=%1.2f", fc_string_hash_as_cstr_debug(clip->name), data->time);
-		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
+		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color, 0.5f);
 	}
 	
 	// todo: check if required
@@ -245,7 +245,7 @@ fa_cmd_status_t fa_cmd_impl_anim_sample_with_locomotion(fa_cmd_context_t* ctx, c
 		const float color[4] = FA_DBG_COLOR;
 		char txt[256];
 		sprintf(txt, "anim_sample_with_locomotion %s t=%1.2f", fc_string_hash_as_cstr_debug(clip->name), data->time);
-		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
+		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color, 0.5f);
 	}
 	
 	// process locomotion
@@ -398,7 +398,7 @@ fa_cmd_status_t fa_cmd_impl_blend2(fa_cmd_context_t* ctx, const void* cmdData)
 		const float color[4] = FA_DBG_COLOR;
 		char txt[128];
 		sprintf(txt, "blend2 a=%1.2f", data->alpha);
-		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
+		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color, 0.5f);
 	}
 	
 	return FA_CMD_STATUS_OK;
@@ -437,7 +437,7 @@ fa_cmd_status_t fa_cmd_impl_apply_additive(fa_cmd_context_t* ctx, const void* cm
 		const float color[4] = FA_DBG_COLOR;
 		char txt[128];
 		sprintf(txt, "apply additive w=%1.2f", data->weight);
-		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
+		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color, 0.5f);
 	}
 	
 	return FA_CMD_STATUS_OK;
@@ -474,7 +474,7 @@ fa_cmd_status_t fa_cmd_impl_use_cached_pose(fa_cmd_context_t* ctx, const void* c
 		const float color[4] = FA_DBG_COLOR;
 		char txt[128];
 		sprintf(txt, "use_cached_pose id=%i", data->poseId);
-		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
+		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color, 0.5f);
 	}
 	
 	return FA_CMD_STATUS_OK;
@@ -503,7 +503,7 @@ fa_cmd_status_t fa_cmd_impl_apply_mask(fa_cmd_context_t* ctx, const void* cmdDat
 		{
 			const uint32_t pos = ctx->debug->cmdDrawCursorVerticalPos;
 			const float color[4] = FUR_COLOR_RED;
-			fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), "apply_mask id=<INNVALID>", color);
+			fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), "apply_mask id=<INNVALID>", color, 0.5f);
 		}
 		
 		return FA_CMD_STATUS_OK;
@@ -524,7 +524,7 @@ fa_cmd_status_t fa_cmd_impl_apply_mask(fa_cmd_context_t* ctx, const void* cmdDat
 		const float color[4] = FA_DBG_COLOR;
 		char txt[128];
 		sprintf(txt, "apply_mask id=%i", data->maskId);
-		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color);
+		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color, 0.5f);
 	}
 	
 	return FA_CMD_STATUS_OK;

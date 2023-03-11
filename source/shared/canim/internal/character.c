@@ -219,7 +219,7 @@ void fa_character_layer_cache_pose(fa_layer_t* layer, fa_cross_layer_context_t* 
 	if(ctx->debug)
 	{
 		const float color[4] = FUR_COLOR_RED;
-		fc_dbg_text(-450.0f, 1.0f, "caching_pose", color);
+		fc_dbg_text(-450.0f, 1.0f, "caching_pose", color, 0.5f);
 	}
 }
 

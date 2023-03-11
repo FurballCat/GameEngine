@@ -32,7 +32,30 @@ CCORE_API void fc_dbg_box_wire(const float center[3], const float extent[3], con
 CCORE_API void fc_dbg_plane(const float center[3], const float halfLength, const float color[4]);
 	
 // use sprintf( txt, "blah blah %u", value ) and pass txt to the function (txt is char txt[32] or any other reasonable size)
-CCORE_API void fc_dbg_text(float x, float y, const char* txt, const float color[4]);
+CCORE_API void fc_dbg_text(float x, float y, const char* txt, const float color[4], float scale);
+
+typedef struct fc_dbg_screen_info_t
+{
+	float width;
+	float height;
+} fc_dbg_screen_info_t;
+
+// set/get info about screen corners and size
+CCORE_API void fc_dbg_get_screen_info(fc_dbg_screen_info_t* info);
+CCORE_API void fc_dbg_set_screen_info(const fc_dbg_screen_info_t* info);	// this should be called on screen resize
+
+typedef enum fc_dbg_screen_anchors_t
+{
+	FC_DBG_ANCHOR_LEFT_UP_CORNER = 0,
+	FC_DBG_ANCHOR_RIGHT_UP_CORNER,
+	FC_DBG_ANCHOR_LEFT_BOTTOM_CORNER,
+	FC_DBG_ANCHOR_RIGHT_BOTTOM_CORNER,
+	FC_DBG_ANCHOR_CENTER,
+} fc_dbg_screen_anchors_t;
+
+// call this to set init x and y for 2D drawing aligned to anchors
+CCORE_API void fc_dbg_apply_anchor(float* x, float* y, fc_dbg_screen_anchors_t anchor);
+static inline float fc_dbg_get_text_line_height(float scale) { return 28.0f * scale; }
 
 // draw flat 2D rectancle (drawn under text), use it for simple debug UI rectancles
 CCORE_API void fc_dbg_rect(float x, float y, float width, float height, const float color[4]);
@@ -75,6 +98,7 @@ typedef struct fc_dbg_buffers_desc_t
 	
 	// 2D text
 	const float* textLocationData;
+	const float* textScaleData;
 	const uint32_t* textRangeData;
 	uint32_t textLinesCount;
 	

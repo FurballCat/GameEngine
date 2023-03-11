@@ -167,7 +167,7 @@ void fc_timeval_now(fc_timeval_t* tv)
 	QueryPerformanceCounter(&time);
 
 	// todo: not the fastest way...
-	const double elapsedTime = (time.QuadPart - time.QuadPart) / (double)frequency.QuadPart;
+	const double elapsedTime = (double)time.QuadPart / (double)frequency.QuadPart;
 
 	tv->sec = (uint64_t)elapsedTime;
 	tv->usec = (uint32_t)((elapsedTime - tv->sec) * 1000000);

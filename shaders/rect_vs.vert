@@ -14,7 +14,7 @@ layout(location = 0) out vec4 fragColor;
 
 void main()
 {
-	const vec4 pos = vec4(inPosition.x * 0.5f, inPosition.y * 0.5f, 0.0f, 1.0f);
+	const vec4 pos = vec4(inPosition.x, inPosition.y, 0.0f, 1.0f);
 	
 	gl_Position = ubo.proj * ubo.view * ubo.model * pos;
 	

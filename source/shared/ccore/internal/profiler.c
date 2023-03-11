@@ -54,7 +54,7 @@ fc_profiler_t g_profiler;
 
 void fc_profiler_init(fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	g_profiler.zoom = 50.0f;
+	g_profiler.zoom = 35.0f;
 	
 	g_profiler.numThreads = fc_job_system_num_max_threads();
 	
@@ -159,8 +159,19 @@ void fc_profiler_start_frame(void)
 	// draw last frame
 	if(g_profiler.debugDraw)
 	{
-		float x = -1000.0f + g_profiler.pan * g_profiler.zoom;
-		float y = 600.0f;
+		const float text_scale = 0.5f;
+		const float margin = 20.0f;
+		const float line_height = fc_dbg_get_text_line_height(text_scale);
+		const float core_rect_height = 7 * line_height;
+		
+		float x = 120.0f + margin + g_profiler.pan * g_profiler.zoom;
+		float y = margin;
+
+		fc_dbg_apply_anchor(&x, &y, FC_DBG_ANCHOR_LEFT_UP_CORNER);
+
+		fc_dbg_screen_info_t screen = {0};
+		fc_dbg_get_screen_info(&screen);
+		const float offset_to_bottom = screen.height - 2.0f * margin;
 		
 		float color[4] = {0.0f, 0.0f, 0.4f, 1.0f};
 		const float white[4] = FUR_COLOR_WHITE;
@@ -169,6 +180,9 @@ void fc_profiler_start_frame(void)
 		const float red[4] = {0.4f, 0.0f, 0.0f, 0.6f};
 		const float yellow[4] = {0.8f, 0.8f, 0.0f, 0.8f};
 		const float grey[4] = {0.6f, 0.6f, 0.6f, 1.0f};
+		const float dark_grey[4] = { 0.2f, 0.2f, 0.2f, 0.8f };
+
+		fc_dbg_rect(0.0f, 0.0f, screen.width, screen.height, dark_grey);
 		
 		// lines for ms
 		{
@@ -183,17 +197,17 @@ void fc_profiler_start_frame(void)
 					continue;
 				
 				int32_t x_offset = i * g_profiler.zoom;
-				fc_dbg_rect(x + x_offset, y, isRound ? 3 : 1, 1200.0f, white);
+				fc_dbg_rect(x + x_offset, y, isRound ? 2 : 1, offset_to_bottom, white);
 				
 				sprintf(txt, "%i ms", i);
-				fc_dbg_text(x + x_offset + 2, y - 1200.0f + 24.0f, txt, white);
+				fc_dbg_text(x + x_offset + 4, y + offset_to_bottom - line_height, txt, white, text_scale);
 			}
 		}
 		
 		// areas of FPS
-		fc_dbg_rect(x, y, 16.6666f * g_profiler.zoom, 1200.0f, green);	// 60 FPS
-		fc_dbg_rect(x + 16.6666f * g_profiler.zoom, y, 16.6666f * g_profiler.zoom, 1200.0f, blue);	// 30 FPS
-		fc_dbg_rect(x + 33.3333f * g_profiler.zoom, y, 70.0f * g_profiler.zoom, 1200.0f, red);	// less than 30 FPS
+		fc_dbg_rect(x, y, 16.6666f * g_profiler.zoom, offset_to_bottom, green);	// 60 FPS
+		fc_dbg_rect(x + 16.6666f * g_profiler.zoom, y, 16.6666f * g_profiler.zoom, offset_to_bottom, blue);	// 30 FPS
+		fc_dbg_rect(x + 33.3333f * g_profiler.zoom, y, screen.width - x, offset_to_bottom, red);	// less than 30 FPS
 		
 		// start drawing from the oldest frame (which is current + 1, as we rotate frames)
 		uint32_t frameIdx = (g_profiler.pausedOnFrame + 1) % FC_PROFILER_FRAMES_DRAWN;
@@ -206,12 +220,12 @@ void fc_profiler_start_frame(void)
 		{
 			const fc_profiler_thread_info_t* thread = &g_profiler.threads[t];
 			
-			float y = 600.0f - t * 200.0f;	// place thread lines in their own horizontal panels
+			float y = margin + t * core_rect_height;	// place thread lines in their own horizontal panels
 			
 			// line for each core/thread
-			fc_dbg_rect(x - 120.0f, y, 8000.0f, 1.0f, grey);
+			fc_dbg_rect(x - 120.0f, y, screen.width + 1000.0f - x, 1.0f, grey);
 			sprintf(coreTxt, "Core %i", t);
-			fc_dbg_text(x - 120.0f, y, coreTxt, white);
+			fc_dbg_text(x - 120.0f, y + 2.0f, coreTxt, white, 0.7f);
 			
 			for(uint32_t f=0; f<FC_PROFILER_FRAMES_DRAWN-1; ++f, frameIdx = (frameIdx + 1) % FC_PROFILER_FRAMES_DRAWN)
 			{
@@ -225,7 +239,7 @@ void fc_profiler_start_frame(void)
 						fc_profiler_scope_t scope = scopes[i];
 						
 						// scope could be closed by another thread in case of fiber switch
-						y = 600.0f - scope.threadID * 200.0f;
+						y = margin + scope.threadID * core_rect_height;
 						
 						color[0] = ((uint8_t)scope.name[0]) / 255.0f;
 						color[1] = ((uint8_t)scope.name[1]) / 255.0f;
@@ -239,7 +253,7 @@ void fc_profiler_start_frame(void)
 						// draw scope rectangle
 						if(width > 4.0f)
 						{
-							fc_dbg_rect(x + x_offset, y - 30.0 * scope.depth, width, 28.0, color);
+							fc_dbg_rect(x + x_offset, y + line_height * scope.depth, width, line_height, color);
 						}
 						
 						// draw scope name
@@ -248,7 +262,7 @@ void fc_profiler_start_frame(void)
 							char txt[256];
 							const float elapsedTime_ms = stopTime_ms - startTime_ms;
 							sprintf(txt, "%s (%1.3fms)", scope.name, elapsedTime_ms);
-							fc_dbg_text(x + x_offset, y - 30.0 * scope.depth, txt, white);
+							fc_dbg_text(x + x_offset, y + line_height * scope.depth, txt, white, text_scale);
 							
 							/*if(elapsedTime_ms > 20.0f)
 							{
@@ -268,7 +282,7 @@ void fc_profiler_start_frame(void)
 						fc_contention_scope_t scope = scopes[i];
 						
 						// scope could be closed by another thread in case of fiber switch
-						y = 600.0f - t * 200.0f;
+						y = margin + t * core_rect_height;
 						
 						const float startTime_ms = scope.startTime.sec * 1000.0 + scope.startTime.usec / 1000.0 - firstFrameStartTime_ms;
 						const float stopTime_ms = scope.endTime.sec * 1000.0 + scope.endTime.usec / 1000.0 - firstFrameStartTime_ms;
@@ -278,7 +292,7 @@ void fc_profiler_start_frame(void)
 						// draw scope rectangle
 						if(width > 4.0f)
 						{
-							fc_dbg_rect(x + x_offset, y + 10, width, 5.0, yellow);
+							fc_dbg_rect(x + x_offset, y - 10, width, 5.0, yellow);
 						}
 						
 						// draw scope name
@@ -287,7 +301,7 @@ void fc_profiler_start_frame(void)
 							char txt[256];
 							const float elapsedTime_ms = stopTime_ms - startTime_ms;
 							sprintf(txt, "%s (%1.3fms)", scope.name, elapsedTime_ms);
-							fc_dbg_text(x + x_offset, y + 35, txt, white);
+							fc_dbg_text(x + x_offset, y - line_height, txt, white, text_scale);
 							
 							/*if(elapsedTime_ms > 20.0f)
 							{

@@ -378,7 +378,7 @@ const fr_font_glyph_t* fr_font_get_glyph(const fr_font_t* font, char chr)
 	return &font->glyphs[idxGlyph];
 }
 
-uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, const float textPos[2], const float textColor[3], float* vertices, uint32_t numMaxVertices)
+uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, const float textPos[2], const float textColor[3], float* vertices, uint32_t numMaxVertices, float scale)
 {
 	FUR_ASSERT(FR_FONT_FLOATS_PER_GLYPH_VERTEX == 7);
 	
@@ -396,8 +396,6 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 	for(uint32_t i=0; i<length; ++i)
 	{
 		const fr_font_glyph_t* glyph = fr_font_get_glyph(font, text[i]);
-		
-		static const float scale = 1.0f;
 		
 		if(glyph->size[0] == 0)
 		{
@@ -1045,6 +1043,12 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		extent.height = MAX(surfaceCapabilities.minImageExtent.height,
 							MIN(surfaceCapabilities.maxImageExtent.height, pRenderer->pApp->viewportHeight));
 		
+		fc_dbg_screen_info_t dbgScreenInfo = { 0 };
+		dbgScreenInfo.width = (float)extent.width;
+		dbgScreenInfo.height = (float)extent.height;
+
+		fc_dbg_set_screen_info(&dbgScreenInfo);
+
 		const VkFormat surfaceFormat = VK_FORMAT_B8G8R8A8_UNORM;
 		
 		VkSwapchainCreateInfoKHR createInfo = {0};
@@ -2469,9 +2473,9 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		
 		fm_mat4_transpose(&ubo.model);
 		
-		const float scale = pRenderer->swapChainExtent.height * 0.18f;
-		const float aspectRatio = pRenderer->swapChainExtent.width / (float)pRenderer->swapChainExtent.height;
-		fm_mat4_ortho_projection(scale, -scale, -aspectRatio * scale, aspectRatio * scale, 0.0f, 1.0f, &ubo.proj);
+		const float height = pRenderer->swapChainExtent.height;
+		const float width = pRenderer->swapChainExtent.width;
+		fm_mat4_ortho_projection(height, 0.0f, 0.0f, width, 0.0f, 1.0f, &ubo.proj);
 		fm_mat4_identity(&ubo.model);
 		fm_mat4_identity(&ubo.view);
 		fm_mat4_transpose(&ubo.proj);
@@ -2548,7 +2552,9 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 				
 				const char* text = desc.textCharactersData + offsetText;
 				
-				const uint32_t numFloatsWritten = fr_font_fill_vertex_buffer(&pRenderer->textFont, text, pos, color, verticesFloats, dataSizeLeft);
+				const float scale = desc.textScaleData[itl];
+
+				const uint32_t numFloatsWritten = fr_font_fill_vertex_buffer(&pRenderer->textFont, text, pos, color, verticesFloats, dataSizeLeft, scale);
 				verticesFloats += numFloatsWritten;
 				dataSizeLeft -= numFloatsWritten;
 			}

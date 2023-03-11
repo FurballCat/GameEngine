@@ -328,6 +328,8 @@ static inline void fm_mat4_lookat_rh(const fm_vec4* eye, const fm_vec4* at, cons
 static inline void fm_mat4_ortho_projection(const float b, const float t, const float l, const float r,
 									  const float n, const float f, fm_mat4* m)
 {
+	// todo: check this math...
+#if 1
 	float sum_rl, sum_tb, sum_nf, inv_rl, inv_tb, inv_nf;
 	sum_rl = (r + l);
 	sum_tb = (t + b);
@@ -339,12 +341,12 @@ static inline void fm_mat4_ortho_projection(const float b, const float t, const 
 	m->x.x = inv_rl + inv_rl;
 	m->x.y = 0.0f;
 	m->x.z = 0.0f;
-	m->x.w = 0.0f;
+	m->x.w = -(r + l) / (r - l);
 	
 	m->y.x = 0.0f;
 	m->y.y = inv_tb + inv_tb;
 	m->y.z = 0.0f;
-	m->y.w = 0.0f;
+	m->y.w = (t + b) / (t - b);
 	
 	m->z.x = 0.0f;
 	m->z.y = 0.0f;
@@ -355,6 +357,37 @@ static inline void fm_mat4_ortho_projection(const float b, const float t, const 
 	m->w.y = 0.0f;
 	m->w.z = -n / (n - f);
 	m->w.w = 1.0f;
+#else
+	// calculate the width, height, and depth of the view frustum
+	float width = r - l;
+	float height = t - b;
+	float depth = f - n;
+
+	// calculate the translation factors
+	float tx = -(r + l) / width;
+	float ty = -(t + b) / height;
+	float tz = -(f + n) / depth;
+
+	m->x.x = 2.0f / width;
+	m->x.y = 0.0f;
+	m->x.z = 0.0f;
+	m->x.w = 0.0f;
+
+	m->y.x = 0.0f;
+	m->y.y = 2.0f / height;
+	m->y.z = 0.0f;
+	m->y.w = 0.0f;
+
+	m->z.x = 0.0f;
+	m->z.y = 0.0f;
+	m->z.z = -2.0f / depth;
+	m->z.w = 0.0f;
+
+	m->w.x = tx;
+	m->w.y = ty;
+	m->w.z = tz;
+	m->w.w = 1.0f;
+#endif
 }
 	
 // projection matrix, b - bottom, t - top, l - left, r - right, n - near, f - far

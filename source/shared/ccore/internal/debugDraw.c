@@ -41,11 +41,15 @@ typedef struct fc_debug_fragments_t
 	uint32_t* textRangeData;	// offset, length
 	uint32_t numTextLines;
 	char* textCharactersData;
+	float* textScaleData;	// 1 float per debug text
 	uint32_t numTextCharacters;
 	
 	// debug 2D rectangles
 	float* rectData;	// 4x vertex of 7 floats (xyz rgba)
 	uint32_t numRects;
+
+	// screen info
+	fc_dbg_screen_info_t screenInfo;
 	
 } fc_debug_fragments_t;
 
@@ -78,6 +82,11 @@ void fc_dbg_init(fc_alloc_callbacks_t* pAllocCallbacks)
 		const uint32_t sizeData = sizeof(char) * FC_DEBUG_FRAGMENTS_TEXT_CHARACTERS_CAPACITY;
 		g_debugFragments.textCharactersData = FUR_ALLOC(sizeData, 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
 	}
+
+	{
+		const uint32_t sizeData = sizeof(float) * FC_DEBUG_FRAGMENTS_TEXT_LINES_CAPACITY;
+		g_debugFragments.textScaleData = FUR_ALLOC(sizeData, 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
+	}
 	
 	// 2D rect alloc
 	{
@@ -97,6 +106,7 @@ void fc_dbg_release(fc_alloc_callbacks_t* pAllocCallbacks)
 	FUR_FREE(g_debugFragments.textLocationData, pAllocCallbacks);
 	FUR_FREE(g_debugFragments.textRangeData, pAllocCallbacks);
 	FUR_FREE(g_debugFragments.textCharactersData, pAllocCallbacks);
+	FUR_FREE(g_debugFragments.textScaleData, pAllocCallbacks);
 	FUR_FREE(g_debugFragments.rectData, pAllocCallbacks);
 	
 	memset(&g_debugFragments, 0, sizeof(fc_debug_fragments_t));
@@ -156,6 +166,7 @@ void fc_dbg_get_buffers(fc_dbg_buffer_desc_t* outDesc)
 	
 	outDesc->textLocationData = g_debugFragments.textLocationData;
 	outDesc->textCharactersData = g_debugFragments.textCharactersData;
+	outDesc->textScaleData = g_debugFragments.textScaleData;
 	outDesc->textRangeData = g_debugFragments.textRangeData;
 	outDesc->textLinesCount = g_debugFragments.numTextLines;
 	outDesc->textCharacterDataSize = g_debugFragments.numTextCharacters;
@@ -385,20 +396,21 @@ void fc_dbg_plane(const float center[3], const float halfLength, const float col
 	fc_dbg_triangle(planeA, planeD, planeC, color);
 }
 
-void fc_dbg_text(float x, float y, const char* txt, const float color[4])
+void fc_dbg_text(float x, float y, const char* txt, const float color[4], float scale)
 {
 	const uint32_t length = (uint32_t)strlen(txt);
-	
-	FUR_ASSERT(g_debugFragments.numTextLines < FC_DEBUG_FRAGMENTS_TEXT_LINES_CAPACITY);
+	const uint32_t idx = g_debugFragments.numTextLines;
+
+	FUR_ASSERT(idx < FC_DEBUG_FRAGMENTS_TEXT_LINES_CAPACITY);
 	FUR_ASSERT(g_debugFragments.numTextCharacters + length + 1 < FC_DEBUG_FRAGMENTS_TEXT_CHARACTERS_CAPACITY);
 	
-	const uint32_t offsetFloat = g_debugFragments.numTextLines * FC_DEBUG_TEXT_LOCATION_DATA_NUM_FLOATS;
-	const uint32_t offsetRange = g_debugFragments.numTextLines * FC_DEBUG_TEXT_LOCATION_DATA_NUM_RANGE;
+	const uint32_t offsetFloat = idx * FC_DEBUG_TEXT_LOCATION_DATA_NUM_FLOATS;
+	const uint32_t offsetRange = idx * FC_DEBUG_TEXT_LOCATION_DATA_NUM_RANGE;
 	g_debugFragments.numTextLines += 1;
 
 	float* dataLocation = g_debugFragments.textLocationData + offsetFloat;
 	dataLocation[0] = x;
-	dataLocation[1] = y;
+	dataLocation[1] = -y;
 	dataLocation[2] = color[0];
 	dataLocation[3] = color[1];
 	dataLocation[4] = color[2];
@@ -413,6 +425,49 @@ void fc_dbg_text(float x, float y, const char* txt, const float color[4])
 	uint32_t* dataRange = g_debugFragments.textRangeData + offsetRange;
 	dataRange[0] = offsetCharacters;
 	dataRange[1] = length;
+
+	float* dataScale = g_debugFragments.textScaleData + idx;
+	*dataScale = scale;
+}
+
+void fc_dbg_get_screen_info(fc_dbg_screen_info_t* info)
+{
+	*info = g_debugFragments.screenInfo;
+}
+
+void fc_dbg_set_screen_info(const fc_dbg_screen_info_t* info)
+{
+	g_debugFragments.screenInfo = *info;
+}
+
+void fc_dbg_apply_anchor(float* x, float* y, fc_dbg_screen_anchors_t anchor)
+{
+	fc_dbg_screen_info_t s = g_debugFragments.screenInfo;
+
+	switch (anchor)
+	{
+	case FC_DBG_ANCHOR_LEFT_UP_CORNER:
+		// += 0.0f
+		break;
+	case FC_DBG_ANCHOR_RIGHT_UP_CORNER:
+		*x += s.width;
+		//*y += 0.0f;
+		break;
+	case FC_DBG_ANCHOR_LEFT_BOTTOM_CORNER:
+		//*x += 0.0f;
+		*y += s.height;
+		break;
+	case FC_DBG_ANCHOR_RIGHT_BOTTOM_CORNER:
+		*x += s.width;
+		*y += s.height;
+		break;
+	case FC_DBG_ANCHOR_CENTER:
+		*x += s.width / 2.0f;
+		*y += s.height / 2.0f;
+		break;
+	default:
+		break;
+	}
 }
 
 void fc_dbg_rect(float x, float y, float width, float height, const float color[4])
@@ -442,7 +497,7 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 		float* vcolor = vertices + 2;
 		
 		pos[0] = x;
-		pos[1] = y;
+		pos[1] = -y;
 		vcolor[0] = color[0];
 		vcolor[1] = color[1];
 		vcolor[2] = color[2];
@@ -461,7 +516,7 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 		float* vcolor = vertices + 2;
 		
 		pos[0] = x + width;
-		pos[1] = y - height;
+		pos[1] = -y - height;
 		vcolor[0] = color[0];
 		vcolor[1] = color[1];
 		vcolor[2] = color[2];
@@ -480,7 +535,7 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 		float* vcolor = vertices + 2;
 		
 		pos[0] = x + width;
-		pos[1] = y;
+		pos[1] = -y;
 		vcolor[0] = color[0];
 		vcolor[1] = color[1];
 		vcolor[2] = color[2];
@@ -501,7 +556,7 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 		float* vcolor = vertices + 2;
 		
 		pos[0] = x;
-		pos[1] = y;
+		pos[1] = -y;
 		vcolor[0] = color[0];
 		vcolor[1] = color[1];
 		vcolor[2] = color[2];
@@ -520,7 +575,7 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 		float* vcolor = vertices + 2;
 		
 		pos[0] = x;
-		pos[1] = y - height;
+		pos[1] = -y - height;
 		vcolor[0] = color[0];
 		vcolor[1] = color[1];
 		vcolor[2] = color[2];
@@ -540,7 +595,7 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 		float* vcolor = vertices + 2;
 		
 		pos[0] = x + width;
-		pos[1] = y - height;
+		pos[1] = -y - height;
 		vcolor[0] = color[0];
 		vcolor[1] = color[1];
 		vcolor[2] = color[2];

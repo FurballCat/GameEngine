@@ -1819,7 +1819,7 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 	{
 		g_drawDevMenu = !g_drawDevMenu;
 	}
-	
+
 	if(g_drawDevMenu)
 	{
 		if(dpadDownPressed)
@@ -1910,10 +1910,13 @@ void fc_draw_debug_menu(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCall
 	
 	if(g_drawDevMenu)
 	{
-		const float x = -500.0f;
-		const float y = 220;
-		const float lineHeight = 28.0f;
-		const float ident = 28.0f;
+		const float text_scale = 0.7f;
+		const float lineHeight = fc_dbg_get_text_line_height(text_scale);
+		const float ident = fc_dbg_get_text_line_height(text_scale);
+
+		float x = 70.0f;
+		float y = 70.0f;
+		fc_dbg_apply_anchor(&x, &y, FC_DBG_ANCHOR_LEFT_UP_CORNER);
 		
 		fc_dev_menu_option_t options[] = {
 			{"quick-fps-mem", fc_dev_menu_show_fps},
@@ -1933,19 +1936,19 @@ void fc_draw_debug_menu(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCall
 		
 		const float bgColor[4] = {0.2f, 0.2f, 0.2f, 0.8f};
 		
-		fc_dbg_rect(x - 40.0f, y + 40.0f, 450.0f, 110.0f + 28.0f * numOptions, bgColor);
+		fc_dbg_rect(x - 20.0f, y - 20.0f, 450.0f, 110.0f + 28.0f * numOptions, bgColor);
 		
-		fc_dbg_text(x, y, "Dev Menu:", colorLabel);
+		fc_dbg_text(x, y, "Dev Menu:", colorLabel, text_scale);
 		
 		for(uint32_t i=0; i<numOptions; ++i)
 		{
 			const bool isSelected = (i == g_devMenuOption);
 			
-			fc_dbg_text(x + ident, y - lineHeight * (1+i), options[i].name, isSelected ? colorSelected : color);
+			fc_dbg_text(x + ident, y + lineHeight * (1+i), options[i].name, isSelected ? colorSelected : color, text_scale);
 			
 			if(isSelected)
 			{
-				fc_dbg_text(x + ident - 18.0f, y - lineHeight * (1+i), ">", colorCursor);
+				fc_dbg_text(x + ident * 0.2f, y + lineHeight * (1+i), ">", colorCursor, text_scale);
 			}
 			
 			// execute option
@@ -2262,6 +2265,13 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 	// show debug FPS
 	if(pEngine->debugShowFPS)
 	{
+		float text_scale = 0.7f;
+		const float offset_line = fc_dbg_get_text_line_height(text_scale);
+
+		float x = 0;
+		float y = 0;
+		fc_dbg_apply_anchor(&x, &y, FC_DBG_ANCHOR_LEFT_UP_CORNER);
+
 		{
 			const float fps = 1.0f / dt;
 			const float ms = dt * 1000.0f;
@@ -2272,7 +2282,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 			const float green[4] = FUR_COLOR_GREEN;
 			const float yellow[4] = FUR_COLOR_YELLOW;
 			const float red[4] = FUR_COLOR_RED;
-			fc_dbg_text(-1050, 628, txt, ms < 16 ? green : ms < 33 ? yellow : red);
+			fc_dbg_text(x, y, txt, ms < 16 ? green : ms < 33 ? yellow : red, text_scale);
 		}
 		{
 			fc_mem_stats_t stats = fc_memory_stats();
@@ -2286,7 +2296,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 			const float green[4] = FUR_COLOR_GREEN;
 			const float yellow[4] = FUR_COLOR_YELLOW;
 			const float red[4] = FUR_COLOR_RED;
-			fc_dbg_text(-1050, 600, txt, numMBs < numCapacityMBs * 0.95f ? green : numMBs < numCapacityMBs ? yellow : red);
+			fc_dbg_text(x, y + offset_line, txt, numMBs < numCapacityMBs * 0.95f ? green : numMBs < numCapacityMBs ? yellow : red, text_scale);
 		}
 	}
 	
@@ -2296,24 +2306,24 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		const float white[4] = FUR_COLOR_WHITE;
 		int32_t textLineCounter = 0;
 		
-		fc_dbg_text(-1050, 500 + 24, "-[ Retail Memory ]-----------------------------------------------", white);
+		fc_dbg_text(-1050, 500 + 24, "-[ Retail Memory ]-----------------------------------------------", white, 0.5f);
 		
 		char txt[128] = {};
 		
 		fc_dbg_stats_for_mem_to_text(FC_MEMORY_SCOPE_SYSTEM, txt, "OS Memory");
-		fc_dbg_text(-1050, 500 - textLineCounter*24, txt, white);
+		fc_dbg_text(-1050, 500 - textLineCounter*24, txt, white, 0.5f);
 		textLineCounter++;
 		
 		fc_dbg_stats_for_mem_to_text(FC_MEMORY_SCOPE_GLOBAL, txt, "Code And Static Data");
-		fc_dbg_text(-1050, 500 - textLineCounter*24, txt, white);
+		fc_dbg_text(-1050, 500 - textLineCounter*24, txt, white, 0.5f);
 		textLineCounter++;
 		
 		textLineCounter++;
-		fc_dbg_text(-1050, 500 - textLineCounter*24, "-[ Debug Memory ]------------------------------------------------", white);
+		fc_dbg_text(-1050, 500 - textLineCounter*24, "-[ Debug Memory ]------------------------------------------------", white, 0.5f);
 		textLineCounter++;
 		
 		fc_dbg_stats_for_mem_to_text(FC_MEMORY_SCOPE_DEBUG, txt, "Debug Memory");
-		fc_dbg_text(-1050, 500 - textLineCounter*24, txt, white);
+		fc_dbg_text(-1050, 500 - textLineCounter*24, txt, white, 0.5f);
 		textLineCounter++;
 	}
 	
@@ -2321,7 +2331,11 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 	if(pEngine->debugIsSlowTime)
 	{
 		const float color[4] = FUR_COLOR_RED;
-		fc_dbg_text(920, 600, "slow-time ON", color);
+		const float scale = 0.7f;
+		float x = -7.0f * fc_dbg_get_text_line_height(scale);
+		float y = -fc_dbg_get_text_line_height(scale);
+		fc_dbg_apply_anchor(&x, &y, FC_DBG_ANCHOR_RIGHT_BOTTOM_CORNER);
+		fc_dbg_text(x, y, "slow-time ON", color, scale);
 		dt *= 0.3f;
 	}
 	
