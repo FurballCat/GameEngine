@@ -1750,37 +1750,44 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 	static float rightTrigger = 0.0f;
 	static float leftTrigger = 0.0f;
 	
-	fi_input_event_t inputEvents[10];
-	const uint32_t numEventsCollected = fi_get_input_events(pEngine->pInputManager, inputEvents, 10, 0);
+	fi_input_event_t inputEvents[40];
+	const uint32_t numEventsCollected = fi_get_input_events(pEngine->pInputManager, inputEvents, 40, 0);
 	for(uint32_t i=0; i<numEventsCollected; ++i)
 	{
 		if(inputEvents[i].eventID == Gamepad_leftThumb)
 		{
-			leftThumbPressed = true;
+			wasLeftThumbPressed = inputEvents[i].value > 0.5f;
+			leftThumbPressed = wasLeftThumbPressed;
 		}
-		else if(inputEvents[i].eventID == Gamepad_specialRight)
+		else if(inputEvents[i].eventID == Gamepad_start)
 		{
-			startPressed = true;
+			wasStartPressed = inputEvents[i].value > 0.5f;
+			startPressed = wasStartPressed;
 		}
 		else if(inputEvents[i].eventID == Gamepad_dpadUp)
 		{
-			dpadUpPressed = true;
+			wasDpadUpPressed = inputEvents[i].value > 0.5f;
+			dpadUpPressed = wasDpadUpPressed;
 		}
 		else if(inputEvents[i].eventID == Gamepad_dpadDown)
 		{
-			dpadDownPressed = true;
+			wasDpadDownPressed = inputEvents[i].value > 0.5f;
+			dpadDownPressed = wasDpadDownPressed;
 		}
-		else if(inputEvents[i].eventID == Gamepad_faceButtonBottom)
+		else if(inputEvents[i].eventID == Gamepad_cross)
 		{
-			actionPressed = true;
+			actionWasPressed = inputEvents[i].value > 0.5f;
+			actionPressed = actionWasPressed;
 		}
-		else if(inputEvents[i].eventID == Gamepad_faceButtonRight)
+		else if(inputEvents[i].eventID == Gamepad_circle)
 		{
-			circleActionPressed = true;
+			circleActionWasPressed = inputEvents[i].value > 0.5f;
+			circleActionPressed = circleActionWasPressed;
 		}
-		else if(inputEvents[i].eventID == Gamepad_faceButtonTop)
+		else if(inputEvents[i].eventID == Gamepad_triangle)
 		{
-			triangleActionPressed = true;
+			triangleActionWasPressed = inputEvents[i].value > 0.5f;
+			triangleActionPressed = triangleActionWasPressed;
 		}
 		else if(inputEvents[i].eventID == Gamepad_rightAnalogX)
 		{
@@ -1808,67 +1815,35 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 		}
 	}
 	
-	bool leftThumbPressedThisFrame = false;
-	bool startPressedThisFrame = false;
-	
-	if(wasLeftThumbPressed != leftThumbPressed)
-	{
-		wasLeftThumbPressed = leftThumbPressed;
-		leftThumbPressedThisFrame = leftThumbPressed;
-	}
-	
-	if(wasStartPressed != startPressed)
-	{
-		wasStartPressed = startPressed;
-		startPressedThisFrame = startPressed;
-	}
-	
-	if((wasLeftThumbPressed && startPressedThisFrame) || (wasStartPressed && leftThumbPressedThisFrame))
+	if((wasLeftThumbPressed && startPressed) || (wasStartPressed && leftThumbPressed))
 	{
 		g_drawDevMenu = !g_drawDevMenu;
 	}
 	
 	if(g_drawDevMenu)
 	{
-		if(wasDpadDownPressed != dpadDownPressed)
+		if(dpadDownPressed)
 		{
-			wasDpadDownPressed = dpadDownPressed;
-			if(dpadDownPressed)
-			{
-				g_devMenuOption += 1;
-			}
+			g_devMenuOption += 1;
 		}
 
-		if(wasDpadUpPressed != dpadUpPressed)
+		if(dpadUpPressed)
 		{
-			wasDpadUpPressed = dpadUpPressed;
-			if(dpadUpPressed)
-			{
-				g_devMenuOption -= 1;
-			}
+			g_devMenuOption -= 1;
 		}
 		
-		if(actionWasPressed != actionPressed)
+		if(actionPressed)
 		{
 			g_devMenuOptionClick = actionPressed;
-			actionWasPressed = actionPressed;
 		}
 	}
 	else if(fc_profiler_is_draw_on())
 	{
-		if(actionWasPressed != actionPressed)
+		if (actionPressed)
 		{
-			if(actionPressed)
-			{
-				fc_profiler_toggle_pause();
-			}
-			actionWasPressed = actionPressed;
+			fc_profiler_toggle_pause();
 		}
-		else
-		{
-			pEngine->inActionPressed = false;
-		}
-		
+
 		const float zoomDelta = leftTrigger - rightTrigger;
 		const float panDelta = rightAnalogX;
 		fc_profiler_zoom_and_pan_delta(zoomDelta, panDelta);
@@ -1882,45 +1857,10 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 		pEngine->actionZoomIn = rightTrigger;
 		pEngine->actionZoomOut = leftTrigger;
 		
-		if(actionWasPressed != actionPressed)
-		{
-			pEngine->inActionPressed = actionPressed;
-			actionWasPressed = actionPressed;
-		}
-		else
-		{
-			pEngine->inActionPressed = false;
-		}
-		
-		if(triangleActionWasPressed != triangleActionPressed)
-		{
-			pEngine->inputTriangleActionPressed = triangleActionPressed;
-			triangleActionWasPressed = triangleActionPressed;
-		}
-		else
-		{
-			pEngine->inputTriangleActionPressed = false;
-		}
-		
-		if(circleActionWasPressed != circleActionPressed)
-		{
-			pEngine->inputCircleActionPressed = circleActionPressed;
-			circleActionWasPressed = circleActionPressed;
-		}
-		else
-		{
-			pEngine->inputCircleActionPressed = false;
-		}
-		
-		if(xWasPressed != xPressed)
-		{
-			pEngine->inputXPressed = xPressed;
-			xPressed = xPressed;
-		}
-		else
-		{
-			pEngine->inputXPressed = false;
-		}
+		pEngine->inActionPressed = actionPressed;
+		pEngine->inputTriangleActionPressed = triangleActionPressed;
+		pEngine->inputCircleActionPressed = circleActionPressed;
+		pEngine->inputXPressed = xPressed;
 	}
 }
 
@@ -1970,8 +1910,8 @@ void fc_draw_debug_menu(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCall
 	
 	if(g_drawDevMenu)
 	{
-		const float x = -1000.0f;
-		const float y = 440;
+		const float x = -500.0f;
+		const float y = 220;
 		const float lineHeight = 28.0f;
 		const float ident = 28.0f;
 		
