@@ -170,7 +170,7 @@ void fc_profiler_start_frame(void)
 
 		const float offset_to_bottom = screen.height - 2.0f * margin;
 		
-		float x = 120.0f + margin + g_profiler.pan * g_profiler.zoom - screen.width * 0.5f * (g_profiler.zoom - FC_PROFILER_INIT_ZOOM) / FC_PROFILER_INIT_ZOOM;
+		float x = 120.0f + margin + g_profiler.pan * g_profiler.zoom - screen.width * 0.15f * (g_profiler.zoom - FC_PROFILER_INIT_ZOOM) / FC_PROFILER_INIT_ZOOM;
 		float y = margin;
 
 		fc_dbg_apply_anchor(&x, &y, FC_DBG_ANCHOR_LEFT_UP_CORNER);
@@ -291,6 +291,9 @@ void fc_profiler_start_frame(void)
 						const float x_offset = startTime_ms * g_profiler.zoom;
 						const float width = stopTime_ms * g_profiler.zoom - x_offset;
 						
+						if (x_offset < 0.0f)
+							continue;
+
 						// draw scope rectangle
 						if(width > 4.0f)
 						{
