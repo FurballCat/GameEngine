@@ -10,9 +10,9 @@ void fi_hid_input_init(fi_hid_input_t* pInput)
 	pInput->m_numPendingEvents = 0;
 }
 
-void fi_hid_input_update(fi_hid_input_t* pInput, double currentTime)
+void fi_hid_input_update(fi_hid_input_t* pInput, f64 currentTime)
 {
-	const int32_t maxControllers = MAX_CONTROLLERS > GLFW_JOYSTICK_LAST ? GLFW_JOYSTICK_LAST : MAX_CONTROLLERS;
+	const i32 maxControllers = MAX_CONTROLLERS > GLFW_JOYSTICK_LAST ? GLFW_JOYSTICK_LAST : MAX_CONTROLLERS;
 
 	pInput->m_numPendingEvents = 0;
 
@@ -31,11 +31,11 @@ void fi_hid_input_update(fi_hid_input_t* pInput, double currentTime)
 		const GLFWgamepadstate* prev = &pInput->m_controllers[i];
 
 		// collect axes
-		for (int32_t i = 0; i <= GLFW_GAMEPAD_AXIS_LAST; ++i)
+		for (i32 i = 0; i <= GLFW_GAMEPAD_AXIS_LAST; ++i)
 		{
 			if (prev->axes[i] != next.axes[i])
 			{
-				float value = next.axes[i];
+				f32 value = next.axes[i];
 
 				// convert -1..+1 on triggers to 0..1
 				if (i == GLFW_GAMEPAD_AXIS_LEFT_TRIGGER || i == GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER)
@@ -43,7 +43,7 @@ void fi_hid_input_update(fi_hid_input_t* pInput, double currentTime)
 					value = (value + 1.0f) / 2.0f;
 				}
 
-				int32_t idx = pInput->m_numPendingEvents;
+				i32 idx = pInput->m_numPendingEvents;
 				pInput->m_pendingEvents[idx].deviceID = i;
 				pInput->m_pendingEvents[idx].playerID = i;
 				pInput->m_pendingEvents[idx].value = value;
@@ -53,11 +53,11 @@ void fi_hid_input_update(fi_hid_input_t* pInput, double currentTime)
 		}
 
 		// collect buttons
-		for (int32_t i = 0; i <= GLFW_GAMEPAD_BUTTON_LAST; ++i)
+		for (i32 i = 0; i <= GLFW_GAMEPAD_BUTTON_LAST; ++i)
 		{
 			if (prev->buttons[i] != next.buttons[i])
 			{
-				int32_t idx = pInput->m_numPendingEvents;
+				i32 idx = pInput->m_numPendingEvents;
 				pInput->m_pendingEvents[idx].deviceID = i;
 				pInput->m_pendingEvents[idx].playerID = i;
 				pInput->m_pendingEvents[idx].value = next.buttons[i] == GLFW_PRESS ? 1.0f : 0.0f;
@@ -70,11 +70,11 @@ void fi_hid_input_update(fi_hid_input_t* pInput, double currentTime)
 	}
 }
 
-uint32_t fi_hid_input_get_events(const fi_hid_input_t* pInput, fi_input_event_t* pEvents, uint32_t capacity, uint32_t startIndex)
+u32 fi_hid_input_get_events(const fi_hid_input_t* pInput, fi_input_event_t* pEvents, u32 capacity, u32 startIndex)
 {
-	int32_t count = 0;
+	i32 count = 0;
 
-	for (int32_t i = startIndex; i < pInput->m_numPendingEvents; ++i)
+	for (i32 i = startIndex; i < pInput->m_numPendingEvents; ++i)
 	{
 		if (i >= capacity)
 			break;

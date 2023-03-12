@@ -8,7 +8,7 @@ extern "C"
 #endif // __cplusplus
 
 #include "api.h"
-#include <inttypes.h>
+#include "ccore/types.h"
 #include "cmath/mathtypes.h"
 	
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
@@ -28,7 +28,7 @@ CPHYSICS_API void fp_physics_add_static_box(fp_physics_t* physics, const fm_xfor
 
 typedef struct fp_physics_update_ctx_t
 {
-	float dt;
+	f32 dt;
 	fm_vec4* playerDisplacement;
 } fp_physics_update_ctx_t;
 	
@@ -44,11 +44,11 @@ CPHYSICS_API void fp_physics_get_player_info(fp_physics_t* physics, fp_physics_p
 typedef struct fp_physics_raycast_hit_t
 {
 	fm_vec4 pos;
-	float distance;
+	f32 distance;
 } fp_physics_raycast_hit_t;
 
 CPHYSICS_API bool fp_physics_raycast(fp_physics_t* physics, const fm_vec4* start, const fm_vec4* dir,
-									 float distance, fp_physics_raycast_hit_t* hit);
+									 f32 distance, fp_physics_raycast_hit_t* hit);
 
 // ----- BOUNDING VOLUME HIERARCHY -----
 typedef struct fm_box fm_box;
@@ -57,7 +57,7 @@ typedef struct fp_bvh_node_t fm_bvh_node_t;
 typedef struct fp_bvh_t
 {
 	fp_bvh_node_t* nodes;
-	uint32_t numNodes;
+	u32 numNodes;
 } fm_bvh_t;
 
 typedef struct fp_bvh_build_ctx_t
@@ -67,7 +67,7 @@ typedef struct fp_bvh_build_ctx_t
 	
 	// boxes for leaf objects, also IDs will be based on this array
 	fm_box* objectBoxes;
-	uint32_t numObjects;
+	u32 numObjects;
 } fp_bvh_build_ctx_t;
 
 CPHYSICS_API void fp_bvh_build(const fp_bvh_build_ctx_t* ctx, fp_bvh_t* bvh, fc_alloc_callbacks_t* pAllocCallbacks);

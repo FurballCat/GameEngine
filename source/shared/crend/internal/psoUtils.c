@@ -21,7 +21,7 @@ void fr_pso_init_input_assembly_state_line_list(VkPipelineInputAssemblyStateCrea
 	info->primitiveRestartEnable = VK_FALSE;
 }
 
-void fr_pso_init_viewport(float width, float height, VkViewport* viewport)
+void fr_pso_init_viewport(f32 width, f32 height, VkViewport* viewport)
 {
 	viewport->x = 0.0f;
 	viewport->y = 0.0f;
@@ -164,7 +164,7 @@ void fr_pso_init_depth_stencil_state_no_depth_test(VkPipelineDepthStencilStateCr
 	// depthStencil->back = {}; // Optional
 }
 
-void fr_attachment_init_color(uint32_t attachmentIndex,
+void fr_attachment_init_color(u32 attachmentIndex,
 							  VkFormat colorFormat,
 							  VkAttachmentDescription* colorAttachment,
 							  VkAttachmentReference* colorAttachmentRef)
@@ -183,7 +183,7 @@ void fr_attachment_init_color(uint32_t attachmentIndex,
 	colorAttachmentRef->layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 }
 
-void fr_attachment_init_depth(uint32_t attachmentIndex,
+void fr_attachment_init_depth(u32 attachmentIndex,
 							  VkFormat depthFormat,
 							  VkAttachmentDescription* depthAttachment,
 							  VkAttachmentReference* depthAttachmentRef)
@@ -236,7 +236,7 @@ VkResult fr_render_pass_create_color_depth(VkDevice device, VkFormat colorFormat
 	fr_subpass_init_color_depth(&colorAttachmentRef, &depthAttachmentRef, &subpass, &dependency);
 	
 	VkAttachmentDescription attachments[2] = {colorAttachment, depthAttachment};
-	const uint32_t numAttachments = 2;
+	const u32 numAttachments = 2;
 	
 	// create render pass
 	VkRenderPassCreateInfo renderPassInfo = {0};

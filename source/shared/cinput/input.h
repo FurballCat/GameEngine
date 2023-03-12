@@ -7,17 +7,17 @@ extern "C"
 {
 #endif // __cplusplus
 
-#include <inttypes.h>
+#include "ccore/types.h"
 #include "api.h"
 
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 
 typedef struct fi_input_event_t
 {
-	float value;
+	f32 value;
 	uint16_t eventID;
-	uint8_t playerID;
-	uint8_t deviceID;
+	u8 playerID;
+	u8 deviceID;
 } fi_input_event_t;
 
 typedef struct fi_input_manager_t fi_input_manager_t;
@@ -25,8 +25,8 @@ typedef struct fi_input_manager_t fi_input_manager_t;
 fi_input_manager_t* fi_input_manager_create(fc_alloc_callbacks_t* pAllocCallbacks);
 void fi_input_manager_release(fi_input_manager_t* pMgr, fc_alloc_callbacks_t* pAllocCallbacks);
 	
-void fi_update_input_manager(fi_input_manager_t* pMgr, double currentTime);
-uint32_t fi_get_input_events(const fi_input_manager_t* pMgr, fi_input_event_t* pEvents, uint32_t capacity, uint32_t startIndex);
+void fi_update_input_manager(fi_input_manager_t* pMgr, f64 currentTime);
+u32 fi_get_input_events(const fi_input_manager_t* pMgr, fi_input_event_t* pEvents, u32 capacity, u32 startIndex);
 
 // compatible with GLFW
 enum GamepadInputID

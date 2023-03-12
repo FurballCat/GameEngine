@@ -19,35 +19,35 @@
 #define FC_DEBUG_TEXT_LOCATION_DATA_NUM_FLOATS 5
 #define FC_DEBUG_TEXT_LOCATION_DATA_NUM_RANGE 2
 
-#define FC_DEBUG_LINE_SIZE sizeof(float) * FC_DEBUG_VERTEX_NUM_FLOATS * 2
-#define FC_DEBUG_TRIANGLE_SIZE sizeof(float) * FC_DEBUG_VERTEX_NUM_FLOATS * 3
+#define FC_DEBUG_LINE_SIZE sizeof(f32) * FC_DEBUG_VERTEX_NUM_FLOATS * 2
+#define FC_DEBUG_TRIANGLE_SIZE sizeof(f32) * FC_DEBUG_VERTEX_NUM_FLOATS * 3
 
 // rects vertices are xy rgba - 6 floats, 6 vertices per rect because 2x triangle 3x vertex
 #define FC_DEBUG_RECT_NUM_VERTICES 6
 #define FC_DEBUG_RECTS_VERTEX_NUM_FLOATS 6
-#define FC_DEBUG_RECT_SIZE sizeof(float) * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS * FC_DEBUG_RECT_NUM_VERTICES
+#define FC_DEBUG_RECT_SIZE sizeof(f32) * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS * FC_DEBUG_RECT_NUM_VERTICES
 
 typedef struct fc_debug_fragments_t
 {
 	// debug 3D lines
-	float* linesData;
-	uint32_t numLines;	// todo: this can be atomic, so we will avoid locking the global
+	f32* linesData;
+	u32 numLines;	// todo: this can be atomic, so we will avoid locking the global
 	
 	// debug 3D triangles
-	float* trianglesData;
-	uint32_t numTriangles;
+	f32* trianglesData;
+	u32 numTriangles;
 	
 	// debug text
-	float* textLocationData;	// 5x float: x, y, r, g, b
-	uint32_t* textRangeData;	// offset, length
-	uint32_t numTextLines;
+	f32* textLocationData;	// 5x f32: x, y, r, g, b
+	u32* textRangeData;	// offset, length
+	u32 numTextLines;
 	char* textCharactersData;
-	float* textScaleData;	// 1 float per debug text
-	uint32_t numTextCharacters;
+	f32* textScaleData;	// 1 f32 per debug text
+	u32 numTextCharacters;
 	
 	// debug 2D rectangles
-	float* rectData;	// 4x vertex of 7 floats (xyz rgba)
-	uint32_t numRects;
+	f32* rectData;	// 4x vertex of 7 floats (xyz rgba)
+	u32 numRects;
 
 	// screen info
 	fc_dbg_screen_info_t screenInfo;
@@ -70,28 +70,28 @@ void fc_dbg_init(fc_alloc_callbacks_t* pAllocCallbacks)
 	
 	// text alloc
 	{
-		const uint32_t sizeData = sizeof(float) * FC_DEBUG_FRAGMENTS_TEXT_LINES_CAPACITY * FC_DEBUG_TEXT_LOCATION_DATA_NUM_FLOATS;
+		const u32 sizeData = sizeof(f32) * FC_DEBUG_FRAGMENTS_TEXT_LINES_CAPACITY * FC_DEBUG_TEXT_LOCATION_DATA_NUM_FLOATS;
 		g_debugFragments.textLocationData = FUR_ALLOC(sizeData, 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
 	}
 	
 	{
-		const uint32_t sizeData = sizeof(uint32_t) * FC_DEBUG_FRAGMENTS_TEXT_LINES_CAPACITY * FC_DEBUG_TEXT_LOCATION_DATA_NUM_RANGE;
+		const u32 sizeData = sizeof(u32) * FC_DEBUG_FRAGMENTS_TEXT_LINES_CAPACITY * FC_DEBUG_TEXT_LOCATION_DATA_NUM_RANGE;
 		g_debugFragments.textRangeData = FUR_ALLOC(sizeData, 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
 	}
 	
 	{
-		const uint32_t sizeData = sizeof(char) * FC_DEBUG_FRAGMENTS_TEXT_CHARACTERS_CAPACITY;
+		const u32 sizeData = sizeof(char) * FC_DEBUG_FRAGMENTS_TEXT_CHARACTERS_CAPACITY;
 		g_debugFragments.textCharactersData = FUR_ALLOC(sizeData, 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
 	}
 
 	{
-		const uint32_t sizeData = sizeof(float) * FC_DEBUG_FRAGMENTS_TEXT_LINES_CAPACITY;
+		const u32 sizeData = sizeof(f32) * FC_DEBUG_FRAGMENTS_TEXT_LINES_CAPACITY;
 		g_debugFragments.textScaleData = FUR_ALLOC(sizeData, 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
 	}
 	
 	// 2D rect alloc
 	{
-		const uint32_t sizeData = FC_DEBUG_RECT_SIZE * FC_DEBUG_FRAGMENTS_RECTS_CAPACITY;
+		const u32 sizeData = FC_DEBUG_RECT_SIZE * FC_DEBUG_FRAGMENTS_RECTS_CAPACITY;
 		g_debugFragments.rectData = FUR_ALLOC(sizeData, 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
 		g_debugFragments.numRects = 0;
 	}
@@ -113,11 +113,11 @@ void fc_dbg_release(fc_alloc_callbacks_t* pAllocCallbacks)
 	memset(&g_debugFragments, 0, sizeof(fc_debug_fragments_t));
 }
 
-void fc_dbg_line(const float start[3], const float end[3], const float color[4])
+void fc_dbg_line(const f32 start[3], const f32 end[3], const f32 color[4])
 {
 	FUR_ASSERT(g_debugFragments.numLines < FC_DEBUG_FRAGMENTS_LINES_CAPACITY);
 	
-	uint32_t idx = g_debugFragments.numLines * 2 * FC_DEBUG_VERTEX_NUM_FLOATS;
+	u32 idx = g_debugFragments.numLines * 2 * FC_DEBUG_VERTEX_NUM_FLOATS;
 	
 	g_debugFragments.linesData[idx++] = start[0];
 	g_debugFragments.linesData[idx++] = start[1];
@@ -142,12 +142,12 @@ void fc_dbg_line(const float start[3], const float end[3], const float color[4])
 	FUR_ASSERT(idx == g_debugFragments.numLines * 2 * FC_DEBUG_VERTEX_NUM_FLOATS);
 }
 
-uint32_t fc_dbg_line_num_total_vertices(void)
+u32 fc_dbg_line_num_total_vertices(void)
 {
 	return 2 * FC_DEBUG_FRAGMENTS_LINES_CAPACITY;
 }
 
-uint32_t fc_dbg_line_buffer_size(void)
+u32 fc_dbg_line_buffer_size(void)
 {
 	return FC_DEBUG_LINE_SIZE * FC_DEBUG_FRAGMENTS_LINES_CAPACITY;
 }
@@ -176,67 +176,67 @@ void fc_dbg_get_buffers(fc_dbg_buffer_desc_t* outDesc)
 	outDesc->rectsDataSize = fc_dbg_rects_current_data_size();
 }
 
-const float* fc_dbg_line_get_data(void)
+const f32* fc_dbg_line_get_data(void)
 {
 	return g_debugFragments.linesData;
 }
 
-uint32_t fc_dbg_line_current_num_lines(void)
+u32 fc_dbg_line_current_num_lines(void)
 {
 	return g_debugFragments.numLines;
 }
 
-uint32_t fc_dbg_line_current_lines_size(void)
+u32 fc_dbg_line_current_lines_size(void)
 {
 	return FC_DEBUG_LINE_SIZE * fc_dbg_line_current_num_lines();
 }
 
-const float* fc_dbg_triangles_get_data(void)
+const f32* fc_dbg_triangles_get_data(void)
 {
 	return g_debugFragments.trianglesData;
 }
 
-uint32_t fc_dbg_triangles_current_num_triangles(void)
+u32 fc_dbg_triangles_current_num_triangles(void)
 {
 	return g_debugFragments.numTriangles;
 }
 
-uint32_t fc_dbg_triangles_current_triangles_size(void)
+u32 fc_dbg_triangles_current_triangles_size(void)
 {
 	return FC_DEBUG_TRIANGLE_SIZE * fc_dbg_triangles_current_num_triangles();
 }
 
-uint32_t fc_dbg_triangles_num_total_vertices(void)
+u32 fc_dbg_triangles_num_total_vertices(void)
 {
 	return 3 * FC_DEBUG_FRAGMENTS_TRIANGLES_CAPACITY;
 }
 
-uint32_t fc_dbg_rects_current_num_rects(void)
+u32 fc_dbg_rects_current_num_rects(void)
 {
 	return g_debugFragments.numRects;
 }
 
-uint32_t fc_dbg_rects_buffer_size(void)
+u32 fc_dbg_rects_buffer_size(void)
 {
-	return fc_dbg_rects_num_total_vertices() * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS * sizeof(float);
+	return fc_dbg_rects_num_total_vertices() * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS * sizeof(f32);
 }
 
-uint32_t fc_dbg_rects_current_num_vertices(void)
+u32 fc_dbg_rects_current_num_vertices(void)
 {
 	return fc_dbg_rects_current_num_rects() * FC_DEBUG_RECT_NUM_VERTICES;
 }
 
-uint32_t fc_dbg_rects_current_data_size(void)
+u32 fc_dbg_rects_current_data_size(void)
 {
-	return fc_dbg_rects_current_num_vertices() * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS * sizeof(float);
+	return fc_dbg_rects_current_num_vertices() * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS * sizeof(f32);
 }
 
-uint32_t fc_dbg_rects_num_total_vertices(void)
+u32 fc_dbg_rects_num_total_vertices(void)
 {
 	return FC_DEBUG_RECT_NUM_VERTICES * FC_DEBUG_FRAGMENTS_RECTS_CAPACITY;
 }
 
-uint32_t fc_dbg_rect_num_floats_per_vertex(void)
+u32 fc_dbg_rect_num_floats_per_vertex(void)
 {
 	return FC_DEBUG_RECTS_VERTEX_NUM_FLOATS;
 }
@@ -255,11 +255,11 @@ void fc_dbg_buffers_unlock(void)
 	// todo: implement when multithreading comes in
 }
 
-void fc_dbg_triangle(const float pointA[3], const float pointB[3], const float pointC[3], const float color[4])
+void fc_dbg_triangle(const f32 pointA[3], const f32 pointB[3], const f32 pointC[3], const f32 color[4])
 {
 	FUR_ASSERT(g_debugFragments.numTriangles < FC_DEBUG_FRAGMENTS_TRIANGLES_CAPACITY);
 	
-	uint32_t idx = g_debugFragments.numTriangles * 3 * FC_DEBUG_VERTEX_NUM_FLOATS;
+	u32 idx = g_debugFragments.numTriangles * 3 * FC_DEBUG_VERTEX_NUM_FLOATS;
 	
 	g_debugFragments.trianglesData[idx++] = pointA[0];
 	g_debugFragments.trianglesData[idx++] = pointA[1];
@@ -293,18 +293,18 @@ void fc_dbg_triangle(const float pointA[3], const float pointB[3], const float p
 	FUR_ASSERT(idx == g_debugFragments.numTriangles * 3 * FC_DEBUG_VERTEX_NUM_FLOATS);
 }
 
-uint32_t fc_dbg_triangle_buffer_size(void)
+u32 fc_dbg_triangle_buffer_size(void)
 {
 	return FC_DEBUG_TRIANGLE_SIZE * FC_DEBUG_FRAGMENTS_TRIANGLES_CAPACITY;
 }
 
-void fc_dbg_box_wire(const float center[3], const float extent[3], const float color[4])
+void fc_dbg_box_wire(const f32 center[3], const f32 extent[3], const f32 color[4])
 {
 	// convert to min/max bounding box
-	float a[3];
-	float b[3];
+	f32 a[3];
+	f32 b[3];
 	
-	for(uint32_t i=0; i<3; ++i)
+	for(u32 i=0; i<3; ++i)
 	{
 		a[i] = center[i] - extent[i];
 		b[i] = center[i] + extent[i];
@@ -312,99 +312,99 @@ void fc_dbg_box_wire(const float center[3], const float extent[3], const float c
 	
 	// four x-axis aligned lines
 	{
-		float start[3] = {a[0], a[1], a[2]};
-		float end[3] = {b[0], a[1], a[2]};
+		f32 start[3] = {a[0], a[1], a[2]};
+		f32 end[3] = {b[0], a[1], a[2]};
 		fc_dbg_line(start, end, color);
 	}
 	
 	{
-		float start[3] = {a[0], b[1], a[2]};
-		float end[3] = {b[0], b[1], a[2]};
+		f32 start[3] = {a[0], b[1], a[2]};
+		f32 end[3] = {b[0], b[1], a[2]};
 		fc_dbg_line(start, end, color);
 	}
 	
 	{
-		float start[3] = {a[0], a[1], b[2]};
-		float end[3] = {b[0], a[1], b[2]};
+		f32 start[3] = {a[0], a[1], b[2]};
+		f32 end[3] = {b[0], a[1], b[2]};
 		fc_dbg_line(start, end, color);
 	}
 	
 	{
-		float start[3] = {a[0], b[1], b[2]};
-		float end[3] = {b[0], b[1], b[2]};
+		f32 start[3] = {a[0], b[1], b[2]};
+		f32 end[3] = {b[0], b[1], b[2]};
 		fc_dbg_line(start, end, color);
 	}
 	
 	// four y-axis aligned lines
 	{
-		float start[3] = {a[0], a[1], a[2]};
-		float end[3] = {a[0], b[1], a[2]};
+		f32 start[3] = {a[0], a[1], a[2]};
+		f32 end[3] = {a[0], b[1], a[2]};
 		fc_dbg_line(start, end, color);
 	}
 	
 	{
-		float start[3] = {b[0], a[1], a[2]};
-		float end[3] = {b[0], b[1], a[2]};
+		f32 start[3] = {b[0], a[1], a[2]};
+		f32 end[3] = {b[0], b[1], a[2]};
 		fc_dbg_line(start, end, color);
 	}
 	
 	{
-		float start[3] = {a[0], a[1], b[2]};
-		float end[3] = {a[0], b[1], b[2]};
+		f32 start[3] = {a[0], a[1], b[2]};
+		f32 end[3] = {a[0], b[1], b[2]};
 		fc_dbg_line(start, end, color);
 	}
 	
 	{
-		float start[3] = {b[0], a[1], b[2]};
-		float end[3] = {b[0], b[1], b[2]};
+		f32 start[3] = {b[0], a[1], b[2]};
+		f32 end[3] = {b[0], b[1], b[2]};
 		fc_dbg_line(start, end, color);
 	}
 	
 	// four z-axis aligned lines
 	{
-		float start[3] = {a[0], a[1], a[2]};
-		float end[3] = {a[0], a[1], b[2]};
+		f32 start[3] = {a[0], a[1], a[2]};
+		f32 end[3] = {a[0], a[1], b[2]};
 		fc_dbg_line(start, end, color);
 	}
 	
 	{
-		float start[3] = {b[0], a[1], a[2]};
-		float end[3] = {b[0], a[1], b[2]};
+		f32 start[3] = {b[0], a[1], a[2]};
+		f32 end[3] = {b[0], a[1], b[2]};
 		fc_dbg_line(start, end, color);
 	}
 	
 	{
-		float start[3] = {a[0], b[1], a[2]};
-		float end[3] = {a[0], b[1], b[2]};
+		f32 start[3] = {a[0], b[1], a[2]};
+		f32 end[3] = {a[0], b[1], b[2]};
 		fc_dbg_line(start, end, color);
 	}
 	
 	{
-		float start[3] = {b[0], b[1], a[2]};
-		float end[3] = {b[0], b[1], b[2]};
+		f32 start[3] = {b[0], b[1], a[2]};
+		f32 end[3] = {b[0], b[1], b[2]};
 		fc_dbg_line(start, end, color);
 	}
 }
 
-void fc_dbg_plane(const float center[3], const float halfLength, const float color[4])
+void fc_dbg_plane(const f32 center[3], const f32 halfLength, const f32 color[4])
 {
-	const float planeA[3] = {-halfLength + center[0], -halfLength + center[1], center[2]};
-	const float planeB[3] = {-halfLength + center[0], halfLength + center[1], center[2]};
-	const float planeC[3] = {halfLength + center[0], halfLength + center[1], center[2]};
-	const float planeD[3] = {halfLength + center[0], -halfLength + center[1], center[2]};
+	const f32 planeA[3] = {-halfLength + center[0], -halfLength + center[1], center[2]};
+	const f32 planeB[3] = {-halfLength + center[0], halfLength + center[1], center[2]};
+	const f32 planeC[3] = {halfLength + center[0], halfLength + center[1], center[2]};
+	const f32 planeD[3] = {halfLength + center[0], -halfLength + center[1], center[2]};
 	
 	fc_dbg_triangle(planeC, planeB, planeA, color);
 	fc_dbg_triangle(planeA, planeD, planeC, color);
 }
 
-void fc_dbg_helper_cross(const float a[3], const float b[3], float c[3])
+void fc_dbg_helper_cross(const f32 a[3], const f32 b[3], f32 c[3])
 {
 	c[0] = a[1] * b[2] - a[2] * b[1];
 	c[1] = a[0] * b[2] - a[2] * b[0];
 	c[2] = a[0] * b[1] - a[1] * b[0];
 }
 
-void fc_dbg_helper_perpendicular(float v1[3], float v2[3])
+void fc_dbg_helper_perpendicular(f32 v1[3], f32 v2[3])
 {
 	// Find the index of the smallest element in v1
 	int i = (abs(v1[0]) < abs(v1[1])) ? 0 : 1;
@@ -416,26 +416,26 @@ void fc_dbg_helper_perpendicular(float v1[3], float v2[3])
 	v2[(i + 2) % 3] = -v1[(i + 1) % 3];
 }
 
-void fc_dbg_circle(const float center[3], const float radius, const float up[3], const float color[4])
+void fc_dbg_circle(const f32 center[3], const f32 radius, const f32 up[3], const f32 color[4])
 {
-	float right[3] = { 0 };
+	f32 right[3] = { 0 };
 	fc_dbg_helper_perpendicular(up, right);
 
-	float left[3] = { 0 };
+	f32 left[3] = { 0 };
 	fc_dbg_helper_cross(up, right, left);
 
-	float v_start[3] = {
+	f32 v_start[3] = {
 		center[0] + radius * (cosf(0.0f) * right[0] + sinf(0.0f) * left[0]),
 		center[1] + radius * (cosf(0.0f) * right[1] + sinf(0.0f) * left[1]),
 		center[2] + radius * (cosf(0.0f) * right[2] + sinf(0.0f) * left[2])
 	};
 
-	const uint32_t segments = radius * 100.0f;
-	const float segment_angle = 2.0f * M_PI / segments;
+	const u32 segments = radius * 100.0f;
+	const f32 segment_angle = 2.0f * M_PI / segments;
 
-	for (int32_t i = 1; i <= segments; i++)
+	for (i32 i = 1; i <= segments; i++)
 	{
-		const float v_end[3] = {
+		const f32 v_end[3] = {
 			center[0] + radius * (cosf(segment_angle * i) * right[0] + sinf(segment_angle * i) * left[0]),
 			center[1] + radius * (cosf(segment_angle * i) * right[1] + sinf(segment_angle * i) * left[1]),
 			center[2] + radius * (cosf(segment_angle * i) * right[2] + sinf(segment_angle * i) * left[2])
@@ -449,28 +449,28 @@ void fc_dbg_circle(const float center[3], const float radius, const float up[3],
 	}
 }
 
-void fc_dbg_sphere_wire(const float center[3], const float radius, const float color[4])
+void fc_dbg_sphere_wire(const f32 center[3], const f32 radius, const f32 color[4])
 {
-	float mat[3][3] = {
+	f32 mat[3][3] = {
 		{ 1.0f, 0.0f, 0.0f },
 		{ 0.0f, 1.0f, 0.0f },
 		{ 0.0f, 0.0f, 1.0f }
 	};
 
-	for (int32_t k = 0; k < 3; ++k)
+	for (i32 k = 0; k < 3; ++k)
 	{
-		float v_start[3] = {
+		f32 v_start[3] = {
 		center[0] + radius * (cosf(0.0f) * mat[k%3][0] + sinf(0.0f) * mat[(k+1)%3][0]),
 		center[1] + radius * (cosf(0.0f) * mat[k%3][1] + sinf(0.0f) * mat[(k+1)%3][1]),
 		center[2] + radius * (cosf(0.0f) * mat[k%3][2] + sinf(0.0f) * mat[(k+1)%3][2])
 		};
 
-		const uint32_t segments = radius * 100.0f;
-		const float segment_angle = 2.0f * M_PI / segments;
+		const u32 segments = radius * 100.0f;
+		const f32 segment_angle = 2.0f * M_PI / segments;
 
-		for (int32_t i = 1; i <= segments; i++)
+		for (i32 i = 1; i <= segments; i++)
 		{
-			const float v_end[3] = {
+			const f32 v_end[3] = {
 				center[0] + radius * (cosf(segment_angle * i) * mat[k%3][0] + sinf(segment_angle * i) * mat[(k+1)%3][0]),
 				center[1] + radius * (cosf(segment_angle * i) * mat[k%3][1] + sinf(segment_angle * i) * mat[(k+1)%3][1]),
 				center[2] + radius * (cosf(segment_angle * i) * mat[k%3][2] + sinf(segment_angle * i) * mat[(k+1)%3][2])
@@ -485,37 +485,37 @@ void fc_dbg_sphere_wire(const float center[3], const float radius, const float c
 	}
 }
 
-void fc_dbg_text(float x, float y, const char* txt, const float color[4], float scale)
+void fc_dbg_text(f32 x, f32 y, const char* txt, const f32 color[4], f32 scale)
 {
-	const uint32_t length = (uint32_t)strlen(txt);
-	const uint32_t idx = g_debugFragments.numTextLines;
+	const u32 length = (u32)strlen(txt);
+	const u32 idx = g_debugFragments.numTextLines;
 
 	FUR_ASSERT(idx < FC_DEBUG_FRAGMENTS_TEXT_LINES_CAPACITY);
 	FUR_ASSERT(g_debugFragments.numTextCharacters + length + 1 < FC_DEBUG_FRAGMENTS_TEXT_CHARACTERS_CAPACITY);
 	
-	const uint32_t offsetFloat = idx * FC_DEBUG_TEXT_LOCATION_DATA_NUM_FLOATS;
-	const uint32_t offsetRange = idx * FC_DEBUG_TEXT_LOCATION_DATA_NUM_RANGE;
+	const u32 offsetFloat = idx * FC_DEBUG_TEXT_LOCATION_DATA_NUM_FLOATS;
+	const u32 offsetRange = idx * FC_DEBUG_TEXT_LOCATION_DATA_NUM_RANGE;
 	g_debugFragments.numTextLines += 1;
 
-	float* dataLocation = g_debugFragments.textLocationData + offsetFloat;
+	f32* dataLocation = g_debugFragments.textLocationData + offsetFloat;
 	dataLocation[0] = x;
 	dataLocation[1] = -y;
 	dataLocation[2] = color[0];
 	dataLocation[3] = color[1];
 	dataLocation[4] = color[2];
 	
-	const uint32_t offsetCharacters = g_debugFragments.numTextCharacters;
+	const u32 offsetCharacters = g_debugFragments.numTextCharacters;
 	g_debugFragments.numTextCharacters += length + 1;
 	
 	char* dataCharacters = g_debugFragments.textCharactersData + offsetCharacters;
 	memcpy(dataCharacters, txt, length);
 	dataCharacters[length] = '\0';
 	
-	uint32_t* dataRange = g_debugFragments.textRangeData + offsetRange;
+	u32* dataRange = g_debugFragments.textRangeData + offsetRange;
 	dataRange[0] = offsetCharacters;
 	dataRange[1] = length;
 
-	float* dataScale = g_debugFragments.textScaleData + idx;
+	f32* dataScale = g_debugFragments.textScaleData + idx;
 	*dataScale = scale;
 }
 
@@ -529,7 +529,7 @@ void fc_dbg_set_screen_info(const fc_dbg_screen_info_t* info)
 	g_debugFragments.screenInfo = *info;
 }
 
-void fc_dbg_apply_anchor(float* x, float* y, fc_dbg_screen_anchors_t anchor)
+void fc_dbg_apply_anchor(f32* x, f32* y, fc_dbg_screen_anchors_t anchor)
 {
 	fc_dbg_screen_info_t s = g_debugFragments.screenInfo;
 
@@ -559,15 +559,15 @@ void fc_dbg_apply_anchor(float* x, float* y, fc_dbg_screen_anchors_t anchor)
 	}
 }
 
-void fc_dbg_rect(float x, float y, float width, float height, const float color[4])
+void fc_dbg_rect(f32 x, f32 y, f32 width, f32 height, const f32 color[4])
 {
 	FUR_ASSERT(g_debugFragments.numRects < FC_DEBUG_FRAGMENTS_RECTS_CAPACITY);
 	
-	const uint32_t idx = g_debugFragments.numRects * FC_DEBUG_RECT_NUM_VERTICES * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS;
+	const u32 idx = g_debugFragments.numRects * FC_DEBUG_RECT_NUM_VERTICES * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS;
 	g_debugFragments.numRects += 1;
 	
-	float* vertices = g_debugFragments.rectData + idx;
-	const uint32_t vertexStride = FC_DEBUG_RECTS_VERTEX_NUM_FLOATS;
+	f32* vertices = g_debugFragments.rectData + idx;
+	const u32 vertexStride = FC_DEBUG_RECTS_VERTEX_NUM_FLOATS;
 	
 	//  / Z
 	// o----X
@@ -582,8 +582,8 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 	//    \|
 	//
 	{
-		float* pos = vertices;
-		float* vcolor = vertices + 2;
+		f32* pos = vertices;
+		f32* vcolor = vertices + 2;
 		
 		pos[0] = x;
 		pos[1] = -y;
@@ -601,8 +601,8 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 	//    \|
 	//     O
 	{
-		float* pos = vertices;
-		float* vcolor = vertices + 2;
+		f32* pos = vertices;
+		f32* vcolor = vertices + 2;
 		
 		pos[0] = x + width;
 		pos[1] = -y - height;
@@ -620,8 +620,8 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 	//    \|
 	//
 	{
-		float* pos = vertices;
-		float* vcolor = vertices + 2;
+		f32* pos = vertices;
+		f32* vcolor = vertices + 2;
 		
 		pos[0] = x + width;
 		pos[1] = -y;
@@ -641,8 +641,8 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 	//  ---
 	{
 		// same as vertex 0
-		float* pos = vertices;
-		float* vcolor = vertices + 2;
+		f32* pos = vertices;
+		f32* vcolor = vertices + 2;
 		
 		pos[0] = x;
 		pos[1] = -y;
@@ -660,8 +660,8 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 	// |  \
 	// O---
 	{
-		float* pos = vertices;
-		float* vcolor = vertices + 2;
+		f32* pos = vertices;
+		f32* vcolor = vertices + 2;
 		
 		pos[0] = x;
 		pos[1] = -y - height;
@@ -680,8 +680,8 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 	//  ---O
 	{
 		// same as vertex 1
-		float* pos = vertices;
-		float* vcolor = vertices + 2;
+		f32* pos = vertices;
+		f32* vcolor = vertices + 2;
 		
 		pos[0] = x + width;
 		pos[1] = -y - height;
@@ -694,12 +694,12 @@ void fc_dbg_rect(float x, float y, float width, float height, const float color[
 	vertices += vertexStride;
 }
 
-uint32_t fc_dbg_text_characters_capacity(void)
+u32 fc_dbg_text_characters_capacity(void)
 {
 	return FC_DEBUG_FRAGMENTS_TEXT_CHARACTERS_CAPACITY;
 }
 
-uint32_t fc_dbg_text_num_total_characters(void)
+u32 fc_dbg_text_num_total_characters(void)
 {
 	return FC_DEBUG_FRAGMENTS_TEXT_CHARACTERS_CAPACITY;
 }

@@ -6,15 +6,15 @@
 #include "memory.h"
 
 /* magic numbers from http://www.isthe.com/chongo/tech/comp/fnv/ */
-static const uint32_t InitialFNV = 2166136261U;
-static const uint32_t FNVMultiple = 16777619U;
+static const u32 InitialFNV = 2166136261U;
+static const u32 FNVMultiple = 16777619U;
 
 fc_string_hash_t fc_make_string_hash(const char* name)
 {
 	fc_string_hash_t result = InitialFNV;
-	const size_t len = strlen(name);
+	const u64 len = strlen(name);
 	
-	for(size_t i=0; i<len; ++i)
+	for(u64 i=0; i<len; ++i)
 	{
 		result = (result ^ name[i]) * FNVMultiple;
 	}
@@ -29,12 +29,12 @@ typedef struct fc_string_hash_register_t
 {
 	fc_string_hash_t* hashes;
 	const char** names;
-	uint32_t namesCapacity;
-	uint32_t namesCount;
+	u32 namesCapacity;
+	u32 namesCount;
 	
 	char* buffer;
-	uint32_t bufferCapacity;
-	uint32_t bufferOffset;
+	u32 bufferCapacity;
+	u32 bufferOffset;
 } fc_string_hash_register_t;
 
 fc_string_hash_register_t g_hashRegister;
@@ -48,7 +48,7 @@ fc_string_hash_t fc_make_string_hash_and_register(const char* name)
 	
 	// check if this name is registered
 	bool isRegistered = false;
-	for(uint32_t i=0; i<g_hashRegister.namesCount; ++i)
+	for(u32 i=0; i<g_hashRegister.namesCount; ++i)
 	{
 		if(g_hashRegister.hashes[i] == hash)
 		{
@@ -59,7 +59,7 @@ fc_string_hash_t fc_make_string_hash_and_register(const char* name)
 	
 	if(!isRegistered)
 	{
-		const uint32_t nameLen = (uint32_t)strlen(name);
+		const u32 nameLen = (u32)strlen(name);
 		
 		FUR_ASSERT(g_hashRegister.bufferOffset + nameLen + 1 < g_hashRegister.bufferCapacity);
 		FUR_ASSERT(g_hashRegister.namesCount < g_hashRegister.namesCapacity);
@@ -80,7 +80,7 @@ const char* fc_string_hash_as_cstr_debug(fc_string_hash_t hash)
 {
 	FUR_ASSERT(g_hashRegister.buffer);
 	
-	for(uint32_t i=0; i<g_hashRegister.namesCount; ++i)
+	for(u32 i=0; i<g_hashRegister.namesCount; ++i)
 	{
 		if(g_hashRegister.hashes[i] == hash)
 		{

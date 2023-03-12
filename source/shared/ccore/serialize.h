@@ -7,8 +7,7 @@ extern "C"
 {
 #endif // __cplusplus
 	
-#include <inttypes.h>
-#include <stdbool.h>
+#include "types.h"
 #include "api.h"
 
 // add custom types here
@@ -17,14 +16,14 @@ extern "C"
 #define fc_serialize(_serializer, _property) _Generic((_property), \
 	int8_t*: fc_serialize_int8,	\
 	int16_t*: fc_serialize_int16, \
-	int32_t*: fc_serialize_int32, \
+	i32*: fc_serialize_int32, \
 	int64_t*: fc_serialize_int64, \
-	uint8_t*: fc_serialize_uint8,	\
+	u8*: fc_serialize_uint8,	\
 	uint16_t*: fc_serialize_uint16, \
-	uint32_t*: fc_serialize_uint32, \
+	u32*: fc_serialize_uint32, \
 	uint64_t*: fc_serialize_uint64, \
-	float*: fc_serialize_float, \
-	double*: fc_serialize_double, \
+	f32*: fc_serialize_float, \
+	f64*: fc_serialize_double, \
 	fa_anim_curve_t*: fa_serialize_anim_curve \
 )(_serializer, _property)
 
@@ -33,14 +32,14 @@ extern "C"
 #define fc_serialize(_serializer, _property) _Generic((_property), \
 	int8_t*: fc_serialize_int8,	\
 	int16_t*: fc_serialize_int16, \
-	int32_t*: fc_serialize_int32, \
+	i32*: fc_serialize_int32, \
 	int64_t*: fc_serialize_int64, \
-	uint8_t*: fc_serialize_uint8,	\
+	u8*: fc_serialize_uint8,	\
 	uint16_t*: fc_serialize_uint16, \
-	uint32_t*: fc_serialize_uint32, \
+	u32*: fc_serialize_uint32, \
 	uint64_t*: fc_serialize_uint64, \
-	float*: fc_serialize_float, \
-	double*: fc_serialize_double, \
+	f32*: fc_serialize_float, \
+	f64*: fc_serialize_double, \
 	fa_anim_curve_t*: fa_serialize_anim_curve, \
 	enum fm_axis_t*: fc_serialize_uint32 \
 )(_serializer, _property)
@@ -87,7 +86,7 @@ typedef struct _iobuf FILE;
 // interface - use this + FUR_SER_ADD, FUR_SER_REM macros
 typedef struct fc_serializer_t
 {
-	int32_t version;
+	i32 version;
 	FILE* file;
 	bool isWriting;
 } fc_serializer_t;
@@ -98,16 +97,16 @@ void fc_serialize_save(const char* path, fc_serializer_t* outSerializer);
 // simple type serialization functions
 void fc_serialize_int8(fc_serializer_t* pSerializer, int8_t* prop);
 void fc_serialize_int16(fc_serializer_t* pSerializer, int16_t* prop);
-void fc_serialize_int32(fc_serializer_t* pSerializer, int32_t* prop);
+void fc_serialize_int32(fc_serializer_t* pSerializer, i32* prop);
 void fc_serialize_int64(fc_serializer_t* pSerializer, int64_t* prop);
-void fc_serialize_uint8(fc_serializer_t* pSerializer, uint8_t* prop);
+void fc_serialize_uint8(fc_serializer_t* pSerializer, u8* prop);
 void fc_serialize_uint16(fc_serializer_t* pSerializer, uint16_t* prop);
-void fc_serialize_uint32(fc_serializer_t* pSerializer, uint32_t* prop);
+void fc_serialize_uint32(fc_serializer_t* pSerializer, u32* prop);
 void fc_serialize_uint64(fc_serializer_t* pSerializer, uint64_t* prop);
-void fc_serialize_float(fc_serializer_t* pSerializer, float* prop);
-void fc_serialize_double(fc_serializer_t* pSerializer, double* prop);
+void fc_serialize_float(fc_serializer_t* pSerializer, f32* prop);
+void fc_serialize_double(fc_serializer_t* pSerializer, f64* prop);
 
-void fc_serialize_buffer(fc_serializer_t* pSerializer, void* ptr, uint32_t size);
+void fc_serialize_buffer(fc_serializer_t* pSerializer, void* ptr, u32 size);
 
 typedef struct fa_anim_curve_t fa_anim_curve_t;
 void fa_serialize_anim_curve(fc_serializer_t* pSerializer, fa_anim_curve_t* animCurve);

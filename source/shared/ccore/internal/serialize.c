@@ -19,18 +19,18 @@ void _func(fc_serializer_t* pSerializer, _type* prop) \
 
 FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_int8, int8_t )
 FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_int16, int16_t )
-FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_int32, int32_t )
+FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_int32, i32 )
 FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_int64, int64_t )
 
-FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_uint8, uint8_t )
+FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_uint8, u8 )
 FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_uint16, uint16_t )
-FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_uint32, uint32_t )
+FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_uint32, u32 )
 FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_uint64, uint64_t )
 
-FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_float, float )
-FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_double, double )
+FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_float, f32 )
+FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_double, f64 )
 
-void fc_serialize_buffer(fc_serializer_t* pSerializer, void* ptr, uint32_t size)
+void fc_serialize_buffer(fc_serializer_t* pSerializer, void* ptr, u32 size)
 {
 	if(!pSerializer->isWriting)
 	{

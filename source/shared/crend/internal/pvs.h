@@ -17,12 +17,12 @@ typedef struct fr_proxy_t
 {
 	fr_mesh_t* mesh;
 	fr_image_t* textures;
-	uint32_t numTextures;
+	u32 numTextures;
 	
 	// only for skinned meshes
 	fm_mat4* invBindPose;
 	int16_t* skinningMappinng;
-	int32_t numBones;
+	i32 numBones;
 } fr_proxy_t;
 
 typedef enum fr_pvs_proxy_flag_t
@@ -40,7 +40,7 @@ typedef struct fr_pvs_t
 	fr_buffer_t worldViewProj;			// world, view, and projection matrices for all objects
 	fr_buffer_t skinningBuffer;			// skinning bones for all skinned meshes
 	VkDescriptorSet* descriptorSets;	// there's limited amount of proxies that can be added to single PVS
-	uint32_t numMaxDescriptorSets;		// this is equal to maxumum number of proxies in PVS
+	u32 numMaxDescriptorSets;		// this is equal to maxumum number of proxies in PVS
 	VkSampler defaultTextureSampler;
 	
 	// constants given this frame
@@ -49,15 +49,15 @@ typedef struct fr_pvs_t
 	fm_mat4 camera;			// view and projection is created based on that, it's initiated when acquiring the PVS
 	
 	// values modified with adding proxies
-	uint32_t worldViewProjOffset;	// adding proxies moves the offset
-	uint32_t numSkinningMatrices;	// same here, adding skinned proxies moves the number of skinned matrices, then mapped to buffer offset
+	u32 worldViewProjOffset;	// adding proxies moves the offset
+	u32 numSkinningMatrices;	// same here, adding skinned proxies moves the number of skinned matrices, then mapped to buffer offset
 	fm_mat4* skinningMatrices;		// all the matrices for all skinned objects
 	
 	const fr_proxy_t** proxies;		// collection of all proxies visible this frame
-	uint32_t* proxiesFlags;			// flags like - is skinned
-	uint32_t numProxies;			// this is the current number of proxies added to PVS during frame
+	u32* proxiesFlags;			// flags like - is skinned
+	u32 numProxies;			// this is the current number of proxies added to PVS during frame
 	
-	uint32_t pvsIndex;	// used for tripple buffering
+	u32 pvsIndex;	// used for tripple buffering
 } fr_pvs_t;
 
 void fr_pvs_clear(fr_pvs_t* pvs);

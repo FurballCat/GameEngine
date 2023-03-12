@@ -53,7 +53,7 @@ void fc_cmd_import_rig_apply_properties(fa_rig_t* rig, fc_alloc_callbacks_t* pAl
 		
 		// masks
 		{
-			rig->maskUpperBody = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, rig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+			rig->maskUpperBody = FUR_ALLOC_ARRAY_AND_ZERO(u8, rig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 			const int16_t idxSpine = fa_rig_find_bone_idx(rig, SID("Bip001_Spine"));
 			const fc_string_hash_t hashes[9] = {
 				SID("Bip001_Pelvis"),
@@ -95,10 +95,10 @@ void fc_cmd_import_rig_apply_properties(fa_rig_t* rig, fc_alloc_callbacks_t* pAl
 			
 			if(idxSpine != -1)
 			{
-				for(uint32_t i=0; i<rig->numBones; ++i)
+				for(u32 i=0; i<rig->numBones; ++i)
 				{
-					uint8_t w = 220;
-					for(uint32_t j=0; j<9; ++j)
+					u8 w = 220;
+					for(u32 j=0; j<9; ++j)
 					{
 						if(rig->boneNameHashes[i] == hashes[j])
 						{
@@ -106,14 +106,14 @@ void fc_cmd_import_rig_apply_properties(fa_rig_t* rig, fc_alloc_callbacks_t* pAl
 							break;
 						}
 					}
-					for(uint32_t j=0; j<18; ++j)
+					for(u32 j=0; j<18; ++j)
 					{
 						if(rig->boneNameHashes[i] == hashesPartial[j])
 						{
 							w = 100;
 						}
 					}
-					for(uint32_t j=0; j<2; ++j)
+					for(u32 j=0; j<2; ++j)
 					{
 						if(rig->boneNameHashes[i] == noHashes[j])
 						{
@@ -127,7 +127,7 @@ void fc_cmd_import_rig_apply_properties(fa_rig_t* rig, fc_alloc_callbacks_t* pAl
 		
 		// face mask
 		{
-			rig->maskFace = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, rig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+			rig->maskFace = FUR_ALLOC_ARRAY_AND_ZERO(u8, rig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 			const int16_t idxSpine = fa_rig_find_bone_idx(rig, SID("Bip001_Spine"));
 			const fc_string_hash_t hashes[] = {
 				//SID("Bip001_Neck"),
@@ -194,11 +194,11 @@ void fc_cmd_import_rig_apply_properties(fa_rig_t* rig, fc_alloc_callbacks_t* pAl
 			
 			if(idxSpine != -1)
 			{
-				for(uint32_t i=0; i<rig->numBones; ++i)
+				for(u32 i=0; i<rig->numBones; ++i)
 				{
-					uint8_t w = 0;
-					const uint32_t numHashes = FUR_ARRAY_SIZE(hashes);
-					for(uint32_t j=0; j<numHashes; ++j)
+					u8 w = 0;
+					const u32 numHashes = FUR_ARRAY_SIZE(hashes);
+					for(u32 j=0; j<numHashes; ++j)
 					{
 						if(rig->boneNameHashes[i] == hashes[j])
 						{
@@ -213,7 +213,7 @@ void fc_cmd_import_rig_apply_properties(fa_rig_t* rig, fc_alloc_callbacks_t* pAl
 		
 		// hands mask
 		{
-			rig->maskHands = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, rig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+			rig->maskHands = FUR_ALLOC_ARRAY_AND_ZERO(u8, rig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 			const int16_t idxSpine = fa_rig_find_bone_idx(rig, SID("Bip001_Spine"));
 			const fc_string_hash_t hashes[] = {
 				SID("Bip001_Index1_L"),
@@ -252,11 +252,11 @@ void fc_cmd_import_rig_apply_properties(fa_rig_t* rig, fc_alloc_callbacks_t* pAl
 			
 			if(idxSpine != -1)
 			{
-				for(uint32_t i=0; i<rig->numBones; ++i)
+				for(u32 i=0; i<rig->numBones; ++i)
 				{
-					uint8_t w = 0;
-					const uint32_t numHashes = FUR_ARRAY_SIZE(hashes);
-					for(uint32_t j=0; j<numHashes; ++j)
+					u8 w = 0;
+					const u32 numHashes = FUR_ARRAY_SIZE(hashes);
+					for(u32 j=0; j<numHashes; ++j)
 					{
 						if(rig->boneNameHashes[i] == hashes[j])
 						{

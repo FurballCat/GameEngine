@@ -2,28 +2,27 @@
 
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
+#include "ccore/types.h"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif // __cplusplus
 
-typedef uint32_t fc_string_hash_t;
+typedef u32 fc_string_hash_t;
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 typedef struct fc_mem_rel_heap_alloc_t fc_mem_rel_heap_alloc_t;
 
 typedef union fg_spawn_info_prop_value_t
 {
-	int32_t asInt32;
-	float asFloat;
+	i32 asInt32;
+	f32 asFloat;
 	fc_string_hash_t asStringHash;
 } fg_spawn_info_prop_value_t;
 
 typedef struct fg_spawn_info_properties_t
 {
-	int32_t num;
+	i32 num;
 	fc_string_hash_t* names;
 	fg_spawn_info_prop_value_t* values;
 } fg_spawn_info_properties_t;
@@ -40,19 +39,19 @@ typedef struct fg_spawn_info_t
 } fg_spawn_info_t;
 
 // get key-value properties through these functions
-float fg_spawn_info_get_float(const fg_spawn_info_t* info, fc_string_hash_t name, float defaultValue);
-int32_t fg_spawn_info_get_int(const fg_spawn_info_t* info, fc_string_hash_t name, int32_t defaultValue);
+f32 fg_spawn_info_get_float(const fg_spawn_info_t* info, fc_string_hash_t name, f32 defaultValue);
+i32 fg_spawn_info_get_int(const fg_spawn_info_t* info, fc_string_hash_t name, i32 defaultValue);
 fc_string_hash_t fg_spawn_info_get_string_hash(const fg_spawn_info_t* info, fc_string_hash_t name, fc_string_hash_t defaultValue);
 
 // stack allocator for game object used on init
 typedef struct fg_stack_allocator_t
 {
 	void* ptr;
-	int32_t size;
-	int32_t capacity;
+	i32 size;
+	i32 capacity;
 } fg_stack_allocator_t;
 
-void* fg_stack_alloc(fg_stack_allocator_t* allocator, int32_t size);
+void* fg_stack_alloc(fg_stack_allocator_t* allocator, i32 size);
 
 typedef enum fg_update_bucket_t
 {
@@ -79,14 +78,14 @@ typedef struct fg_game_object_init_ctx_t
 	const fg_systems_register_t* systems;
 	
 	// current global time
-	double globalTime;	// todo: remove?
+	f64 globalTime;	// todo: remove?
 } fg_game_object_init_ctx_t;
 
 typedef bool (*fg_game_object_init_func_t)(fg_game_object_2_t* gameObject, fg_game_object_init_ctx_t* ctx);
 
 typedef struct fg_game_object_update_ctx_t
 {
-	float dt;
+	f32 dt;
 } fg_game_object_update_ctx_t;
 
 typedef void (*fg_game_object_update_func_t)(fg_game_object_2_t* gameObject, fg_game_object_update_ctx_t* ctx);
@@ -118,19 +117,19 @@ typedef struct fg_resource_register_t
 {
 	fc_string_hash_t scriptsNames[FG_MAX_NUM_SCRIPTS];
 	const fc_binary_buffer_t* scripts[FG_MAX_NUM_SCRIPTS];
-	int32_t numScripts;
+	i32 numScripts;
 	
 	fc_string_hash_t animationsNames[FG_MAX_NUM_ANIMATIONS];
 	const fa_anim_clip_t* animations[FG_MAX_NUM_ANIMATIONS];
-	int32_t numAnimations;
+	i32 numAnimations;
 	
 	fc_string_hash_t rigsNames[FG_MAX_NUM_ANIMATIONS];
 	const fa_rig_t* rigs[FG_MAX_NUM_ANIMATIONS];
-	int32_t numRigs;
+	i32 numRigs;
 	
 	fc_string_hash_t meshesNames[FG_MAX_NUM_ANIMATIONS];
 	const fr_proxy_t* meshes[FG_MAX_NUM_ANIMATIONS];
-	int32_t numMeshes;
+	i32 numMeshes;
 	
 } fg_resource_register_t;
 
@@ -160,7 +159,7 @@ typedef struct fg_type_factory_t
 	fg_game_object_funcs_t fn;
 	
 	// size information for relocatable memory management, see level heap
-	uint32_t memoryMaxSize;
+	u32 memoryMaxSize;
 	
 	// which bucket is the game object updated in
 	fg_update_bucket_t updateBucket;
@@ -168,11 +167,11 @@ typedef struct fg_type_factory_t
 
 void fg_type_factory_register_new(fc_string_hash_t typeName, fg_type_factory_t factory);
 
-// use index to get pointer to the game object, then compare go.name to name to double check
+// use index to get pointer to the game object, then compare go.name to name to f64 check
 typedef struct fg_game_object_handle_t
 {
 	// index of the game object slot
-	int32_t index;
+	i32 index;
 	
 	// unique name
 	fc_string_hash_t name;
@@ -181,16 +180,16 @@ typedef struct fg_game_object_handle_t
 typedef struct fg_game_object_handle_array_t
 {
 	fg_game_object_handle_t* data;
-	int32_t num;
-	int32_t capacity;
+	i32 num;
+	i32 capacity;
 } fg_game_object_handle_array_t;
 
 typedef struct fg_game_object_handle_map_t
 {
 	fc_string_hash_t* names;
-	int32_t* indices;
-	int32_t num;
-	int32_t capacity;
+	i32* indices;
+	i32 num;
+	i32 capacity;
 } fg_game_object_handle_map_t;
 
 typedef struct fg_spawner_t
@@ -208,10 +207,10 @@ typedef struct fg_game_object_info_storage_t
 	const fg_spawner_t* spawner[MAX_GAME_OBJECTS_SPAWNED];
 	
 	// number of initialised game objects
-	int32_t numInit;
+	i32 numInit;
 	
 	// total number of game objects
-	int32_t num;
+	i32 num;
 } fg_game_object_info_storage_t;
 
 typedef struct fg_world_t
@@ -244,7 +243,7 @@ void fg_world_release(fg_world_t* world, fc_alloc_callbacks_t* pAllocCallbacks);
 
 typedef struct fg_world_update_ctx_t
 {
-	float dt;
+	f32 dt;
 } fg_world_update_ctx_t;
 
 void fg_world_update(fg_world_t* world, fg_world_update_ctx_t* ctx, fg_update_bucket_t bucket);

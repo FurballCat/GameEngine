@@ -112,8 +112,8 @@ const char* frInterpretVulkanResult(VkResult result)
 struct fr_app_t
 {
 	const char* title;
-	uint32_t viewportWidth;
-	uint32_t viewportHeight;
+	u32 viewportWidth;
+	u32 viewportHeight;
 	
 	GLFWwindow* pWindow;
 };
@@ -182,7 +182,7 @@ enum fr_result_t fr_release_app(struct fr_app_t* pApp,
 	return FR_RESULT_OK;
 }
 
-uint32_t fr_update_app(struct fr_app_t* pApp)
+u32 fr_update_app(struct fr_app_t* pApp)
 {
 	if(!glfwWindowShouldClose(pApp->pWindow))
 	{
@@ -200,20 +200,20 @@ uint32_t fr_update_app(struct fr_app_t* pApp)
 typedef struct fr_font_glyph_t
 {
 	char character;
-	float uvMin[2];
-	float uvMax[2];
-	uint32_t size[2];	// width and height in pixels
+	f32 uvMin[2];
+	f32 uvMax[2];
+	u32 size[2];	// width and height in pixels
 } fr_font_glyph_t;
 
 typedef struct fr_font_t
 {
 	fr_font_glyph_t* glyphs;	// sorted by character in ASCII, use character as index
-	uint32_t numGlyphs;
-	uint32_t offsetGlyphs;
+	u32 numGlyphs;
+	u32 offsetGlyphs;
 	
 	fr_image_t atlas;
-	uint32_t atlasWidth;
-	uint32_t atlasHeight;
+	u32 atlasWidth;
+	u32 atlasHeight;
 	
 	void* pixelsData;	// used for staging buffer
 } fr_font_t;
@@ -245,8 +245,8 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 	// load glyph atlas
 	{
 		VkDeviceSize imageSize = 0;
-		int32_t width = 0;
-		int32_t height = 0;
+		i32 width = 0;
+		i32 height = 0;
 		
 		// load texture
 		{
@@ -297,7 +297,7 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 		const char* streamEnd = textBuffer.pData + textBuffer.size;
 		
 		// count number of glyphs
-		uint32_t numGlyphs = 0;
+		u32 numGlyphs = 0;
 		
 		{
 			fc_text_stream_ro_t stream = {streamBegin, streamEnd};
@@ -316,12 +316,12 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 		
 		// parse content
 		{
-			int32_t parsingErrorGlyphIndex = -1;
+			i32 parsingErrorGlyphIndex = -1;
 			
 			fc_text_stream_ro_t stream = {streamBegin, streamEnd};
-			for(uint32_t i=0; i<numGlyphs; ++i)
+			for(u32 i=0; i<numGlyphs; ++i)
 			{
-				int32_t asciiNumber = 0;
+				i32 asciiNumber = 0;
 				if(!fc_text_parse_int32(&stream, &asciiNumber))
 				{
 					parsingErrorGlyphIndex = i;
@@ -342,7 +342,7 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 					break;
 				}
 				
-				float uv[2] = {0};
+				f32 uv[2] = {0};
 				
 				if(!fc_text_parse_float(&stream, &uv[0]))
 				{
@@ -356,7 +356,7 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 					break;
 				}
 				
-				int32_t pixelWidth = 0;
+				i32 pixelWidth = 0;
 				if(!fc_text_parse_int32(&stream, &pixelWidth))
 				{
 					parsingErrorGlyphIndex = i;
@@ -366,7 +366,7 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 				font->glyphs[i].character = (char)asciiNumber;
 				font->glyphs[i].uvMin[0] = uv[0];
 				font->glyphs[i].uvMin[1] = uv[1];
-				font->glyphs[i].uvMax[0] = uv[0] + ((float)pixelWidth) / ((float)font->atlasWidth);
+				font->glyphs[i].uvMax[0] = uv[0] + ((f32)pixelWidth) / ((f32)font->atlasWidth);
 				font->glyphs[i].uvMax[1] = 1.0f;
 				font->glyphs[i].size[0] = pixelWidth;
 				font->glyphs[i].size[1] = font->atlasHeight;
@@ -384,33 +384,33 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 
 const fr_font_glyph_t* fr_font_get_glyph(const fr_font_t* font, char chr)
 {
-	const uint32_t offsetGlyphs = font->offsetGlyphs;
+	const u32 offsetGlyphs = font->offsetGlyphs;
 	if(chr < offsetGlyphs)
 		return NULL;
 	
-	const uint32_t idxGlyph = (uint32_t)chr - offsetGlyphs;
+	const u32 idxGlyph = (u32)chr - offsetGlyphs;
 	if(idxGlyph >= font->numGlyphs)
 		return NULL;
 	
 	return &font->glyphs[idxGlyph];
 }
 
-uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, const float textPos[2], const float textColor[3], float* vertices, uint32_t numMaxVertices, float scale)
+u32 fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, const f32 textPos[2], const f32 textColor[3], f32* vertices, u32 numMaxVertices, f32 scale)
 {
 	FUR_ASSERT(FR_FONT_FLOATS_PER_GLYPH_VERTEX == 7);
 	
-	const uint32_t length = (uint32_t)strlen(text);
-	const uint32_t vertexStride = FR_FONT_FLOATS_PER_GLYPH_VERTEX;
-	const uint32_t numVerticesPerGlyph = 6;
-	const uint32_t numVerticesRequired = length * numVerticesPerGlyph * vertexStride;
+	const u32 length = (u32)strlen(text);
+	const u32 vertexStride = FR_FONT_FLOATS_PER_GLYPH_VERTEX;
+	const u32 numVerticesPerGlyph = 6;
+	const u32 numVerticesRequired = length * numVerticesPerGlyph * vertexStride;
 	
 	if(numVerticesRequired > numMaxVertices)
 		return 0;
 	
-	uint32_t verticesUsed = 0;
+	u32 verticesUsed = 0;
 	
-	float cursor[2] = {textPos[0], textPos[1]};
-	for(uint32_t i=0; i<length; ++i)
+	f32 cursor[2] = {textPos[0], textPos[1]};
+	for(u32 i=0; i<length; ++i)
 	{
 		const fr_font_glyph_t* glyph = fr_font_get_glyph(font, text[i]);
 		
@@ -421,13 +421,13 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 		
 		verticesUsed += numVerticesPerGlyph * FR_FONT_FLOATS_PER_GLYPH_VERTEX;
 		
-		const float glyphWidth = (float)glyph->size[0];
-		const float glyphWidthPlusOne = (float)glyph->size[0] + 1;
-		const float glyphHeight = (float)glyph->size[1];
+		const f32 glyphWidth = (f32)glyph->size[0];
+		const f32 glyphWidthPlusOne = (f32)glyph->size[0] + 1;
+		const f32 glyphHeight = (f32)glyph->size[1];
 		
-		const float scaledGlyphWidth = glyphWidth * scale;
-		const float scaledGlyphWidthPlusOne = glyphWidthPlusOne * scale;
-		const float scaledGlyphHeight = glyphHeight * scale;
+		const f32 scaledGlyphWidth = glyphWidth * scale;
+		const f32 scaledGlyphWidthPlusOne = glyphWidthPlusOne * scale;
+		const f32 scaledGlyphHeight = glyphHeight * scale;
 		
 		//  / Z
 		// o----X
@@ -442,9 +442,9 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 		//    \|
 		//
 		{
-			float* pos = vertices;
-			float* uv = vertices + 2;
-			float* color = vertices + 4;
+			f32* pos = vertices;
+			f32* uv = vertices + 2;
+			f32* color = vertices + 4;
 			
 			pos[0] = cursor[0];
 			pos[1] = cursor[1];
@@ -463,9 +463,9 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 		//    \|
 		//     O
 		{
-			float* pos = vertices;
-			float* uv = vertices + 2;
-			float* color = vertices + 4;
+			f32* pos = vertices;
+			f32* uv = vertices + 2;
+			f32* color = vertices + 4;
 			
 			pos[0] = cursor[0] + scaledGlyphWidth;
 			pos[1] = cursor[1] - scaledGlyphHeight;
@@ -484,9 +484,9 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 		//    \|
 		//
 		{
-			float* pos = vertices;
-			float* uv = vertices + 2;
-			float* color = vertices + 4;
+			f32* pos = vertices;
+			f32* uv = vertices + 2;
+			f32* color = vertices + 4;
 			
 			pos[0] = cursor[0] + scaledGlyphWidth;
 			pos[1] = cursor[1];
@@ -507,9 +507,9 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 		//  ---
 		{
 			// same as vertex 0
-			float* pos = vertices;
-			float* uv = vertices + 2;
-			float* color = vertices + 4;
+			f32* pos = vertices;
+			f32* uv = vertices + 2;
+			f32* color = vertices + 4;
 			
 			pos[0] = cursor[0];
 			pos[1] = cursor[1];
@@ -528,9 +528,9 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 		// |  \
 		// O---
 		{
-			float* pos = vertices;
-			float* uv = vertices + 2;
-			float* color = vertices + 4;
+			f32* pos = vertices;
+			f32* uv = vertices + 2;
+			f32* color = vertices + 4;
 			
 			pos[0] = cursor[0];
 			pos[1] = cursor[1] - scaledGlyphHeight;
@@ -550,9 +550,9 @@ uint32_t fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, con
 		//  ---O
 		{
 			// same as vertex 1
-			float* pos = vertices;
-			float* uv = vertices + 2;
-			float* color = vertices + 4;
+			f32* pos = vertices;
+			f32* uv = vertices + 2;
+			f32* color = vertices + 4;
 			
 			pos[0] = cursor[0] + scaledGlyphWidth;
 			pos[1] = cursor[1] - scaledGlyphHeight;
@@ -609,12 +609,12 @@ enum fr_result_t fr_create_shader_module(VkDevice device, const char* path, VkSh
 
 typedef struct fr_vec2_t
 {
-	float x, y;
+	f32 x, y;
 } fr_vec2_t;
 
 typedef struct fr_vec3_t
 {
-	float x, y, z;
+	f32 x, y, z;
 } fr_vec3_t;
 
 typedef struct fr_vertex_t
@@ -649,15 +649,15 @@ typedef struct fr_mesh_chunk_t
 {
 	fr_buffer_t data;
 	VkDeviceSize offsets[FR_MESH_CHUNK_BUFFER_OFFSET_COUNT];
-	uint32_t numIndices;
-	int32_t textureIndex;
+	u32 numIndices;
+	i32 textureIndex;
 	
 } fr_mesh_chunk_t;
 
 typedef struct fr_mesh_t
 {
 	fr_mesh_chunk_t* chunks;
-	uint32_t numChunks;
+	u32 numChunks;
 } fr_mesh_t;
 
 const char* g_texturePathZeldaDiff = "../../../../../assets/characters/zelda/mesh/textures/zelda_diff.png";
@@ -674,8 +674,8 @@ const char* g_texturePathEyesDiff = "../../../../../assets/characters/zelda/mesh
 
 typedef struct fr_skinning_mapping_t
 {
-	uint32_t* indicesMapping;
-	uint32_t count;
+	u32* indicesMapping;
+	u32 count;
 } fr_skinning_mapping_t;
 
 typedef struct fr_renderer_t
@@ -684,8 +684,8 @@ typedef struct fr_renderer_t
 	VkPhysicalDevice physicalDevice;
 	VkDevice device;
 	
-	uint32_t idxQueueGraphics;
-	uint32_t idxQueuePresent;
+	u32 idxQueueGraphics;
+	u32 idxQueuePresent;
 	
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
@@ -782,16 +782,16 @@ typedef struct fr_renderer_t
 	
 	// all proxies
 	fr_proxy_t proxies[NUM_MAX_PROXIES_ALLOCATED];
-	uint32_t numProxies;
+	u32 numProxies;
 } fr_renderer_t;
 
-void fr_pixels_free_func(void* pData, size_t size, void* pUserData)
+void fr_pixels_free_func(void* pData, u64 size, void* pUserData)
 {
 	stbi_uc* pixels = (stbi_uc*)pData;
 	stbi_image_free(pixels);
 }
 
-void fr_generic_buffer_free_func(void* pData, size_t size, void* pUserData)
+void fr_generic_buffer_free_func(void* pData, u64 size, void* pUserData)
 {
 	struct fc_alloc_callbacks_t* pAllocCallbacks = (struct fc_alloc_callbacks_t*)pUserData;
 	
@@ -830,7 +830,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 		
-		uint32_t glfwExtensionCount = 0;
+		u32 glfwExtensionCount = 0;
 		const char** glfwExtensions;
 		
 		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -852,7 +852,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// enumerate extensions
 	if(res == FR_RESULT_OK)
 	{
-		uint32_t extensionCount = 0;
+		u32 extensionCount = 0;
 		vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, NULL);
 		
 		//struct VkExtensionProperties* aProperties = FUR_ALLOC(extensionCount * sizeof(struct VkExtensionProperties), 8, RENDER_MEMORY_DEFAULT, pAllocCallbacks);
@@ -865,14 +865,14 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	{
 		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 		
-		uint32_t numDevices = 0;
+		u32 numDevices = 0;
 		vkEnumeratePhysicalDevices(pRenderer->vkInstance, &numDevices, NULL);
 		
 		VkPhysicalDevice* devices = FUR_ALLOC(numDevices * sizeof(VkPhysicalDevice), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 		
 		vkEnumeratePhysicalDevices(pRenderer->vkInstance, &numDevices, devices);
 		
-		for(uint32_t i=0; i<numDevices; ++i)
+		for(u32 i=0; i<numDevices; ++i)
 		{
 			VkPhysicalDevice device = devices[i];
 			
@@ -914,13 +914,13 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	}
 	
 	VkPhysicalDevice physicalDevice = pRenderer->physicalDevice;
-	uint32_t idxQueueGraphics = -1;
-	uint32_t idxQueuePresent = -1;
+	u32 idxQueueGraphics = -1;
+	u32 idxQueuePresent = -1;
 	
 	// enumerate extensions
 	if(res == FR_RESULT_OK)
 	{
-		uint32_t numExtensions = 0;
+		u32 numExtensions = 0;
 		vkEnumerateDeviceExtensionProperties(physicalDevice, NULL, &numExtensions, NULL);
 		
 		VkExtensionProperties* extensions = FUR_ALLOC(numExtensions * sizeof(struct VkExtensionProperties), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
@@ -928,7 +928,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		vkEnumerateDeviceExtensionProperties(physicalDevice, NULL, &numExtensions, extensions);
 		
 		bool extensionsFound = false;
-		for(uint32_t i=0; i<numExtensions; ++i)
+		for(u32 i=0; i<numExtensions; ++i)
 		{
 			if(strcmp(extensions[i].extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0)
 			{
@@ -949,14 +949,14 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// enumerate queue families
 	if(res == FR_RESULT_OK)
 	{
-		uint32_t numQueueFamilies = 0;
+		u32 numQueueFamilies = 0;
 		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &numQueueFamilies, NULL);
 		
 		VkQueueFamilyProperties* queueFamilies = FUR_ALLOC(numQueueFamilies * sizeof(struct VkQueueFamilyProperties), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 		
 		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &numQueueFamilies, queueFamilies);
 		
-		for(uint32_t i=0; i<numQueueFamilies; ++i)
+		for(u32 i=0; i<numQueueFamilies; ++i)
 		{
 			if(queueFamilies[i].queueCount > 0 && queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
 			{
@@ -974,17 +974,17 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		pRenderer->idxQueueGraphics = idxQueueGraphics;
 		
-		const float queuePriority = 1.0f;	// range: 0.0 to 1.0
+		const f32 queuePriority = 1.0f;	// range: 0.0 to 1.0
 		
 		// get surface queue
-		for(uint32_t i=0; i<numQueueFamilies; ++i)
+		for(u32 i=0; i<numQueueFamilies; ++i)
 		{
 			VkBool32 presentSupport = false;
 			vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, pRenderer->surface, &presentSupport);
 			
 			if(presentSupport)
 			{
-				idxQueuePresent = (int32_t)i;
+				idxQueuePresent = (i32)i;
 				break;
 			}
 		}
@@ -1053,7 +1053,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		VkSurfaceCapabilitiesKHR surfaceCapabilities;
 		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(pRenderer->physicalDevice, pRenderer->surface, &surfaceCapabilities);
 		
-		const uint32_t imageCount = surfaceCapabilities.maxImageCount > 1 ? surfaceCapabilities.minImageCount + 1 : surfaceCapabilities.minImageCount;
+		const u32 imageCount = surfaceCapabilities.maxImageCount > 1 ? surfaceCapabilities.minImageCount + 1 : surfaceCapabilities.minImageCount;
 		VkExtent2D extent;
 		extent.width = MAX(surfaceCapabilities.minImageExtent.width,
 						   MIN(surfaceCapabilities.maxImageExtent.width, pRenderer->pApp->viewportWidth));
@@ -1061,8 +1061,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 							MIN(surfaceCapabilities.maxImageExtent.height, pRenderer->pApp->viewportHeight));
 		
 		fc_dbg_screen_info_t dbgScreenInfo = { 0 };
-		dbgScreenInfo.width = (float)extent.width;
-		dbgScreenInfo.height = (float)extent.height;
+		dbgScreenInfo.width = (f32)extent.width;
+		dbgScreenInfo.height = (f32)extent.height;
 
 		fc_dbg_set_screen_info(&dbgScreenInfo);
 
@@ -1078,7 +1078,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		createInfo.imageArrayLayers = 1;
 		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		
-		uint32_t queueIndices[2] = {idxQueueGraphics, idxQueuePresent};
+		u32 queueIndices[2] = {idxQueueGraphics, idxQueuePresent};
 		
 		if (idxQueueGraphics != idxQueuePresent)
 		{
@@ -1107,7 +1107,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			res = FR_RESULT_ERROR;
 		}
 		
-		uint32_t numSwapChainImages = 0;
+		u32 numSwapChainImages = 0;
 		vkGetSwapchainImagesKHR(pRenderer->device, pRenderer->swapChain, &numSwapChainImages, NULL);
 		
 		FUR_ASSERT(numSwapChainImages == NUM_SWAP_CHAIN_IMAGES);
@@ -1120,7 +1120,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create swap chain image views
 	if(res == FR_RESULT_OK)
 	{
-		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			VkImageViewCreateInfo createInfo = {0};
 			createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -1223,7 +1223,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		pRenderer->debugLinesVertexBindingDescription.binding = 0;
-		pRenderer->debugLinesVertexBindingDescription.stride = 7 * sizeof(float);	// todo: take it from debug draw somehow instead of hardcoding
+		pRenderer->debugLinesVertexBindingDescription.stride = 7 * sizeof(f32);	// todo: take it from debug draw somehow instead of hardcoding
 		pRenderer->debugLinesVertexBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 		
 		pRenderer->debugLinesVertexAttributes[0].binding = 0;
@@ -1234,14 +1234,14 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		pRenderer->debugLinesVertexAttributes[1].binding = 0;
 		pRenderer->debugLinesVertexAttributes[1].location = 1;
 		pRenderer->debugLinesVertexAttributes[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		pRenderer->debugLinesVertexAttributes[1].offset = 3 * sizeof(float);
+		pRenderer->debugLinesVertexAttributes[1].offset = 3 * sizeof(f32);
 	}
 	
 	// debug 2D rect draw bindings
 	if(res == FR_RESULT_OK)
 	{
 		pRenderer->debugRectVertexBindingDescription.binding = 0;
-		pRenderer->debugRectVertexBindingDescription.stride = fc_dbg_rect_num_floats_per_vertex() * sizeof(float);
+		pRenderer->debugRectVertexBindingDescription.stride = fc_dbg_rect_num_floats_per_vertex() * sizeof(f32);
 		pRenderer->debugRectVertexBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 		
 		pRenderer->debugRectVertexAttributes[0].binding = 0;
@@ -1252,14 +1252,14 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		pRenderer->debugRectVertexAttributes[1].binding = 0;
 		pRenderer->debugRectVertexAttributes[1].location = 1;
 		pRenderer->debugRectVertexAttributes[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		pRenderer->debugRectVertexAttributes[1].offset = 2 * sizeof(float);
+		pRenderer->debugRectVertexAttributes[1].offset = 2 * sizeof(f32);
 	}
 	
 	// debug text draw bindings
 	if(res == FR_RESULT_OK)
 	{
 		pRenderer->debugTextVertexBindingDescription.binding = 0;
-		pRenderer->debugTextVertexBindingDescription.stride = FR_FONT_FLOATS_PER_GLYPH_VERTEX * sizeof(float);
+		pRenderer->debugTextVertexBindingDescription.stride = FR_FONT_FLOATS_PER_GLYPH_VERTEX * sizeof(f32);
 		pRenderer->debugTextVertexBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 		
 		pRenderer->debugTextVertexAttributes[0].binding = 0;
@@ -1270,12 +1270,12 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		pRenderer->debugTextVertexAttributes[1].binding = 0;
 		pRenderer->debugTextVertexAttributes[1].location = 1;
 		pRenderer->debugTextVertexAttributes[1].format = VK_FORMAT_R32G32_SFLOAT;
-		pRenderer->debugTextVertexAttributes[1].offset = 2 * sizeof(float);
+		pRenderer->debugTextVertexAttributes[1].offset = 2 * sizeof(f32);
 		
 		pRenderer->debugTextVertexAttributes[2].binding = 0;
 		pRenderer->debugTextVertexAttributes[2].location = 2;
 		pRenderer->debugTextVertexAttributes[2].format = VK_FORMAT_R32G32B32_SFLOAT;
-		pRenderer->debugTextVertexAttributes[2].offset = 4 * sizeof(float);
+		pRenderer->debugTextVertexAttributes[2].offset = 4 * sizeof(f32);
 	}
 	
 	// test geometry
@@ -1343,7 +1343,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 		
 		VkDescriptorSetLayoutBinding bindings[3] = { uboLayoutBinding, skinLayoutBinding, samplerLayoutBinding };
-		const uint32_t numBindings = 3;
+		const u32 numBindings = 3;
 		
 		VkDescriptorSetLayoutCreateInfo layoutInfo = {0};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -1369,7 +1369,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		uboLayoutBinding.pImmutableSamplers = NULL;
 		
 		VkDescriptorSetLayoutBinding bindings[1] = { uboLayoutBinding };
-		const uint32_t numBindings = 1;
+		const u32 numBindings = 1;
 		
 		VkDescriptorSetLayoutCreateInfo layoutInfo = {0};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -1403,7 +1403,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 		
 		VkDescriptorSetLayoutBinding bindings[2] = { uboLayoutBinding, samplerLayoutBinding };
-		const uint32_t numBindings = 2;
+		const u32 numBindings = 2;
 		
 		VkDescriptorSetLayoutCreateInfo layoutInfo = {0};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -1425,7 +1425,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		desc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 		desc.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 		
-		for(uint32_t i=0; i<3; ++i)
+		for(u32 i=0; i<3; ++i)
 		{
 			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->aRectsUniformBuffer[i], pAllocCallbacks);
 		}
@@ -1439,7 +1439,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		desc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 		desc.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 		
-		for(uint32_t i=0; i<3; ++i)
+		for(u32 i=0; i<3; ++i)
 		{
 			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->aTextUniformBuffer[i], pAllocCallbacks);
 		}
@@ -1491,8 +1491,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		// create viewport
 		VkViewport viewport = {0};
-		fr_pso_init_viewport((float)pRenderer->swapChainExtent.width,
-							 (float)pRenderer->swapChainExtent.height,
+		fr_pso_init_viewport((f32)pRenderer->swapChainExtent.width,
+							 (f32)pRenderer->swapChainExtent.height,
 							 &viewport);
 		
 		VkRect2D scissor = {0};
@@ -1597,8 +1597,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		// create viewport
 		VkViewport viewport = {0};
-		fr_pso_init_viewport((float)pRenderer->swapChainExtent.width,
-							 (float)pRenderer->swapChainExtent.height,
+		fr_pso_init_viewport((f32)pRenderer->swapChainExtent.width,
+							 (f32)pRenderer->swapChainExtent.height,
 							 &viewport);
 		
 		VkRect2D scissor = {0};
@@ -1797,7 +1797,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
 		desc.properties = FR_STAGING_BUFFER_MEMORY_FLAGS;	// use vertex buffer usage, but staging buffer properties
 		
-		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->debugLinesVertexBuffer[i], pAllocCallbacks);
 		}
@@ -1811,7 +1811,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
 		desc.properties = FR_STAGING_BUFFER_MEMORY_FLAGS;	// use vertex buffer usage, but staging buffer properties
 		
-		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->debugTrianglesVertexBuffer[i], pAllocCallbacks);
 		}
@@ -1825,7 +1825,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
 		desc.properties = FR_STAGING_BUFFER_MEMORY_FLAGS;	// use vertex buffer usage, but staging buffer properties
 		
-		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->aRectsVertexBuffer[i], pAllocCallbacks);
 		}
@@ -1835,11 +1835,11 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		fr_buffer_desc_t desc = {0};
-		desc.size = fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6 * sizeof(float);
+		desc.size = fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6 * sizeof(f32);
 		desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
 		desc.properties = FR_STAGING_BUFFER_MEMORY_FLAGS;	// use vertex buffer usage, but staging buffer properties
 		
-		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->textVertexBuffer[i], pAllocCallbacks);
 		}
@@ -1848,7 +1848,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create frame buffers
 	if(res == FR_RESULT_OK)
 	{
-		for (size_t i = 0; i < NUM_SWAP_CHAIN_IMAGES; i++)
+		for (u64 i = 0; i < NUM_SWAP_CHAIN_IMAGES; i++)
 		{
 			VkImageView attachments[2] =
 			{
@@ -1856,7 +1856,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 				pRenderer->depthImage.view
 			};
 
-			const uint32_t numAttachments = 2;
+			const u32 numAttachments = 2;
 			
 			VkFramebufferCreateInfo framebufferInfo = {0};
 			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -1879,7 +1879,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		VkDescriptorPoolSize poolSizes[2];
-		uint32_t numBindings = 2;
+		u32 numBindings = 2;
 
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		poolSizes[0].descriptorCount = NUM_SWAP_CHAIN_IMAGES;
@@ -1904,7 +1904,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	fr_staging_buffer_builder_t stagingBuilder;
 	fr_staging_init(&stagingBuilder);
 	
-	uint32_t numTexturesInStagingBuffer = 0;
+	u32 numTexturesInStagingBuffer = 0;
 	
 	const VkFormat textureImageFormat = VK_FORMAT_R8G8B8A8_UNORM;
 	
@@ -1927,7 +1927,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			texFontAtlasHeight = pRenderer->textFont.atlasHeight;
 			
 			void* pixels = pRenderer->textFont.pixelsData;
-			uint32_t imageSize = texFontAtlasWidth * texFontAtlasHeight * 4;
+			u32 imageSize = texFontAtlasWidth * texFontAtlasHeight * 4;
 			
 			fr_staging_add(&stagingBuilder, pixels, imageSize, NULL, fr_pixels_free_func);
 			numTexturesInStagingBuffer++;
@@ -2009,7 +2009,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			res = FR_RESULT_ERROR_GPU;
 		}
 		
-		for (size_t i = 0; i < NUM_SWAP_CHAIN_IMAGES; ++i)
+		for (u64 i = 0; i < NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			VkDescriptorBufferInfo bufferInfo[1] = {0};
 			bufferInfo[0].buffer = pRenderer->aRectsUniformBuffer[i].buffer;
@@ -2017,7 +2017,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			bufferInfo[0].range = sizeof(fr_uniform_buffer_t);
 			
 			VkWriteDescriptorSet descriptorWrites[1] = {0};
-			const uint32_t numBindings = 1;
+			const u32 numBindings = 1;
 			
 			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			descriptorWrites[0].dstSet = pRenderer->aRectDescriptorSets[i];
@@ -2051,7 +2051,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			res = FR_RESULT_ERROR_GPU;
 		}
 		
-		for (size_t i = 0; i < NUM_SWAP_CHAIN_IMAGES; ++i)
+		for (u64 i = 0; i < NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			VkDescriptorBufferInfo bufferInfo[2] = {0};
 			bufferInfo[0].buffer = pRenderer->aTextUniformBuffer[i].buffer;
@@ -2064,7 +2064,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			imageInfo.sampler = pRenderer->textTextureSampler;
 			
 			VkWriteDescriptorSet descriptorWrites[2] = {0};
-			const uint32_t numBindings = 2;
+			const u32 numBindings = 2;
 			
 			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			descriptorWrites[0].dstSet = pRenderer->aTextDescriptorSets[i];
@@ -2092,7 +2092,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		VkDescriptorPoolSize poolSizes[2] = {0};
-		uint32_t numBindings = 2;
+		u32 numBindings = 2;
 
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		poolSizes[0].descriptorCount = NUM_SWAP_CHAIN_IMAGES;
@@ -2115,7 +2115,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// prepare PVS
 	if (res == FR_RESULT_OK)
 	{
-		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			fr_pvs_t* pvs = &pRenderer->pvs[i];
 			pvs->pvsIndex = i;
@@ -2124,12 +2124,12 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			pvs->numMaxDescriptorSets = NUM_MAX_MESH_UNIFORM_BUFFERS;
 			pvs->descriptorSets = FUR_ALLOC_ARRAY_AND_ZERO(VkDescriptorSet, NUM_MAX_MESH_UNIFORM_BUFFERS, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 			pvs->proxies = FUR_ALLOC_ARRAY_AND_ZERO(const fr_proxy_t*, NUM_MAX_MESH_UNIFORM_BUFFERS, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
-			pvs->proxiesFlags = FUR_ALLOC_ARRAY_AND_ZERO(uint32_t, NUM_MAX_MESH_UNIFORM_BUFFERS, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+			pvs->proxiesFlags = FUR_ALLOC_ARRAY_AND_ZERO(u32, NUM_MAX_MESH_UNIFORM_BUFFERS, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 			pvs->skinningMatrices = FUR_ALLOC_ARRAY_AND_ZERO(fm_mat4, FUR_MAX_SKIN_MATRICES_IN_BUFFER, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 			
 			// allocate descriptor sets
 			VkDescriptorSetLayout layouts[20] = {0};	// max layouts
-			for(uint32_t i=0; i<NUM_MAX_MESH_UNIFORM_BUFFERS; ++i)
+			for(u32 i=0; i<NUM_MAX_MESH_UNIFORM_BUFFERS; ++i)
 			{
 				layouts[i] = pRenderer->descriptorSetLayout;
 			}
@@ -2153,7 +2153,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 				desc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 				desc.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 				
-				for(uint32_t i=0; i<3; ++i)
+				for(u32 i=0; i<3; ++i)
 				{
 					fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pvs->worldViewProj, pAllocCallbacks);
 				}
@@ -2167,7 +2167,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 				desc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 				desc.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 				
-				for(uint32_t i=0; i<3; ++i)
+				for(u32 i=0; i<3; ++i)
 				{
 					fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pvs->skinningBuffer, pAllocCallbacks);
 				}
@@ -2252,22 +2252,22 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// clear debug fragments buffers with zeros
 	if(res == FR_RESULT_OK)
 	{
-		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[i].memory, 0, fc_dbg_line_buffer_size());
 		}
 		
-		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[i].memory, 0, fc_dbg_triangle_buffer_size());
 		}
 		
-		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->textVertexBuffer[i].memory, 0, fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6 * sizeof(float));
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->textVertexBuffer[i].memory, 0, fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6 * sizeof(f32));
 		}
 		
-		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			fr_clear_data_in_buffer(pRenderer->device, pRenderer->aRectsVertexBuffer[i].memory, 0, fc_dbg_rects_buffer_size());
 		}
@@ -2296,7 +2296,7 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 {
 	// release PVS
 	{
-		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			fr_pvs_t* pvs = &pRenderer->pvs[i];
 			fr_buffer_release(pRenderer->device, &pvs->worldViewProj, pAllocCallbacks);
@@ -2319,7 +2319,7 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	// this should be in clean-up swap chain
 	{
 		// destroy uniform buffer
-		for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
 			fr_buffer_release(pRenderer->device, &pRenderer->aTextUniformBuffer[i], pAllocCallbacks);
 			fr_buffer_release(pRenderer->device, &pRenderer->aRectsUniformBuffer[i], pAllocCallbacks);
@@ -2336,7 +2336,7 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	vkDestroySampler(pRenderer->device, pRenderer->textTextureSampler, NULL);
 	
 	// destroy debug fragments vertex buffer
-	for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+	for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 	{
 		fr_buffer_release(pRenderer->device, &pRenderer->debugLinesVertexBuffer[i], pAllocCallbacks);
 		fr_buffer_release(pRenderer->device, &pRenderer->debugTrianglesVertexBuffer[i], pAllocCallbacks);
@@ -2362,7 +2362,7 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	vkDestroyCommandPool(pRenderer->device, pRenderer->stagingCommandPool, NULL);
 	
 	// destroy swap chain frame buffers
-	for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+	for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 	{
 		vkDestroyFramebuffer(pRenderer->device, pRenderer->aSwapChainFrameBuffers[i], NULL);
 	}
@@ -2393,7 +2393,7 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	vkDestroyShaderModule(pRenderer->device, pRenderer->rectFragmentShaderModule, NULL);
 	
 	// destroy window surface and swap chain
-	for(uint32_t i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
+	for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 	{
 		vkDestroyImageView(pRenderer->device, pRenderer->aSwapChainImagesViews[i], NULL);
 	}
@@ -2418,24 +2418,24 @@ void fr_wait_for_device(struct fr_renderer_t* pRenderer)
 
 void fr_dbg_draw_mat4(const fm_mat4* m)
 {
-	const float pos[3] = {m->w.x, m->w.y, m->w.z};
-	const float scale = 0.1f;
-	const float axisX[3] = {pos[0] + m->x.x * scale, pos[1] + m->x.y * scale, pos[2] + m->x.z * scale};
-	const float axisY[3] = {pos[0] + m->y.x * scale, pos[1] + m->y.y * scale, pos[2] + m->y.z * scale};
-	const float axisZ[3] = {pos[0] + m->z.x * scale, pos[1] + m->z.y * scale, pos[2] + m->z.z * scale};
+	const f32 pos[3] = {m->w.x, m->w.y, m->w.z};
+	const f32 scale = 0.1f;
+	const f32 axisX[3] = {pos[0] + m->x.x * scale, pos[1] + m->x.y * scale, pos[2] + m->x.z * scale};
+	const f32 axisY[3] = {pos[0] + m->y.x * scale, pos[1] + m->y.y * scale, pos[2] + m->y.z * scale};
+	const f32 axisZ[3] = {pos[0] + m->z.x * scale, pos[1] + m->z.y * scale, pos[2] + m->z.z * scale};
 	
-	const float red[4] = FUR_COLOR_RED;
-	const float green[4] = FUR_COLOR_GREEN;
-	const float blue[4] = FUR_COLOR_BLUE;
+	const f32 red[4] = FUR_COLOR_RED;
+	const f32 green[4] = FUR_COLOR_GREEN;
+	const f32 blue[4] = FUR_COLOR_BLUE;
 	
 	fc_dbg_line(pos, axisX, red);
 	fc_dbg_line(pos, axisY, green);
 	fc_dbg_line(pos, axisZ, blue);
 }
 
-fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera, float fov)
+fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera, f32 fov)
 {
-	uint32_t imageIndex;
+	u32 imageIndex;
 	vkAcquireNextImageKHR(pRenderer->device, pRenderer->swapChain, (uint64_t)-1,
 						  pRenderer->imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 	
@@ -2443,7 +2443,7 @@ fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera, f
 	fr_pvs_clear(pvs);
 	pvs->camera = *camera;
 	
-	const float aspectRatio = pRenderer->swapChainExtent.width / (float)pRenderer->swapChainExtent.height;
+	const f32 aspectRatio = pRenderer->swapChainExtent.width / (f32)pRenderer->swapChainExtent.height;
 	
 	fm_mat4 tempView = pvs->camera;
 	
@@ -2463,7 +2463,7 @@ fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera, f
 
 void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	uint32_t imageIndex = 0;
+	u32 imageIndex = 0;
 	
 	fr_pvs_t* pvs = ctx->pvs;
 	FUR_ASSERT(pvs);
@@ -2477,7 +2477,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		{	
 			// pass skinning matrices to skin buffer
 			fr_copy_data_to_buffer(pRenderer->device, pvs->skinningBuffer.memory, pvs->skinningMatrices, 0,
-								   (uint32_t)pvs->numSkinningMatrices * sizeof(fm_mat4));
+								   (u32)pvs->numSkinningMatrices * sizeof(fm_mat4));
 		}
 	}
 	
@@ -2490,8 +2490,8 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		
 		fm_mat4_transpose(&ubo.model);
 		
-		const float height = pRenderer->swapChainExtent.height;
-		const float width = pRenderer->swapChainExtent.width;
+		const f32 height = pRenderer->swapChainExtent.height;
+		const f32 width = pRenderer->swapChainExtent.width;
 		fm_mat4_ortho_projection(height, 0.0f, 0.0f, width, 0.0f, 1.0f, &ubo.proj);
 		fm_mat4_identity(&ubo.model);
 		fm_mat4_identity(&ubo.view);
@@ -2517,7 +2517,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		}
 		else
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[imageIndex].memory, 0, (uint32_t)pRenderer->debugLinesVertexBuffer[imageIndex].size);
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[imageIndex].memory, 0, (u32)pRenderer->debugLinesVertexBuffer[imageIndex].size);
 		}
 		
 		if(desc.trianglesDataSize > 0)
@@ -2527,7 +2527,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		}
 		else
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[imageIndex].memory, 0, (uint32_t)pRenderer->debugTrianglesVertexBuffer[imageIndex].size);
+			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[imageIndex].memory, 0, (u32)pRenderer->debugTrianglesVertexBuffer[imageIndex].size);
 		}
 		
 		if(desc.rectsDataSize > 0)
@@ -2542,36 +2542,36 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		
 		if(desc.textLinesCount > 0)
 		{
-			const uint32_t numFloatsCapacity = fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6;
-			const uint32_t dataSize = numFloatsCapacity * sizeof(float);
+			const u32 numFloatsCapacity = fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6;
+			const u32 dataSize = numFloatsCapacity * sizeof(f32);
 			fr_clear_data_in_buffer(pRenderer->device, pRenderer->textVertexBuffer[imageIndex].memory, 0, dataSize);
 			
 			VkDeviceMemory dst = pRenderer->textVertexBuffer[imageIndex].memory;
-			const uint32_t offset = 0;
+			const u32 offset = 0;
 			
 			void* dataRaw;
 			vkMapMemory(pRenderer->device, dst, offset, dataSize, 0, &dataRaw);
 			
-			float* verticesFloats = (float*)dataRaw;
-			uint32_t dataSizeLeft = numFloatsCapacity;
+			f32* verticesFloats = (f32*)dataRaw;
+			u32 dataSizeLeft = numFloatsCapacity;
 			
 			// convert from text info to glyphs
-			for(uint32_t itl=0; itl<desc.textLinesCount; ++itl)
+			for(u32 itl=0; itl<desc.textLinesCount; ++itl)
 			{
-				const uint32_t offsetLoc = itl * 5;
-				const uint32_t offsetRange = itl * 2;
-				const float* dataLoc = desc.textLocationData + offsetLoc;
-				const uint32_t* dataRange = desc.textRangeData + offsetRange;
+				const u32 offsetLoc = itl * 5;
+				const u32 offsetRange = itl * 2;
+				const f32* dataLoc = desc.textLocationData + offsetLoc;
+				const u32* dataRange = desc.textRangeData + offsetRange;
 				
-				const float* pos = dataLoc;
-				const float* color = dataLoc + 2;
-				const uint32_t offsetText = dataRange[0];
+				const f32* pos = dataLoc;
+				const f32* color = dataLoc + 2;
+				const u32 offsetText = dataRange[0];
 				
 				const char* text = desc.textCharactersData + offsetText;
 				
-				const float scale = desc.textScaleData[itl];
+				const f32 scale = desc.textScaleData[itl];
 
-				const uint32_t numFloatsWritten = fr_font_fill_vertex_buffer(&pRenderer->textFont, text, pos, color, verticesFloats, dataSizeLeft, scale);
+				const u32 numFloatsWritten = fr_font_fill_vertex_buffer(&pRenderer->textFont, text, pos, color, verticesFloats, dataSizeLeft, scale);
 				verticesFloats += numFloatsWritten;
 				dataSizeLeft -= numFloatsWritten;
 			}
@@ -2580,8 +2580,8 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		}
 		else
 		{
-			const uint32_t numFloatsCapacity = fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6;
-			const uint32_t dataSize = numFloatsCapacity * sizeof(float);
+			const u32 numFloatsCapacity = fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6;
+			const u32 dataSize = numFloatsCapacity * sizeof(f32);
 			fr_clear_data_in_buffer(pRenderer->device, pRenderer->textVertexBuffer[imageIndex].memory, 0, dataSize);
 		}
 		
@@ -2607,7 +2607,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		renderPassInfo.renderArea.extent = pRenderer->swapChainExtent;
 		
 		VkClearValue clearColor[2] = {0};
-		const uint32_t numClearValues = 2;
+		const u32 numClearValues = 2;
 
 		clearColor[0].color.float32[0] = 1.0f;
 		clearColor[0].color.float32[1] = 1.0f;
@@ -2625,7 +2625,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		// bind and draw skinned meshes
 		vkCmdBindPipeline(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->graphicsPipeline);
 		
-		for(uint32_t idxProxy=0; idxProxy<pvs->numProxies; ++idxProxy)
+		for(u32 idxProxy=0; idxProxy<pvs->numProxies; ++idxProxy)
 		{
 			// exclude non-skinned proxies
 			if((pvs->proxiesFlags[idxProxy] & FR_PVS_PROXY_FLAG_SKINNED) == 0)
@@ -2637,7 +2637,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 			
 			const fr_proxy_t* proxy = pvs->proxies[idxProxy];
 			fr_mesh_t* mesh = proxy->mesh;
-			for(uint32_t idxChunk=0; idxChunk<mesh->numChunks; ++idxChunk)
+			for(u32 idxChunk=0; idxChunk<mesh->numChunks; ++idxChunk)
 			{
 				const fr_mesh_chunk_t* meshChunk = &mesh->chunks[idxChunk];
 				
@@ -2651,7 +2651,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 				vkCmdBindIndexBuffer(primaryCommandBuffer, meshChunk->data.buffer, meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES], VK_INDEX_TYPE_UINT32);
 				
 				vkCmdPushConstants(primaryCommandBuffer, pRenderer->pipelineLayout,
-								   VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(int32_t), &meshChunk->textureIndex);
+								   VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(i32), &meshChunk->textureIndex);
 				
 				// draw the mesh chunk
 				vkCmdDrawIndexed(primaryCommandBuffer, meshChunk->numIndices, 1, 0, 0, 0);
@@ -2661,7 +2661,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		// bind and draw static meshes
 		vkCmdBindPipeline(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->graphicsPipelineNoSkin);
 		
-		for(uint32_t idxProxy=0; idxProxy<pvs->numProxies; ++idxProxy)
+		for(u32 idxProxy=0; idxProxy<pvs->numProxies; ++idxProxy)
 		{
 			// exclude skinned proxies
 			if((pvs->proxiesFlags[idxProxy] & FR_PVS_PROXY_FLAG_SKINNED) == 1)
@@ -2673,7 +2673,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 			
 			const fr_proxy_t* proxy = pvs->proxies[idxProxy];
 			fr_mesh_t* mesh = proxy->mesh;
-			for(uint32_t idxChunk=0; idxChunk<mesh->numChunks; ++idxChunk)
+			for(u32 idxChunk=0; idxChunk<mesh->numChunks; ++idxChunk)
 			{
 				const fr_mesh_chunk_t* meshChunk = &mesh->chunks[idxChunk];
 				
@@ -2688,7 +2688,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 				
 				// todo: add constant for skinning of another object (offset in skinning buffer)
 				vkCmdPushConstants(primaryCommandBuffer, pRenderer->pipelineLayout,
-								   VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(int32_t), &meshChunk->textureIndex);
+								   VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(i32), &meshChunk->textureIndex);
 				
 				// draw the mesh chunk
 				vkCmdDrawIndexed(primaryCommandBuffer, meshChunk->numIndices, 1, 0, 0, 0);
@@ -2757,8 +2757,8 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 
 // serialization
 
-typedef void (*fr_serialize_read_func_t)(void* pSerializerData, size_t size, void* pData);
-typedef void (*fr_serialize_write_func_t)(void* pSerializerData, size_t size, const void* pData);
+typedef void (*fr_serialize_read_func_t)(void* pSerializerData, u64 size, void* pData);
+typedef void (*fr_serialize_write_func_t)(void* pSerializerData, u64 size, const void* pData);
 
 typedef struct fr_serializer_t
 {
@@ -2768,36 +2768,36 @@ typedef struct fr_serializer_t
 	fr_serialize_write_func_t pfnWrite;
 	
 	bool isReader;
-	int32_t version;
+	i32 version;
 } fr_serializer_t;
 
 // fundamental types serialization
 #define fr_serialize(_serializer, _type) _Generic((_type), \
-	int32_t*: fr_serialize_int32, \
-	uint32_t*: fr_serialize_uint32 \
+	i32*: fr_serialize_int32, \
+	u32*: fr_serialize_uint32 \
 	)(_serializer, _type)
 
-void fr_serialize_int32(fr_serializer_t* ser, int32_t* data)
+void fr_serialize_int32(fr_serializer_t* ser, i32* data)
 {
 	if(ser->isReader)
 	{
-		ser->pfnRead(ser->serializerData, sizeof(int32_t), data);
+		ser->pfnRead(ser->serializerData, sizeof(i32), data);
 	}
 	else
 	{
-		ser->pfnWrite(ser->serializerData, sizeof(int32_t), data);
+		ser->pfnWrite(ser->serializerData, sizeof(i32), data);
 	}
 }
 
-void fr_serialize_uint32(fr_serializer_t* ser, uint32_t* data)
+void fr_serialize_uint32(fr_serializer_t* ser, u32* data)
 {
 	if(ser->isReader)
 	{
-		ser->pfnRead(ser->serializerData, sizeof(uint32_t), data);
+		ser->pfnRead(ser->serializerData, sizeof(u32), data);
 	}
 	else
 	{
-		ser->pfnWrite(ser->serializerData, sizeof(uint32_t), data);
+		ser->pfnWrite(ser->serializerData, sizeof(u32), data);
 	}
 }
 
@@ -2818,10 +2818,10 @@ void fr_serialize_uint32(fr_serializer_t* ser, uint32_t* data)
 // data size reader
 typedef struct fr_data_size_reader_serializer_t
 {
-	uint32_t size;
+	u32 size;
 } fr_data_size_reader_serializer_t;
 
-void fr_data_size_reader_serializer_write_func(void* pSerData, size_t size, const void* data)
+void fr_data_size_reader_serializer_write_func(void* pSerData, u64 size, const void* data)
 {
 	fr_data_size_reader_serializer_t* pSer = (fr_data_size_reader_serializer_t*)(pSerData);
 	pSer->size += size;
@@ -2840,7 +2840,7 @@ void fr_init_data_size_reader_serializer(fr_serializer_t* ser, fr_data_size_read
 
 typedef struct fr_example_struct_t
 {
-	int32_t fieldA;
+	i32 fieldA;
 } fr_example_struct_t;
 
 enum fr_example_struct_version_t
@@ -2895,11 +2895,11 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 #define TEMP_MAX_TEXTURES_NUM 40
 
 	VkDeviceSize imageStagingOffset[TEMP_MAX_TEXTURES_NUM] = {0};
-	const uint32_t maxTextures = TEMP_MAX_TEXTURES_NUM;
+	const u32 maxTextures = TEMP_MAX_TEXTURES_NUM;
 	FUR_ASSERT(ctx->numTextures <= maxTextures);
 
-	int32_t imageWidth[TEMP_MAX_TEXTURES_NUM] = {0};
-	int32_t imageHeight[TEMP_MAX_TEXTURES_NUM] = {0};
+	i32 imageWidth[TEMP_MAX_TEXTURES_NUM] = {0};
+	i32 imageHeight[TEMP_MAX_TEXTURES_NUM] = {0};
 	fr_image_t* textures = FUR_ALLOC_ARRAY_AND_ZERO(fr_image_t, ctx->numTextures, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 	
 	// prepare staging buffer builder
@@ -2907,12 +2907,12 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 	fr_staging_init(&stagingBuilder);
 	
 	const VkFormat textureImageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-	uint32_t numTexturesInStagingBuffer = 0;
+	u32 numTexturesInStagingBuffer = 0;
 	
-	uint32_t currentStagingIndex = 0;
+	u32 currentStagingIndex = 0;
 	
 	// load textures
-	for(uint32_t i=0; i<ctx->numTextures; ++i)
+	for(u32 i=0; i<ctx->numTextures; ++i)
 	{
 		VkDeviceSize imageSize = 0;
 		
@@ -2929,7 +2929,7 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 			FUR_ASSERT(pixels);
 			
 			imageStagingOffset[i] = stagingBuilder.totalSize;
-			fr_staging_add(&stagingBuilder, pixels, (uint32_t)imageSize, NULL, fr_pixels_free_func);
+			fr_staging_add(&stagingBuilder, pixels, (u32)imageSize, NULL, fr_pixels_free_func);
 			numTexturesInStagingBuffer++;
 			currentStagingIndex++;
 		}
@@ -2949,19 +2949,19 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 	
 	// create mesh and its chunks
 	{
-		const uint32_t numChunks = meshResource->numChunks;
+		const u32 numChunks = meshResource->numChunks;
 		mesh->chunks = (fr_mesh_chunk_t*)FUR_ALLOC_AND_ZERO(sizeof(fr_mesh_chunk_t) * numChunks, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 		mesh->numChunks = numChunks;
 		
-		const uint32_t numTextureIndices = ctx->numTextureIndices;
+		const u32 numTextureIndices = ctx->numTextureIndices;
 		FUR_ASSERT(numChunks == numTextureIndices);
-		const int32_t* textureIndices = ctx->textureIndices;
+		const i32* textureIndices = ctx->textureIndices;
 		
-		for(uint32_t i=0; i<numChunks; ++i)
+		for(u32 i=0; i<numChunks; ++i)
 		{
 			const fr_resource_mesh_chunk_t* meshChunkResource = &meshResource->chunks[i];
-			const uint32_t numVertices = meshChunkResource->numVertices;
-			const VkDeviceSize sizeIndices = numVertices * sizeof(uint32_t);
+			const u32 numVertices = meshChunkResource->numVertices;
+			const VkDeviceSize sizeIndices = numVertices * sizeof(u32);
 			const VkDeviceSize sizeVertices = numVertices * sizeof(fr_vertex_t);
 			const VkDeviceSize sizeSkin = numVertices * sizeof(fr_resource_mesh_chunk_skin_t);	// optional
 			
@@ -2994,7 +2994,7 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 		}
 	}
 	
-	const uint32_t proxyIndex = pRenderer->numProxies;
+	const u32 proxyIndex = pRenderer->numProxies;
 	pRenderer->numProxies += 1;
 	
 	fr_proxy_t* proxy = &pRenderer->proxies[proxyIndex];
@@ -3003,7 +3003,7 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 	proxy->textures = textures;
 	
 	const fr_resource_mesh_chunk_t* masterSkinnedMeshChunk = &meshResource->chunks[0]; // todo: fix that, it's just an assumption chunk[0] works
-	const uint32_t meshNumBones = masterSkinnedMeshChunk->numBones;
+	const u32 meshNumBones = masterSkinnedMeshChunk->numBones;
 	
 	if(meshNumBones > 0)
 	{
@@ -3016,10 +3016,10 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 		memcpy(proxy->invBindPose, masterSkinnedMeshChunk->bindPose, meshNumBones * sizeof(fm_mat4));
 		
 		int16_t* mapping = proxy->skinningMappinng;
-		for(uint32_t i=0; i<meshNumBones; ++i)	// note that rig num bones doesn't have to equal mesh num bones
+		for(u32 i=0; i<meshNumBones; ++i)	// note that rig num bones doesn't have to equal mesh num bones
 		{
 			mapping[i] = 0;
-			for(uint32_t r=0; r<ctx->numBones; ++r)
+			for(u32 r=0; r<ctx->numBones; ++r)
 			{
 				if(masterSkinnedMeshChunk->boneNameHashes[i] == ctx->boneNames[r])
 				{
@@ -3034,11 +3034,11 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 		fr_buffer_t stagingBuffer = {0};
 		
 		// add vertices & indices data to staging buffer for mesh
-		for(uint32_t i=0; i<meshResource->numChunks; ++i)
+		for(u32 i=0; i<meshResource->numChunks; ++i)
 		{
 			fr_resource_mesh_chunk_t* meshChunk = &meshResource->chunks[i];
 			
-			fr_staging_add(&stagingBuilder, (void*)meshChunk->dataIndices, sizeof(uint32_t) * meshChunk->numIndices, NULL, NULL);
+			fr_staging_add(&stagingBuilder, (void*)meshChunk->dataIndices, sizeof(u32) * meshChunk->numIndices, NULL, NULL);
 			fr_staging_add(&stagingBuilder, (void*)meshChunk->dataVertices, sizeof(fr_vertex_t) * meshChunk->numVertices, NULL, NULL);
 			
 			// if skinned mesh
@@ -3073,14 +3073,14 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 			VkCommandBuffer commandBuffer = fr_begin_simple_commands(pRenderer->device, stagingCommandPool, pAllocCallbacks);
 			
 			// copy vertex buffer region
-			for(uint32_t i=0; i<mesh->numChunks; ++i)
+			for(u32 i=0; i<mesh->numChunks; ++i)
 			{
 				fr_mesh_chunk_t* meshChunk = &mesh->chunks[i];
 	
 				fr_resource_mesh_chunk_t* sourceMeshChunk = &meshResource->chunks[i];
 				if(sourceMeshChunk->dataSkinning && ctx->isSkinned)	// todo: dataSkinning is probably always there, need to check
 				{
-					uint32_t srcStagingIndices[3] = {currentStagingIndex, currentStagingIndex+1, currentStagingIndex+2};
+					u32 srcStagingIndices[3] = {currentStagingIndex, currentStagingIndex+1, currentStagingIndex+2};
 					VkBuffer dstBuffers[3] = {meshChunk->data.buffer, meshChunk->data.buffer, meshChunk->data.buffer};
 					VkDeviceSize dstOffsets[3] = {meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_SKIN]};
 					
@@ -3090,7 +3090,7 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 				}
 				else
 				{
-					uint32_t srcStagingIndices[2] = {currentStagingIndex, currentStagingIndex+1};
+					u32 srcStagingIndices[2] = {currentStagingIndex, currentStagingIndex+1};
 					VkBuffer dstBuffers[2] = {meshChunk->data.buffer, meshChunk->data.buffer};
 					VkDeviceSize dstOffsets[2] = {meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES]};
 					
@@ -3103,7 +3103,7 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 			fr_end_simple_commands(pRenderer->device, pRenderer->graphicsQueue, commandBuffer, stagingCommandPool, pAllocCallbacks);
 			
 			// textures
-			for(uint32_t i=0; i<ctx->numTextures; ++i)
+			for(u32 i=0; i<ctx->numTextures; ++i)
 			{
 				fr_transition_image_layout(pRenderer->device, pRenderer->graphicsQueue, stagingCommandPool, textureImageFormat,
 										   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, textures[i].image, pAllocCallbacks);
@@ -3125,7 +3125,7 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 void fr_release_proxy(fr_renderer_t* pRenderer, fr_proxy_t* proxy, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	// release mesh
-	for(uint32_t i=0; i<proxy->mesh->numChunks; ++i)
+	for(u32 i=0; i<proxy->mesh->numChunks; ++i)
 	{
 		fr_mesh_chunk_t* meshChunk = &proxy->mesh->chunks[i];
 		
@@ -3134,7 +3134,7 @@ void fr_release_proxy(fr_renderer_t* pRenderer, fr_proxy_t* proxy, fc_alloc_call
 	}
 	
 	// release textures
-	for(uint32_t i=0; i<proxy->numTextures; ++i)
+	for(u32 i=0; i<proxy->numTextures; ++i)
 	{
 		fr_image_release(pRenderer->device, &proxy->textures[i], pAllocCallbacks);
 	}

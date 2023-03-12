@@ -11,7 +11,7 @@
 
 typedef struct fg_world_global_t
 {
-	int stuff;
+	i32 stuff;
 } fg_world_global_t;
 
 fg_world_global_t g_worldExtended;
@@ -20,7 +20,7 @@ typedef struct fg_type_factory_register_t
 {
 	fc_string_hash_t typeNames[MAX_TYPE_FACTORIES];
 	fg_type_factory_t factories[MAX_TYPE_FACTORIES];
-	int32_t numFactories;
+	i32 numFactories;
 } fg_type_factory_register_t;
 
 fg_type_factory_register_t g_typeFactories;
@@ -29,7 +29,7 @@ void fg_type_factory_register_new(fc_string_hash_t typeName, fg_type_factory_t f
 {
 	FUR_ASSERT(g_typeFactories.numFactories < MAX_TYPE_FACTORIES);
 	
-	const int32_t idx = g_typeFactories.numFactories;
+	const i32 idx = g_typeFactories.numFactories;
 	g_typeFactories.factories[idx] = factory;
 	g_typeFactories.typeNames[idx] = typeName;
 	g_typeFactories.numFactories++;
@@ -37,7 +37,7 @@ void fg_type_factory_register_new(fc_string_hash_t typeName, fg_type_factory_t f
 
 const fg_type_factory_t* fg_type_factory_find(fc_string_hash_t typeName)
 {
-	for(int32_t i=0; i<g_typeFactories.numFactories; ++i)
+	for(i32 i=0; i<g_typeFactories.numFactories; ++i)
 	{
 		if(g_typeFactories.typeNames[i] == typeName)
 		{
@@ -50,9 +50,9 @@ const fg_type_factory_t* fg_type_factory_find(fc_string_hash_t typeName)
 	return NULL;
 }
 
-int32_t fg_spawn_info_find_prop_index(const fg_spawn_info_properties_t* props, fc_string_hash_t name)
+i32 fg_spawn_info_find_prop_index(const fg_spawn_info_properties_t* props, fc_string_hash_t name)
 {
-	for(int32_t i=0; i<props->num; ++i)
+	for(i32 i=0; i<props->num; ++i)
 	{
 		if(props->names[i] == name)
 			return i;
@@ -61,9 +61,9 @@ int32_t fg_spawn_info_find_prop_index(const fg_spawn_info_properties_t* props, f
 	return -1;
 }
 
-float fg_spawn_info_get_float(const fg_spawn_info_t* info, fc_string_hash_t name, float defaultValue)
+f32 fg_spawn_info_get_float(const fg_spawn_info_t* info, fc_string_hash_t name, f32 defaultValue)
 {
-	const int32_t idx = fg_spawn_info_find_prop_index(&info->props, name);
+	const i32 idx = fg_spawn_info_find_prop_index(&info->props, name);
 	
 	if(idx != -1)
 		return info->props.values[idx].asFloat;
@@ -71,9 +71,9 @@ float fg_spawn_info_get_float(const fg_spawn_info_t* info, fc_string_hash_t name
 	return defaultValue;
 }
 
-int32_t fg_spawn_info_get_int(const fg_spawn_info_t* info, fc_string_hash_t name, int32_t defaultValue)
+i32 fg_spawn_info_get_int(const fg_spawn_info_t* info, fc_string_hash_t name, i32 defaultValue)
 {
-	const int32_t idx = fg_spawn_info_find_prop_index(&info->props, name);
+	const i32 idx = fg_spawn_info_find_prop_index(&info->props, name);
 	
 	if(idx != -1)
 		return info->props.values[idx].asInt32;
@@ -83,7 +83,7 @@ int32_t fg_spawn_info_get_int(const fg_spawn_info_t* info, fc_string_hash_t name
 
 fc_string_hash_t fg_spawn_info_get_string_hash(const fg_spawn_info_t* info, fc_string_hash_t name, fc_string_hash_t defaultValue)
 {
-	const int32_t idx = fg_spawn_info_find_prop_index(&info->props, name);
+	const i32 idx = fg_spawn_info_find_prop_index(&info->props, name);
 	
 	if(idx != -1)
 		return info->props.values[idx].asStringHash;
@@ -91,7 +91,7 @@ fc_string_hash_t fg_spawn_info_get_string_hash(const fg_spawn_info_t* info, fc_s
 	return defaultValue;
 }
 
-void fg_game_object_handle_array_alloc(fg_game_object_handle_array_t* arr, int32_t capacity, fc_alloc_callbacks_t* pAllocCallbacks)
+void fg_game_object_handle_array_alloc(fg_game_object_handle_array_t* arr, i32 capacity, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	FUR_ASSERT(arr->data == NULL);
 	
@@ -135,17 +135,17 @@ void fg_world_release(fg_world_t* world, fc_alloc_callbacks_t* pAllocCallbacks)
 	fg_game_object_handle_array_free(&world->buckets[FG_UPDATE_BUCKET_CHARACTERS], pAllocCallbacks);
 	
 	// release resources
-	for(int32_t i=0; i<world->resources.numAnimations; ++i)
+	for(i32 i=0; i<world->resources.numAnimations; ++i)
 	{
 		fa_anim_clip_release((fa_anim_clip_t*)world->resources.animations[i], pAllocCallbacks);
 	}
 	
-	for(int32_t i=0; i<world->resources.numRigs; ++i)
+	for(i32 i=0; i<world->resources.numRigs; ++i)
 	{
 		fa_rig_release((fa_rig_t*)world->resources.rigs[i], pAllocCallbacks);
 	}
 	
-	for(int32_t i=0; i<world->resources.numScripts; ++i)
+	for(i32 i=0; i<world->resources.numScripts; ++i)
 	{
 		fc_release_binary_buffer((fc_binary_buffer_t*)world->resources.scripts[i], pAllocCallbacks);
 	}
@@ -157,7 +157,7 @@ void fg_world_update(fg_world_t* world, fg_world_update_ctx_t* ctx, fg_update_bu
 	
 	// scheduled spawn game objects
 	{
-		for(int32_t i=info->numInit; i<info->num; ++i)
+		for(i32 i=info->numInit; i<info->num; ++i)
 		{
 			fg_game_object_2_t* gameObject = info->ptr[i];
 			if(gameObject != NULL)
@@ -187,12 +187,12 @@ void fg_world_update(fg_world_t* world, fg_world_update_ctx_t* ctx, fg_update_bu
 	updateCtx.dt = ctx->dt;
 	
 	// go through all update buckets
-	for(int32_t i=0; i<FG_UPDATE_BUCKET_COUNT; ++i)
+	for(i32 i=0; i<FG_UPDATE_BUCKET_COUNT; ++i)
 	{
 		fg_game_object_handle_array_t* bucket = &world->buckets[i];
 		
 		// go through all game objects within a bucket
-		for(int32_t idxHandle=0; idxHandle<bucket->num; ++i)
+		for(i32 idxHandle=0; idxHandle<bucket->num; ++i)
 		{
 			fg_game_object_handle_t handle = bucket->data[idxHandle];
 			
@@ -205,11 +205,11 @@ void fg_world_update(fg_world_t* world, fg_world_update_ctx_t* ctx, fg_update_bu
 	}
 }
 
-void* fg_stack_alloc(fg_stack_allocator_t* allocator, int32_t size)
+void* fg_stack_alloc(fg_stack_allocator_t* allocator, i32 size)
 {
 	FUR_ASSERT(allocator->size + size <= allocator->capacity);
 	void* ptr = allocator->ptr;
-	allocator->ptr = (uint8_t*)allocator->ptr + size;
+	allocator->ptr = (u8*)allocator->ptr + size;
 	allocator->size += size;
 	
 	memset(ptr, 0, size);
@@ -219,7 +219,7 @@ void* fg_stack_alloc(fg_stack_allocator_t* allocator, int32_t size)
 
 const fa_anim_clip_t* fg_resource_find_anim(const fg_resource_register_t* reg, fc_string_hash_t name)
 {
-	for(int32_t i=0; i<reg->numAnimations; ++i)
+	for(i32 i=0; i<reg->numAnimations; ++i)
 	{
 		if(reg->animationsNames[i] == name)
 			return reg->animations[i];
@@ -232,7 +232,7 @@ const fa_anim_clip_t* fg_resource_find_anim(const fg_resource_register_t* reg, f
 
 const fc_binary_buffer_t* fg_resource_find_script(const fg_resource_register_t* reg, fc_string_hash_t name)
 {
-	for(int32_t i=0; i<reg->numScripts; ++i)
+	for(i32 i=0; i<reg->numScripts; ++i)
 	{
 		if(reg->scriptsNames[i] == name)
 			return reg->scripts[i];
@@ -245,7 +245,7 @@ const fc_binary_buffer_t* fg_resource_find_script(const fg_resource_register_t* 
 
 const fa_rig_t* fg_resource_find_rig(const fg_resource_register_t* reg, fc_string_hash_t name)
 {
-	for(int32_t i=0; i<reg->numRigs; ++i)
+	for(i32 i=0; i<reg->numRigs; ++i)
 	{
 		if(reg->rigsNames[i] == name)
 			return reg->rigs[i];
@@ -258,7 +258,7 @@ const fa_rig_t* fg_resource_find_rig(const fg_resource_register_t* reg, fc_strin
 
 const fr_proxy_t* fg_resource_find_mesh(const fg_resource_register_t* reg, fc_string_hash_t name)
 {
-	for(int32_t i=0; i<reg->numMeshes; ++i)
+	for(i32 i=0; i<reg->numMeshes; ++i)
 	{
 		if(reg->meshesNames[i] == name)
 			return reg->meshes[i];
@@ -311,7 +311,7 @@ fg_game_object_handle_t fg_game_object_storage_find_free_handle(fg_game_object_i
 	handle.index = -1;
 	
 	// find free storage slot
-	for(int32_t i=0; i<MAX_GAME_OBJECTS_SPAWNED; ++i)
+	for(i32 i=0; i<MAX_GAME_OBJECTS_SPAWNED; ++i)
 	{
 		if(storage->ptr[i] == NULL)
 		{

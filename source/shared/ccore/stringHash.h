@@ -7,10 +7,10 @@ extern "C"
 {
 #endif // __cplusplus
 	
-#include <inttypes.h>
+#include "ccore/types.h"
 #include "api.h"
 
-typedef uint32_t fc_string_hash_t;
+typedef u32 fc_string_hash_t;
 
 CCORE_API fc_string_hash_t fc_make_string_hash(const char* name);
 

@@ -10,7 +10,7 @@
 typedef struct fa_anim_sys_t
 {
 	fa_character_t* characters[FUR_MAX_ANIM_CHARACTERS];
-	int32_t numCharacters;
+	i32 numCharacters;
 	
 } fa_anim_sys_t;
 
@@ -47,7 +47,7 @@ void fa_anim_sys_add_character(fa_anim_sys_t* sys, fa_character_t* character)
 	FUR_ASSERT(sys->numCharacters < FUR_MAX_ANIM_CHARACTERS);
 	
 	// acquire index for character
-	const int32_t idx = sys->numCharacters;
+	const i32 idx = sys->numCharacters;
 	sys->numCharacters++;
 	
 	// add character
@@ -56,7 +56,7 @@ void fa_anim_sys_add_character(fa_anim_sys_t* sys, fa_character_t* character)
 
 void fa_anim_sys_remove_character(fa_anim_sys_t* sys, fa_character_t* character)
 {
-	for(int32_t i=0; i<sys->numCharacters; ++i)
+	for(i32 i=0; i<sys->numCharacters; ++i)
 	{
 		// if not found, continue searching
 		if(sys->characters[i] != character)
@@ -81,7 +81,7 @@ void fa_anim_sys_remove_character(fa_anim_sys_t* sys, fa_character_t* character)
 void fa_anim_sys_update(fa_anim_sys_t* sys, const fa_anim_sys_update_ctx_t* ctx)
 {
 	// for each character
-	for(int32_t i=0; i<sys->numCharacters; ++i)
+	for(i32 i=0; i<sys->numCharacters; ++i)
 	{
 		fa_character_t* character = sys->characters[i];
 		
@@ -100,8 +100,8 @@ void fa_anim_sys_update(fa_anim_sys_t* sys, const fa_anim_sys_update_ctx_t* ctx)
 		if(character->skinMatrices)
 		{
 			const fm_xform* poseMS = character->poseMS;
-			const uint32_t numSkinMatrices = character->rig->numBones;
-			for(uint32_t i=0; i<numSkinMatrices; ++i)
+			const u32 numSkinMatrices = character->rig->numBones;
+			for(u32 i=0; i<numSkinMatrices; ++i)
 			{
 				fm_xform_to_mat4(&poseMS[i], &character->skinMatrices[i]);
 			}

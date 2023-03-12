@@ -16,8 +16,8 @@
 
 bool IsFileExtensionEqualTo(const char* path, const char* ext)
 {
-	const size_t pathLen = strlen(path);
-	const size_t extLen = strlen(ext);
+	const u64 pathLen = strlen(path);
+	const u64 extLen = strlen(ext);
 	
 	if(strcmp(path + pathLen - extLen, ext) == 0)
 	{
@@ -32,7 +32,7 @@ ofbx::IScene* OpenScene_FBX(const char* path)
 	std::ifstream file(path, std::ifstream::in | std::ifstream::binary | std::ifstream::ate);
 	FUR_ASSERT(file);
 	
-	uint32_t fileSize = (uint32_t)file.tellg();
+	u32 fileSize = (u32)file.tellg();
 	file.seekg(0, std::ifstream::beg);
 	
 	std::vector<char> fileData;
@@ -41,7 +41,7 @@ ofbx::IScene* OpenScene_FBX(const char* path)
 	file.read(&fileData[0], fileSize);
 	file.close();
 	
-	ofbx::IScene* scene = ofbx::load((const uint8_t*)fileData.data(), (int)fileData.size());
+	ofbx::IScene* scene = ofbx::load((const u8*)fileData.data(), (int)fileData.size());
 	FUR_ASSERT(scene);
 	
 	return scene;
@@ -49,8 +49,8 @@ ofbx::IScene* OpenScene_FBX(const char* path)
 
 struct FBXAnimCurve
 {
-	std::vector<float> m_times;
-	std::vector<float> m_values;
+	std::vector<f32> m_times;
+	std::vector<f32> m_values;
 };
 
 struct FBXBoneInfo
@@ -62,7 +62,7 @@ struct FBXBoneInfo
 	FBXAnimCurve m_rotation[3];
 	FBXAnimCurve m_scale[3];
 	
-	uint32_t m_originalIndex;	// to fix skinning data
+	u32 m_originalIndex;	// to fix skinning data
 };
 
 struct FBXRig
@@ -74,14 +74,14 @@ struct FBXRig
 
 void FillFBXAnimCurve(FBXAnimCurve& curve, const ofbx::AnimationCurve* fbxCurve)
 {
-	const int32_t numKeys = fbxCurve->getKeyCount();
+	const i32 numKeys = fbxCurve->getKeyCount();
 	const int64_t* keyTimes = fbxCurve->getKeyTime();
-	const float* keyValues = fbxCurve->getKeyValue();
+	const f32* keyValues = fbxCurve->getKeyValue();
 	
 	curve.m_times.resize(numKeys);
 	curve.m_values.resize(numKeys);
 	
-	for(int32_t ik=0; ik<numKeys; ++ik)
+	for(i32 ik=0; ik<numKeys; ++ik)
 	{
 		curve.m_times[ik] = ofbx::fbxTimeToSeconds(keyTimes[ik]);
 		curve.m_values[ik] = keyValues[ik];
@@ -90,14 +90,14 @@ void FillFBXAnimCurve(FBXAnimCurve& curve, const ofbx::AnimationCurve* fbxCurve)
 
 void fi_gather_anim_curves(ofbx::IScene* scene, std::map<std::string, FBXBoneInfo*>& bones)
 {
-	const int32_t numAnimStacks = scene->getAnimationStackCount();
-	for(int32_t i=0; i<numAnimStacks; ++i)
+	const i32 numAnimStacks = scene->getAnimationStackCount();
+	for(i32 i=0; i<numAnimStacks; ++i)
 	{
 		const ofbx::AnimationStack* animStack = scene->getAnimationStack(i);
 		const ofbx::AnimationLayer* layer = animStack->getLayer(0);	// usually there's only one layer, unless two animations are blended together
-		const int32_t numCurveNodes = layer->getCurveNodeCount();
+		const i32 numCurveNodes = layer->getCurveNodeCount();
 		
-		for(int32_t icn=0; icn<numCurveNodes; ++icn)
+		for(i32 icn=0; icn<numCurveNodes; ++icn)
 		{
 			const ofbx::AnimationCurveNode* curveNode = layer->getCurveNode(icn);
 			const ofbx::Object* bone = curveNode->getBone();
@@ -110,7 +110,7 @@ void fi_gather_anim_curves(ofbx::IScene* scene, std::map<std::string, FBXBoneInf
 						FBXBoneInfo* info = new FBXBoneInfo();
 						bones[bone->name] = info;
 						info->m_name = std::string(bone->name);
-						info->m_originalIndex = (uint32_t)icn;
+						info->m_originalIndex = (u32)icn;
 						
 						const ofbx::Object* parentBone = bone->getParent();
 						if(parentBone)
@@ -122,7 +122,7 @@ void fi_gather_anim_curves(ofbx::IScene* scene, std::map<std::string, FBXBoneInf
 					FBXBoneInfo* info = bones[bone->name];
 					
 					std::string propertyName;
-					const int32_t propNameSize = curveNode->getBoneLinkPropertySize();
+					const i32 propNameSize = curveNode->getBoneLinkPropertySize();
 					if(propNameSize < 128)
 					{
 						char buffer[128];
@@ -131,25 +131,25 @@ void fi_gather_anim_curves(ofbx::IScene* scene, std::map<std::string, FBXBoneInf
 						propertyName = std::string(buffer);
 					}
 					
-					const int32_t numCurves = std::min(curveNode->getCurveCount(), 3);
+					const i32 numCurves = std::min(curveNode->getCurveCount(), 3);
 					
 					if(propertyName == "Lcl Translation")
 					{
-						for(int32_t ic=0; ic<numCurves; ++ic)
+						for(i32 ic=0; ic<numCurves; ++ic)
 						{
 							FillFBXAnimCurve(info->m_translation[ic], curveNode->getCurve(ic));
 						}
 					}
 					else if(propertyName == "Lcl Rotation")
 					{
-						for(int32_t ic=0; ic<numCurves; ++ic)
+						for(i32 ic=0; ic<numCurves; ++ic)
 						{
 							FillFBXAnimCurve(info->m_rotation[ic], curveNode->getCurve(ic));
 						}
 					}
 					else if(propertyName == "Lcl Scale")
 					{
-						for(int32_t ic=0; ic<numCurves; ++ic)
+						for(i32 ic=0; ic<numCurves; ++ic)
 						{
 							FillFBXAnimCurve(info->m_scale[ic], curveNode->getCurve(ic));
 						}
@@ -180,7 +180,7 @@ void fi_import_sort_bones(std::map<std::string, FBXBoneInfo*>& bones, std::vecto
 		
 		std::string parentName = "Armature";
 		
-		for(uint32_t i=0; i<rigBones.size(); ++i)
+		for(u32 i=0; i<rigBones.size(); ++i)
 		{
 			if(rigBones[i]->m_name == "rootTransform")
 			{
@@ -195,7 +195,7 @@ void fi_import_sort_bones(std::map<std::string, FBXBoneInfo*>& bones, std::vecto
 		{
 			const std::string& parent = parents.front();
 			
-			for(uint32_t i=0; i<rigBones.size(); ++i)
+			for(u32 i=0; i<rigBones.size(); ++i)
 			{
 				if(rigBones[i]->m_parentName == parent)
 				{
@@ -230,7 +230,7 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 		fi_gather_anim_curves(scene, bones);
 		fi_import_sort_bones(bones, sortedRigBones);
 		
-		const uint32_t numBones = (uint32_t)sortedRigBones.size();
+		const u32 numBones = (u32)sortedRigBones.size();
 		
 		if(numBones > 0)
 		{
@@ -241,12 +241,12 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 			
 			if(!sortedRigBones.empty())
 			{
-				for(uint32_t i=0; i<sortedRigBones.size(); ++i)
+				for(u32 i=0; i<sortedRigBones.size(); ++i)
 				{
 					rig.m_jointNames[i] = sortedRigBones[i]->m_name;
 					
 					fm_vec4 position = {0.0f, 0.0f, 0.0f, 0.0f};
-					const float scale = 1.0f;
+					const f32 scale = 1.0f;
 					
 					const FBXAnimCurve* translationCurves = sortedRigBones[i]->m_translation;
 					if(!translationCurves[0].m_values.empty())
@@ -264,9 +264,9 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 					
 					fm_euler_angles rotation = {0.0f, 0.0f, 0.0f};
 					
-					float x = 0.0f;
-					float y = 0.0f;
-					float z = 0.0f;
+					f32 x = 0.0f;
+					f32 y = 0.0f;
+					f32 z = 0.0f;
 					
 					const FBXAnimCurve* rotationCurves = sortedRigBones[i]->m_rotation;
 					/*if(!rotationCurves[0].m_values.empty())
@@ -303,12 +303,12 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 					fm_quat_make_from_euler_angles_xyz(&rotation, &rig.m_referencePose[i].rot);
 				}
 				
-				for(int32_t i=0; i<sortedRigBones.size(); ++i)
+				for(i32 i=0; i<sortedRigBones.size(); ++i)
 				{
 					const std::string& parentName = sortedRigBones[i]->m_parentName;
 					int16_t parentIndex = -1;
 					
-					for(int32_t p=i-1; p>=0; --p)
+					for(i32 p=i-1; p>=0; --p)
 					{
 						if(sortedRigBones[p]->m_name == parentName)
 						{
@@ -344,10 +344,10 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 				
 				pRig->refPose = (fm_xform*)FUR_ALLOC(sizeof(fm_xform) * rig.m_referencePose.size(), 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 				pRig->parents = (int16_t*)FUR_ALLOC(sizeof(int16_t) * rig.m_referencePose.size(), 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
-				pRig->numBones = (uint32_t)rig.m_referencePose.size();
+				pRig->numBones = (u32)rig.m_referencePose.size();
 				pRig->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(fc_string_hash_t, numBones, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 				
-				for(uint32_t i=0; i<pRig->numBones; ++i)
+				for(u32 i=0; i<pRig->numBones; ++i)
 				{
 					pRig->refPose[i] = rig.m_referencePose[i];
 					pRig->parents[i] = rig.m_parents[i];
@@ -355,7 +355,7 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 				}
 			}
 			
-			for(uint32_t i=0; i<sortedRigBones.size(); ++i)
+			for(u32 i=0; i<sortedRigBones.size(); ++i)
 			{
 				delete sortedRigBones[i];
 			}
@@ -386,55 +386,55 @@ struct fi_temp_anim_curve_t
 
 struct fi_temp_anim_clip_t
 {
-	float duration;
+	f32 duration;
 	std::vector<fi_temp_anim_curve_t> curves;
 };
 
-void fi_sample_fbx_anim_curve(const FBXAnimCurve* curve, uint32_t size, float* result, float time)
+void fi_sample_fbx_anim_curve(const FBXAnimCurve* curve, u32 size, f32* result, f32 time)
 {
-	for(uint32_t i=0; i<size; ++i)
+	for(u32 i=0; i<size; ++i)
 	{
-		const uint32_t timesSize = (uint32_t)curve[i].m_times.size();
+		const u32 timesSize = (u32)curve[i].m_times.size();
 		
-		uint32_t idx = 0;
+		u32 idx = 0;
 		while(idx < timesSize-1 && curve[i].m_times[idx] < time)
 		{
 			++idx;
 		}
 		
-		const uint32_t upperIdx = idx;
-		const uint32_t lowerIdx = idx == 0 ? idx : idx - 1;
+		const u32 upperIdx = idx;
+		const u32 lowerIdx = idx == 0 ? idx : idx - 1;
 		
 		if(lowerIdx == upperIdx)
 		{
-			const float value = curve[i].m_values[idx];
+			const f32 value = curve[i].m_values[idx];
 			result[i] = value;
 		}
 		else
 		{
-			const float lowerTime = curve[i].m_times[lowerIdx];
-			const float upperTime = curve[i].m_times[upperIdx];
+			const f32 lowerTime = curve[i].m_times[lowerIdx];
+			const f32 upperTime = curve[i].m_times[upperIdx];
 			
-			const float alpha = (time - lowerTime) / (upperTime - lowerTime);
+			const f32 alpha = (time - lowerTime) / (upperTime - lowerTime);
 			
-			const float lowerValue = curve[i].m_values[lowerIdx];
-			const float upperValue = curve[i].m_values[upperIdx];
-			const float value = lowerValue * (1.0f - alpha) + upperValue * alpha;
+			const f32 lowerValue = curve[i].m_values[lowerIdx];
+			const f32 upperValue = curve[i].m_values[upperIdx];
+			const f32 value = lowerValue * (1.0f - alpha) + upperValue * alpha;
 			result[i] = value;
 		}
 	}
 }
 
-const float Km  = 4.0*(0.4142135679721832275390625); // 4(sqrt(2)-1)
-const float Khf = 2.414213657379150390625;           // sqrt(2)+1 = 1/(sqrt(2)-1)
-const float Khi = 0.17157287895679473876953125;      // 3-2sqrt(2)
+const f32 Km  = 4.0*(0.4142135679721832275390625); // 4(sqrt(2)-1)
+const f32 Khf = 2.414213657379150390625;           // sqrt(2)+1 = 1/(sqrt(2)-1)
+const f32 Khi = 0.17157287895679473876953125;      // 3-2sqrt(2)
 
-float fa_decompress_float_minus_one_plus_one(uint16_t value)
+f32 fa_decompress_float_minus_one_plus_one(uint16_t value)
 {
-	return (((float)value) / 65535.0f) * 2.0f - 1.0f;
+	return (((f32)value) / 65535.0f) * 2.0f - 1.0f;
 }
 
-uint16_t fa_compress_float_minus_one_plus_on(float value)
+uint16_t fa_compress_float_minus_one_plus_on(f32 value)
 {
 	return (uint16_t)(((value + 1.0f) / 2.0f) * 65535.0f);
 }
@@ -455,7 +455,7 @@ void fm_16bit_to_vec3(const uint16_t* b, fm_vec3* v)
 
 void quat_fhm(fm_quat q, fm_vec3* v)
 {
-	float s = Khf / (1.0 + q.r + sqrt(2.0 + 2.0 * q.r));
+	f32 s = Khf / (1.0 + q.r + sqrt(2.0 + 2.0 * q.r));
 	
 	v->x = q.i * s;
 	v->y = q.j * s;
@@ -464,13 +464,13 @@ void quat_fhm(fm_quat q, fm_vec3* v)
 
 fm_quat quat_ihm(const fm_vec3* v)
 {
-	float d = Khi * fm_vec3_dot(v, v);
-	float a = (1.0+d);
-	float b = (1.0-d)*Km;
-	float c = 1.0/(a*a);
+	f32 d = Khi * fm_vec3_dot(v, v);
+	f32 a = (1.0+d);
+	f32 b = (1.0-d)*Km;
+	f32 c = 1.0/(a*a);
 	fm_quat q;
 	
-	float bc = b * c;
+	f32 bc = b * c;
 	
 	q.i = v->x * bc;
 	q.j = v->y * bc;
@@ -494,7 +494,7 @@ fm_quat quat_ihm_16bit(const uint16_t* b)
 	return quat_ihm(&vec);
 }
 
-const float c_positionCompressionRange = 20.0f;
+const f32 c_positionCompressionRange = 20.0f;
 
 void vec4_com_16bit(fm_vec4 v, uint16_t* b)
 {
@@ -516,9 +516,9 @@ fm_vec4 vec4_decom_16bit(const uint16_t* v)
 	return res;
 }
 
-float fa_decompress_key_time(const uint16_t time)
+f32 fa_decompress_key_time(const uint16_t time)
 {
-	return ((float)time) / 24.0f;
+	return ((f32)time) / 24.0f;
 }
 
 bool fi_is_same_key(const fi_temp_anim_curve_key_t* a, const fi_temp_anim_curve_key_t* b)
@@ -551,7 +551,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 		fi_gather_anim_curves(scene, bones);
 		fi_import_sort_bones(bones, sortedBones);
 		
-		const uint32_t numBones = (uint32_t)sortedBones.size();
+		const u32 numBones = (u32)sortedBones.size();
 		
 		fi_temp_anim_clip_t tempClip;
 		
@@ -559,12 +559,12 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 		{
 			const uint16_t numCurves = numBones * 2;	// two channels: position & rotation
 			tempClip.curves.reserve(numCurves);
-			uint32_t numAllKeys = 0;
+			u32 numAllKeys = 0;
 			
-			float duration = 0.0f;
+			f32 duration = 0.0f;
 			
 			// rotations
-			for(uint32_t i_b=0; i_b<numBones; ++i_b)
+			for(u32 i_b=0; i_b<numBones; ++i_b)
 			{
 				const FBXBoneInfo* bone = sortedBones[i_b];
 				
@@ -572,11 +572,11 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 				fi_temp_anim_curve_t& tempCurve = tempClip.curves[tempClip.curves.size()-1];
 				
 				// gather all times
-				std::vector<float> uniqueTimesSorted;
-				for(uint32_t i=0; i<3; ++i)
+				std::vector<f32> uniqueTimesSorted;
+				for(u32 i=0; i<3; ++i)
 				{
 					const FBXAnimCurve& curve = bone->m_rotation[i];
-					for(float t : curve.m_times)
+					for(f32 t : curve.m_times)
 					{
 						uniqueTimesSorted.push_back(t);
 					}
@@ -586,7 +586,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 				std::sort(uniqueTimesSorted.begin(), uniqueTimesSorted.end());
 				
 				// remove duplicates
-				for(int32_t i=(int32_t)uniqueTimesSorted.size()-1; i>0; --i)
+				for(i32 i=(i32)uniqueTimesSorted.size()-1; i>0; --i)
 				{
 					if(uniqueTimesSorted[i-1] == uniqueTimesSorted[i])
 					{
@@ -594,7 +594,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 					}
 				}
 				
-				const float curveDuration = uniqueTimesSorted.back();
+				const f32 curveDuration = uniqueTimesSorted.back();
 				if(curveDuration > duration)
 				{
 					duration = curveDuration;
@@ -604,15 +604,15 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 				const int16_t boneIdx = fa_rig_find_bone_idx(ctx->rig, SID(bone->m_name.c_str()));
 				FUR_ASSERT(boneIdx != -1);
 				
-				const uint32_t numKeys = (uint32_t)uniqueTimesSorted.size();
+				const u32 numKeys = (u32)uniqueTimesSorted.size();
 				tempCurve.keys.resize(numKeys);
 				tempCurve.index = boneIdx;
 				
-				for(uint32_t i=0; i<numKeys; ++i)
+				for(u32 i=0; i<numKeys; ++i)
 				{
-					const float time = uniqueTimesSorted[i];
+					const f32 time = uniqueTimesSorted[i];
 					
-					float value[3] = {0.0f};
+					f32 value[3] = {0.0f};
 					fi_sample_fbx_anim_curve(bone->m_rotation, 3, value, time);
 					
 					tempCurve.keys[i].keyTime = (uint16_t)(time * 24.0f);
@@ -642,18 +642,18 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 			}
 			
 			// positions
-			for(uint32_t i_b=0; i_b<numBones; ++i_b)
+			for(u32 i_b=0; i_b<numBones; ++i_b)
 			{
 				const FBXBoneInfo* bone = sortedBones[i_b];
 				
 				fi_temp_anim_curve_t& tempCurve = tempClip.curves[i_b];
 				
 				// gather all times
-				std::vector<float> uniqueTimesSorted;
-				for(uint32_t i=0; i<3; ++i)
+				std::vector<f32> uniqueTimesSorted;
+				for(u32 i=0; i<3; ++i)
 				{
 					const FBXAnimCurve& curve = bone->m_translation[i];
-					for(float t : curve.m_times)
+					for(f32 t : curve.m_times)
 					{
 						uniqueTimesSorted.push_back(t);
 					}
@@ -663,7 +663,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 				std::sort(uniqueTimesSorted.begin(), uniqueTimesSorted.end());
 				
 				// remove duplicates
-				for(int32_t i=(int32_t)uniqueTimesSorted.size()-1; i>0; --i)
+				for(i32 i=(i32)uniqueTimesSorted.size()-1; i>0; --i)
 				{
 					if(uniqueTimesSorted[i-1] == uniqueTimesSorted[i])
 					{
@@ -671,20 +671,20 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 					}
 				}
 				
-				const float curveDuration = uniqueTimesSorted.back();
+				const f32 curveDuration = uniqueTimesSorted.back();
 				if(curveDuration > duration)
 				{
 					duration = curveDuration;
 				}
 				
-				const uint32_t numKeys = (uint32_t)uniqueTimesSorted.size();
+				const u32 numKeys = (u32)uniqueTimesSorted.size();
 				tempCurve.posKeys.resize(numKeys);
 				
-				for(uint32_t i=0; i<numKeys; ++i)
+				for(u32 i=0; i<numKeys; ++i)
 				{
-					const float time = uniqueTimesSorted[i];
+					const f32 time = uniqueTimesSorted[i];
 					
-					float value[3] = {0.0f};
+					f32 value[3] = {0.0f};
 					fi_sample_fbx_anim_curve(bone->m_translation, 3, value, time);
 					
 					tempCurve.posKeys[i].keyTime = (uint16_t)(time * 24.0f);
@@ -727,7 +727,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 			
 			fa_anim_curve_key_t* curKey = animClip->dataKeys;
 			
-			for(uint32_t i_c=0; i_c<tempClip.curves.size(); ++i_c)
+			for(u32 i_c=0; i_c<tempClip.curves.size(); ++i_c)
 			{
 				const fi_temp_anim_curve_t& tempCurve = tempClip.curves[i_c];
 				fa_anim_curve_t* curve = &animClip->curves[i_c];
@@ -737,7 +737,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 				curve->numPosKeys = tempCurve.posKeys.size();
 				
 				curve->rotKeys = curKey;
-				for(uint32_t i=0; i<curve->numRotKeys; ++i)
+				for(u32 i=0; i<curve->numRotKeys; ++i)
 				{
 					const fi_temp_anim_curve_key_t& key = tempCurve.keys[i];
 					
@@ -752,7 +752,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 				}
 				
 				curve->posKeys = curKey;
-				for(uint32_t i=0; i<curve->numPosKeys; ++i)
+				for(u32 i=0; i<curve->numPosKeys; ++i)
 				{
 					const fi_temp_anim_curve_key_t& key = tempCurve.posKeys[i];
 					
@@ -786,11 +786,11 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 		fa_anim_curve_t* curveHips = &animClip->curves[idxHips];
 		const fa_anim_curve_t* curveLoco = &animClip->curves[idxLocoJoint];
 		
-		const uint32_t numPosKeys = curveHips->numPosKeys;
-		const uint32_t numRotKeys = curveHips->numRotKeys;
+		const u32 numPosKeys = curveHips->numPosKeys;
+		const u32 numRotKeys = curveHips->numRotKeys;
 		
-		const uint32_t locoNumPosKeys = curveLoco->numPosKeys;
-		const uint32_t locoNumRotKeys = curveLoco->numRotKeys;
+		const u32 locoNumPosKeys = curveLoco->numPosKeys;
+		const u32 locoNumRotKeys = curveLoco->numRotKeys;
 		
 		fm_vec4 posBegin = vec4_decom_16bit(curveLoco->posKeys[0].keyData);
 		fm_vec4 posEnd = vec4_decom_16bit(curveLoco->posKeys[locoNumPosKeys-1].keyData);
@@ -814,11 +814,11 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 		animClip->motionDelta[6] = rotLoop.k;
 		animClip->motionDelta[7] = rotLoop.r;
 		
-		for(uint32_t k=0; k<numPosKeys; ++k)
+		for(u32 k=0; k<numPosKeys; ++k)
 		{
 			// zero out horizontal movement, leave only vertical movement
 			fm_vec4 pos = vec4_decom_16bit(curveHips->posKeys[k].keyData);
-			const float keyTime = fa_decompress_key_time(curveHips->posKeys[k].keyTime);
+			const f32 keyTime = fa_decompress_key_time(curveHips->posKeys[k].keyTime);
 			
 			fm_xform locoXform = {};
 			fa_anim_curve_sample(curveLoco, keyTime, false, &locoXform);
@@ -827,11 +827,11 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 			vec4_com_16bit(pos, curveHips->posKeys[k].keyData);
 		}
 		
-		for(uint32_t k=0; k<numRotKeys; ++k)
+		for(u32 k=0; k<numRotKeys; ++k)
 		{
 			// zero out movement along vertical axis
 			fm_quat rot = quat_ihm_16bit(curveHips->rotKeys[k].keyData);
-			const float keyTime = fa_decompress_key_time(curveHips->posKeys[k].keyTime);
+			const f32 keyTime = fa_decompress_key_time(curveHips->posKeys[k].keyTime);
 			
 			fm_xform locoXform = {};
 			fa_anim_curve_sample(curveLoco, keyTime, false, &locoXform);
@@ -882,43 +882,43 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 		
 		FUR_ASSERT(scene);
 		
-		const int32_t numMeshes = scene->getMeshCount();
+		const i32 numMeshes = scene->getMeshCount();
 		
 		fr_resource_mesh_t* mesh = (fr_resource_mesh_t*)FUR_ALLOC_AND_ZERO(sizeof(fr_resource_mesh_t), 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 		mesh->chunks = (fr_resource_mesh_chunk_t*)FUR_ALLOC_AND_ZERO(sizeof(fr_resource_mesh_chunk_t) * numMeshes, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 		mesh->numChunks = numMeshes;
 		
-		for(int32_t i=0; i<numMeshes; ++i)
+		for(i32 i=0; i<numMeshes; ++i)
 		{
 			fr_resource_mesh_chunk_t* chunk = &mesh->chunks[i];
 			
 			const ofbx::Mesh* mesh = scene->getMesh(i);
 			const ofbx::Geometry* geometry = mesh->getGeometry();
 			
-			const int32_t numVertices = geometry->getVertexCount();
+			const i32 numVertices = geometry->getVertexCount();
 			const ofbx::Vec3* vertices = geometry->getVertices();
 			const ofbx::Vec3* normals = geometry->getNormals();
 			const ofbx::Vec2* uvs = geometry->getUVs();
 			
-			const uint32_t strideFloats = 3 + 3 + 2;
-			const uint32_t strideBytes = sizeof(float) * strideFloats;
+			const u32 strideFloats = 3 + 3 + 2;
+			const u32 strideBytes = sizeof(f32) * strideFloats;
 			
-			chunk->dataVertices = (float*)FUR_ALLOC_AND_ZERO(strideBytes * numVertices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+			chunk->dataVertices = (f32*)FUR_ALLOC_AND_ZERO(strideBytes * numVertices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 			chunk->numVertices = numVertices;
 			chunk->vertexStride = strideFloats;
 			
 			chunk->numIndices = numVertices;
-			chunk->dataIndices = FUR_ALLOC_ARRAY(uint32_t, numVertices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+			chunk->dataIndices = FUR_ALLOC_ARRAY(u32, numVertices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 			
 			// create vertex stream
-			float* itVertex = chunk->dataVertices;
-			uint32_t* itIndex = chunk->dataIndices;
+			f32* itVertex = chunk->dataVertices;
+			u32* itIndex = chunk->dataIndices;
 			
-			for(int32_t iv=0; iv<numVertices; ++iv)
+			for(i32 iv=0; iv<numVertices; ++iv)
 			{
-				float* position = itVertex;
-				float* normal = itVertex + 3;
-				float* uv = itVertex + 3 + 3;
+				f32* position = itVertex;
+				f32* normal = itVertex + 3;
+				f32* uv = itVertex + 3 + 3;
 				
 				position[0] = vertices[iv].x;
 				position[1] = vertices[iv].y;
@@ -943,7 +943,7 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 				
 				//printf("uv[%u] = {%1.2f, %1.2f}\n", iv, uv[0], uv[1]);
 				
-				*itIndex = (uint32_t)iv;
+				*itIndex = (u32)iv;
 				
 				itVertex += strideFloats;
 				itIndex += 1;
@@ -963,9 +963,9 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 				chunk->dataSkinning = FUR_ALLOC_ARRAY_AND_ZERO(fr_resource_mesh_chunk_skin_t, numVertices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 				
 				// init all skin indices to -1
-				for(uint32_t iv=0; iv<chunk->numVertices; ++iv)
+				for(u32 iv=0; iv<chunk->numVertices; ++iv)
 				{
-					for(uint32_t idxSkin=0; idxSkin<FUR_MAX_SKIN_INDICES_PER_VERTEX; ++idxSkin)
+					for(u32 idxSkin=0; idxSkin<FUR_MAX_SKIN_INDICES_PER_VERTEX; ++idxSkin)
 					{
 						chunk->dataSkinning[iv].indices[idxSkin] = -1;
 						chunk->dataSkinning[iv].weights[idxSkin] = 0.0f;
@@ -973,10 +973,10 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 				}
 				
 				// go through skin clusters (one cluster = one bone)
-				const uint32_t numClusters = skin->getClusterCount();
-				for(uint32_t ic=0; ic<numClusters; ++ic)
+				const u32 numClusters = skin->getClusterCount();
+				for(u32 ic=0; ic<numClusters; ++ic)
 				{
-					const uint32_t idxBone = ic;
+					const u32 idxBone = ic;
 					
 					const ofbx::Cluster* cluster = skin->getCluster(ic);
 					
@@ -990,18 +990,18 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 					chunk->bindPose[ic] = bindMat4;
 					
 					// fill in skin indices and weights for vertices coming from this cluster
-					const uint32_t numSkinIndices = cluster->getIndicesCount();
-					const int32_t* vertexIndices =  cluster->getIndices();
-					const double* skinWeights =  cluster->getWeights();
+					const u32 numSkinIndices = cluster->getIndicesCount();
+					const i32* vertexIndices =  cluster->getIndices();
+					const f64* skinWeights =  cluster->getWeights();
 					
-					for(uint32_t iv=0; iv<numSkinIndices; ++iv)
+					for(u32 iv=0; iv<numSkinIndices; ++iv)
 					{
-						const int32_t idxVertex = vertexIndices[iv];
-						const float skinWeight = skinWeights[iv];
+						const i32 idxVertex = vertexIndices[iv];
+						const f32 skinWeight = skinWeights[iv];
 						
 						fr_resource_mesh_chunk_skin_t* skin = &chunk->dataSkinning[idxVertex];
 						
-						uint32_t slotSkinIndices = 0;
+						u32 slotSkinIndices = 0;
 						
 						// find first free slot for index (in case this vertex is skinned to many bones)
 						while(skin->indices[slotSkinIndices] != -1 && slotSkinIndices <= FUR_MAX_SKIN_INDICES_PER_VERTEX)
@@ -1017,20 +1017,20 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 				}
 				
 				// normalize weights (sum of weights should be 1.0f)
-				for(uint32_t is=0; is<chunk->numVertices; ++is)
+				for(u32 is=0; is<chunk->numVertices; ++is)
 				{
 					fr_resource_mesh_chunk_skin_t* skin = &chunk->dataSkinning[is];
-					const float totalWeight = skin->weights[0] + skin->weights[1] + skin->weights[2] + skin->weights[3];
+					const f32 totalWeight = skin->weights[0] + skin->weights[1] + skin->weights[2] + skin->weights[3];
 					if(totalWeight > 0.0f)
 					{
-						const float factor = 1.0f / totalWeight;
+						const f32 factor = 1.0f / totalWeight;
 						skin->weights[0] *= factor;
 						skin->weights[1] *= factor;
 						skin->weights[2] *= factor;
 						skin->weights[3] *= factor;
 					}
 					
-					const float totalWeightFinal = skin->weights[0] + skin->weights[1] + skin->weights[2] + skin->weights[3];
+					const f32 totalWeightFinal = skin->weights[0] + skin->weights[1] + skin->weights[2] + skin->weights[3];
 					FUR_ASSERT(0.999f < totalWeightFinal && totalWeightFinal < 1.001f);
 				}
 			}
@@ -1049,9 +1049,9 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 void fr_mesh_release(fr_resource_mesh_t* pMesh, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	fr_resource_mesh_chunk_t* chunks = pMesh->chunks;
-	uint32_t numChunks = pMesh->numChunks;
+	u32 numChunks = pMesh->numChunks;
 	
-	for(uint32_t i=0; i<numChunks; ++i)
+	for(u32 i=0; i<numChunks; ++i)
 	{
 		FUR_FREE(chunks[i].dataIndices, pAllocCallbacks);
 		FUR_FREE(chunks[i].dataVertices, pAllocCallbacks);
@@ -1072,10 +1072,10 @@ void fr_mesh_release(fr_resource_mesh_t* pMesh, fc_alloc_callbacks_t* pAllocCall
 
 void fc_path_concat(char* output, const char* folderAbsolute, const char* directoryRelative, const char* fileName, const char* fileExtension)
 {
-	const size_t folderLen = strlen(folderAbsolute);
-	const size_t dirLen = strlen(directoryRelative);
-	const size_t nameLen = strlen(fileName);
-	const size_t extLen = strlen(fileExtension);
+	const u64 folderLen = strlen(folderAbsolute);
+	const u64 dirLen = strlen(directoryRelative);
+	const u64 nameLen = strlen(fileName);
+	const u64 extLen = strlen(fileExtension);
 	
 	memcpy(output, folderAbsolute, folderLen);
 	memcpy(output + folderLen, directoryRelative, dirLen);

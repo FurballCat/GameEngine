@@ -25,7 +25,7 @@ typedef struct fr_skinning_buffer_t
 } fr_skinning_buffer_t;
 
 // add renderable thing to given potentially visible set and pass skinning matrices for it
-void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator, const fm_mat4* skinMatrices, int32_t numSkinMatrices)
+void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator, const fm_mat4* skinMatrices, i32 numSkinMatrices)
 {
 	FUR_ASSERT(pvs->numProxies < pvs->numMaxDescriptorSets);
 	
@@ -38,9 +38,9 @@ void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locato
 	ubo.view = pvs->view;
 	ubo.proj = pvs->projection;
 	
-	const size_t size = sizeof(fr_world_view_proj_t);
-	const uint32_t offset = pvs->worldViewProjOffset;
-	const uint32_t descriptorIndex = pvs->numProxies;
+	const u64 size = sizeof(fr_world_view_proj_t);
+	const u32 offset = pvs->worldViewProjOffset;
+	const u32 descriptorIndex = pvs->numProxies;
 	
 	pvs->worldViewProjOffset += size;
 	pvs->numProxies += 1;
@@ -56,7 +56,7 @@ void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locato
 	
 	FUR_ASSERT(proxy->numTextures < 20);
 	VkSampler samplers[20] = {0};
-	for(uint32_t i=0; i<20; ++i)
+	for(u32 i=0; i<20; ++i)
 	{
 		samplers[i] = pvs->defaultTextureSampler;
 	}
@@ -82,7 +82,7 @@ void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locato
 		
 		FUR_ASSERT(proxy->numBones <= numSkinMatrices); // make sure we have enough matrices to choose from
 		
-		for(uint32_t i=0; i<proxy->numBones; ++i)
+		for(u32 i=0; i<proxy->numBones; ++i)
 		{
 			const int16_t srcBoneIndex = proxy->skinningMappinng[i];
 			fm_mat4_mul(&invBindPose[i], &skinMatrices[srcBoneIndex], &skinBufferMatrices[i]);

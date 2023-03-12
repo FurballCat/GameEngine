@@ -12,7 +12,7 @@ bool fc_load_binary_file_into_binary_buffer(const char* path, fc_binary_buffer_t
 	if(pFile && pBuffer)
 	{
 		fseek(pFile, 0, SEEK_END);
-		size_t size = ftell(pFile);
+		u64 size = ftell(pFile);
 		fseek(pFile, 0, SEEK_SET);
 		
 		pBuffer->pData = FUR_ALLOC(size, 8, FC_MEMORY_SCOPE_GLOBAL, pAllocCallbacks);
@@ -36,27 +36,27 @@ void fc_init_binary_buffer_stream(const fc_binary_buffer_t* buffer, fc_binary_bu
 {
 	outStream->buffer = buffer;
 	outStream->pos = buffer->pData;
-	outStream->endPos = (uint8_t*)buffer->pData + buffer->size;
+	outStream->endPos = (u8*)buffer->pData + buffer->size;
 }
 
-uint32_t fc_read_binary_buffer(fc_binary_buffer_stream_t* stream, uint32_t numBytes, void* output)
+u32 fc_read_binary_buffer(fc_binary_buffer_stream_t* stream, u32 numBytes, void* output)
 {
-	if((uint8_t*)stream->pos + numBytes <= (uint8_t*)stream->endPos)
+	if((u8*)stream->pos + numBytes <= (u8*)stream->endPos)
 	{
 		if(output != NULL)
 		{
 			memcpy(output, stream->pos, numBytes);
 		}
-		stream->pos = ((uint8_t*)stream->pos) + numBytes;
+		stream->pos = ((u8*)stream->pos) + numBytes;
 		return numBytes;
 	}
 	
 	return 0;
 }
 
-uint32_t fc_peek_binary_buffer(fc_binary_buffer_stream_t* stream, uint32_t numBytes, void* output)
+u32 fc_peek_binary_buffer(fc_binary_buffer_stream_t* stream, u32 numBytes, void* output)
 {
-	if((uint8_t*)stream->pos + numBytes <= (uint8_t*)stream->endPos)
+	if((u8*)stream->pos + numBytes <= (u8*)stream->endPos)
 	{
 		if(output != NULL)
 		{
@@ -74,7 +74,7 @@ bool fc_load_text_file_into_text_buffer(const char* path, fc_text_buffer_t* pBuf
 	if(pFile && pBuffer)
 	{
 		fseek(pFile, 0, SEEK_END);
-		size_t size = ftell(pFile);
+		u64 size = ftell(pFile);
 		fseek(pFile, 0, SEEK_SET);
 		
 		pBuffer->pData = (char*)FUR_ALLOC(size, 8, FC_MEMORY_SCOPE_GLOBAL, pAllocCallbacks);

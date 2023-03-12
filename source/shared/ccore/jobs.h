@@ -7,8 +7,7 @@ extern "C"
 {
 #endif // __cplusplus
 
-#include <inttypes.h>
-#include <stdbool.h>
+#include "ccore/types.h"
 #include "platform.h"
 #include "api.h"
 
@@ -54,10 +53,10 @@ typedef struct fc_job_decl_t
 typedef struct fc_job_counter_t
 {
 	fc_atomic_int value;
-	int32_t index;
+	i32 index;
 } fc_job_counter_t;
 
-CCORE_API void fc_run_jobs(const fc_job_decl_t* jobs, int32_t numJobs, fc_job_counter_t** outCounter);
+CCORE_API void fc_run_jobs(const fc_job_decl_t* jobs, i32 numJobs, fc_job_counter_t** outCounter);
 CCORE_API void fc_wait_for_counter_and_free(fc_job_counter_t* counter);
 
 // call this on main once at the init, this job will be your main thread loop
@@ -70,13 +69,13 @@ CCORE_API void fc_job_system_enter_worker_thread_mode(void);
 CCORE_API void fc_job_system_exit_all_jobs(void);
 
 // this will return index between 0 and num_max_threads, where 0 is the main thread
-CCORE_API int32_t fc_job_system_get_this_thread_index(void);
+CCORE_API i32 fc_job_system_get_this_thread_index(void);
 
 // returns true if this is the main thread, otherwise false
 CCORE_API bool fc_job_system_is_main_thread(void);
 
 // this will return number of worker threads + 1 (main thread)
-CCORE_API int32_t fc_job_system_num_max_threads(void);
+CCORE_API i32 fc_job_system_num_max_threads(void);
 
 #ifdef __cplusplus
 }

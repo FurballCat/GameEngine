@@ -6,22 +6,23 @@
 extern "C"
 {
 #endif // __cplusplus
-	
+
+#include "ccore/types.h"
 #include <immintrin.h>
 
 typedef struct fm_vec2
 {
-	float x, y;
+	f32 x, y;
 } fm_vec2;
 
 typedef struct fm_vec3
 {
-	float x, y, z;
+	f32 x, y, z;
 } fm_vec3;
 
 typedef struct fm_vec4
 {
-	float x, y, z, w;
+	f32 x, y, z, w;
 } fm_vec4;
 
 typedef struct fm_mat4
@@ -31,7 +32,7 @@ typedef struct fm_mat4
 
 typedef struct fm_quat
 {
-	float i, j, k, r;
+	f32 i, j, k, r;
 } fm_quat;
 
 typedef struct fm_xform
@@ -42,7 +43,7 @@ typedef struct fm_xform
 
 typedef struct fm_euler_angles
 {
-	float yaw, pitch, roll;
+	f32 yaw, pitch, roll;
 } fm_euler_angles;
 
 // axis-aligned bounding box

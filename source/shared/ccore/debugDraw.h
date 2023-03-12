@@ -7,7 +7,7 @@ extern "C"
 {
 #endif // __cplusplus
 	
-#include <inttypes.h>
+#include "ccore/types.h"
 #include "api.h"
 	
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
@@ -26,20 +26,20 @@ CCORE_API void fc_dbg_release(fc_alloc_callbacks_t* pAllocCallbacks);
 #define FUR_COLOR_DARK_GREY	{0.2f, 0.2f, 0.2f, 1.0f}
 	
 // call these to draw debug fragments
-CCORE_API void fc_dbg_line(const float start[3], const float end[3], const float color[4]);
-CCORE_API void fc_dbg_triangle(const float pointA[3], const float pointB[3], const float pointC[3], const float color[4]);
-CCORE_API void fc_dbg_box_wire(const float center[3], const float extent[3], const float color[4]);
-CCORE_API void fc_dbg_plane(const float center[3], const float halfLength, const float color[4]);
-CCORE_API void fc_dbg_circle(const float center[3], const float radius, const float up[3], const float color[4]);
-CCORE_API void fc_dbg_sphere_wire(const float center[3], const float radius, const float color[4]);
+CCORE_API void fc_dbg_line(const f32 start[3], const f32 end[3], const f32 color[4]);
+CCORE_API void fc_dbg_triangle(const f32 pointA[3], const f32 pointB[3], const f32 pointC[3], const f32 color[4]);
+CCORE_API void fc_dbg_box_wire(const f32 center[3], const f32 extent[3], const f32 color[4]);
+CCORE_API void fc_dbg_plane(const f32 center[3], const f32 halfLength, const f32 color[4]);
+CCORE_API void fc_dbg_circle(const f32 center[3], const f32 radius, const f32 up[3], const f32 color[4]);
+CCORE_API void fc_dbg_sphere_wire(const f32 center[3], const f32 radius, const f32 color[4]);
 	
 // use sprintf( txt, "blah blah %u", value ) and pass txt to the function (txt is char txt[32] or any other reasonable size)
-CCORE_API void fc_dbg_text(float x, float y, const char* txt, const float color[4], float scale);
+CCORE_API void fc_dbg_text(f32 x, f32 y, const char* txt, const f32 color[4], f32 scale);
 
 typedef struct fc_dbg_screen_info_t
 {
-	float width;
-	float height;
+	f32 width;
+	f32 height;
 } fc_dbg_screen_info_t;
 
 // set/get info about screen corners and size
@@ -56,60 +56,60 @@ typedef enum fc_dbg_screen_anchors_t
 } fc_dbg_screen_anchors_t;
 
 // call this to set init x and y for 2D drawing aligned to anchors
-CCORE_API void fc_dbg_apply_anchor(float* x, float* y, fc_dbg_screen_anchors_t anchor);
-static inline float fc_dbg_get_text_line_height(float scale) { return 28.0f * scale; }
+CCORE_API void fc_dbg_apply_anchor(f32* x, f32* y, fc_dbg_screen_anchors_t anchor);
+static inline f32 fc_dbg_get_text_line_height(f32 scale) { return 28.0f * scale; }
 
 // draw flat 2D rectancle (drawn under text), use it for simple debug UI rectancles
-CCORE_API void fc_dbg_rect(float x, float y, float width, float height, const float color[4]);
+CCORE_API void fc_dbg_rect(f32 x, f32 y, f32 width, f32 height, const f32 color[4]);
 	
 // sizes of each debug fragment buffers
-CCORE_API uint32_t fc_dbg_line_buffer_size(void);
-CCORE_API uint32_t fc_dbg_triangle_buffer_size(void);
-CCORE_API uint32_t fc_dbg_text_characters_capacity(void);
-CCORE_API uint32_t fc_dbg_text_num_total_characters(void);
+CCORE_API u32 fc_dbg_line_buffer_size(void);
+CCORE_API u32 fc_dbg_triangle_buffer_size(void);
+CCORE_API u32 fc_dbg_text_characters_capacity(void);
+CCORE_API u32 fc_dbg_text_num_total_characters(void);
 	
 // call these functions in given order when retrieving data for current frame
 CCORE_API void fc_dbg_buffers_lock(void);
 	
-CCORE_API const float* fc_dbg_line_get_data(void);
-CCORE_API uint32_t fc_dbg_line_current_num_lines(void);
-CCORE_API uint32_t fc_dbg_line_current_lines_size(void);
-CCORE_API uint32_t fc_dbg_line_num_total_vertices(void);
+CCORE_API const f32* fc_dbg_line_get_data(void);
+CCORE_API u32 fc_dbg_line_current_num_lines(void);
+CCORE_API u32 fc_dbg_line_current_lines_size(void);
+CCORE_API u32 fc_dbg_line_num_total_vertices(void);
 	
-CCORE_API const float* fc_dbg_triangles_get_data(void);
-CCORE_API uint32_t fc_dbg_triangles_current_num_triangles(void);
-CCORE_API uint32_t fc_dbg_triangles_current_triangles_size(void);
-CCORE_API uint32_t fc_dbg_triangles_num_total_vertices(void);
+CCORE_API const f32* fc_dbg_triangles_get_data(void);
+CCORE_API u32 fc_dbg_triangles_current_num_triangles(void);
+CCORE_API u32 fc_dbg_triangles_current_triangles_size(void);
+CCORE_API u32 fc_dbg_triangles_num_total_vertices(void);
 
-CCORE_API uint32_t fc_dbg_rects_current_num_rects(void);
-CCORE_API uint32_t fc_dbg_rects_buffer_size(void);
-CCORE_API uint32_t fc_dbg_rects_current_num_vertices(void);
-CCORE_API uint32_t fc_dbg_rects_current_data_size(void);
-CCORE_API uint32_t fc_dbg_rects_num_total_vertices(void);
-CCORE_API uint32_t fc_dbg_rect_num_floats_per_vertex(void);
+CCORE_API u32 fc_dbg_rects_current_num_rects(void);
+CCORE_API u32 fc_dbg_rects_buffer_size(void);
+CCORE_API u32 fc_dbg_rects_current_num_vertices(void);
+CCORE_API u32 fc_dbg_rects_current_data_size(void);
+CCORE_API u32 fc_dbg_rects_num_total_vertices(void);
+CCORE_API u32 fc_dbg_rect_num_floats_per_vertex(void);
 
 typedef struct fc_dbg_buffers_desc_t
 {
 	// 3D lines
-	const float* linesData;
-	uint32_t linesDataSize;
+	const f32* linesData;
+	u32 linesDataSize;
 	
 	// 3D triangles
-	const float* trianglesData;
-	uint32_t trianglesDataSize;
+	const f32* trianglesData;
+	u32 trianglesDataSize;
 	
 	// 2D text
-	const float* textLocationData;
-	const float* textScaleData;
-	const uint32_t* textRangeData;
-	uint32_t textLinesCount;
+	const f32* textLocationData;
+	const f32* textScaleData;
+	const u32* textRangeData;
+	u32 textLinesCount;
 	
 	const char* textCharactersData;
-	uint32_t textCharacterDataSize;
+	u32 textCharacterDataSize;
 	
 	// 2D rects
-	const float* rectsData;
-	uint32_t rectsDataSize;
+	const f32* rectsData;
+	u32 rectsDataSize;
 } fc_dbg_buffer_desc_t;
 	
 CCORE_API void fc_dbg_get_buffers(fc_dbg_buffer_desc_t* outDesc);

@@ -45,7 +45,7 @@ CCORE_API void fc_profiler_end_frame(void);
 CCORE_API void fc_profiler_toggle_draw(void);
 CCORE_API void fc_profiler_toggle_pause(void);
 CCORE_API bool fc_profiler_is_draw_on(void);
-CCORE_API void fc_profiler_zoom_and_pan_delta(float zoomDelta, float panDelta);
+CCORE_API void fc_profiler_zoom_and_pan_delta(f32 zoomDelta, f32 panDelta);
 
 // put FUR_LOG_PROFILE("scope-name") before curly bracket '{' for automatic scope, use log profiler for engine init or one time functions
 #if FUR_USE_LOG_PROFILER
@@ -58,8 +58,8 @@ CCORE_API uint64_t fc_log_profiler_begin(void);
 CCORE_API void fc_log_profiler_end(const char* scopeName, uint64_t startTime);
 
 // for fibers, to not loose callstack when switching fiber
-int32_t fc_profiler_store_scopestack(fc_profiler_scope_t* stack[32]);
-void fc_profiler_load_scopestack(fc_profiler_scope_t* stack[32], int32_t numDepth);
+i32 fc_profiler_store_scopestack(fc_profiler_scope_t* stack[32]);
+void fc_profiler_load_scopestack(fc_profiler_scope_t* stack[32], i32 numDepth);
 
 // to detect locks and thread contention
 void fc_profiler_enter_contention(void);

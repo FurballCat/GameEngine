@@ -7,12 +7,12 @@ extern "C"
 {
 #endif // __cplusplus
 
-#include <inttypes.h>
 #include "api.h"
+#include "ccore/types.h"
 
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 typedef struct fm_mat4 fm_mat4;
-typedef uint32_t fc_string_hash_t;
+typedef u32 fc_string_hash_t;
 
 // Render result code
 enum fr_result_t
@@ -31,8 +31,8 @@ struct fr_app_t;
 
 struct fr_app_desc_t
 {
-	uint32_t viewportWidth;
-	uint32_t viewportHeight;
+	u32 viewportWidth;
+	u32 viewportHeight;
 	const char* appTitle;
 	const char* iconPath;
 };
@@ -45,7 +45,7 @@ CREND_API enum fr_result_t fr_release_app(struct fr_app_t* pApp,
 									 struct fc_alloc_callbacks_t* pAllocCallbacks);
 
 // Returns 0 on exit
-CREND_API uint32_t fr_update_app(struct fr_app_t* pApp);
+CREND_API u32 fr_update_app(struct fr_app_t* pApp);
 	
 // Renderer structure
 typedef struct fr_renderer_t fr_renderer_t;
@@ -77,15 +77,15 @@ typedef struct fr_load_mesh_ctx_t
 	const char* path;
 	const char* fileName;
 	
-	const int32_t* textureIndices;
-	int32_t numTextureIndices;
+	const i32* textureIndices;
+	i32 numTextureIndices;
 	
 	const char** texturePaths;
-	uint32_t numTextures;
+	u32 numTextures;
 	
 	bool isSkinned;
 	fc_string_hash_t* boneNames;
-	int32_t numBones;	// rig num bones might be higher than mesh num bones
+	i32 numBones;	// rig num bones might be higher than mesh num bones
 } fr_load_mesh_ctx_t;
 
 // load mesh, the ownership is kept inside renderer, so no need to
@@ -98,14 +98,14 @@ CREND_API void fr_release_proxy(fr_renderer_t* pRenderer, fr_proxy_t* proxy, fc_
 typedef struct fr_pvs_t fr_pvs_t;
 
 // at frame update, acquire PVS and relink proxies to it, keep it with frame data
-CREND_API fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera, float fov);
+CREND_API fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera, f32 fov);
 
 // add renderable thing to given potentially visible set
 CREND_API void fr_pvs_add(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator);
 
 // add renderable thing to given potentially visible set and pass skinning matrices for it
 CREND_API void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator,
-								   const fm_mat4* skinMatrices, int32_t numSkinMatrices);
+								   const fm_mat4* skinMatrices, i32 numSkinMatrices);
 
 typedef struct fr_draw_frame_context_t
 {

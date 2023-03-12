@@ -8,7 +8,7 @@ extern "C"
 #endif // __cplusplus
 
 #include "api.h"
-#include <inttypes.h>
+#include "ccore/types.h"
 
 typedef struct fm_vec4 fm_vec4;
 typedef struct fm_mat4 fm_mat4;
@@ -22,28 +22,28 @@ typedef struct fa_dangle
 	fm_vec4* x0;
 	fm_vec4* p;
 	fm_vec4* v;
-	float* d;	// distance costraint, segments length, size=numParticles-1
+	f32* d;	// distance costraint, segments length, size=numParticles-1
 
-	uint32_t numParaticles;
-	float tAcc;
-	float freq;
-	float damping;
+	u32 numParaticles;
+	f32 tAcc;
+	f32 freq;
+	f32 damping;
 	
 	// collision
 	fm_vec4* spherePos;
-	float sphereRadius;
+	f32 sphereRadius;
 } fa_dangle;
 
 typedef struct fa_dangle_sim_ctx
 {
-	float dt;
+	f32 dt;
 } fa_dangle_sim_ctx;
 
 typedef struct fa_dangle_desc
 {
-	uint32_t numParticles;
-	float frequency;
-	float dampingCoef;
+	u32 numParticles;
+	f32 frequency;
+	f32 dampingCoef;
 } fa_dangle_desc;
 
 CANIM_API void fa_dangle_create(const fa_dangle_desc* desc, fa_dangle* dangle, fc_alloc_callbacks_t* pAllocCallbacks);

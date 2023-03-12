@@ -9,6 +9,8 @@ extern "C"
 {
 #endif // __cplusplus
 
+#include "ccore/types.h"
+
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 typedef struct fm_mat4 fm_mat4;
 typedef struct fm_vec4 fm_vec4;
@@ -16,10 +18,10 @@ typedef struct fg_camera_system_t fg_camera_system_t;
 
 typedef struct fg_camera_system_update_ctx
 {
-	float dt;
-	float rotationYaw;
-	float rotationPitch;
-	float zoom;
+	f32 dt;
+	f32 rotationYaw;
+	f32 rotationPitch;
+	f32 zoom;
 } fg_camera_system_update_ctx;
 
 // creation and update of camera system
@@ -32,18 +34,18 @@ void fg_camera_adjust_by_player_movement(fg_camera_system_t* sys, fm_mat4* playe
 void fg_camera_get_directions(fg_camera_system_t* sys, fm_vec4* dirForward, fm_vec4* dirLeft);
 void fg_camera_view_matrix(fg_camera_system_t* sys, fm_mat4* matrix);
 void fg_camera_get_eye(fg_camera_system_t* sys, fm_vec4* eye);
-float fg_camera_get_fov(fg_camera_system_t* sys);
+f32 fg_camera_get_fov(fg_camera_system_t* sys);
 
 // different camera implementations
 typedef struct fg_camera_params_follow_t
 {
-	float poleLength;
-	float height;
-	float zoom;
-	float fov;
+	f32 poleLength;
+	f32 height;
+	f32 zoom;
+	f32 fov;
 } fg_camera_params_follow_t;
 
-void fg_camera_system_enable_camera_follow(fg_camera_system_t* sys, const fg_camera_params_follow_t* params, float fadeInSec);
+void fg_camera_system_enable_camera_follow(fg_camera_system_t* sys, const fg_camera_params_follow_t* params, f32 fadeInSec);
 
 #ifdef __cplusplus
 }

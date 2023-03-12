@@ -11,8 +11,8 @@ fc_cmd_t g_commands[] = {
 
 const fc_cmd_t* fc_find_cmd(const char* name)
 {
-	const int32_t numCommands = FUR_ARRAY_SIZE(g_commands);
-	for(int32_t i=0; i<numCommands; ++i)
+	const i32 numCommands = FUR_ARRAY_SIZE(g_commands);
+	for(i32 i=0; i<numCommands; ++i)
 	{
 		if(strcmp(g_commands[i].name, name) == 0)
 			return &g_commands[i];
@@ -28,8 +28,8 @@ void fc_cmd_print_help(void)
 			"Use ccmd [command-name] -help for info about particular command.\n"
 			"Available commands:");
 	
-	const int32_t numCommands = FUR_ARRAY_SIZE(g_commands);
-	for(int32_t i=0; i<numCommands; ++i)
+	const i32 numCommands = FUR_ARRAY_SIZE(g_commands);
+	for(i32 i=0; i<numCommands; ++i)
 	{
 		CMD_LOG("  %s", g_commands[i].name);
 	}
@@ -39,7 +39,7 @@ void fc_cmd_print_help(void)
 
 const char* fc_find_cmd_arg(int argc, char* argv[], const char* name)
 {
-	for(int32_t i=0; i<argc-1; ++i)
+	for(i32 i=0; i<argc-1; ++i)
 	{
 		if(strcmp(name, argv[i]) == 0)
 			return argv[i+1];
@@ -50,7 +50,7 @@ const char* fc_find_cmd_arg(int argc, char* argv[], const char* name)
 
 bool fc_find_cmd_flag(int argc, char* argv[], const char* name)
 {
-	for(int32_t i=0; i<argc; ++i)
+	for(i32 i=0; i<argc; ++i)
 	{
 		if(strcmp(name, argv[i]) == 0)
 			return true;

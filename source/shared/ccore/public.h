@@ -3,6 +3,7 @@
 #pragma once
 
 #include "api.h"
+#include "types.h"
 #include "furAssert.h"
 #include "memory.h"
 #include "debugDraw.h"

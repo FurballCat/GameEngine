@@ -11,7 +11,7 @@
 typedef struct fg_camera_t
 {
 	fm_xform locator;
-	float fov;
+	f32 fov;
 } fg_camera_t;
 
 typedef struct fg_camera_ctx_t
@@ -20,11 +20,11 @@ typedef struct fg_camera_ctx_t
 	const fg_camera_t* lastFrameFinalCamera;
 	fm_vec4 ownerPosition;
 	
-	float dt;
+	f32 dt;
 	
-	float rotationYaw;
-	float rotationPitch;
-	float zoom;
+	f32 rotationYaw;
+	f32 rotationPitch;
+	f32 zoom;
 } fg_camera_ctx_t;
 
 typedef void (*fg_camera_func_t)(fg_camera_ctx_t* ctx, void* userData);
@@ -36,8 +36,8 @@ typedef struct fg_camera_slot_t
 	fg_camera_func_t fnBegin;
 	fg_camera_func_t fnUpdate;
 	
-	float fadeInSec;
-	float fadeInTime;
+	f32 fadeInSec;
+	f32 fadeInTime;
 	
 	bool started;
 } fg_camera_slot_t;
@@ -46,7 +46,7 @@ typedef struct fg_camera_system_t
 {
 	// stack of active cameras, each updated and then blended into final result
 	fg_camera_slot_t cameraStack[NUM_MAX_CAMERAS];
-	uint32_t numCameraStack;
+	u32 numCameraStack;
 	
 	void* stackUserMemory;
 	
@@ -87,7 +87,7 @@ void fg_camera_system_update(fg_camera_system_t* sys, const fg_camera_system_upd
 	sys->finalCamera.fov = 70.0f;
 	
 	// update each camera on camera stack
-	for(uint32_t i=0; i<sys->numCameraStack; ++i)
+	for(u32 i=0; i<sys->numCameraStack; ++i)
 	{
 		fg_camera_slot_t* slot = &sys->cameraStack[i];
 		
@@ -111,21 +111,21 @@ void fg_camera_system_update(fg_camera_system_t* sys, const fg_camera_system_upd
 		(*slot->fnUpdate)(&slotCtx, slot->userData);
 		
 		// blend in the camera to final result
-		const float alpha = fm_curve_uniform_s(slot->fadeInSec > 0.0f ? fm_clamp(slot->fadeInTime / slot->fadeInSec, 0.0f, 1.0f) : 1.0f);
+		const f32 alpha = fm_curve_uniform_s(slot->fadeInSec > 0.0f ? fm_clamp(slot->fadeInTime / slot->fadeInSec, 0.0f, 1.0f) : 1.0f);
 		fm_xform_lerp(&sys->finalCamera.locator, &slot->camera.locator, alpha, &sys->finalCamera.locator);
 		sys->finalCamera.fov = sys->finalCamera.fov * (1.0f - alpha) + slot->camera.fov * alpha;
 	}
 	
 	// remove old cameras
-	for(int32_t i=sys->numCameraStack-1; i>=1; --i)
+	for(i32 i=sys->numCameraStack-1; i>=1; --i)
 	{
 		fg_camera_slot_t* slot = &sys->cameraStack[i];
 		
-		const float alpha = fm_curve_uniform_s(slot->fadeInSec > 0.0f ? fm_clamp(slot->fadeInTime / slot->fadeInSec, 0.0f, 1.0f) : 1.0f);
+		const f32 alpha = fm_curve_uniform_s(slot->fadeInSec > 0.0f ? fm_clamp(slot->fadeInTime / slot->fadeInSec, 0.0f, 1.0f) : 1.0f);
 		if(alpha >= 1.0f)
 		{
-			uint32_t idx = 0;
-			for(int32_t j=i; j<sys->numCameraStack; ++j)
+			u32 idx = 0;
+			for(i32 j=i; j<sys->numCameraStack; ++j)
 			{
 				fg_camera_slot_t* srcSlot = &sys->cameraStack[j];
 				fg_camera_slot_t* dstSlot = &sys->cameraStack[idx];
@@ -190,7 +190,7 @@ void fg_camera_get_eye(fg_camera_system_t* sys, fm_vec4* eye)
 	*eye = camera->locator.pos;
 }
 
-float fg_camera_get_fov(fg_camera_system_t* sys)
+f32 fg_camera_get_fov(fg_camera_system_t* sys)
 {
 	const fg_camera_t* camera = &sys->finalCamera;
 	return camera->fov;
@@ -199,14 +199,14 @@ float fg_camera_get_fov(fg_camera_system_t* sys)
 typedef struct fg_camera_follow_t
 {
 	// constants
-	float poleLength;
-	float height;
-	float fov;
+	f32 poleLength;
+	f32 height;
+	f32 fov;
 	
 	// variables
-	float yaw;
-	float pitch;
-	float zoom;
+	f32 yaw;
+	f32 pitch;
+	f32 zoom;
 	
 } fg_camera_follow_t;
 
@@ -227,7 +227,7 @@ void fg_camera_follow_update(fg_camera_ctx_t* ctx, void* userData)
 {
 	fg_camera_follow_t* data = (fg_camera_follow_t*)userData;
 	
-	const float poleLength = data->poleLength;
+	const f32 poleLength = data->poleLength;
 	fm_vec4 camera_at = {0, 0, data->height, 0};
 	const fm_vec4 up = {0, 0, 1, 0};
 	
@@ -236,26 +236,26 @@ void fg_camera_follow_update(fg_camera_ctx_t* ctx, void* userData)
 	fm_vec4 dir_forward = {0};
 	fm_vec4 dir_left = {0};
 	
-	const float rotationSpeed = 2.5f * ctx->dt;
+	const f32 rotationSpeed = 2.5f * ctx->dt;
 	data->yaw += rotationSpeed * ctx->rotationYaw;
 	
-	const float rotationSpeedPitch = 2.5f * ctx->dt;
+	const f32 rotationSpeedPitch = 2.5f * ctx->dt;
 	data->pitch += rotationSpeedPitch * ctx->rotationPitch;
 	
 	data->pitch = fm_clamp(data->pitch, -1.0f, 1.0f);
-	const float poleLengthFactor = 1.0f - (data->pitch < 0.0f ? 0.5f : 0.2f) * (data->pitch * data->pitch);
+	const f32 poleLengthFactor = 1.0f - (data->pitch < 0.0f ? 0.5f : 0.2f) * (data->pitch * data->pitch);
 	
-	const float sinRotPitch = sinf(data->pitch);
-	const float cosRotPitch = cosf(data->pitch);
+	const f32 sinRotPitch = sinf(data->pitch);
+	const f32 cosRotPitch = cosf(data->pitch);
 	
-	const float sinRotYaw = sinf(data->yaw);
-	const float cosRotYaw = cosf(data->yaw);
+	const f32 sinRotYaw = sinf(data->yaw);
+	const f32 cosRotYaw = cosf(data->yaw);
 	eye.x = -poleLength * poleLengthFactor * cosRotPitch * sinRotYaw;
 	eye.y = -poleLength * poleLengthFactor * cosRotPitch * cosRotYaw;
 	eye.z = poleLength * poleLengthFactor * sinRotPitch;
 	
-	static float cameraZoom = 1.0f;
-	const float zoomSpeed = 1.0f * ctx->dt;
+	static f32 cameraZoom = 1.0f;
+	const f32 zoomSpeed = 1.0f * ctx->dt;
 	cameraZoom += zoomSpeed * (ctx->zoom);
 	
 	dir_forward = eye;
@@ -278,11 +278,11 @@ void fg_camera_follow_update(fg_camera_ctx_t* ctx, void* userData)
 	ctx->camera->fov = data->fov;
 }
 
-void fg_camera_system_enable_camera_follow(fg_camera_system_t* sys, const fg_camera_params_follow_t* params, float fadeInSec)
+void fg_camera_system_enable_camera_follow(fg_camera_system_t* sys, const fg_camera_params_follow_t* params, f32 fadeInSec)
 {
 	FUR_ASSERT(sys->numCameraStack < 16);
 	
-	const uint32_t idx = sys->numCameraStack;
+	const u32 idx = sys->numCameraStack;
 	sys->numCameraStack++;
 	
 	fg_camera_slot_t* slot = &sys->cameraStack[idx];
@@ -290,7 +290,7 @@ void fg_camera_system_enable_camera_follow(fg_camera_system_t* sys, const fg_cam
 	slot->fadeInTime = sys->numCameraStack == 1 ? fadeInSec : 0.0f;	// if it's the only camera, assume it's fully blended in
 	slot->fadeInSec = fadeInSec;
 	
-	slot->userData = (uint8_t*)sys->stackUserMemory + 128 * idx;
+	slot->userData = (u8*)sys->stackUserMemory + 128 * idx;
 	slot->fnUpdate = fg_camera_follow_update;
 	slot->fnBegin = fg_camera_follow_begin;
 	slot->started = false;

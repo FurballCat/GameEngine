@@ -2,12 +2,14 @@
 
 #pragma once
 
+#include "ccore/types.h"
+
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 
 void fr_pso_init_input_assembly_state_triangle_list(VkPipelineInputAssemblyStateCreateInfo* info);
 void fr_pso_init_input_assembly_state_line_list(VkPipelineInputAssemblyStateCreateInfo* info);
 
-void fr_pso_init_viewport(float width, float height, VkViewport* viewport);
+void fr_pso_init_viewport(f32 width, f32 height, VkViewport* viewport);
 
 void fr_pso_init_scissor(VkExtent2D swapChainExtent, VkRect2D* scissor);
 
@@ -30,12 +32,12 @@ void fr_pso_init_layout(VkDescriptorSetLayout* descriptorSetLayout, VkPipelineLa
 void fr_pso_init_depth_stencil_state(VkPipelineDepthStencilStateCreateInfo* depthStencil);
 void fr_pso_init_depth_stencil_state_no_depth_test(VkPipelineDepthStencilStateCreateInfo* depthStencil);
 
-void fr_attachment_init_color(uint32_t attachmentIndex,
+void fr_attachment_init_color(u32 attachmentIndex,
 							  VkFormat colorFormat,
 							  VkAttachmentDescription* colorAttachment,
 							  VkAttachmentReference* colorAttachmentRef);
 
-void fr_attachment_init_depth(uint32_t attachmentIndex,
+void fr_attachment_init_depth(u32 attachmentIndex,
 							  VkFormat depthFormat,
 							  VkAttachmentDescription* depthAttachment,
 							  VkAttachmentReference* depthAttachmentRef);

@@ -7,8 +7,7 @@ extern "C"
 {
 #endif // __cplusplus
 
-#include <inttypes.h>
-#include <stdbool.h>
+#include "ccore/types.h"
 #include "api.h"
 	
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
@@ -16,7 +15,7 @@ typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 typedef struct fm_xform fm_xform;
 typedef struct fm_mat4 fm_mat4;
 	
-typedef uint32_t fc_string_hash_t;
+typedef u32 fc_string_hash_t;
 	
 typedef enum fi_result_t
 {
@@ -69,18 +68,18 @@ typedef struct fi_import_mesh_ctx_t
 typedef struct fr_resource_mesh_chunk_skin_t
 {
 	int16_t indices[FUR_MAX_SKIN_INDICES_PER_VERTEX];
-	float weights[FUR_MAX_SKIN_INDICES_PER_VERTEX];
+	f32 weights[FUR_MAX_SKIN_INDICES_PER_VERTEX];
 } fr_resource_mesh_chunk_skin_t;
 	
 typedef struct fr_resource_mesh_chunk_t
 {
-	float* dataVertices;
-	uint32_t numVertices;
+	f32* dataVertices;
+	u32 numVertices;
 	
-	uint32_t* dataIndices;
-	uint32_t numIndices;
+	u32* dataIndices;
+	u32 numIndices;
 	
-	uint32_t vertexStride;
+	u32 vertexStride;
 	
 	// skinning indices and weights, size of numVertices
 	fr_resource_mesh_chunk_skin_t* dataSkinning;
@@ -88,16 +87,16 @@ typedef struct fr_resource_mesh_chunk_t
 	// bind pose
 	fc_string_hash_t* boneNameHashes;
 	fm_mat4* bindPose;
-	uint32_t numBones;
+	u32 numBones;
 	
 } fr_resource_mesh_chunk_t;
 	
 typedef struct fr_resource_mesh_t
 {
-	uint8_t version;
+	u8 version;
 	
 	fr_resource_mesh_chunk_t* chunks;
-	uint32_t numChunks;
+	u32 numChunks;
 } fr_resource_mesh_t;
 	
 CIMPORT_API fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* ctx, fr_resource_mesh_t** ppMesh, fc_alloc_callbacks_t* pAllocCallbacks);

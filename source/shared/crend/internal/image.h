@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include <inttypes.h>
+#include "ccore/types.h"
 
-struct fc_alloc_callbacks_t;
+typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 
 // desc for image creation
 typedef struct fr_image_desc_t
@@ -13,8 +13,8 @@ typedef struct fr_image_desc_t
 	VkFormat format;
 	VkBufferUsageFlags usage;
 	VkMemoryPropertyFlags properties;
-	uint32_t width;
-	uint32_t height;
+	u32 width;
+	u32 height;
 } fr_image_desc_t;
 
 // image compact handle and data
@@ -28,7 +28,7 @@ typedef struct fr_image_t
 
 // image creation, allocates memory
 void fr_image_create(VkDevice device, VkPhysicalDevice physicalDevice, const fr_image_desc_t* pDesc,
-					  fr_image_t* pImage, struct fc_alloc_callbacks_t* pAllocCallbacks);
+					  fr_image_t* pImage, fc_alloc_callbacks_t* pAllocCallbacks);
 
 // image release, deallocates memory
 void fr_image_release(VkDevice device, fr_image_t* pImage, struct fc_alloc_callbacks_t* pAllocCallbacks);

@@ -10,7 +10,7 @@ typedef struct fc_memory_map_entry_t
 {
 	fc_memory_scope_t name;
 	fc_memory_scope_t parent;
-	size_t capacity;
+	u64 capacity;
 } fc_memory_map_entry_t;
 
 #define FUR_SIZE_MB(x) x * 1024 * 1024
@@ -74,20 +74,20 @@ bool fc_mem_map_belongs_to(fc_memory_scope_t scope, fc_memory_scope_t ancestor)
 
 typedef struct fc_mem_debug_info_t
 {
-	//uint32_t markerBegin;
+	//u32 markerBegin;
 	struct fc_mem_debug_info_t* next;
 	struct fc_mem_debug_info_t* prev;
 	const char* line;
-	size_t size;
+	u64 size;
 	enum fc_memory_scope_t scope;
 	uint16_t offsetToOriginalPtr;
-	//uint32_t markerEnd;
+	//u32 markerEnd;
 	
 } fc_mem_debug_info_t;
 
 fc_mem_debug_info_t g_rootDebugMemInfo;
 
-void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t alignment,
+void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, u64 size, u64 alignment,
 							  enum fc_memory_scope_t scope, const char* info)
 {
 	if(size == 0)
@@ -97,7 +97,7 @@ void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t
 		return pAllocCallbacks->pfnAllocate(pAllocCallbacks->pUserData, size, alignment, scope);
 	
 #if FUR_MEMORY_DEBUG == 1
-	size_t originalSize = size;
+	u64 originalSize = size;
 	size += sizeof(fc_mem_debug_info_t);
 	size += alignment-1;
 #endif
@@ -109,12 +109,12 @@ void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t
 	uint16_t offset_forward = 0;
 	if(alignment != 0)
 	{
-		void* ptr_candidate = ((uint8_t*)ptr) + (sizeof(fc_mem_debug_info_t) + alignment-1);
-		offset_forward = (size_t)ptr_candidate % alignment;
+		void* ptr_candidate = ((u8*)ptr) + (sizeof(fc_mem_debug_info_t) + alignment-1);
+		offset_forward = (u64)ptr_candidate % alignment;
 	}
 	
-	void* debug_ptr = ((uint8_t*)ptr) + offset_forward;
-	void* alignedPtr = ((uint8_t*)ptr) + (sizeof(fc_mem_debug_info_t) + offset_forward);
+	void* debug_ptr = ((u8*)ptr) + offset_forward;
+	void* alignedPtr = ((u8*)ptr) + (sizeof(fc_mem_debug_info_t) + offset_forward);
 	
 #if FUR_MEMORY_DEBUG == 1
 	// put info in front of allocated memory
@@ -138,7 +138,7 @@ void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t
 	return alignedPtr;
 }
 
-void* fc_alloc_and_zero(struct fc_alloc_callbacks_t* pAllocCallbacks, size_t size, size_t alignment,
+void* fc_alloc_and_zero(struct fc_alloc_callbacks_t* pAllocCallbacks, u64 size, u64 alignment,
 								  enum fc_memory_scope_t scope, const char* info)
 {
 	if(size == 0)
@@ -162,16 +162,16 @@ void fc_dealloc(struct fc_alloc_callbacks_t* pAllocCallbacks, void* pMemory, con
 	
 #if FUR_MEMORY_DEBUG == 1
 	// move ptr back, to include info part
-	fc_mem_debug_info_t* debugPtr = (fc_mem_debug_info_t*)(((uint8_t*)pMemory) - sizeof(fc_mem_debug_info_t));
-	void* originalPtr = ((uint8_t*)debugPtr) - debugPtr->offsetToOriginalPtr;
+	fc_mem_debug_info_t* debugPtr = (fc_mem_debug_info_t*)(((u8*)pMemory) - sizeof(fc_mem_debug_info_t));
+	void* originalPtr = ((u8*)debugPtr) - debugPtr->offsetToOriginalPtr;
 	
-	FUR_ASSERT((uint64_t)debugPtr->next != 0xfefefefefefefefe);	// either double-free or memory stomp (someone else freed this memory before you)
+	FUR_ASSERT((uint64_t)debugPtr->next != 0xfefefefefefefefe);	// either f64-free or memory stomp (someone else freed this memory before you)
 	
 	if(debugPtr->next)
 		debugPtr->next->prev = debugPtr->prev;
 	debugPtr->prev->next = debugPtr->next;
 	
-	size_t fullSize = debugPtr->size + sizeof(fc_mem_debug_info_t);
+	u64 fullSize = debugPtr->size + sizeof(fc_mem_debug_info_t);
 	
 	// debug pattern for dealloc
 	memset(originalPtr, 0xFE, fullSize);
@@ -278,7 +278,7 @@ fc_mem_stats_t fc_memory_stats_for_scope(enum fc_memory_scope_t scope)
 	return stats;
 }
 
-fc_mem_arena_alloc_t fc_mem_arena_make(void* buffer, uint32_t capacity)
+fc_mem_arena_alloc_t fc_mem_arena_make(void* buffer, u32 capacity)
 {
 	fc_mem_arena_alloc_t res = {0};
 	res.size = 0;
@@ -292,21 +292,21 @@ fc_mem_arena_alloc_t fc_mem_arena_sub(fc_mem_arena_alloc_t alloc)
 	fc_mem_arena_alloc_t res = {0};
 	res.size = 0;
 	res.capacity = alloc.capacity - alloc.size;
-	res.buffer = (uint8_t*)alloc.buffer + alloc.size;
+	res.buffer = (u8*)alloc.buffer + alloc.size;
 	return res;
 }
 
-void* fc_mem_arena_alloc(fc_mem_arena_alloc_t* pAlloc, uint32_t size, uint32_t alignment)
+void* fc_mem_arena_alloc(fc_mem_arena_alloc_t* pAlloc, u32 size, u32 alignment)
 {
 	FUR_ASSERT(pAlloc->size + size <= pAlloc->capacity);
 	
 	// todo: add alignment
-	size_t offset = pAlloc->size;
+	u64 offset = pAlloc->size;
 	pAlloc->size += size;
-	return (uint8_t*)pAlloc->buffer + offset;
+	return (u8*)pAlloc->buffer + offset;
 }
 
-void* fc_mem_arena_alloc_and_zero(fc_mem_arena_alloc_t* pAlloc, uint32_t size, uint32_t alignment)
+void* fc_mem_arena_alloc_and_zero(fc_mem_arena_alloc_t* pAlloc, u32 size, u32 alignment)
 {
 	void* mem = fc_mem_arena_alloc(pAlloc, size, alignment);
 	memset(mem, 0, size);
@@ -314,7 +314,7 @@ void* fc_mem_arena_alloc_and_zero(fc_mem_arena_alloc_t* pAlloc, uint32_t size, u
 }
 
 // relocatable heap alloc functions
-void* fc_mem_rel_heap_fn_alloc(void* pUserData, size_t size, size_t alignment, enum fc_memory_scope_t scope)
+void* fc_mem_rel_heap_fn_alloc(void* pUserData, u64 size, u64 alignment, enum fc_memory_scope_t scope)
 {
 	fc_mem_rel_heap_alloc_t* alloc = pUserData;
 	
@@ -323,13 +323,13 @@ void* fc_mem_rel_heap_fn_alloc(void* pUserData, size_t size, size_t alignment, e
 	
 	void* ptr = alloc->freePtr;
 	
-	alloc->freePtr = (uint8_t*)alloc->freePtr + size;
+	alloc->freePtr = (u8*)alloc->freePtr + size;
 	alloc->size += size;
 	
 	return ptr;
 }
 
-void* fc_mem_rel_heap_fn_realloc(void* pUserData, void* pOriginalMemory, size_t size, size_t alignment, enum fc_memory_scope_t scope)
+void* fc_mem_rel_heap_fn_realloc(void* pUserData, void* pOriginalMemory, u64 size, u64 alignment, enum fc_memory_scope_t scope)
 {
 	FUR_ASSERT(false);	// not implemented
 	return NULL;
@@ -340,12 +340,12 @@ void fc_mem_rel_heap_fn_free(void* pUserData, void* pMemory)
 	// empty
 }
 
-void fc_mem_rel_heap_fn_internal_alloc_notify(void* pUserData, size_t size, enum fc_memory_type_t type, enum fc_memory_scope_t scope)
+void fc_mem_rel_heap_fn_internal_alloc_notify(void* pUserData, u64 size, enum fc_memory_type_t type, enum fc_memory_scope_t scope)
 {
 	// empty
 }
 
-void fc_mem_rel_heap_fn_internal_free_notify(void* pUserData, size_t size)
+void fc_mem_rel_heap_fn_internal_free_notify(void* pUserData, u64 size)
 {
 	// empty
 }
@@ -364,10 +364,10 @@ fc_alloc_callbacks_t fc_mem_rel_heap_get_callbacks(fc_mem_rel_heap_alloc_t* pAll
 	return res;
 }
 
-void fc_relocate_pointer(void** ptr, int32_t delta, void* lowerBound, void* upperBound)
+void fc_relocate_pointer(void** ptr, i32 delta, void* lowerBound, void* upperBound)
 {
 	if(lowerBound <= *ptr && *ptr < upperBound)
 	{
-		*ptr = (uint8_t*) *ptr + delta;
+		*ptr = (u8*) *ptr + delta;
 	}
 }

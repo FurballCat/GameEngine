@@ -30,12 +30,12 @@ void fi_input_manager_release(fi_input_manager_t* pMgr, fc_alloc_callbacks_t* pA
 	FUR_FREE(pMgr, pAllocCallbacks);
 }
 
-void fi_update_input_manager(fi_input_manager_t* pMgr, double currentTime)
+void fi_update_input_manager(fi_input_manager_t* pMgr, f64 currentTime)
 {
 	fi_hid_input_update(&pMgr->gamepad, currentTime);
 }
 
-uint32_t fi_get_input_events(const fi_input_manager_t* pMgr, fi_input_event_t* pEvents, uint32_t capacity, uint32_t startIndex)
+u32 fi_get_input_events(const fi_input_manager_t* pMgr, fi_input_event_t* pEvents, u32 capacity, u32 startIndex)
 {
 	return fi_hid_input_get_events(&pMgr->gamepad, pEvents, capacity, startIndex);
 }

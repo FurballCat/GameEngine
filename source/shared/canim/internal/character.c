@@ -17,7 +17,7 @@ void fa_action_reset(fa_action_t* action)
 	memset(action, 0, sizeof(fa_action_t));
 }
 
-void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup, fa_pose_t* poseLS, fa_pose_t* poseMS, const fm_vec4* targetArg, float weightIK)
+void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup, fa_pose_t* poseLS, fa_pose_t* poseMS, const fm_vec4* targetArg, f32 weightIK)
 {
 	fm_vec4 targetFixed = *targetArg;
 	targetFixed.z += 0.1f;
@@ -37,21 +37,21 @@ void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup
 	
 	fm_quat originalFootMS = chainMS[3].rot;
 	
-	const float angleMin = ikSetup->minAngle;
-	const float angleMax = ikSetup->maxAngle;
+	const f32 angleMin = ikSetup->minAngle;
+	const f32 angleMax = ikSetup->maxAngle;
 	fm_axis_t hingeAxis = ikSetup->hingeAxisMid;
 	
 	fm_vec4 endEffector = chainMS[3].pos;
 	fm_vec4 target;
 	fm_vec4_lerp(&targetFixed, &endEffector, weightIK, &target);
 	
-	static uint32_t num_iterations = 20;
-	for(uint32_t it=0; it<num_iterations; ++it)
+	static u32 num_iterations = 20;
+	for(u32 it=0; it<num_iterations; ++it)
 	{
 		// loop bones in IK setup
-		for(uint32_t i=2; i>=1; --i)
+		for(u32 i=2; i>=1; --i)
 		{
-			const uint32_t ip = i-1;
+			const u32 ip = i-1;
 			
 			endEffector = chainMS[3].pos;
 			
@@ -62,7 +62,7 @@ void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup
 			
 			fm_vec4_normalize(&e_i);
 			fm_vec4_normalize(&t_i);
-			const float angle = -acosf(fm_vec4_dot(&e_i, &t_i));
+			const f32 angle = -acosf(fm_vec4_dot(&e_i, &t_i));
 			const bool canRot = fabsf(angle) > 0.0001f;
 			if(canRot)
 			{
@@ -105,7 +105,7 @@ void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup
 					if(i == 2)
 					{
 						fm_vec4 rotAxis;
-						float rotAngle;
+						f32 rotAngle;
 						fm_quat_to_axis_angle(&chainLS[i].rot, &rotAxis, &rotAngle);
 						
 						if(fabsf(rotAngle) > 0.00001f)
@@ -128,7 +128,7 @@ void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup
 					}
 					
 					// update children
-					for(uint32_t g=i; g<3; ++g)
+					for(u32 g=i; g<3; ++g)
 					{
 						fm_xform_mul(&chainMS[g], &chainLS[g+1], &chainMS[g+1]);
 					}
@@ -151,28 +151,28 @@ void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup
 	poseLS->xforms[ikSetup->idxEnd] = chainLS[3];
 }
 
-float fa_action_get_local_time(const fa_action_t* action, const fa_character_t* character)
+f32 fa_action_get_local_time(const fa_action_t* action, const fa_character_t* character)
 {
-	float localTime = -1.0f;
+	f32 localTime = -1.0f;
 	
 	if(character->globalTime >= action->globalStartTime)
 	{
-		localTime = (float)((character->globalTime - action->globalStartTime) / 1000000.0);
+		localTime = (f32)((character->globalTime - action->globalStartTime) / 1000000.0);
 	}
 	FUR_ASSERT(localTime != -1.0f);
 	
 	return localTime;
 }
 
-float fa_action_get_alpha(fa_character_t* character, const fa_action_t* action)
+f32 fa_action_get_alpha(fa_character_t* character, const fa_action_t* action)
 {
 	if(!action->isUsed)
 		return 0.0f;
 	
-	float alpha = 1.0f;
+	f32 alpha = 1.0f;
 	
 	const fa_action_args_t* args = &action->args;
-	const float localTime = fa_action_get_local_time(action, character);
+	const f32 localTime = fa_action_get_local_time(action, character);
 	
 	if(args->fadeInSec > 0.0f)
 	{
@@ -191,23 +191,23 @@ typedef struct fa_cross_layer_context_t
 	fa_pose_stack_t* poseStack;
 	
 	void* scratchMemory;
-	uint32_t scratchMemorySize;
+	u32 scratchMemorySize;
 	
 	fa_cmd_context_debug_t* debug;
 	
-	float dt;
+	f32 dt;
 	
-	float outWeightLegsIK;
+	f32 outWeightLegsIK;
 	
-	float rootMotionDeltaX;
-	float rootMotionDeltaY;
-	float rootMotionDeltaYaw;
+	f32 rootMotionDeltaX;
+	f32 rootMotionDeltaY;
+	f32 rootMotionDeltaYaw;
 	
 	fm_vec4 lookAtMS;
-	float lookAtWeight;
+	f32 lookAtWeight;
 } fa_cross_layer_context_t;
 
-void fa_character_layer_cache_pose(fa_layer_t* layer, fa_cross_layer_context_t* ctx, float alpha)
+void fa_character_layer_cache_pose(fa_layer_t* layer, fa_cross_layer_context_t* ctx, f32 alpha)
 {
 	fa_pose_t outPose;
 	fa_pose_stack_get(ctx->poseStack, &outPose, 0);
@@ -218,7 +218,7 @@ void fa_character_layer_cache_pose(fa_layer_t* layer, fa_cross_layer_context_t* 
 	
 	if(ctx->debug)
 	{
-		const float color[4] = FUR_COLOR_RED;
+		const f32 color[4] = FUR_COLOR_RED;
 		fc_dbg_text(-450.0f, 1.0f, "caching_pose", color, 0.5f);
 	}
 }
@@ -235,7 +235,7 @@ void fa_character_action_animate(fa_character_t* character, fa_layer_t* layer, f
 	FUR_ASSERT(action->fnUpdate != NULL);
 	FUR_ASSERT(action->fnGetAnims != NULL);
 	
-	const float localTime = fa_action_get_local_time(action, character);
+	const f32 localTime = fa_action_get_local_time(action, character);
 	
 	fa_action_ctx_t actionCtx = {0};
 	actionCtx.dt = ctx->dt;
@@ -298,7 +298,7 @@ fa_action_t* fa_action_queue_get_next(fa_action_queue_t* queue)
 fa_action_t* fa_action_queue_get_free_slot(fa_action_queue_t* queue)
 {
 	// find free slot
-	for(uint32_t i=0; i<4; ++i)
+	for(u32 i=0; i<4; ++i)
 	{
 		if(queue->actions[i].isUsed == false)
 		{
@@ -340,21 +340,21 @@ void fa_character_init(fa_character_t* character, const fa_rig_t* rig, fc_alloc_
 	
 	character->poseMS = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 	character->layerFullBody.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-	character->layerFullBody.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	character->layerFullBody.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(u8, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 	character->layerFullBody.poseCache.tempPose.numXforms = numBones;
 	
 	character->layerPartial.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-	character->layerPartial.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	character->layerPartial.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(u8, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 	character->layerPartial.poseCache.tempPose.numXforms = numBones;
 	character->layerPartial.maskID = FA_MASK_UPPER_BODY;
 	
 	character->layerFace.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-	character->layerFace.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	character->layerFace.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(u8, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 	character->layerFace.poseCache.tempPose.numXforms = numBones;
 	character->layerFace.maskID = FA_MASK_FACE;
 	
 	character->layerHands.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-	character->layerHands.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	character->layerHands.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(u8, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 	character->layerHands.poseCache.tempPose.numXforms = numBones;
 	character->layerHands.maskID = FA_MASK_HANDS;
 }
@@ -484,9 +484,9 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 	fa_action_t* currAction = &layer->actionQueue.actions[0];
 	fa_action_t* nextAction = &layer->actionQueue.actions[1];
 	
-	const float nextAlpha = fa_action_get_alpha(character, nextAction);
-	const float currAlpha = fa_action_get_alpha(character, currAction) * (1.0f - nextAlpha);
-	const float cachedPoseAlpha = layer->poseCache.alpha * (1.0f - currAlpha);
+	const f32 nextAlpha = fa_action_get_alpha(character, nextAction);
+	const f32 currAlpha = fa_action_get_alpha(character, currAction) * (1.0f - nextAlpha);
+	const f32 cachedPoseAlpha = layer->poseCache.alpha * (1.0f - currAlpha);
 	
 	// copy cached pose if required
 	if(layer->transitionPoseCached && cachedPoseAlpha > 0.0f)
@@ -552,10 +552,10 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 	
 	// only body layer can affect legs IK, it's secured outside this function
 	{
-		const float currIK = currAction->args.ikMode == FA_IK_MODE_LEGS ? currAlpha : 0.0f;
-		const float nextIK = nextAction->args.ikMode == FA_IK_MODE_LEGS ? 1.0f : 0.0f;
+		const f32 currIK = currAction->args.ikMode == FA_IK_MODE_LEGS ? currAlpha : 0.0f;
+		const f32 nextIK = nextAction->args.ikMode == FA_IK_MODE_LEGS ? 1.0f : 0.0f;
 		
-		const float weightIK = currIK * (1.0f - nextAlpha) + nextIK * nextAlpha;
+		const f32 weightIK = currIK * (1.0f - nextAlpha) + nextIK * nextAlpha;
 		ctx->outWeightLegsIK = weightIK;
 	}
 	
@@ -566,7 +566,7 @@ void fa_character_ik(fa_character_t* character, fa_cross_layer_context_t* layerC
 {
 	// inverse kinematics
 	{
-		const float weightIK = layerCtx->outWeightLegsIK;
+		const f32 weightIK = layerCtx->outWeightLegsIK;
 		
 		if(weightIK > 0.0f)
 		{
@@ -593,19 +593,19 @@ void fa_character_ik(fa_character_t* character, fa_cross_layer_context_t* layerC
 				fm_vec4 rightTargetDir;
 				fm_vec4_sub(&rightTarget, &rightHipPos, &rightTargetDir);
 				
-				const float leftDistance = fm_vec4_mag(&leftTargetDir);
-				const float rightDistance = fm_vec4_mag(&rightTargetDir);
+				const f32 leftDistance = fm_vec4_mag(&leftTargetDir);
+				const f32 rightDistance = fm_vec4_mag(&rightTargetDir);
 				fm_vec4 leftLegVec = poseLS.xforms[character->rig->ikLeftLeg.idxMid].pos;
 				fm_vec4_add(&leftLegVec, &poseLS.xforms[character->rig->ikLeftLeg.idxEnd].pos, &leftLegVec);
 				fm_vec4 rightLegVec = poseLS.xforms[character->rig->ikRightLeg.idxMid].pos;
 				fm_vec4_add(&rightLegVec, &poseLS.xforms[character->rig->ikRightLeg.idxEnd].pos, &rightLegVec);
 				
-				const float footCorrectionDistance = 0.15f;
+				const f32 footCorrectionDistance = 0.15f;
 				
-				const float leftLegLength = fm_vec4_mag(&leftLegVec) + footCorrectionDistance;
-				const float rightLegLength = fm_vec4_mag(&rightLegVec) + footCorrectionDistance;
+				const f32 leftLegLength = fm_vec4_mag(&leftLegVec) + footCorrectionDistance;
+				const f32 rightLegLength = fm_vec4_mag(&rightLegVec) + footCorrectionDistance;
 				
-				float pelvisCorrectionHeight = 0.0f;
+				f32 pelvisCorrectionHeight = 0.0f;
 				if(leftLegLength < leftDistance)
 					pelvisCorrectionHeight = leftDistance - leftLegLength;
 				if(rightLegLength < (rightDistance - pelvisCorrectionHeight))
@@ -624,7 +624,7 @@ void fa_character_ik(fa_character_t* character, fa_cross_layer_context_t* layerC
 }
 
 void fa_character_look_at(fa_character_t* character, fa_pose_t* poseLS, fa_pose_t* poseMS,
-						  float weight, fm_vec4* lookAtPointMS)
+						  f32 weight, fm_vec4* lookAtPointMS)
 {
 	// no need to apply look-at if the weight is 0.0
 	if(weight <= 0.0f)
@@ -647,8 +647,8 @@ void fa_character_look_at(fa_character_t* character, fa_pose_t* poseLS, fa_pose_
 		// remainder: head space here means (+z right, -z left, +y up, -y down, +x forward, -x backward)
 		fm_vec4 dir = lookAtLocatorSpace;
 		
-		float yaw = -acosf(dir.z / sqrtf(dir.x * dir.x + dir.z * dir.z)) + FM_PI_2;
-		float pitch = -acosf(dir.y / sqrtf(dir.x * dir.x + dir.y * dir.y)) + FM_PI_2;
+		f32 yaw = -acosf(dir.z / sqrtf(dir.x * dir.x + dir.z * dir.z)) + FM_PI_2;
+		f32 pitch = -acosf(dir.y / sqrtf(dir.x * dir.x + dir.y * dir.y)) + FM_PI_2;
 		
 		// fixed yaw to either side when direction is facing backwards
 		if(dir.x < 0.0f)
@@ -679,7 +679,7 @@ void fa_character_look_at(fa_character_t* character, fa_pose_t* poseLS, fa_pose_
 		
 		fm_quat_rot(&yawRot, &forward, &dir);
 		fm_quat_rot(&pitchRot, &dir, &dir);
-		const float mag = fm_vec4_mag(&lookAtLocatorSpace);
+		const f32 mag = fm_vec4_mag(&lookAtLocatorSpace);
 		fm_vec4_mulf(&dir, mag, &lookAtLocatorSpace);
 	}
 	
@@ -719,10 +719,10 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	}
 	
 	// allocate pose stack and command buffer memory
-	const uint32_t poseStackSize = 128 * 1024;
+	const u32 poseStackSize = 128 * 1024;
 	void* animPoseStackMemory = fc_mem_arena_alloc(ctx->arenaAlloc, poseStackSize, 8);
 	
-	const uint32_t animCmdBufferSize = 32 * 1024;
+	const u32 animCmdBufferSize = 32 * 1024;
 	void* animCmdBufferMemory = fc_mem_arena_alloc(ctx->arenaAlloc, animCmdBufferSize, 0);
 	
 	// init pose stack - pose stack is shared across multiple command buffers
@@ -756,13 +756,13 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	{
 		FUR_ASSERT(poseLS.numXforms == character->rig->numBones);
 		
-		for(uint32_t i=0; i<poseLS.numXforms; ++i)
+		for(u32 i=0; i<poseLS.numXforms; ++i)
 		{
 			poseLS.xforms[i] = character->rig->refPose[i];
 			poseLS.weightsXforms[i] = 255;
 		}
 		
-		for(uint32_t i=0; i<poseLS.numTracks; ++i)
+		for(u32 i=0; i<poseLS.numTracks; ++i)
 		{
 			poseLS.tracks[i] = 0.0f;
 			poseLS.weightsTracks[i] = 255;
@@ -779,7 +779,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	}
 	
 	// store weight IK
-	const float weightLegsIK = layerCtx.outWeightLegsIK;
+	const f32 weightLegsIK = layerCtx.outWeightLegsIK;
 	
 	// partial layer, can be applied anywhere, but does not interrupt full body
 	FUR_PROFILE("partial-layer")
@@ -809,10 +809,10 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	// look-at
 	FUR_PROFILE("look-at")
 	{
-		static float time = 0.0f;
+		static f32 time = 0.0f;
 		time += ctx->dt;
 		
-		float lookAtWeightTarget = 0.0f;
+		f32 lookAtWeightTarget = 0.0f;
 		
 		if(character->animInfo.useLookAt)
 		{
@@ -879,7 +879,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			
 			// we know it's gonna be motion 2D (for now) so axis should be vertical in pose space
 			fm_vec4 axis = {0};
-			float animYawDelta = 0.0f;
+			f32 animYawDelta = 0.0f;
 			fm_quat_to_axis_angle(&animMotionDelta.rot, &axis, &animYawDelta);
 			
 			animYawDelta *= -fm_sign(axis.y);	// the axis flips depending on direction of rotation (to left, to right)
@@ -892,8 +892,8 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			const fm_vec4 logicMotionDelta = {character->animInfo.desiredMove.x, character->animInfo.desiredMove.y, 0.0f};
 			fm_vec4 logicMotionDir = logicMotionDelta;
 			
-			float logicCurrentYaw = character->animInfo.currentYaw;
-			float logicYawDelta = 0.0f;
+			f32 logicCurrentYaw = character->animInfo.currentYaw;
+			f32 logicYawDelta = 0.0f;
 			
 			if(fm_vec4_mag2(&logicMotionDir) > 0.001f)
 			{
@@ -902,13 +902,13 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 				logicYawDelta = logicCurrentYaw - character->animInfo.currentYaw;
 			}
 			
-			const float animToLogicMotionDirectionAlpha = character->animInfo.animToLogicMotionRotationAlpha;
-			const float finalYawDelta = animYawDelta * (1.0f - animToLogicMotionDirectionAlpha) + logicYawDelta * animToLogicMotionDirectionAlpha;
+			const f32 animToLogicMotionDirectionAlpha = character->animInfo.animToLogicMotionRotationAlpha;
+			const f32 finalYawDelta = animYawDelta * (1.0f - animToLogicMotionDirectionAlpha) + logicYawDelta * animToLogicMotionDirectionAlpha;
 			
 			character->animInfo.rootMotionDeltaYaw = finalYawDelta;
 			character->animInfo.currentYaw += finalYawDelta;
 			
-			const float animToLogicMotionSpeedAlpha = character->animInfo.animToLogicMotionTranslationAlpha;
+			const f32 animToLogicMotionSpeedAlpha = character->animInfo.animToLogicMotionTranslationAlpha;
 			
 			fm_vec4 finalMotionDelta = {0};
 			fm_vec4_lerp(&logicMotionDelta, &animMotionDelta.pos, animToLogicMotionSpeedAlpha, &finalMotionDelta);
@@ -924,12 +924,12 @@ void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData)
 {
 	fa_action_animate_t* data = (fa_action_animate_t*)userData;
 	
-	const float animDuration = data->animation->duration;
-	const float time = fmodf(ctx->localTime, animDuration);
+	const f32 animDuration = data->animation->duration;
+	const f32 time = fmodf(ctx->localTime, animDuration);
 	
 	// loops for motion
-	const int32_t loopsSinceBeginning = (int32_t)(ctx->localTime / animDuration);
-	const int32_t loopsThisFrame = loopsSinceBeginning - data->loopsSoFar;
+	const i32 loopsSinceBeginning = (i32)(ctx->localTime / animDuration);
+	const i32 loopsThisFrame = loopsSinceBeginning - data->loopsSoFar;
 	data->loopsSoFar = loopsSinceBeginning;
 	
 	if(data->useLoco)
@@ -950,7 +950,7 @@ void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData)
 	data->progress = time / animDuration;
 }
 
-const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* userData, uint32_t* numAnims)
+const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* userData, u32* numAnims)
 {
 	const fa_action_animate_t* data = (const fa_action_animate_t*)userData;
 	*numAnims = 1;
@@ -1059,11 +1059,11 @@ void fa_action_animate_test_func(const fa_action_ctx_t* ctx, void* userData)
 {
 	fa_action_animate_test_t* data = (fa_action_animate_test_t*)userData;
 	
-	const float d_0 = data->anims[0]->duration;
-	const float t_0 = fmodf(ctx->localTime, d_0);
+	const f32 d_0 = data->anims[0]->duration;
+	const f32 t_0 = fmodf(ctx->localTime, d_0);
 	
-	const float d_1 = data->anims[1]->duration;
-	const float t_1 = fmodf(ctx->localTime, d_1);
+	const f32 d_1 = data->anims[1]->duration;
+	const f32 t_1 = fmodf(ctx->localTime, d_1);
 	
 #if 0
 	fa_cmd_anim_sample(ctx->cmdRecorder, t_0, 0);
@@ -1071,7 +1071,7 @@ void fa_action_animate_test_func(const fa_action_ctx_t* ctx, void* userData)
 	fa_cmd_apply_mask(ctx->cmdRecorder, FA_MASK_UPPER_BODY);
 	fa_cmd_blend2(ctx->cmdRecorder, 1.0f);
 #elif 1
-	const float alpha = fm_clamp(ctx->localTime - data->timeToNextAnim, 0.0f, 0.5f) * 2.0f;
+	const f32 alpha = fm_clamp(ctx->localTime - data->timeToNextAnim, 0.0f, 0.5f) * 2.0f;
 	fa_cmd_anim_sample(ctx->cmdRecorder, t_0, 0);
 	fa_cmd_anim_sample(ctx->cmdRecorder, t_1, 1);
 	fa_cmd_apply_mask(ctx->cmdRecorder, FA_MASK_UPPER_BODY);
@@ -1088,7 +1088,7 @@ void fa_action_animate_test_func(const fa_action_ctx_t* ctx, void* userData)
 	}
 	else
 	{
-		const float alpha = fm_clamp(ctx->localTime - 2.0f, 0.0f, 1.0f);
+		const f32 alpha = fm_clamp(ctx->localTime - 2.0f, 0.0f, 1.0f);
 		fa_cmd_identity(ctx->cmdRecorder);
 		fa_cmd_anim_sample(ctx->cmdRecorder, 0.0f, 0);
 		fa_cmd_blend2(ctx->cmdRecorder, alpha);
@@ -1100,7 +1100,7 @@ void fa_action_animate_test_func(const fa_action_ctx_t* ctx, void* userData)
 #endif
 }
 
-const fa_anim_clip_t** fa_action_animate_test_get_anims_func(const void* userData, uint32_t* numAnims)
+const fa_anim_clip_t** fa_action_animate_test_get_anims_func(const void* userData, u32* numAnims)
 {
 	const fa_action_animate_test_t* data = (const fa_action_animate_test_t*)userData;
 	*numAnims = 2;
@@ -1139,10 +1139,10 @@ void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData)
 	fa_action_player_loco_t* data = (fa_action_player_loco_t*)userData;
 	
 	// loops for motion
-	const float animDuration = data->anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN]->duration;
-	const float animTime = fmodf(ctx->localTime, animDuration);
-	const int32_t loopsSinceBeginning = (int32_t)(ctx->localTime / animDuration);
-	const int32_t loopsThisFrame = loopsSinceBeginning - data->loopsSoFar;
+	const f32 animDuration = data->anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN]->duration;
+	const f32 animTime = fmodf(ctx->localTime, animDuration);
+	const i32 loopsSinceBeginning = (i32)(ctx->localTime / animDuration);
+	const i32 loopsThisFrame = loopsSinceBeginning - data->loopsSoFar;
 	data->loopsSoFar = loopsSinceBeginning;
 	
 	fa_cmd_anim_sample_with_locomotion(ctx->cmdRecorder, animTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN, data->resetLoco, loopsThisFrame, data->locoPos, data->locoRot);
@@ -1154,7 +1154,7 @@ void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData)
 	}
 }
 
-const fa_anim_clip_t** fa_action_player_loco_get_anims_func(const void* userData, uint32_t* numAnims)
+const fa_anim_clip_t** fa_action_player_loco_get_anims_func(const void* userData, u32* numAnims)
 {
 	const fa_action_player_loco_t* data = (const fa_action_player_loco_t*)userData;
 	*numAnims = FA_ACTION_PLAYER_LOCO_ANIM_COUNT;
@@ -1170,7 +1170,7 @@ void fa_action_player_jump_update(const fa_action_ctx_t* ctx, void* userData)
 	// update player motion
 	fa_character_anim_info_t* animInfo = ctx->animInfo;
 	
-	const float t = ctx->localTime;
+	const f32 t = ctx->localTime;
 	const bool doMove = fabs(animInfo->desiredMove.x) > 0.05f || fabs(animInfo->desiredMove.x) > 0.05f;
 	
 	if(data->jumpType == 0)
@@ -1180,8 +1180,8 @@ void fa_action_player_jump_update(const fa_action_ctx_t* ctx, void* userData)
 	
 	if(data->jumpType == 1) // jump in place
 	{
-		const float d = data->anims[0]->duration;
-		const float t_anim = fm_clamp(t, 0.0f, d);
+		const f32 d = data->anims[0]->duration;
+		const f32 t_anim = fm_clamp(t, 0.0f, d);
 		
 		data->progress = t / d;
 		
@@ -1189,8 +1189,8 @@ void fa_action_player_jump_update(const fa_action_ctx_t* ctx, void* userData)
 	}
 	else // jump in run
 	{
-		const float d = data->anims[1]->duration;
-		const float t_anim = fm_clamp(t, 0.0f, d);
+		const f32 d = data->anims[1]->duration;
+		const f32 t_anim = fm_clamp(t, 0.0f, d);
 		
 		data->progress = t / d;
 		
@@ -1198,7 +1198,7 @@ void fa_action_player_jump_update(const fa_action_ctx_t* ctx, void* userData)
 	}
 }
 
-const fa_anim_clip_t** fa_action_player_jump_get_anims_func(const void* userData, uint32_t* numAnims)
+const fa_anim_clip_t** fa_action_player_jump_get_anims_func(const void* userData, u32* numAnims)
 {
 	const fa_action_player_jump_t* data = (const fa_action_player_jump_t*)userData;
 	*numAnims = 2;
@@ -1222,11 +1222,11 @@ void fa_action_player_loco_start_end_func(const fa_action_begin_end_ctx_t* ctx, 
 void fa_action_player_loco_start_update(const fa_action_ctx_t* ctx, void* userData)
 {
 	fa_action_player_loco_start_t* data = (fa_action_player_loco_start_t*)userData;
-	const float t = ctx->localTime;
-	const float d = data->anims[0]->duration;
+	const f32 t = ctx->localTime;
+	const f32 d = data->anims[0]->duration;
 	
 	// animate start
-	const float t_anim = fm_clamp(t, 0.0f, d);
+	const f32 t_anim = fm_clamp(t, 0.0f, d);
 	
 	data->isFinished = t > (d - data->finishFromEnd);
 	
@@ -1238,7 +1238,7 @@ void fa_action_player_loco_start_update(const fa_action_ctx_t* ctx, void* userDa
 	}
 }
 
-const fa_anim_clip_t** fa_action_player_loco_start_get_anims_func(const void* userData, uint32_t* numAnims)
+const fa_anim_clip_t** fa_action_player_loco_start_get_anims_func(const void* userData, u32* numAnims)
 {
 	const fa_action_player_loco_start_t* data = (const fa_action_player_loco_start_t*)userData;
 	*numAnims = 1;

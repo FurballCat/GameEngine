@@ -25,9 +25,9 @@
 typedef union fs_variant_t
 {
 	fc_string_hash_t asStringHash;
-	int32_t asInt32;
+	i32 asInt32;
 	bool asBool;
-	float asFloat;
+	f32 asFloat;
 } fs_variant_t;
 
 // ***** scripts core ***** //
@@ -38,8 +38,8 @@ typedef struct fg_game_object_register_t
 {
 	fg_game_object_t** objects;
 	fc_string_hash_t* ids;
-	uint32_t numObjects;	// also numIds
-	uint32_t capacity;
+	u32 numObjects;	// also numIds
+	u32 capacity;
 	
 	fg_game_object_t* pPlayer; // for quick access
 } fg_game_object_register_t;
@@ -63,8 +63,8 @@ typedef struct fs_script_ctx_t
 	
 	fc_string_hash_t nextState;
 	fs_variant_t lastResult;
-	float waitSeconds;
-	uint32_t numSkipOps;
+	f32 waitSeconds;
+	u32 numSkipOps;
 	
 	fg_game_object_t* self;
 	fg_game_object_register_t* gameObjectRegister;
@@ -75,26 +75,26 @@ typedef struct fs_script_ctx_t
 } fs_script_ctx_t;
 
 // todo: move it somewhere else
-fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
-fs_variant_t fs_native_wait_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
-fs_variant_t fs_native_equip_item(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
-fs_variant_t fs_native_wait_seconds(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
-fs_variant_t fs_native_get_variable(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
-fs_variant_t fs_native_go(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
-fs_variant_t fs_native_go_when(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
-fs_variant_t fs_native_cmp_gt(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
-fs_variant_t fs_native_cmp_eq(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
+fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args);
+fs_variant_t fs_native_wait_animate(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args);
+fs_variant_t fs_native_equip_item(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args);
+fs_variant_t fs_native_wait_seconds(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args);
+fs_variant_t fs_native_get_variable(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args);
+fs_variant_t fs_native_go(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args);
+fs_variant_t fs_native_go_when(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args);
+fs_variant_t fs_native_cmp_gt(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args);
+fs_variant_t fs_native_cmp_eq(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args);
 
 // camera script functions
-fs_variant_t fs_native_camera_enable(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
+fs_variant_t fs_native_camera_enable(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args);
 
-typedef fs_variant_t (*fs_script_navitve_func_t)(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args);
+typedef fs_variant_t (*fs_script_navitve_func_t)(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args);
 
 typedef struct fs_native_func_entry_t
 {
 	fc_string_hash_t name;
 	fs_script_navitve_func_t func;
-	uint32_t numArgs;
+	u32 numArgs;
 } fs_native_func_entry_t;
 
 fc_string_hash_t g_scriptNullOpCode = SID("__null");
@@ -117,7 +117,7 @@ typedef struct fs_script_op_t
 {
 	fs_script_navitve_func_t func;
 	fs_variant_t* args;	// not owning this memory, it's just a pointer
-	uint32_t numArgs;
+	u32 numArgs;
 } fs_script_op_t;
 
 typedef struct fs_script_data_t
@@ -125,13 +125,13 @@ typedef struct fs_script_data_t
 	fs_script_op_t* ops;	// sequence of operations
 	fs_variant_t* allArgs; // owning memory to all args for all calls
 	
-	uint32_t numOps;
-	uint32_t numAllArgs;
+	u32 numOps;
+	u32 numAllArgs;
 } fs_script_data_t;
 
 typedef struct fs_script_state_t
 {
-	uint32_t idxOp;
+	u32 idxOp;
 } fs_script_state_t;
 
 typedef enum fs_script_parsing_stage_t
@@ -155,14 +155,14 @@ typedef enum fs_script_parsing_stage_t
 typedef struct fs_script_op_header
 {
 	fc_string_hash_t opCode;
-	uint32_t flags;
-	uint32_t numArgs;
+	u32 flags;
+	u32 numArgs;
 } fs_script_op_header;
 
 typedef struct fs_segment_header_t
 {
-	uint8_t segmentId;		// type of segment data (what to expect next)
-	uint8_t padding;
+	u8 segmentId;		// type of segment data (what to expect next)
+	u8 padding;
 	uint16_t dataSize; 		// segment size in bytes
 	fc_string_hash_t name;	// unique name in segment scope (to know what to look for)
 } fs_lambda_header_t;
@@ -171,7 +171,7 @@ typedef struct fs_script_execution_ctx_t
 {
 	fc_binary_buffer_stream_t scriptBufferStream;
 	fs_script_ctx_t* scriptCtx;
-	uint32_t numOpsExecuted;
+	u32 numOpsExecuted;
 	bool endOflambda;
 } fs_script_execution_ctx_t;
 
@@ -180,15 +180,15 @@ fs_variant_t fs_execute_script_step(fs_script_execution_ctx_t* ctx)
 	fc_binary_buffer_stream_t* stream = &ctx->scriptBufferStream;
 	
 	// peek what's next in buffer, but do not advance the stream
-	uint8_t op_pre_flag = FS_SEG_ID_UNKNOWN;
-	fc_peek_binary_buffer(stream, sizeof(uint8_t), &op_pre_flag);
+	u8 op_pre_flag = FS_SEG_ID_UNKNOWN;
+	fc_peek_binary_buffer(stream, sizeof(u8), &op_pre_flag);
 	
 	fs_variant_t result = {};
 	
 	if(op_pre_flag == FS_SEG_ID_C_FUNC_CALL)
 	{
 		// advance the stream to skip the peeked part
-		uint32_t bytesRead = fc_read_binary_buffer(stream, sizeof(uint8_t), &op_pre_flag);
+		u32 bytesRead = fc_read_binary_buffer(stream, sizeof(u8), &op_pre_flag);
 		FUR_ASSERT(bytesRead);
 		
 		ctx->numOpsExecuted += 1;
@@ -202,7 +202,7 @@ fs_variant_t fs_execute_script_step(fs_script_execution_ctx_t* ctx)
 		FUR_ASSERT(opHeader.numArgs < 20);
 		fs_variant_t args[20];
 		
-		for(uint32_t i=0; i<opHeader.numArgs; ++i)
+		for(u32 i=0; i<opHeader.numArgs; ++i)
 		{
 			args[i] = fs_execute_script_step(ctx);
 		}
@@ -211,8 +211,8 @@ fs_variant_t fs_execute_script_step(fs_script_execution_ctx_t* ctx)
 		if(ctx->scriptCtx->numSkipOps == 0)
 		{
 			// find operation/function pointer - todo: implement simple cache
-			const uint32_t numFuncs = FUR_ARRAY_SIZE(g_nativeFuncLookUp);
-			uint32_t idxFunc = 0;
+			const u32 numFuncs = FUR_ARRAY_SIZE(g_nativeFuncLookUp);
+			u32 idxFunc = 0;
 			for(idxFunc=0; idxFunc<numFuncs; ++idxFunc)
 			{
 				if(opHeader.opCode == g_nativeFuncLookUp[idxFunc].name)
@@ -234,7 +234,7 @@ fs_variant_t fs_execute_script_step(fs_script_execution_ctx_t* ctx)
 	else if(op_pre_flag == FS_SEG_ID_C_FUNC_ARG)
 	{
 		// advance the stream to skip the peeked part
-		uint32_t bytesRead = fc_read_binary_buffer(stream, sizeof(uint8_t), &op_pre_flag);
+		u32 bytesRead = fc_read_binary_buffer(stream, sizeof(u8), &op_pre_flag);
 		FUR_ASSERT(bytesRead);
 		
 		bytesRead = fc_read_binary_buffer(stream, sizeof(fs_variant_t), &result);
@@ -251,7 +251,7 @@ fs_variant_t fs_execute_script_step(fs_script_execution_ctx_t* ctx)
 fs_seg_id_t fs_read_segment_header(fs_script_execution_ctx_t* ctx, fs_segment_header_t* header)
 {
 	// read segment header to know what's in
-	uint32_t bytesRead = fc_read_binary_buffer(&ctx->scriptBufferStream, sizeof(fs_segment_header_t), header);
+	u32 bytesRead = fc_read_binary_buffer(&ctx->scriptBufferStream, sizeof(fs_segment_header_t), header);
 	FUR_ASSERT(bytesRead);
 	
 	return (fs_seg_id_t)header->segmentId;
@@ -265,7 +265,7 @@ fc_string_hash_t fs_skip_to_next_segment(fs_script_execution_ctx_t* ctx, fs_seg_
 	while(ctx->scriptBufferStream.pos <= ctx->scriptBufferStream.endPos)
 	{
 		// read segment header to know what's in
-		uint32_t bytesRead = fc_read_binary_buffer(&ctx->scriptBufferStream, sizeof(fs_segment_header_t), &header);
+		u32 bytesRead = fc_read_binary_buffer(&ctx->scriptBufferStream, sizeof(fs_segment_header_t), &header);
 		FUR_ASSERT(bytesRead);
 		
 		// is it the segment we are looking for?
@@ -349,8 +349,8 @@ void fs_execute_script(const fc_binary_buffer_t* scriptBuffer, fs_script_ctx_t* 
 
 typedef struct fs_script_lambda_t
 {
-	float waitSeconds;
-	uint32_t numSkipOps;
+	f32 waitSeconds;
+	u32 numSkipOps;
 	bool isActive;
 	fc_string_hash_t lambdaName;	// or state name
 	fc_string_hash_t eventName;
@@ -362,8 +362,8 @@ typedef struct fs_script_lambda_t
 
 struct FurMainAppDesc
 {
-	uint32_t m_width;
-	uint32_t m_height;
+	u32 m_width;
+	u32 m_height;
 	const char* m_title;
 };
 
@@ -393,7 +393,7 @@ typedef struct fg_animate_action_slots_t
 
 fa_action_animate_t* fg_animate_action_slots_get_free(fg_animate_action_slots_t* slots)
 {
-	for(uint32_t i=0; i<32; ++i)
+	for(u32 i=0; i<32; ++i)
 	{
 		if(slots->slot[i].reserved == false)
 		{
@@ -435,7 +435,7 @@ const fc_binary_buffer_t* fg_load_script(fg_resource_register_t* reg, const char
 	fc_load_binary_file_into_binary_buffer(path, script, pAllocCallbacks);
 	
 	// register
-	const int32_t idx = reg->numScripts;
+	const i32 idx = reg->numScripts;
 	reg->scriptsNames[idx] = name;
 	reg->scripts[idx] = script;
 	reg->numScripts++;
@@ -452,8 +452,8 @@ const fa_anim_clip_t* fg_load_anim(fg_resource_register_t* reg, const fi_depot_t
 		const char* directory = "data/anim/";
 		const char* extension = ".fbx";
 		const char* engineExtension = ".anim";
-		const size_t dirLength = strlen(directory);
-		const size_t nameLength = strlen(name);
+		const u64 dirLength = strlen(directory);
+		const u64 nameLength = strlen(name);
 		
 		char pathEngine[256] = {};
 		memcpy(pathEngine, depot->path, strlen(depot->path));
@@ -496,7 +496,7 @@ const fa_anim_clip_t* fg_load_anim(fg_resource_register_t* reg, const fi_depot_t
 		}
 		
 		// register animation
-		const int32_t idxAnim = reg->numAnimations;
+		const i32 idxAnim = reg->numAnimations;
 		FUR_ASSERT(idxAnim < FG_MAX_NUM_ANIMATIONS);
 		reg->animationsNames[idxAnim] = SID_REG(name);
 		reg->animations[idxAnim] = animClip;
@@ -582,7 +582,7 @@ struct FurGameEngine
 	fa_anim_sys_t* animSystem;
 	
 	std::chrono::system_clock::time_point prevTimePoint;
-	float globalTime;
+	f32 globalTime;
 	
 	fg_world_t* pWorld;
 	
@@ -598,12 +598,12 @@ struct FurGameEngine
 	bool inputTriangleActionPressed;
 	bool inputCircleActionPressed;
 	bool inputXPressed;
-	float actionRotationLeftX;
-	float actionRotationLeftY;
-	float actionZoomIn;
-	float actionZoomOut;
-	float actionMoveX;
-	float actionMoveY;
+	f32 actionRotationLeftX;
+	f32 actionRotationLeftY;
+	f32 actionZoomIn;
+	f32 actionZoomOut;
+	f32 actionMoveX;
+	f32 actionMoveY;
 	
 	fm_vec4 playerMove;
 	
@@ -630,7 +630,7 @@ struct FurGameEngine
 	
 	// update memory (scratchpad)
 	void* scratchpadBuffer;
-	uint32_t scratchpadBufferSize;
+	u32 scratchpadBufferSize;
 	
 	// game objects
 	fg_game_object_register_t gameObjectRegister;
@@ -647,24 +647,24 @@ struct FurGameEngine
 	// hair dangles
 	fa_dangle zeldaDangleHairLeft;
 	fa_dangle zeldaDangleHairRight;
-	uint32_t zeldaDangleHairLeftIdx1;
-	uint32_t zeldaDangleHairLeftIdx2;
-	uint32_t zeldaDangleHairRightIdx1;
-	uint32_t zeldaDangleHairRightIdx2;
-	uint32_t zeldaHeadIdx;
-	uint32_t zeldaHandRightIdx;
+	u32 zeldaDangleHairLeftIdx1;
+	u32 zeldaDangleHairLeftIdx2;
+	u32 zeldaDangleHairRightIdx1;
+	u32 zeldaDangleHairRightIdx2;
+	u32 zeldaHeadIdx;
+	u32 zeldaHandRightIdx;
 	
 	// cape dangles
 	fa_dangle zeldaCapeL;
-	uint32_t zeldaCapeIdxL[4];
+	u32 zeldaCapeIdxL[4];
 	
 	fa_dangle zeldaCapeC;
-	uint32_t zeldaCapeIdxC[4];
+	u32 zeldaCapeIdxC[4];
 	
 	fa_dangle zeldaCapeR;
-	uint32_t zeldaCapeIdxR[4];
+	u32 zeldaCapeIdxR[4];
 	
-	uint32_t zeldaSpineIdx;
+	u32 zeldaSpineIdx;
 	
 	// wind
 	fm_vec3 windVelocity;
@@ -852,7 +852,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 				
 				// masks
 				{
-					pEngine->pRig->maskUpperBody = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+					pEngine->pRig->maskUpperBody = FUR_ALLOC_ARRAY_AND_ZERO(u8, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 					const int16_t idxSpine = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Spine"));
 					const fc_string_hash_t hashes[9] = {
 						SID("Bip001_Pelvis"),
@@ -894,10 +894,10 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 					
 					if(idxSpine != -1)
 					{
-						for(uint32_t i=0; i<pEngine->pRig->numBones; ++i)
+						for(u32 i=0; i<pEngine->pRig->numBones; ++i)
 						{
-							uint8_t w = 220;
-							for(uint32_t j=0; j<9; ++j)
+							u8 w = 220;
+							for(u32 j=0; j<9; ++j)
 							{
 								if(pEngine->pRig->boneNameHashes[i] == hashes[j])
 								{
@@ -905,14 +905,14 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 									break;
 								}
 							}
-							for(uint32_t j=0; j<18; ++j)
+							for(u32 j=0; j<18; ++j)
 							{
 								if(pEngine->pRig->boneNameHashes[i] == hashesPartial[j])
 								{
 									w = 100;
 								}
 							}
-							for(uint32_t j=0; j<2; ++j)
+							for(u32 j=0; j<2; ++j)
 							{
 								if(pEngine->pRig->boneNameHashes[i] == noHashes[j])
 								{
@@ -926,7 +926,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 				
 				// face mask
 				{
-					pEngine->pRig->maskFace = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+					pEngine->pRig->maskFace = FUR_ALLOC_ARRAY_AND_ZERO(u8, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 					const int16_t idxSpine = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Spine"));
 					const fc_string_hash_t hashes[] = {
 						//SID("Bip001_Neck"),
@@ -993,11 +993,11 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 					
 					if(idxSpine != -1)
 					{
-						for(uint32_t i=0; i<pEngine->pRig->numBones; ++i)
+						for(u32 i=0; i<pEngine->pRig->numBones; ++i)
 						{
-							uint8_t w = 0;
-							const uint32_t numHashes = FUR_ARRAY_SIZE(hashes);
-							for(uint32_t j=0; j<numHashes; ++j)
+							u8 w = 0;
+							const u32 numHashes = FUR_ARRAY_SIZE(hashes);
+							for(u32 j=0; j<numHashes; ++j)
 							{
 								if(pEngine->pRig->boneNameHashes[i] == hashes[j])
 								{
@@ -1012,7 +1012,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 				
 				// hands mask
 				{
-					pEngine->pRig->maskHands = FUR_ALLOC_ARRAY_AND_ZERO(uint8_t, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+					pEngine->pRig->maskHands = FUR_ALLOC_ARRAY_AND_ZERO(u8, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 					const int16_t idxSpine = fa_rig_find_bone_idx(pEngine->pRig, SID("Bip001_Spine"));
 					const fc_string_hash_t hashes[] = {
 						SID("Bip001_Index1_L"),
@@ -1051,11 +1051,11 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 					
 					if(idxSpine != -1)
 					{
-						for(uint32_t i=0; i<pEngine->pRig->numBones; ++i)
+						for(u32 i=0; i<pEngine->pRig->numBones; ++i)
 						{
-							uint8_t w = 0;
-							const uint32_t numHashes = FUR_ARRAY_SIZE(hashes);
-							for(uint32_t j=0; j<numHashes; ++j)
+							u8 w = 0;
+							const u32 numHashes = FUR_ARRAY_SIZE(hashes);
+							for(u32 j=0; j<numHashes; ++j)
 							{
 								if(pEngine->pRig->boneNameHashes[i] == hashes[j])
 								{
@@ -1104,7 +1104,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			meshCtx.path = "data/mesh/";
 			meshCtx.fileName = "zelda-sword";
 			const char* texturePaths[] = {"data/texture/melee_diff.png"};
-			const int32_t textureIndices[] = {0};
+			const i32 textureIndices[] = {0};
 			meshCtx.texturePaths = texturePaths;
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
 			meshCtx.textureIndices = textureIndices;
@@ -1118,7 +1118,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			meshCtx.path = "data/mesh/";
 			meshCtx.fileName = "chest";
 			const char* texturePaths[] = {"data/texture/chest_albedo.png"};
-			const int32_t textureIndices[] = {0};
+			const i32 textureIndices[] = {0};
 			meshCtx.texturePaths = texturePaths;
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
 			meshCtx.textureIndices = textureIndices;
@@ -1132,7 +1132,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			meshCtx.path = "data/mesh/";
 			meshCtx.fileName = "skull_block_PBR_fc";
 			const char* texturePaths[] = {"data/texture/b_stone1_Color.png"};
-			const int32_t textureIndices[] = {0};
+			const i32 textureIndices[] = {0};
 			meshCtx.texturePaths = texturePaths;
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
 			meshCtx.textureIndices = textureIndices;
@@ -1147,14 +1147,14 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			
 			const fm_vec3 halfExtents = {0.5f, 0.5f, 0.5f};
 			
-			for(int32_t i=0; i<2; ++i)
+			for(i32 i=0; i<2; ++i)
 			{
 				fp_physics_add_static_box(pEngine->pPhysics, &pEngine->blockPositions[i], &halfExtents, pAllocCallbacks);
 			}
 		}
 		
 		// load rock meshes
-		for(uint32_t i=0; i<5; ++i)
+		for(u32 i=0; i<5; ++i)
 		{
 			char txtPath[256];
 			sprintf(txtPath, "rock-0%i", i+1);
@@ -1166,7 +1166,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			meshCtx.path = "data/mesh/";
 			meshCtx.fileName = txtPath;
 			const char* texturePaths[] = {txtTexturePath};
-			const int32_t textureIndices[] = {0};
+			const i32 textureIndices[] = {0};
 			meshCtx.texturePaths = texturePaths;
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
 			meshCtx.textureIndices = textureIndices;
@@ -1183,7 +1183,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 				"data/texture/hair_diff.png",
 				"data/texture/eyes_diff2.png"
 			};
-			const int32_t textureIndices[] = {0, 0, 1, 0, 2, 0, 1};
+			const i32 textureIndices[] = {0, 0, 1, 0, 2, 0, 1};
 			meshCtx.texturePaths = texturePaths;
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
 			meshCtx.textureIndices = textureIndices;
@@ -1240,8 +1240,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	
 	// init dangle
 	{
-		const uint32_t numParticles = 4;
-		const float segmentLength = 0.2f;
+		const u32 numParticles = 4;
+		const f32 segmentLength = 0.2f;
 		
 		fa_dangle_desc desc;
 		desc.frequency = 60.0f;
@@ -1251,13 +1251,13 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		fa_dangle_create(&desc, &pEngine->dangle, pAllocCallbacks);
 		
 		fm_vec4 pos = {0.0f, 0.0f, 1.0f};
-		for(uint32_t i=0; i<numParticles; ++i)
+		for(u32 i=0; i<numParticles; ++i)
 		{
 			pEngine->dangle.x0[i] = pos;
 			pos.x += segmentLength;
 		}
 		
-		for(uint32_t i=0; i<numParticles; ++i)
+		for(u32 i=0; i<numParticles; ++i)
 		{
 			pEngine->dangle.d[i] = segmentLength;
 		}
@@ -1267,7 +1267,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	{
 		const fc_string_hash_t handRight = SID("Bip001_Hand_R");
 		
-		for(uint32_t i=0; i<pEngine->pRig->numBones; ++i)
+		for(u32 i=0; i<pEngine->pRig->numBones; ++i)
 		{
 			if(pEngine->pRig->boneNameHashes[i] == handRight)
 				pEngine->zeldaHandRightIdx = i;
@@ -1291,7 +1291,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		const fc_string_hash_t head = SID("Bip001_Head");
 		const fc_string_hash_t spine = SID("Bip001_Spine");
 		
-		for(uint32_t i=0; i<pEngine->pRig->numBones; ++i)
+		for(u32 i=0; i<pEngine->pRig->numBones; ++i)
 		{
 			const fc_string_hash_t name = pEngine->pRig->boneNameHashes[i];
 			if(name == hair_r)
@@ -1314,8 +1314,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		refPoseLeft2.pos.w = 0.0f;
 		refPoseRight2.pos.w = 0.0f;
 		
-		const float dLeft = fm_vec4_mag(&refPoseLeft2.pos);
-		const float dRight = fm_vec4_mag(&refPoseRight2.pos);
+		const f32 dLeft = fm_vec4_mag(&refPoseLeft2.pos);
+		const f32 dRight = fm_vec4_mag(&refPoseRight2.pos);
 		
 		pEngine->zeldaDangleHairLeft.d[0] = dLeft;
 		pEngine->zeldaDangleHairLeft.d[1] = dLeft;
@@ -1356,11 +1356,11 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			SID("Bip001_Cape3_R")
 		};
 		
-		for(uint32_t i=0; i<pEngine->pRig->numBones; ++i)
+		for(u32 i=0; i<pEngine->pRig->numBones; ++i)
 		{
 			const fc_string_hash_t name = pEngine->pRig->boneNameHashes[i];
 			
-			for(uint32_t j=0; j<4; ++j)
+			for(u32 j=0; j<4; ++j)
 			{
 				if(name == cape_names_l[j])
 				{
@@ -1377,21 +1377,21 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			}
 		}
 		
-		for(uint32_t j=0; j<4; ++j)
+		for(u32 j=0; j<4; ++j)
 		{
 			fm_xform refPose = pEngine->pRig->refPose[pEngine->zeldaCapeIdxL[j]];
 			refPose.pos.w = 0.0f;
 			pEngine->zeldaCapeL.d[j] = fm_vec4_mag(&refPose.pos);
 		}
 		
-		for(uint32_t j=0; j<4; ++j)
+		for(u32 j=0; j<4; ++j)
 		{
 			fm_xform refPose = pEngine->pRig->refPose[pEngine->zeldaCapeIdxC[j]];
 			refPose.pos.w = 0.0f;
 			pEngine->zeldaCapeC.d[j] = fm_vec4_mag(&refPose.pos);
 		}
 		
-		for(uint32_t j=0; j<4; ++j)
+		for(u32 j=0; j<4; ++j)
 		{
 			fm_xform refPose = pEngine->pRig->refPose[pEngine->zeldaCapeIdxR[j]];
 			refPose.pos.w = 0.0f;
@@ -1401,7 +1401,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	
 	// spawn zelda game object
 	{
-		const int32_t props_num = 1;
+		const i32 props_num = 1;
 		fc_string_hash_t prop_names[props_num] = {SID("state-script")};
 		fg_spawn_info_prop_value_t prop_values[props_num] = {};
 		prop_values[0].asStringHash = SID("ss-zelda");
@@ -1430,7 +1430,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			{{0.0f, 0.0f, 4.0f}, {1.0f, 1.0f, 1.0f}}
 		};
 		
-		const uint32_t numBoxes = FUR_ARRAY_SIZE(boxes);
+		const u32 numBoxes = FUR_ARRAY_SIZE(boxes);
 		
 		fc_mem_arena_alloc_t memArena = fc_mem_arena_make(pEngine->scratchpadBuffer, pEngine->scratchpadBufferSize);
 		
@@ -1457,7 +1457,7 @@ fg_game_object_t* fs_look_up_game_object(fs_script_ctx_t* ctx, fc_string_hash_t 
 	}
 	else
 	{
-		for(uint32_t i=0; i<ctx->gameObjectRegister->numObjects; ++i)
+		for(u32 i=0; i<ctx->gameObjectRegister->numObjects; ++i)
 		{
 			if(ctx->gameObjectRegister->ids[i] == name)
 			{
@@ -1480,7 +1480,7 @@ typedef enum fs_animate_arg_t
 	FS_ANIMATE_ARG_LAYER_NAME,
 } fs_animate_arg_t;
 
-fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args)
 {
 	FUR_ASSERT(numArgs >= 2);
 	const fc_string_hash_t objectName = args[0].asStringHash;
@@ -1503,7 +1503,7 @@ fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_
 	fa_action_args_t animArgs = {};
 	
 	// get variadic arguments - iterate every 2 arguments, as we need (animate-arg ENUM) VALUE, this is two variadic arguments
-	for(uint32_t i=2; i+1<numArgs; i += 2)
+	for(u32 i=2; i+1<numArgs; i += 2)
 	{
 		const fs_animate_arg_t arg_enum = (fs_animate_arg_t)args[i].asInt32;
 		switch(arg_enum)
@@ -1551,7 +1551,7 @@ fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_
 	return result;
 };
 
-fs_variant_t fs_native_wait_animate(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+fs_variant_t fs_native_wait_animate(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args)
 {
 	FUR_ASSERT(numArgs >= 2);
 	const fc_string_hash_t animName = args[1].asStringHash;
@@ -1564,7 +1564,7 @@ fs_variant_t fs_native_wait_animate(fs_script_ctx_t* ctx, uint32_t numArgs, cons
 	return fs_native_animate(ctx, numArgs, args);
 }
 
-fs_variant_t fs_native_equip_item(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+fs_variant_t fs_native_equip_item(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args)
 {
 	FUR_ASSERT(numArgs >= 2);
 	const fc_string_hash_t objectName = args[0].asStringHash;
@@ -1580,10 +1580,10 @@ fs_variant_t fs_native_equip_item(fs_script_ctx_t* ctx, uint32_t numArgs, const 
 	return result;
 }
 
-fs_variant_t fs_native_wait_seconds(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+fs_variant_t fs_native_wait_seconds(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args)
 {
 	FUR_ASSERT(numArgs == 1);
-	const float timeInSeconds = args[0].asFloat;
+	const f32 timeInSeconds = args[0].asFloat;
 	
 	ctx->waitSeconds = timeInSeconds;
 	
@@ -1591,7 +1591,7 @@ fs_variant_t fs_native_wait_seconds(fs_script_ctx_t* ctx, uint32_t numArgs, cons
 	return result;
 }
 
-fs_variant_t fs_native_get_variable(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+fs_variant_t fs_native_get_variable(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args)
 {
 	FUR_ASSERT(numArgs == 2);
 	const fc_string_hash_t objectName = args[0].asStringHash;
@@ -1631,7 +1631,7 @@ fs_variant_t fs_native_get_variable(fs_script_ctx_t* ctx, uint32_t numArgs, cons
 	return result;
 }
 
-fs_variant_t fs_native_go(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+fs_variant_t fs_native_go(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args)
 {
 	FUR_ASSERT(numArgs == 1);
 	const fc_string_hash_t goToState = args[0].asStringHash;
@@ -1642,7 +1642,7 @@ fs_variant_t fs_native_go(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_varia
 	return result;
 }
 
-fs_variant_t fs_native_go_when(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+fs_variant_t fs_native_go_when(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args)
 {
 	FUR_ASSERT(numArgs == 2);
 	const fc_string_hash_t goToState = args[0].asStringHash;
@@ -1656,34 +1656,34 @@ fs_variant_t fs_native_go_when(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_
 	return args[1];
 }
 
-fs_variant_t fs_native_cmp_gt(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+fs_variant_t fs_native_cmp_gt(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args)
 {
 	FUR_ASSERT(numArgs == 2);
-	const int32_t a = args[0].asInt32;
-	const int32_t b = args[1].asInt32;
+	const i32 a = args[0].asInt32;
+	const i32 b = args[1].asInt32;
 	
 	fs_variant_t result;
 	result.asBool = a > b;
 	return result;
 }
 
-fs_variant_t fs_native_cmp_eq(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+fs_variant_t fs_native_cmp_eq(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args)
 {
 	FUR_ASSERT(numArgs == 2);
-	const int32_t a = args[0].asInt32;
-	const int32_t b = args[1].asInt32;
+	const i32 a = args[0].asInt32;
+	const i32 b = args[1].asInt32;
 	
 	fs_variant_t result;
 	result.asBool = (a == b);
 	return result;
 }
 
-fs_variant_t fs_native_camera_enable(fs_script_ctx_t* ctx, uint32_t numArgs, const fs_variant_t* args)
+fs_variant_t fs_native_camera_enable(fs_script_ctx_t* ctx, u32 numArgs, const fs_variant_t* args)
 {
 	FUR_ASSERT(numArgs == 3);
 	const fc_string_hash_t objectName = args[0].asStringHash;
 	const fc_string_hash_t cameraType = args[1].asStringHash;
-	const float fadeInSec = args[2].asFloat;
+	const f32 fadeInSec = args[2].asFloat;
 	
 	fg_game_object_t* gameObj = fs_look_up_game_object(ctx, objectName);
 	FUR_ASSERT(gameObj);
@@ -1711,16 +1711,16 @@ fs_variant_t fs_native_camera_enable(fs_script_ctx_t* ctx, uint32_t numArgs, con
 	return result;
 }
 
-void fg_scripts_update(FurGameEngine* pEngine, float dt)
+void fg_scripts_update(FurGameEngine* pEngine, f32 dt)
 {
 	// todo
 }
 
 bool g_drawDevMenu = false;
-int32_t g_devMenuOption = 0;
+i32 g_devMenuOption = 0;
 bool g_devMenuOptionClick = false;
 
-void fg_input_actions_update(FurGameEngine* pEngine, float dt)
+void fg_input_actions_update(FurGameEngine* pEngine, f32 dt)
 {
 	bool actionPressed = false;
 	static bool actionWasPressed = false;
@@ -1744,16 +1744,16 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 	
 	g_devMenuOptionClick = false;
 	
-	static float rightAnalogX = 0.0f;
-	static float rightAnalogY = 0.0f;
-	static float leftAnalogX = 0.0f;
-	static float leftAnalogY = 0.0f;
-	static float rightTrigger = 0.0f;
-	static float leftTrigger = 0.0f;
+	static f32 rightAnalogX = 0.0f;
+	static f32 rightAnalogY = 0.0f;
+	static f32 leftAnalogX = 0.0f;
+	static f32 leftAnalogY = 0.0f;
+	static f32 rightTrigger = 0.0f;
+	static f32 leftTrigger = 0.0f;
 	
 	fi_input_event_t inputEvents[40];
-	const uint32_t numEventsCollected = fi_get_input_events(pEngine->pInputManager, inputEvents, 40, 0);
-	for(uint32_t i=0; i<numEventsCollected; ++i)
+	const u32 numEventsCollected = fi_get_input_events(pEngine->pInputManager, inputEvents, 40, 0);
+	for(u32 i=0; i<numEventsCollected; ++i)
 	{
 		if(inputEvents[i].eventID == Gamepad_leftThumb)
 		{
@@ -1845,8 +1845,8 @@ void fg_input_actions_update(FurGameEngine* pEngine, float dt)
 			fc_profiler_toggle_pause();
 		}
 
-		const float zoomDelta = leftTrigger - rightTrigger;
-		const float panDelta = rightAnalogX;
+		const f32 zoomDelta = leftTrigger - rightTrigger;
+		const f32 panDelta = rightAnalogX;
 		fc_profiler_zoom_and_pan_delta(zoomDelta, panDelta);
 	}
 	else // block all the actions when debug menu is enabled
@@ -1904,19 +1904,19 @@ typedef struct fc_dev_menu_option_t
 
 void fc_draw_debug_menu(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	const float color[4] = {0.8f, 0.8f, 0.8f, 1.0f};
-	const float colorCursor[4] = {0.9f, 0.9f, 0.9f, 1.0f};
-	const float colorLabel[4] = FUR_COLOR_CYAN;
-	const float colorSelected[4] = FUR_COLOR_YELLOW;
+	const f32 color[4] = {0.8f, 0.8f, 0.8f, 1.0f};
+	const f32 colorCursor[4] = {0.9f, 0.9f, 0.9f, 1.0f};
+	const f32 colorLabel[4] = FUR_COLOR_CYAN;
+	const f32 colorSelected[4] = FUR_COLOR_YELLOW;
 	
 	if(g_drawDevMenu)
 	{
-		const float text_scale = 0.7f;
-		const float lineHeight = fc_dbg_get_text_line_height(text_scale);
-		const float ident = fc_dbg_get_text_line_height(text_scale);
+		const f32 text_scale = 0.7f;
+		const f32 lineHeight = fc_dbg_get_text_line_height(text_scale);
+		const f32 ident = fc_dbg_get_text_line_height(text_scale);
 
-		float x = 70.0f;
-		float y = 70.0f;
+		f32 x = 70.0f;
+		f32 y = 70.0f;
 		fc_dbg_apply_anchor(&x, &y, FC_DBG_ANCHOR_LEFT_UP_CORNER);
 		
 		fc_dev_menu_option_t options[] = {
@@ -1928,20 +1928,20 @@ void fc_draw_debug_menu(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCall
 			{"memory-stats", fc_dev_menu_show_memory_stats}
 		};
 		
-		const uint32_t numOptions = FUR_ARRAY_SIZE(options);
+		const u32 numOptions = FUR_ARRAY_SIZE(options);
 		
 		if(g_devMenuOption < 0)
 			g_devMenuOption = numOptions-1;
 		else if(g_devMenuOption >= numOptions)
 			g_devMenuOption = 0;
 		
-		const float bgColor[4] = {0.2f, 0.2f, 0.2f, 0.8f};
+		const f32 bgColor[4] = {0.2f, 0.2f, 0.2f, 0.8f};
 		
 		fc_dbg_rect(x - 20.0f, y - 20.0f, 450.0f, 110.0f + 28.0f * numOptions, bgColor);
 		
 		fc_dbg_text(x, y, "Dev Menu:", colorLabel, text_scale);
 		
-		for(uint32_t i=0; i<numOptions; ++i)
+		for(u32 i=0; i<numOptions; ++i)
 		{
 			const bool isSelected = (i == g_devMenuOption);
 			
@@ -1964,13 +1964,13 @@ void fc_draw_debug_menu(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCall
 	}
 }
 
-void fg_gameplay_update(FurGameEngine* pEngine, float dt)
+void fg_gameplay_update(FurGameEngine* pEngine, f32 dt)
 {
 	uint64_t globalTime = (uint64_t)(pEngine->globalTime * 1000000);
 	pEngine->zeldaGameObject.animCharacter->globalTime = globalTime;
 	
-	static uint32_t actionRandomizer = 0;
-	static uint32_t actionRandomizer2 = 0;
+	static u32 actionRandomizer = 0;
+	static u32 actionRandomizer2 = 0;
 	
 	if(pEngine->inActionPressed)
 		actionRandomizer += 1;
@@ -1987,8 +1987,8 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		pEngine->zeldaGameObject.playerState = SID("idle");
 		
 		// find free lambda slot
-		int32_t lambdaSlot = 512;
-		for(int32_t i=0; i<128; ++i)
+		i32 lambdaSlot = 512;
+		for(i32 i=0; i<128; ++i)
 		{
 			if(pEngine->scriptLambdas[i].isActive == false)
 			{
@@ -2007,7 +2007,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		lambda->scriptBlob = &pEngine->zeldaStateScript;
 	}
 	
-	for(uint32_t i=0; i<128; ++i)
+	for(u32 i=0; i<128; ++i)
 	{
 		fs_script_lambda_t* lambda = &pEngine->scriptLambdas[i];
 		
@@ -2122,15 +2122,15 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 		fm_vec4 pos = pEngine->zeldaGameObject.worldTransform.pos;
 		pos.z += 0.1f;
 		const fm_vec4 dir = {0.0f, 0.0f, -1.0f, 0.0f};
-		const float distance = 0.12f;
+		const f32 distance = 0.12f;
 		
 		fp_physics_raycast_hit_t hit = {};
 		const bool isHit = fp_physics_raycast(pEngine->pPhysics, &pos, &dir, distance, &hit);
 		if(isHit)
 		{
 			isGrounded = true;
-			const float extent[3] = {0.02f, 0.02f, 0.02f};
-			const float color[4] = FUR_COLOR_RED;
+			const f32 extent[3] = {0.02f, 0.02f, 0.02f};
+			const f32 color[4] = FUR_COLOR_RED;
 			fc_dbg_box_wire(&hit.pos.x, extent, color);
 		}
 		
@@ -2148,7 +2148,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, float dt)
 	}
 }
 
-void fg_animation_update(FurGameEngine* pEngine, float dt)
+void fg_animation_update(FurGameEngine* pEngine, f32 dt)
 {
 	// set last known world position for character
 	fm_xform playerLocator;
@@ -2172,15 +2172,15 @@ void fg_animation_update(FurGameEngine* pEngine, float dt)
 
 void fc_dbg_mat4(const fm_mat4* m)
 {
-	const float pos[3] = {m->w.x, m->w.y, m->w.z};
-	const float scale = 0.1f;
-	const float axisX[3] = {pos[0] + m->x.x * scale, pos[1] + m->x.y * scale, pos[2] + m->x.z * scale};
-	const float axisY[3] = {pos[0] + m->y.x * scale, pos[1] + m->y.y * scale, pos[2] + m->y.z * scale};
-	const float axisZ[3] = {pos[0] + m->z.x * scale, pos[1] + m->z.y * scale, pos[2] + m->z.z * scale};
+	const f32 pos[3] = {m->w.x, m->w.y, m->w.z};
+	const f32 scale = 0.1f;
+	const f32 axisX[3] = {pos[0] + m->x.x * scale, pos[1] + m->x.y * scale, pos[2] + m->x.z * scale};
+	const f32 axisY[3] = {pos[0] + m->y.x * scale, pos[1] + m->y.y * scale, pos[2] + m->y.z * scale};
+	const f32 axisZ[3] = {pos[0] + m->z.x * scale, pos[1] + m->z.y * scale, pos[2] + m->z.z * scale};
 	
-	const float red[4] = FUR_COLOR_RED;
-	const float green[4] = FUR_COLOR_GREEN;
-	const float blue[4] = FUR_COLOR_BLUE;
+	const f32 red[4] = FUR_COLOR_RED;
+	const f32 green[4] = FUR_COLOR_GREEN;
+	const f32 blue[4] = FUR_COLOR_BLUE;
 	
 	fc_dbg_line(pos, axisX, red);
 	fc_dbg_line(pos, axisY, green);
@@ -2191,8 +2191,8 @@ void fc_dbg_stats_for_mem_to_text(fc_memory_scope_t scope, char* txt, const char
 {
 	fc_mem_stats_t stats = fc_memory_stats_for_scope(scope);
 	
-	const float numMBs = ((float)stats.numBytesUsed) / (1024.0f * 1024.0f);
-	const float numCapacityMBs = ((float)stats.numBytesCapacity) / (1024.0f * 1024.0f);
+	const f32 numMBs = ((f32)stats.numBytesUsed) / (1024.0f * 1024.0f);
+	const f32 numCapacityMBs = ((f32)stats.numBytesCapacity) / (1024.0f * 1024.0f);
 	
 	const char* name = fc_memory_get_scope_debug_name(scope);
 	
@@ -2201,21 +2201,21 @@ void fc_dbg_stats_for_mem_to_text(fc_memory_scope_t scope, char* txt, const char
 
 FUR_JOB_ENTRY_POINT(test_job)
 {
-	const int32_t numStuff = *FUR_JOB_USER_DATA(int32_t);
+	const i32 numStuff = *FUR_JOB_USER_DATA(i32);
 	
 	FUR_PROFILE("test-job")
 	{
 		fm_mat4 mats[12];
 		fm_mat4 res;
 		
-		for(int32_t i=0; i<12; ++i)
+		for(i32 i=0; i<12; ++i)
 		{
 			fm_mat4_identity(&mats[i]);
 		}
 		
-		for(int32_t i=0; i<numStuff; ++i)
+		for(i32 i=0; i<numStuff; ++i)
 		{
-			for(int32_t j=0; j<numStuff; ++j)
+			for(i32 j=0; j<numStuff; ++j)
 			{
 				fm_mat4_mul(&mats[i%12], &mats[j%12], &res);
 				fm_mat4_identity(&res);
@@ -2226,29 +2226,29 @@ FUR_JOB_ENTRY_POINT(test_job)
 
 FUR_JOB_ENTRY_POINT(test_job_with_sub_job)
 {
-	const int32_t numStuff = *FUR_JOB_USER_DATA(int32_t);
+	const i32 numStuff = *FUR_JOB_USER_DATA(i32);
 	
 	FUR_PROFILE("test-job-sub")
 	{
 		fm_mat4 mats[12];
 		fm_mat4 res;
 		
-		for(int32_t i=0; i<12; ++i)
+		for(i32 i=0; i<12; ++i)
 		{
 			fm_mat4_identity(&mats[i]);
 		}
 		
 		{
-			int32_t subNumStuff = 40;
+			i32 subNumStuff = 40;
 			fc_job_decl_t job = {test_job, &subNumStuff};
 			fc_job_counter_t* counter = {};
 			fc_run_jobs(&job, 1, &counter);
 			fc_wait_for_counter_and_free(counter);
 		}
 		
-		for(int32_t i=0; i<numStuff; ++i)
+		for(i32 i=0; i<numStuff; ++i)
 		{
-			for(int32_t j=0; j<numStuff; ++j)
+			for(i32 j=0; j<numStuff; ++j)
 			{
 				fm_mat4_mul(&mats[i%12], &mats[j%12], &res);
 			}
@@ -2256,7 +2256,7 @@ FUR_JOB_ENTRY_POINT(test_job_with_sub_job)
 	}
 }
 
-void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callbacks_t* pAllocCallbacks)
+void furMainEngineGameUpdate(FurGameEngine* pEngine, f32 dt, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	// test BVH debug draw
 	{
@@ -2266,37 +2266,37 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 	// show debug FPS
 	if(pEngine->debugShowFPS)
 	{
-		float text_scale = 0.7f;
-		const float offset_line = fc_dbg_get_text_line_height(text_scale);
+		f32 text_scale = 0.7f;
+		const f32 offset_line = fc_dbg_get_text_line_height(text_scale);
 
-		float x = 0;
-		float y = 0;
+		f32 x = 0;
+		f32 y = 0;
 		fc_dbg_apply_anchor(&x, &y, FC_DBG_ANCHOR_LEFT_UP_CORNER);
 
 		{
-			const float fps = 1.0f / dt;
-			const float ms = dt * 1000.0f;
+			const f32 fps = 1.0f / dt;
+			const f32 ms = dt * 1000.0f;
 			
 			char txt[50];
 			sprintf(txt, "CPU: %1.1f fps (%1.1f ms)", fps, ms);
 			
-			const float green[4] = FUR_COLOR_GREEN;
-			const float yellow[4] = FUR_COLOR_YELLOW;
-			const float red[4] = FUR_COLOR_RED;
+			const f32 green[4] = FUR_COLOR_GREEN;
+			const f32 yellow[4] = FUR_COLOR_YELLOW;
+			const f32 red[4] = FUR_COLOR_RED;
 			fc_dbg_text(x, y, txt, ms < 16 ? green : ms < 33 ? yellow : red, text_scale);
 		}
 		{
 			fc_mem_stats_t stats = fc_memory_stats();
 			
-			const float numMBs = ((float)stats.numBytesUsed) / (1024.0f * 1024.0f);
-			const float numCapacityMBs = ((float)stats.numBytesCapacity) / (1024.0f * 1024.0f);
+			const f32 numMBs = ((f32)stats.numBytesUsed) / (1024.0f * 1024.0f);
+			const f32 numCapacityMBs = ((f32)stats.numBytesCapacity) / (1024.0f * 1024.0f);
 			
 			char txt[50];
 			sprintf(txt, "MEM: %1.2f / %1.2f MBs (%u allocs)", numMBs, numCapacityMBs, stats.numAllocs);
 			
-			const float green[4] = FUR_COLOR_GREEN;
-			const float yellow[4] = FUR_COLOR_YELLOW;
-			const float red[4] = FUR_COLOR_RED;
+			const f32 green[4] = FUR_COLOR_GREEN;
+			const f32 yellow[4] = FUR_COLOR_YELLOW;
+			const f32 red[4] = FUR_COLOR_RED;
 			fc_dbg_text(x, y + offset_line, txt, numMBs < numCapacityMBs * 0.95f ? green : numMBs < numCapacityMBs ? yellow : red, text_scale);
 		}
 	}
@@ -2304,14 +2304,14 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 	// show memory statistics for each memory scope
 	if(pEngine->debugShowMemoryStats)
 	{
-		const float white[4] = FUR_COLOR_WHITE;
-		int32_t textLineCounter = 0;
+		const f32 white[4] = FUR_COLOR_WHITE;
+		i32 textLineCounter = 0;
 
-		float x = 20.0f;
-		float y = 400.0f;
+		f32 x = 20.0f;
+		f32 y = 400.0f;
 		fc_dbg_apply_anchor(&x, &y, FC_DBG_ANCHOR_LEFT_UP_CORNER);
-		const float text_scale = 0.7f;
-		const float line_height = fc_dbg_get_text_line_height(text_scale);
+		const f32 text_scale = 0.7f;
+		const f32 line_height = fc_dbg_get_text_line_height(text_scale);
 		
 		fc_dbg_text(x, y - line_height, "-[ Retail Memory ]-----------------------------------------------", white, text_scale);
 		
@@ -2337,10 +2337,10 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 	// slow-time debug mode - this needs to be after debugShowFPS
 	if(pEngine->debugIsSlowTime)
 	{
-		const float color[4] = FUR_COLOR_RED;
-		const float scale = 0.7f;
-		float x = -7.0f * fc_dbg_get_text_line_height(scale);
-		float y = -fc_dbg_get_text_line_height(scale);
+		const f32 color[4] = FUR_COLOR_RED;
+		const f32 scale = 0.7f;
+		f32 x = -7.0f * fc_dbg_get_text_line_height(scale);
+		f32 y = -fc_dbg_get_text_line_height(scale);
 		fc_dbg_apply_anchor(&x, &y, FC_DBG_ANCHOR_RIGHT_BOTTOM_CORNER);
 		fc_dbg_text(x, y, "slow-time ON", color, scale);
 		dt *= 0.3f;
@@ -2377,14 +2377,14 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		playerPhysics.locator = &playerLocator;
 		fp_physics_get_player_info(pEngine->pPhysics, &playerPhysics);
 		
-		static float time = 0.0f;
+		static f32 time = 0.0f;
 		time += dt;
 		
 		// convert world space look-at point to model space of player
 		fm_vec4 lookAtPoint = {2.0f * sinf(time), 2.0f * cosf(time), 1.0f + 1.0f * sinf(time * 0.6f), 1.0f};	// in world space
 		
-		float color[4] = FUR_COLOR_MAGENTA;
-		float extent[] = {0.1f, 0.1f, 0.1f};
+		f32 color[4] = FUR_COLOR_MAGENTA;
+		f32 extent[] = {0.1f, 0.1f, 0.1f};
 		fc_dbg_box_wire(&lookAtPoint.x, extent, color);
 		
 		extent[0] = 0.07f;
@@ -2397,7 +2397,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		extent[2] = 0.04f;
 		fc_dbg_box_wire(&lookAtPoint.x, extent, color);
 		
-		const float distanceToLookAtPoint = fm_vec4_distance(&lookAtPoint, &playerLocator.pos);
+		const f32 distanceToLookAtPoint = fm_vec4_distance(&lookAtPoint, &playerLocator.pos);
 		
 		if(pEngine->zeldaGameObject.animCharacter->animInfo.useLookAt)
 		{
@@ -2425,9 +2425,9 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		const fm_vec4 axisY = {0.0f, 1.0f, 0.0f, 0.0f};
 		const fm_vec4 axisZ = {0.0f, 0.0f, 1.0f, 0.0f};
 		
-		const float red[4] = FUR_COLOR_RED;
-		const float green[4] = FUR_COLOR_GREEN;
-		const float blue[4] = FUR_COLOR_BLUE;
+		const f32 red[4] = FUR_COLOR_RED;
+		const f32 green[4] = FUR_COLOR_GREEN;
+		const f32 blue[4] = FUR_COLOR_BLUE;
 		
 		fc_dbg_line(&zeros.x, &axisX.x, red);
 		fc_dbg_line(&zeros.x, &axisY.x, green);
@@ -2455,7 +2455,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		}
 		else
 		{
-			const float speed = fm_vec4_mag(&pEngine->zeldaGameObject.velocity);
+			const f32 speed = fm_vec4_mag(&pEngine->zeldaGameObject.velocity);
 			if(speed > 0.0f)
 			{
 				pEngine->zeldaGameObject.velocity.x += pEngine->zeldaGameObject.animCharacter->animInfo.desiredMove.x * 1.2f;
@@ -2508,7 +2508,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 			simCtx.dt = dt;
 			
 			fm_vec4 spherePos = pEngine->skinMatrices[pEngine->zeldaHeadIdx].w;
-			const float sphereRadius = 0.08f;
+			const f32 sphereRadius = 0.08f;
 			pEngine->zeldaDangleHairLeft.spherePos = &spherePos;
 			pEngine->zeldaDangleHairLeft.sphereRadius = sphereRadius;
 			pEngine->zeldaDangleHairRight.spherePos = &spherePos;
@@ -2518,7 +2518,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 			pEngine->zeldaDangleHairRight.x0[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1].w;
 			
 			// add wind velocity
-			for(uint32_t i=0; i<3; ++i)
+			for(u32 i=0; i<3; ++i)
 			{
 				pEngine->zeldaDangleHairLeft.v[i].x += pEngine->windVelocity.x * dt;
 				pEngine->zeldaDangleHairLeft.v[i].y += pEngine->windVelocity.y * dt;
@@ -2553,7 +2553,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 			fm_vec4 spherePos = pEngine->skinMatrices[pEngine->zeldaSpineIdx].w;
 			spherePos.z -= 0.25f;
 			spherePos.x = 0.6f;
-			const float sphereRadius = 0.8f;
+			const f32 sphereRadius = 0.8f;
 			pEngine->zeldaCapeL.spherePos = &spherePos;
 			pEngine->zeldaCapeL.sphereRadius = sphereRadius;
 			pEngine->zeldaCapeC.spherePos = &spherePos;
@@ -2566,7 +2566,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 			pEngine->zeldaCapeR.x0[0] = pEngine->skinMatrices[pEngine->zeldaCapeIdxR[0]].w;
 			
 			// add wind velocity
-			for(uint32_t i=0; i<4; ++i)
+			for(u32 i=0; i<4; ++i)
 			{
 				pEngine->zeldaCapeL.v[i].x += pEngine->windVelocity.x * dt;
 				pEngine->zeldaCapeL.v[i].y += pEngine->windVelocity.y * dt;
@@ -2590,7 +2590,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 			m[0] = pEngine->skinMatrices[pEngine->zeldaCapeIdxL[0]];
 			fa_dangle_to_matrices_y_down(&pEngine->zeldaCapeL, &m[0], m);
 			
-			for(uint32_t i=0; i<4; ++i)
+			for(u32 i=0; i<4; ++i)
 			{
 				pEngine->skinMatrices[pEngine->zeldaCapeIdxL[i]] = m[i];
 			}
@@ -2598,7 +2598,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 			m[0] = pEngine->skinMatrices[pEngine->zeldaCapeIdxC[0]];
 			fa_dangle_to_matrices_y_down(&pEngine->zeldaCapeC, &m[0], m);
 			
-			for(uint32_t i=0; i<4; ++i)
+			for(u32 i=0; i<4; ++i)
 			{
 				pEngine->skinMatrices[pEngine->zeldaCapeIdxC[i]] = m[i];
 			}
@@ -2606,7 +2606,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 			m[0] = pEngine->skinMatrices[pEngine->zeldaCapeIdxR[0]];
 			fa_dangle_to_matrices_y_down(&pEngine->zeldaCapeR, &m[0], m);
 			
-			for(uint32_t i=0; i<4; ++i)
+			for(u32 i=0; i<4; ++i)
 			{
 				pEngine->skinMatrices[pEngine->zeldaCapeIdxR[i]] = m[i];
 			}
@@ -2615,10 +2615,10 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 	
 	// test jobs
 	{
-		int32_t numStuff = 40;
+		i32 numStuff = 40;
 		
 		fc_job_decl_t jobs[40] = {};
-		for(int32_t i=0; i<40; ++i)
+		for(i32 i=0; i<40; ++i)
 		{
 			jobs[i].func = test_job;
 			jobs[i].userData = &numStuff;
@@ -2665,7 +2665,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, float dt, fc_alloc_callback
 		}
 		
 		// player movement
-		const float maxSpeed = 5.0f;
+		const f32 maxSpeed = 5.0f;
 		
 		fm_vec4 dirForward = {};
 		fm_vec4 dirLeft = {};
@@ -2770,10 +2770,10 @@ FUR_JOB_ENTRY_POINT(fur_engine_main_thread_loop)
 	while(fr_update_app(pEngine->pApp))
 	{
 		std::chrono::system_clock::time_point timeNow = std::chrono::system_clock::now();
-		std::chrono::duration<float> dtOrig = timeNow - pEngine->prevTimePoint;
+		std::chrono::duration<f32> dtOrig = timeNow - pEngine->prevTimePoint;
 		pEngine->prevTimePoint = timeNow;
 		
-		const float dt = dtOrig.count();
+		const f32 dt = dtOrig.count();
 		
 		fc_profiler_start_frame();
 		
@@ -2815,7 +2815,7 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	fr_release_proxy(pEngine->pRenderer, pEngine->blockMesh, pAllocCallbacks);
 	
 	// load rock meshes
-	for(uint32_t i=0; i<5; ++i)
+	for(u32 i=0; i<5; ++i)
 	{
 		fr_release_proxy(pEngine->pRenderer, pEngine->rockMeshes[i], pAllocCallbacks);
 	}

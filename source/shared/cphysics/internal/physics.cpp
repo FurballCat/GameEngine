@@ -10,7 +10,7 @@
 
 using namespace physx;
 
-void fc_sort(void* arrayData, size_t numElems, size_t size, void* context, int(*compar)(void*, const void*, const void*))
+void fc_sort(void* arrayData, u64 numElems, u64 size, void* context, int(*compar)(void*, const void*, const void*))
 {
 #if PLATFORM_OSX
 	qsort_r(arrayData, numElems, size, context, compar);
@@ -162,7 +162,7 @@ void fp_physics_add_static_box(fp_physics_t* physics, const fm_xform* worldLocat
 	scene->addActor(*obj);
 }
 
-bool fp_physics_raycast(fp_physics_t* physics, const fm_vec4* start, const fm_vec4* dir, const float distance, fp_physics_raycast_hit_t* hit)
+bool fp_physics_raycast(fp_physics_t* physics, const fm_vec4* start, const fm_vec4* dir, const f32 distance, fp_physics_raycast_hit_t* hit)
 {
 	PxScene* scene = physics->scene;
 	
@@ -200,9 +200,9 @@ void fp_physics_update(fp_physics_t* physics, const fp_physics_update_ctx_t* pCt
 		scene->fetchResults(true); // true to block the thread until simulate is finished
 	}
 	
-	//const float red[4] = FUR_COLOR_RED;
-	//const float green[4] = FUR_COLOR_GREEN;
-	//const float blue[4] = FUR_COLOR_BLUE;
+	//const f32 red[4] = FUR_COLOR_RED;
+	//const f32 green[4] = FUR_COLOR_GREEN;
+	//const f32 blue[4] = FUR_COLOR_BLUE;
 	
 	// text capsule rigid body
 	{
@@ -211,10 +211,10 @@ void fp_physics_update(fp_physics_t* physics, const fp_physics_update_ctx_t* pCt
 		//const PxVec3 y = t.q.getBasisVector1();
 		//const PxVec3 z = t.q.getBasisVector2();
 		
-		//const float start[3] = {t.p.x, t.p.y, t.p.z};
-		//const float end_x[3] = {t.p.x + x.x, t.p.y + x.y, t.p.z + x.z};
-		//const float end_y[3] = {t.p.x + y.x, t.p.y + y.y, t.p.z + y.z};
-		//const float end_z[3] = {t.p.x + z.x, t.p.y + z.y, t.p.z + z.z};
+		//const f32 start[3] = {t.p.x, t.p.y, t.p.z};
+		//const f32 end_x[3] = {t.p.x + x.x, t.p.y + x.y, t.p.z + x.z};
+		//const f32 end_y[3] = {t.p.x + y.x, t.p.y + y.y, t.p.z + y.z};
+		//const f32 end_z[3] = {t.p.x + z.x, t.p.y + z.y, t.p.z + z.z};
 		
 		/*
 		fc_dbg_line(start, end_x, red);
@@ -225,16 +225,16 @@ void fp_physics_update(fp_physics_t* physics, const fp_physics_update_ctx_t* pCt
 	
 	// plane collider
 	{
-		const float planeHalfLength = 1.0f;
-		const float spacing = planeHalfLength / 0.5f;
-		const uint32_t gridSize = 20;
+		const f32 planeHalfLength = 1.0f;
+		const f32 spacing = planeHalfLength / 0.5f;
+		const u32 gridSize = 20;
 		
-		for(uint32_t x=0; x<gridSize; ++x)
+		for(u32 x=0; x<gridSize; ++x)
 		{
-			for(uint32_t y=0; y<gridSize; ++y)
+			for(u32 y=0; y<gridSize; ++y)
 			{
-				const float planeCenter[3] = {spacing * x - spacing * gridSize * 0.5f, spacing * y - spacing * gridSize * 0.5f, 0.0f};
-				float planeColor[4] = FUR_COLOR_DARK_GREY;
+				const f32 planeCenter[3] = {spacing * x - spacing * gridSize * 0.5f, spacing * y - spacing * gridSize * 0.5f, 0.0f};
+				f32 planeColor[4] = FUR_COLOR_DARK_GREY;
 				
 				if((x + y) % 2)
 				{
@@ -258,13 +258,13 @@ void fp_physics_update(fp_physics_t* physics, const fp_physics_update_ctx_t* pCt
 		
 		const PxExtendedVec3 footPos = pPhysics->controller->getFootPosition();
 		
-		const float start[3] = {t.p.x, t.p.y, t.p.z};
-		const float end_x[3] = {t.p.x + x.x, t.p.y + x.y, t.p.z + x.z};
-		const float end_y[3] = {t.p.x + y.x, t.p.y + y.y, t.p.z + y.z};
-		const float end_z[3] = {t.p.x + z.x, t.p.y + z.y, t.p.z + z.z};
-		const float footPosf[3] = {(float)footPos.x, (float)footPos.y, (float)footPos.z};
+		const f32 start[3] = {t.p.x, t.p.y, t.p.z};
+		const f32 end_x[3] = {t.p.x + x.x, t.p.y + x.y, t.p.z + x.z};
+		const f32 end_y[3] = {t.p.x + y.x, t.p.y + y.y, t.p.z + y.z};
+		const f32 end_z[3] = {t.p.x + z.x, t.p.y + z.y, t.p.z + z.z};
+		const f32 footPosf[3] = {(f32)footPos.x, (f32)footPos.y, (f32)footPos.z};
 		
-		const float yellow[4] = FUR_COLOR_YELLOW;
+		const f32 yellow[4] = FUR_COLOR_YELLOW;
 		
 		fc_dbg_line(start, end_x, red);
 		fc_dbg_line(start, end_x, red);
@@ -293,15 +293,15 @@ void fp_physics_get_player_info(fp_physics_t* physics, fp_physics_player_info_t*
 typedef struct fp_bvh_node_t
 {
 	fm_box bound;
-	uint32_t numChildren;	// if 0, then next property is an object ID
-	uint32_t idxFirstChildOrObjectID;
+	u32 numChildren;	// if 0, then next property is an object ID
+	u32 idxFirstChildOrObjectID;
 } fp_bvh_node_t;
 
 int fp_sort_comp_x(void* inAllBoxes, const void* inIdxA, const void* inIdxB)
 {
 	const fm_box* allBoxes = (const fm_box*)inAllBoxes;
-	const uint32_t idxA = *(const uint32_t*)inIdxA;
-	const uint32_t idxB = *(const uint32_t*)inIdxB;
+	const u32 idxA = *(const u32*)inIdxA;
+	const u32 idxB = *(const u32*)inIdxB;
 	
 	return allBoxes[idxA].center.x > allBoxes[idxB].center.x;
 }
@@ -309,8 +309,8 @@ int fp_sort_comp_x(void* inAllBoxes, const void* inIdxA, const void* inIdxB)
 int fp_sort_comp_y(void* inAllBoxes, const void* inIdxA, const void* inIdxB)
 {
 	const fm_box* allBoxes = (const fm_box*)inAllBoxes;
-	const uint32_t idxA = *(const uint32_t*)inIdxA;
-	const uint32_t idxB = *(const uint32_t*)inIdxB;
+	const u32 idxA = *(const u32*)inIdxA;
+	const u32 idxB = *(const u32*)inIdxB;
 	
 	return allBoxes[idxA].center.y > allBoxes[idxB].center.y;
 }
@@ -318,14 +318,14 @@ int fp_sort_comp_y(void* inAllBoxes, const void* inIdxA, const void* inIdxB)
 int fp_sort_comp_z(void* inAllBoxes, const void* inIdxA, const void* inIdxB)
 {
 	const fm_box* allBoxes = (const fm_box*)inAllBoxes;
-	const uint32_t idxA = *(const uint32_t*)inIdxA;
-	const uint32_t idxB = *(const uint32_t*)inIdxB;
+	const u32 idxA = *(const u32*)inIdxA;
+	const u32 idxB = *(const u32*)inIdxB;
 	
 	return allBoxes[idxA].center.z > allBoxes[idxB].center.z;
 }
 
-void fp_bvh_box_recursive_build(fp_bvh_node_t* nodes, uint32_t maxNodes, uint32_t curNode, uint32_t* nextFreeNodeIdx,
-								fm_box* allObjectBoxes, uint32_t* objectIndices, uint32_t numObjects)
+void fp_bvh_box_recursive_build(fp_bvh_node_t* nodes, u32 maxNodes, u32 curNode, u32* nextFreeNodeIdx,
+								fm_box* allObjectBoxes, u32* objectIndices, u32 numObjects)
 {
 	// stop condition - single object in the BVH node
 	if(numObjects == 1)
@@ -338,7 +338,7 @@ void fp_bvh_box_recursive_build(fp_bvh_node_t* nodes, uint32_t maxNodes, uint32_
 	
 	// calculate the box bounding all the objects in the list
 	fm_box box = allObjectBoxes[objectIndices[0]];
-	for(uint32_t i=1; i<numObjects; ++i)
+	for(u32 i=1; i<numObjects; ++i)
 	{
 		fm_box_append(&box, &allObjectBoxes[objectIndices[i]]);
 	}
@@ -346,15 +346,15 @@ void fp_bvh_box_recursive_build(fp_bvh_node_t* nodes, uint32_t maxNodes, uint32_
 	// check which axis of box is the longest and sort objects along this axis
 	if(box.extent.x > box.extent.y && box.extent.x > box.extent.z)	// x-axis
 	{
-		fc_sort(objectIndices, numObjects, sizeof(uint32_t), allObjectBoxes, fp_sort_comp_x);
+		fc_sort(objectIndices, numObjects, sizeof(u32), allObjectBoxes, fp_sort_comp_x);
 	}
 	else if(box.extent.y > box.extent.z)	// y-axis
 	{
-		fc_sort(objectIndices, numObjects, sizeof(uint32_t), allObjectBoxes, fp_sort_comp_y);
+		fc_sort(objectIndices, numObjects, sizeof(u32), allObjectBoxes, fp_sort_comp_y);
 	}
 	else	// z-axis
 	{
-		fc_sort(objectIndices, numObjects, sizeof(uint32_t), allObjectBoxes, fp_sort_comp_z);
+		fc_sort(objectIndices, numObjects, sizeof(u32), allObjectBoxes, fp_sort_comp_z);
 	}
 	
 	// fill in this node
@@ -363,11 +363,11 @@ void fp_bvh_box_recursive_build(fp_bvh_node_t* nodes, uint32_t maxNodes, uint32_
 	nodes[curNode].numChildren = 2;
 	
 	// create children nodes
-	const uint32_t childIdxA = nodes[curNode].idxFirstChildOrObjectID;
-	const uint32_t childIdxB = nodes[curNode].idxFirstChildOrObjectID + 1;
+	const u32 childIdxA = nodes[curNode].idxFirstChildOrObjectID;
+	const u32 childIdxB = nodes[curNode].idxFirstChildOrObjectID + 1;
 	
-	const uint32_t numObjectsA = numObjects / 2;
-	const uint32_t numObjectsB = numObjects - numObjectsA;
+	const u32 numObjectsA = numObjects / 2;
+	const u32 numObjectsB = numObjects - numObjectsA;
 	
 	FUR_ASSERT(*nextFreeNodeIdx + 2 < maxNodes);
 	*nextFreeNodeIdx += 2;
@@ -379,29 +379,29 @@ void fp_bvh_box_recursive_build(fp_bvh_node_t* nodes, uint32_t maxNodes, uint32_
 void fp_bvh_build(const fp_bvh_build_ctx_t* ctx, fp_bvh_t* bvh, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	// allocate array of indices on scratchpad
-	const uint32_t sizeMemIndices = ctx->numObjects * sizeof(uint32_t);
-	uint32_t* objectIndices = (uint32_t*)fc_mem_arena_alloc(ctx->arenaAlloc, sizeMemIndices, 0);
+	const u32 sizeMemIndices = ctx->numObjects * sizeof(u32);
+	u32* objectIndices = (u32*)fc_mem_arena_alloc(ctx->arenaAlloc, sizeMemIndices, 0);
 	
-	for(uint32_t i=0; i<ctx->numObjects; ++i)
+	for(u32 i=0; i<ctx->numObjects; ++i)
 	{
 		objectIndices[i] = i;
 	}
 	
 	// allocate array of temporary BVH nodes on scratchpad, later on they will be copied to proper memory
-	const uint32_t numMaxNodes = (ctx->arenaAlloc->capacity - ctx->arenaAlloc->size) / sizeof(fp_bvh_node_t);
+	const u32 numMaxNodes = (ctx->arenaAlloc->capacity - ctx->arenaAlloc->size) / sizeof(fp_bvh_node_t);
 	FUR_ASSERT(numMaxNodes > 0);
 	
 	// init nodes by zero
 	fp_bvh_node_t* tmpNodes = (fp_bvh_node_t*)fc_mem_arena_alloc_and_zero(ctx->arenaAlloc, sizeof(fp_bvh_node_t) * numMaxNodes, 0);
 	
-	uint32_t nextFreeIndex = 1; // 1 because root is assumed to be already allocated
+	u32 nextFreeIndex = 1; // 1 because root is assumed to be already allocated
 	
 	// recursively iterate objects to build BVH
 	fp_bvh_box_recursive_build(tmpNodes, numMaxNodes, 0, &nextFreeIndex, ctx->objectBoxes, objectIndices, ctx->numObjects);
 	
 	FUR_ASSERT(nextFreeIndex > 0);	// something got processed - yey!
 	
-	const uint32_t numFinalNodes = nextFreeIndex;
+	const u32 numFinalNodes = nextFreeIndex;
 	
 	bvh->nodes = FUR_ALLOC_ARRAY(fp_bvh_node_t, numFinalNodes, 0, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
 	bvh->numNodes = numFinalNodes;
@@ -418,13 +418,13 @@ void fp_bvh_release(fp_bvh_t* bvh, fc_alloc_callbacks_t* pAllocCallbacks)
 
 void fp_bvh_debug_draw(const fp_bvh_t* bvh)
 {
-	const uint32_t numNodes = bvh->numNodes;
+	const u32 numNodes = bvh->numNodes;
 
-	float color[4] = FUR_COLOR_RED;
+	f32 color[4] = FUR_COLOR_RED;
 
-	for(uint32_t i=0; i<numNodes; ++i)
+	for(u32 i=0; i<numNodes; ++i)
 	{
 		const fm_box* box = &bvh->nodes[i].bound;
-		fc_dbg_box_wire((const float*)&box->center, (const float*)&box->extent, color);
+		fc_dbg_box_wire((const f32*)&box->center, (const f32*)&box->extent, color);
 	}
 }

@@ -16,7 +16,7 @@ void fr_staging_init(fr_staging_buffer_builder_t* builder)
 	memset(builder, 0, sizeof(fr_staging_buffer_builder_t));
 }
 
-void fr_staging_add(fr_staging_buffer_builder_t* builder, void* pData, uint32_t size,
+void fr_staging_add(fr_staging_buffer_builder_t* builder, void* pData, u32 size,
 					void* pUserData, fr_staging_free_data_func_t fnFree)
 {
 	FUR_ASSERT(builder);
@@ -48,9 +48,9 @@ void fr_staging_build(fr_staging_buffer_builder_t* builder,
 					 FR_STAGING_BUFFER_USAGE_FLAGS, FR_STAGING_BUFFER_MEMORY_FLAGS,
 					 buffer, bufferMemory, pAllocCallbacks);
 	
-	uint32_t currentSize = 0;
+	u32 currentSize = 0;
 	
-	for(uint32_t i=0; i<builder->count; ++i)
+	for(u32 i=0; i<builder->count; ++i)
 	{
 		fr_staging_buffer_entry_t* entry = &builder->entries[i];
 		
@@ -65,7 +65,7 @@ void fr_staging_build(fr_staging_buffer_builder_t* builder,
 
 void fr_staging_release_builder(fr_staging_buffer_builder_t* builder)
 {
-	for(uint32_t i=0; i<builder->count; ++i)
+	for(u32 i=0; i<builder->count; ++i)
 	{
 		fr_staging_buffer_entry_t* entry = &builder->entries[i];
 		
@@ -78,11 +78,11 @@ void fr_staging_release_builder(fr_staging_buffer_builder_t* builder)
 }
 
 void fr_staging_record_copy_commands(fr_staging_buffer_builder_t* builder, VkCommandBuffer commandBuffer, VkBuffer stagingBuffer,
-									 uint32_t* aSrcRegionIndex, VkBuffer* aDstBuffer, const VkDeviceSize* aDstOffsets, uint32_t numBuffers)
+									 u32* aSrcRegionIndex, VkBuffer* aDstBuffer, const VkDeviceSize* aDstOffsets, u32 numBuffers)
 {
-	for(uint32_t i=0; i<numBuffers; ++i)
+	for(u32 i=0; i<numBuffers; ++i)
 	{
-		const uint32_t srcIndex = aSrcRegionIndex[i];
+		const u32 srcIndex = aSrcRegionIndex[i];
 		FUR_ASSERT(srcIndex < builder->count);
 		
 		const fr_staging_buffer_entry_t* entry = &builder->entries[srcIndex];
@@ -100,7 +100,7 @@ void fr_alloc_descriptor_sets_mesh(VkDevice device, fr_alloc_descriptor_sets_mes
 {
 	// allocate descriptor sets - remember that the descriptorPool needs space for them
 	VkDescriptorSetLayout layouts[20] = {0};	// max layouts
-	for(uint32_t i=0; i<ctx->numDescriptors; ++i)
+	for(u32 i=0; i<ctx->numDescriptors; ++i)
 	{
 		layouts[i] = ctx->layout;
 	}
@@ -118,7 +118,7 @@ void fr_alloc_descriptor_sets_mesh(VkDevice device, fr_alloc_descriptor_sets_mes
 	
 	// textures
 	VkDescriptorImageInfo imageInfo[20] = {0};
-	for(uint32_t i=0; i<ctx->numTextures; ++i)
+	for(u32 i=0; i<ctx->numTextures; ++i)
 	{
 		imageInfo[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		imageInfo[i].imageView = ctx->textures[i].view;
@@ -126,7 +126,7 @@ void fr_alloc_descriptor_sets_mesh(VkDevice device, fr_alloc_descriptor_sets_mes
 	}
 	
 	// do writes for each of the descriptor set
-	for (size_t i = 0; i < ctx->numDescriptors; ++i)
+	for (u64 i = 0; i < ctx->numDescriptors; ++i)
 	{
 		VkDescriptorBufferInfo bufferInfo[2] = {0};
 		bufferInfo[0].buffer = ctx->uniformBuffers[i].buffer;
@@ -138,7 +138,7 @@ void fr_alloc_descriptor_sets_mesh(VkDevice device, fr_alloc_descriptor_sets_mes
 		bufferInfo[1].range = ctx->skinningBufferSize;
 		
 		VkWriteDescriptorSet descriptorWrites[3] = {0};
-		const uint32_t numBindings = 3;
+		const u32 numBindings = 3;
 		
 		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		descriptorWrites[0].dstSet = ctx->outDescriptorSets[i];
@@ -176,7 +176,7 @@ void fr_write_descriptor_set(VkDevice device, fr_write_descriptor_set_ctx_t* ctx
 {
 	// textures
 	VkDescriptorImageInfo imageInfo[20] = {0};
-	for(uint32_t i=0; i<ctx->numTextures; ++i)
+	for(u32 i=0; i<ctx->numTextures; ++i)
 	{
 		imageInfo[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		imageInfo[i].imageView = ctx->textures[i].view;
@@ -184,7 +184,7 @@ void fr_write_descriptor_set(VkDevice device, fr_write_descriptor_set_ctx_t* ctx
 	}
 	
 	// todo: fix this hack, fragment shader needs 3 texture samplers to be bound
-	for(uint32_t i=ctx->numTextures; i<3; ++i)
+	for(u32 i=ctx->numTextures; i<3; ++i)
 	{
 		// bind any texture to the rest of the samples
 		imageInfo[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -192,7 +192,7 @@ void fr_write_descriptor_set(VkDevice device, fr_write_descriptor_set_ctx_t* ctx
 		imageInfo[i].sampler = ctx->samplers[0];
 	}
 	
-	const uint32_t numTextures = (ctx->numTextures < 3) ? 3 : ctx->numTextures;	// todo: hack, fix that
+	const u32 numTextures = (ctx->numTextures < 3) ? 3 : ctx->numTextures;	// todo: hack, fix that
 	
 	VkDescriptorBufferInfo bufferInfo[2] = {0};
 	bufferInfo[0].buffer = ctx->uniformBuffer->buffer;
@@ -207,7 +207,7 @@ void fr_write_descriptor_set(VkDevice device, fr_write_descriptor_set_ctx_t* ctx
 	}
 	
 	VkWriteDescriptorSet descriptorWrites[3] = {0};
-	const uint32_t numBindings = 3;
+	const u32 numBindings = 3;
 	
 	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	descriptorWrites[0].dstSet = descriptor;
@@ -443,7 +443,7 @@ void fr_transition_image_layout(VkDevice device, VkQueue graphicsQueue, VkComman
 }
 
 void fr_copy_buffer_to_image(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkBuffer buffer,
-							 VkDeviceSize bufferOffset, VkImage image, uint32_t width, uint32_t height, struct fc_alloc_callbacks_t* pAllocCallbacks)
+							 VkDeviceSize bufferOffset, VkImage image, u32 width, u32 height, struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	VkCommandBuffer commandBuffer = fr_begin_simple_commands(device, commandPool, pAllocCallbacks);
 	
@@ -469,12 +469,12 @@ void fr_copy_buffer_to_image(VkDevice device, VkQueue graphicsQueue, VkCommandPo
 	fr_end_simple_commands(device, graphicsQueue, commandBuffer, commandPool, pAllocCallbacks);
 }
 
-uint32_t fr_find_memory_type(const VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags propertyFlags)
+u32 fr_find_memory_type(const VkPhysicalDevice physicalDevice, u32 typeFilter, VkMemoryPropertyFlags propertyFlags)
 {
 	VkPhysicalDeviceMemoryProperties memProperties;
 	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
 	
-	for (uint32_t i = 0; i < memProperties.memoryTypeCount; ++i)
+	for (u32 i = 0; i < memProperties.memoryTypeCount; ++i)
 	{
 		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & propertyFlags) == propertyFlags)
 		{
@@ -484,5 +484,5 @@ uint32_t fr_find_memory_type(const VkPhysicalDevice physicalDevice, uint32_t typ
 	
 	FUR_ASSERT(false);
 	
-	return (uint32_t)-1;
+	return (u32)-1;
 }

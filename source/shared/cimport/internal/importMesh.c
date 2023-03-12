@@ -24,7 +24,7 @@ void fr_resource_mesh_serialize(fc_serializer_t* pSerializer, fr_resource_mesh_t
 		mesh->chunks = FUR_ALLOC_ARRAY_AND_ZERO(fr_resource_mesh_chunk_t, mesh->numChunks, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 	}
 	
-	for(int32_t i=0; i<mesh->numChunks; ++i)
+	for(i32 i=0; i<mesh->numChunks; ++i)
 	{
 		fr_resource_mesh_chunk_t* chunk = &mesh->chunks[i];
 		FUR_SER_ADD(FR_MESH_VER_BASE, chunk->numBones);
@@ -34,13 +34,13 @@ void fr_resource_mesh_serialize(fc_serializer_t* pSerializer, fr_resource_mesh_t
 		
 		if(!pSerializer->isWriting)
 		{
-			chunk->dataVertices = (float*)FUR_ALLOC_AND_ZERO(chunk->vertexStride * sizeof(float) * chunk->numVertices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
-			chunk->dataIndices = FUR_ALLOC_ARRAY_AND_ZERO(uint32_t, chunk->numIndices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+			chunk->dataVertices = (f32*)FUR_ALLOC_AND_ZERO(chunk->vertexStride * sizeof(f32) * chunk->numVertices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+			chunk->dataIndices = FUR_ALLOC_ARRAY_AND_ZERO(u32, chunk->numIndices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 		}
 		
 		// geometry data
-		FUR_SER_ADD_BUFFER(FR_MESH_VER_BASE, chunk->dataVertices, chunk->vertexStride * sizeof(float) * chunk->numVertices);
-		FUR_SER_ADD_BUFFER(FR_MESH_VER_BASE, chunk->dataIndices, sizeof(uint32_t) * chunk->numIndices);
+		FUR_SER_ADD_BUFFER(FR_MESH_VER_BASE, chunk->dataVertices, chunk->vertexStride * sizeof(f32) * chunk->numVertices);
+		FUR_SER_ADD_BUFFER(FR_MESH_VER_BASE, chunk->dataIndices, sizeof(u32) * chunk->numIndices);
 		
 		// skinning data
 		if(chunk->numBones > 0)

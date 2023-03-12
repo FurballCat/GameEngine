@@ -6,19 +6,19 @@
 #include "cmath/public.h"
 #include <string.h>
 
-CANIM_API void fa_pose_stack_init(fa_pose_stack_t* pStack, const fa_pose_stack_desc_t* desc, void* buffer, uint32_t bufferSize)
+CANIM_API void fa_pose_stack_init(fa_pose_stack_t* pStack, const fa_pose_stack_desc_t* desc, void* buffer, u32 bufferSize)
 {
 	FUR_ASSERT(pStack);
 	FUR_ASSERT(pStack->buffer == NULL);
 	
-	const uint32_t sizeXforms = desc->numBonesPerPose * sizeof(fm_xform);
-	const uint32_t sizeWeightXforms = desc->numBonesPerPose * sizeof(uint8_t);
-	const uint32_t sizeTracks = desc->numTracksPerPose * sizeof(float);
-	const uint32_t sizeWeightTracks = desc->numTracksPerPose * sizeof(uint8_t);
+	const u32 sizeXforms = desc->numBonesPerPose * sizeof(fm_xform);
+	const u32 sizeWeightXforms = desc->numBonesPerPose * sizeof(u8);
+	const u32 sizeTracks = desc->numTracksPerPose * sizeof(f32);
+	const u32 sizeWeightTracks = desc->numTracksPerPose * sizeof(u8);
 	
-	uint32_t poseSize = sizeXforms + sizeTracks + sizeWeightXforms + sizeWeightTracks;
+	u32 poseSize = sizeXforms + sizeTracks + sizeWeightXforms + sizeWeightTracks;
 	poseSize += 16 - poseSize % 16;	// align pose size to 16 (add padding, so the next pose will be aligned to 16)
-	uint32_t bufferSizeRequired = poseSize * desc->numMaxPoses;
+	u32 bufferSizeRequired = poseSize * desc->numMaxPoses;
 	
 	FUR_ASSERT(bufferSize >= bufferSizeRequired);
 	
@@ -41,7 +41,7 @@ CANIM_API void fa_pose_stack_release(fa_pose_stack_t* pStack)
 	memset(pStack, 0, sizeof(fa_pose_stack_t));
 }
 
-CANIM_API void fa_pose_stack_push(fa_pose_stack_t* pStack, uint32_t count)
+CANIM_API void fa_pose_stack_push(fa_pose_stack_t* pStack, u32 count)
 {
 	FUR_ASSERT(pStack->buffer != NULL);
 	FUR_ASSERT(pStack->numPoses + count <= pStack->numMaxPoses);
@@ -49,7 +49,7 @@ CANIM_API void fa_pose_stack_push(fa_pose_stack_t* pStack, uint32_t count)
 	pStack->numPoses += count;
 }
 
-CANIM_API void fa_pose_stack_pop(fa_pose_stack_t* pStack, uint32_t count)
+CANIM_API void fa_pose_stack_pop(fa_pose_stack_t* pStack, u32 count)
 {
 	FUR_ASSERT(pStack->buffer != NULL);
 	FUR_ASSERT(pStack->numPoses >= count);
@@ -57,14 +57,14 @@ CANIM_API void fa_pose_stack_pop(fa_pose_stack_t* pStack, uint32_t count)
 	pStack->numPoses -= count;
 }
 
-CANIM_API void fa_pose_stack_get(const fa_pose_stack_t* pStack, fa_pose_t* pPose, uint32_t depth)
+CANIM_API void fa_pose_stack_get(const fa_pose_stack_t* pStack, fa_pose_t* pPose, u32 depth)
 {
 	FUR_ASSERT(pStack->buffer != NULL);
 	FUR_ASSERT(pStack->numPoses > depth);
 	
-	const uint32_t poseIndex = pStack->numPoses - 1 - depth;
-	const uint32_t poseOffset = poseIndex * pStack->poseSize;
-	uint8_t* poseData = (const uint8_t*)pStack->buffer + poseOffset;
+	const u32 poseIndex = pStack->numPoses - 1 - depth;
+	const u32 poseOffset = poseIndex * pStack->poseSize;
+	u8* poseData = (const u8*)pStack->buffer + poseOffset;
 	
 	pPose->numXforms = pStack->numBones;
 	pPose->numTracks = pStack->numTracks;
@@ -73,7 +73,7 @@ CANIM_API void fa_pose_stack_get(const fa_pose_stack_t* pStack, fa_pose_t* pPose
 	if(pStack->numBones > 0)
 	{
 		pPose->xforms = (fm_xform*)poseData;
-		pPose->weightsXforms = (uint8_t*)(poseData + pStack->offsetWeightXforms);
+		pPose->weightsXforms = (u8*)(poseData + pStack->offsetWeightXforms);
 	}
 	else
 	{
@@ -83,8 +83,8 @@ CANIM_API void fa_pose_stack_get(const fa_pose_stack_t* pStack, fa_pose_t* pPose
 	
 	if(pStack->numTracks > 0)
 	{
-		pPose->tracks = (float*)(poseData + pStack->offsetTracks);
-		pPose->weightsTracks = (uint8_t*)(poseData + pStack->offsetWeightTracks);
+		pPose->tracks = (f32*)(poseData + pStack->offsetTracks);
+		pPose->weightsTracks = (u8*)(poseData + pStack->offsetWeightTracks);
 	}
 	else
 	{

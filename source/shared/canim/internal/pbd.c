@@ -5,16 +5,16 @@
 #include "cmath/public.h"
 #include <string.h>
 
-void fa_dangle_simulate_single_step(fa_dangle* dangle, float dt)
+void fa_dangle_simulate_single_step(fa_dangle* dangle, f32 dt)
 {
-	const uint32_t count = dangle->numParaticles;
+	const u32 count = dangle->numParaticles;
 	
 	const fm_vec4 gravity = {0.0f, 0.0f, dt * -5.0f};
-	const float damping_coef = dangle->damping;
+	const f32 damping_coef = dangle->damping;
 	
 	dangle->p[0] = dangle->x0[0];
 	
-	for(uint32_t i=1; i<count; ++i)	// start from 1, as 0 is attach point
+	for(u32 i=1; i<count; ++i)	// start from 1, as 0 is attach point
 	{
 		// v = v + dt * g
 		fm_vec4_add(&dangle->v[i], &gravity, &dangle->v[i]);
@@ -28,23 +28,23 @@ void fa_dangle_simulate_single_step(fa_dangle* dangle, float dt)
 		fm_vec4_add(&dangle->x0[i], &vel, &dangle->p[i]);
 	}
 	
-	const uint32_t numIterations = 4;
-	for(uint32_t it=0; it<numIterations; ++it)
+	const u32 numIterations = 4;
+	for(u32 it=0; it<numIterations; ++it)
 	{
-		for(uint32_t i=1; i<count; ++i)	// start from 1, as 0 is attach point
+		for(u32 i=1; i<count; ++i)	// start from 1, as 0 is attach point
 		{
 			const fm_vec4 p0 = dangle->p[i-1];
 			const fm_vec4 p1 = dangle->p[i];
 			
 			// distance constraint
-			const float refDistance = dangle->d[i-1];
+			const f32 refDistance = dangle->d[i-1];
 			fm_vec4 disp;
 			fm_vec4_sub(&p1, &p0, &disp);
 			
-			const float distance = fm_vec4_mag(&disp);
+			const f32 distance = fm_vec4_mag(&disp);
 			fm_vec4_normalize(&disp);
 			
-			const float constraintDist = refDistance - distance;
+			const f32 constraintDist = refDistance - distance;
 			fm_vec4_mulf(&disp, constraintDist, &disp);
 			
 			fm_vec4_add(&dangle->p[i], &disp, &dangle->p[i]);
@@ -53,11 +53,11 @@ void fa_dangle_simulate_single_step(fa_dangle* dangle, float dt)
 			if(dangle->spherePos)
 			{
 				const fm_vec4 spherePos = *dangle->spherePos;
-				const float sphereRadius = dangle->sphereRadius;
+				const f32 sphereRadius = dangle->sphereRadius;
 				
 				fm_vec4 sphereDir;
 				fm_vec4_sub(&dangle->p[i], &spherePos, &sphereDir);
-				float sphereDist = fm_vec4_mag(&sphereDir);
+				f32 sphereDist = fm_vec4_mag(&sphereDir);
 				if(sphereDist < sphereRadius)
 				{
 					fm_vec4_normalize(&sphereDir);
@@ -68,8 +68,8 @@ void fa_dangle_simulate_single_step(fa_dangle* dangle, float dt)
 		}
 	}
 	
-	const float inv_dt = (dt > 0.00000001f) ? 1.0f / dt : 0.0f;
-	for(uint32_t i=1; i<count; ++i)	// start from 1, as 0 is attach point
+	const f32 inv_dt = (dt > 0.00000001f) ? 1.0f / dt : 0.0f;
+	for(u32 i=1; i<count; ++i)	// start from 1, as 0 is attach point
 	{
 		fm_vec4_sub(&dangle->p[i], &dangle->x0[i], &dangle->v[i]);
 		fm_vec4_mulf(&dangle->v[i], inv_dt, &dangle->v[i]);
@@ -84,7 +84,7 @@ void fa_dangle_create(const fa_dangle_desc* desc, fa_dangle* dangle, fc_alloc_ca
 	dangle->x0 = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, desc->numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
 	dangle->p = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, desc->numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
 	dangle->v = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, desc->numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
-	dangle->d = FUR_ALLOC_ARRAY_AND_ZERO(float, desc->numParticles-1, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
+	dangle->d = FUR_ALLOC_ARRAY_AND_ZERO(f32, desc->numParticles-1, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
 	
 	dangle->freq = desc->frequency;
 	dangle->numParaticles = desc->numParticles;
@@ -110,7 +110,7 @@ void fa_dangle_release(fa_dangle* dangle, fc_alloc_callbacks_t* pAllocCallbacks)
 void fa_dangle_simulate(const fa_dangle_sim_ctx* ctx, fa_dangle* dangle)
 {
 	dangle->tAcc += ctx->dt;
-	const float timeStep = 1.0f / dangle->freq;
+	const f32 timeStep = 1.0f / dangle->freq;
 	
 	while(dangle->tAcc >= timeStep)
 	{
@@ -121,7 +121,7 @@ void fa_dangle_simulate(const fa_dangle_sim_ctx* ctx, fa_dangle* dangle)
 
 void fa_dangle_to_matrices_z_up(const fa_dangle* dangle, const fm_mat4* attachmentMatrix, fm_mat4* matrices)
 {
-	const uint32_t count = dangle->numParaticles - 1;
+	const u32 count = dangle->numParaticles - 1;
 	const fm_vec4* p = dangle->p;
 	
 	matrices[0] = *attachmentMatrix;
@@ -130,7 +130,7 @@ void fa_dangle_to_matrices_z_up(const fa_dangle* dangle, const fm_mat4* attachme
 	
 	fm_vec4 refDir = attachmentMatrix->x;
 	
-	for(uint32_t i=1; i<count; ++i)
+	for(u32 i=1; i<count; ++i)
 	{
 		fm_vec4 z;
 		fm_vec4_sub(&p[i], &p[i+1], &z);
@@ -160,12 +160,12 @@ void fa_dangle_to_matrices_z_up(const fa_dangle* dangle, const fm_mat4* attachme
 
 void fa_dangle_to_matrices_y_down(const fa_dangle* dangle, const fm_mat4* attachmentMatrix, fm_mat4* matrices)
 {
-	const uint32_t count = dangle->numParaticles - 1;
+	const u32 count = dangle->numParaticles - 1;
 	const fm_vec4* p = dangle->p;
 	
 	fm_vec4 refDir = attachmentMatrix->x;
 	
-	for(uint32_t i=0; i<count; ++i)
+	for(u32 i=0; i<count; ++i)
 	{
 		fm_vec4 y;
 		fm_vec4_sub(&p[i+1], &p[i], &y);

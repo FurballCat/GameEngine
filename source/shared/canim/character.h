@@ -17,7 +17,7 @@ extern "C"
 typedef struct fm_xform fm_xform;
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 typedef struct fc_mem_arena_alloc_t fc_mem_arena_alloc_t;
-typedef uint32_t fc_string_hash_t;
+typedef u32 fc_string_hash_t;
 typedef struct fm_vec4 fm_vec4;
 typedef struct fm_mat4 fm_mat4;
 
@@ -44,15 +44,15 @@ typedef struct fa_character_anim_info_t
 	
 	// desired movement
 	fm_vec2 desiredMove;
-	float animToLogicMotionRotationAlpha;	// 0.0f anim, 1.0f logic
-	float animToLogicMotionTranslationAlpha;	// 0.0f anim, 1.0f logic
+	f32 animToLogicMotionRotationAlpha;	// 0.0f anim, 1.0f logic
+	f32 animToLogicMotionTranslationAlpha;	// 0.0f anim, 1.0f logic
 	
 	// current state
-	float currentYaw;
+	f32 currentYaw;
 	
 	// output motion
 	fm_vec3 rootMotionDelta;
-	float rootMotionDeltaYaw;
+	f32 rootMotionDeltaYaw;
 	
 	// look-at (already in model space)
 	fm_vec3 lookAtPoint;
@@ -61,15 +61,15 @@ typedef struct fa_character_anim_info_t
 
 typedef struct fa_action_ctx_t
 {
-	float dt;
-	float localTime;
+	f32 dt;
+	f32 localTime;
 	fa_character_anim_info_t* animInfo;
 	fa_cmd_buffer_recorder_t* cmdRecorder;
 	fa_cmd_context_debug_t* debug;
 	
-	float rootMotionDeltaX;
-	float rootMotionDeltaY;
-	float rootMotionDeltaYaw;
+	f32 rootMotionDeltaX;
+	f32 rootMotionDeltaY;
+	f32 rootMotionDeltaYaw;
 } fa_action_ctx_t;
 
 typedef struct fa_action_begin_end_ctx_t
@@ -81,7 +81,7 @@ typedef struct fa_action_begin_end_ctx_t
 typedef void (*fa_action_update_func_t)(const fa_action_ctx_t* ctx, void* userData);
 
 // provides animations to animation system used for the action
-typedef const fa_anim_clip_t** (*fa_action_get_anims_func_t)(const void* userData, uint32_t* numAnims);
+typedef const fa_anim_clip_t** (*fa_action_get_anims_func_t)(const void* userData, u32* numAnims);
 
 // called on begin and end of action when it's activated/deactivated, however, might not be called when action is cancelled (see below)
 typedef void (*fa_action_begin_end_func_t)(const fa_action_begin_end_ctx_t* ctx, void* userData);
@@ -104,9 +104,9 @@ typedef enum fa_ik_mode_t
 typedef struct fa_action_args_t
 {
 	fa_curve_type_t fadeInCurve;
-	float fadeInSec;
+	f32 fadeInSec;
 	fa_curve_type_t fadeOutCurve;
-	float fadeOutSec;
+	f32 fadeOutSec;
 	fa_ik_mode_t ikMode;
 	fa_character_layer_t layer;
 	fc_string_hash_t layerName;
@@ -168,16 +168,16 @@ typedef struct fa_character_t
 	
 	// resulting pose
 	fm_xform* poseMS;
-	float* tracks;
+	f32* tracks;
 	
 	// assigned skinning matrices (might be NULL, as character is not owning memory for skin matrices)
 	fm_mat4* skinMatrices;
 	
 	uint64_t globalTime;
 	
-	float lookAtHeadYaw;
-	float lookAtHeadPitch;
-	float lookAtWeight;
+	f32 lookAtHeadYaw;
+	f32 lookAtHeadPitch;
+	f32 lookAtWeight;
 	
 	fa_character_anim_info_t animInfo;
 } fa_character_t;
@@ -191,7 +191,7 @@ void fa_action_queue_resolve_post_animate(fa_character_t* character, fa_action_q
 
 typedef struct fa_character_animate_ctx_t
 {
-	float dt;
+	f32 dt;
 	
 	fc_mem_arena_alloc_t* arenaAlloc;
 	
@@ -206,19 +206,19 @@ typedef struct fa_action_animate_t
 	const fa_anim_clip_t* animation;
 	bool forceLoop;
 	bool forceNoLoop;
-	float progress;
+	f32 progress;
 	
 	bool reserved;
 	
 	bool useLoco;
 	bool resetLoco;
-	int32_t loopsSoFar;
-	float prevLocoPos[4];
-	float prevLocoRot[4];
+	i32 loopsSoFar;
+	f32 prevLocoPos[4];
+	f32 prevLocoRot[4];
 } fa_action_animate_t;
 	
 CANIM_API void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData);
-CANIM_API const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* userData, uint32_t* numAnims);
+CANIM_API const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* userData, u32* numAnims);
 CANIM_API void fa_action_animate_begin_func(const fa_action_begin_end_ctx_t* ctx, void* userData);
 CANIM_API void fa_action_animate_end_func(const fa_action_begin_end_ctx_t* ctx, void* userData);
 CANIM_API void fa_action_animate_cancel_func(void* userData);
@@ -240,14 +240,14 @@ CANIM_API void fa_character_schedule_action(fa_character_t* character, fa_action
 typedef struct fa_action_animate_test_t
 {
 	fa_anim_clip_t* anims[2];
-	float alpha;
-	float timeToNextAnim;
+	f32 alpha;
+	f32 timeToNextAnim;
 	
 	bool equipWeapon;
 } fa_action_animate_test_t;
 	
 CANIM_API void fa_action_animate_test_func(const fa_action_ctx_t* ctx, void* userData);
-CANIM_API const fa_anim_clip_t** fa_action_animate_test_get_anims_func(const void* userData, uint32_t* numAnims);
+CANIM_API const fa_anim_clip_t** fa_action_animate_test_get_anims_func(const void* userData, u32* numAnims);
 
 CANIM_API void fa_character_schedule_action_test_simple(fa_character_t* character, fa_action_animate_test_t* action, const fa_action_args_t* args);
 
@@ -267,59 +267,59 @@ typedef struct fa_action_player_loco_t
 	fa_anim_clip_t* anims[FA_ACTION_PLAYER_LOCO_ANIM_COUNT];
 	
 	// will of player movement direction
-	float moveX;
-	float moveY;
+	f32 moveX;
+	f32 moveY;
 	
 	// anim state
-	float idleLocalTime;
-	float runLocalTime;
-	float idleToRunState;
-	float blendState;	// idle 0..1 run
+	f32 idleLocalTime;
+	f32 runLocalTime;
+	f32 idleToRunState;
+	f32 blendState;	// idle 0..1 run
 	
-	uint32_t stateCurr;
-	uint32_t stateNext;
+	u32 stateCurr;
+	u32 stateNext;
 	
-	float yawOrientation;
+	f32 yawOrientation;
 	bool isStopping;
 	
 	bool resetLoco;
-	int32_t loopsSoFar;
-	float locoRot[4];
-	float locoPos[4];
+	i32 loopsSoFar;
+	f32 locoRot[4];
+	f32 locoPos[4];
 } fa_action_player_loco_t;
 
 CANIM_API void fa_action_player_loco_begin_func(const fa_action_begin_end_ctx_t* ctx, void* userData);
 CANIM_API void fa_action_player_loco_end_func(const fa_action_begin_end_ctx_t* ctx, void* userData);
 CANIM_API void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData);
-CANIM_API const fa_anim_clip_t** fa_action_player_loco_get_anims_func(const void* userData, uint32_t* numAnims);
+CANIM_API const fa_anim_clip_t** fa_action_player_loco_get_anims_func(const void* userData, u32* numAnims);
 
 typedef struct fa_action_player_jump_t
 {
 	fa_anim_clip_t* anims[2];	// 0: jump-in-place, 1: jump
-	float progress;
-	int32_t jumpType;
+	f32 progress;
+	i32 jumpType;
 } fa_action_player_jump_t;
 
 CANIM_API void fa_action_player_jump_update(const fa_action_ctx_t* ctx, void* userData);
-CANIM_API const fa_anim_clip_t** fa_action_player_jump_get_anims_func(const void* userData, uint32_t* numAnims);
+CANIM_API const fa_anim_clip_t** fa_action_player_jump_get_anims_func(const void* userData, u32* numAnims);
 
 typedef struct fa_action_player_loco_start_t
 {
 	fa_anim_clip_t* anims[1];	// 0: idle-to-run-0
 	
-	float finishFromEnd;
+	f32 finishFromEnd;
 	bool isFinished;
 	bool ignoreYaw;
 	
 	bool resetLoco;
-	float prevLocoRot[4];
-	float prevLocoPos[4];
+	f32 prevLocoRot[4];
+	f32 prevLocoPos[4];
 } fa_action_player_loco_start_t;
 
 CANIM_API void fa_action_player_loco_start_begin_func(const fa_action_begin_end_ctx_t* ctx, void* userData);
 CANIM_API void fa_action_player_loco_start_end_func(const fa_action_begin_end_ctx_t* ctx, void* userData);
 CANIM_API void fa_action_player_loco_start_update(const fa_action_ctx_t* ctx, void* userData);
-CANIM_API const fa_anim_clip_t** fa_action_player_loco_start_get_anims_func(const void* userData, uint32_t* numAnims);
+CANIM_API const fa_anim_clip_t** fa_action_player_loco_start_get_anims_func(const void* userData, u32* numAnims);
 
 #ifdef __cplusplus
 }

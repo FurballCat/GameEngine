@@ -13,19 +13,19 @@ void fc_rwlock_init(fc_rwlock_t* lock)
 	pthread_rwlock_init(lock, NULL);
 }
 
-int32_t fc_rwlock_read_unlock(fc_rwlock_t* lock)
+i32 fc_rwlock_read_unlock(fc_rwlock_t* lock)
 {
 	pthread_rwlock_unlock(lock);
 	return 0;
 }
 
-int32_t fc_rwlock_unlock(fc_rwlock_t* lock)
+i32 fc_rwlock_unlock(fc_rwlock_t* lock)
 {
 	pthread_rwlock_unlock(lock);
 	return 0;
 }
 
-int32_t fc_rwlock_read_lock(fc_rwlock_t* lock, const char* name)
+i32 fc_rwlock_read_lock(fc_rwlock_t* lock, const char* name)
 {
 #if FUR_USE_PROFILER
 	fc_profiler_enter_contention();
@@ -40,7 +40,7 @@ int32_t fc_rwlock_read_lock(fc_rwlock_t* lock, const char* name)
 	return 1;
 }
 
-int32_t fc_rwlock_write_lock(fc_rwlock_t* lock, const char* name)
+i32 fc_rwlock_write_lock(fc_rwlock_t* lock, const char* name)
 {
 #if FUR_USE_PROFILER
 	fc_profiler_enter_contention();
@@ -70,7 +70,7 @@ fc_thread_t fc_thread_self()
 	return thread;
 }
 
-int32_t fc_thread_create_suspended(fc_thread_t* outThread, void (*func)(void*), void* userData)
+i32 fc_thread_create_suspended(fc_thread_t* outThread, void (*func)(void*), void* userData)
 {
 	return pthread_create_suspended_np(outThread, NULL, func, userData);
 }
@@ -85,7 +85,7 @@ void fc_thread_join(fc_thread_t thread)
 	pthread_join((pthread_t)thread.id, NULL);
 }
 
-void fc_thread_set_affinity(fc_thread_t thread, int32_t coreID)
+void fc_thread_set_affinity(fc_thread_t thread, i32 coreID)
 {
 	thread_affinity_policy_data_t policyData = { coreID };
 	mach_port_t mach_thread = pthread_mach_thread_np((pthread_t)thread.id);
@@ -115,19 +115,19 @@ void fc_rwlock_init(fc_rwlock_t* lock)
 	InitializeSRWLock((SRWLOCK*)lock);
 }
 
-int32_t fc_rwlock_read_unlock(fc_rwlock_t* lock)
+i32 fc_rwlock_read_unlock(fc_rwlock_t* lock)
 {
 	ReleaseSRWLockShared((SRWLOCK*)lock);
 	return 0;
 }
 
-int32_t fc_rwlock_write_unlock(fc_rwlock_t* lock)
+i32 fc_rwlock_write_unlock(fc_rwlock_t* lock)
 {
 	ReleaseSRWLockExclusive((SRWLOCK*)lock);
 	return 0;
 }
 
-int32_t fc_rwlock_read_lock(fc_rwlock_t* lock, const char* name)
+i32 fc_rwlock_read_lock(fc_rwlock_t* lock, const char* name)
 {
 #if FUR_USE_PROFILER
 	fc_profiler_enter_contention();
@@ -142,7 +142,7 @@ int32_t fc_rwlock_read_lock(fc_rwlock_t* lock, const char* name)
 	return 1;
 }
 
-int32_t fc_rwlock_write_lock(fc_rwlock_t* lock, const char* name)
+i32 fc_rwlock_write_lock(fc_rwlock_t* lock, const char* name)
 {
 #if FUR_USE_PROFILER
 	fc_profiler_enter_contention();
@@ -167,10 +167,10 @@ void fc_timeval_now(fc_timeval_t* tv)
 	QueryPerformanceCounter(&time);
 
 	// todo: not the fastest way...
-	const double elapsedTime = (double)time.QuadPart / (double)frequency.QuadPart;
+	const f64 elapsedTime = (f64)time.QuadPart / (f64)frequency.QuadPart;
 
 	tv->sec = (uint64_t)elapsedTime;
-	tv->usec = (uint32_t)((elapsedTime - tv->sec) * 1000000);
+	tv->usec = (u32)((elapsedTime - tv->sec) * 1000000);
 }
 
 void fc_atomic_store(fc_atomic_int* dst, int src)
@@ -195,7 +195,7 @@ fc_thread_t fc_thread_self()
 	return thread;
 }
 
-int32_t fc_thread_create_suspended(fc_thread_t* outThread, void (*func)(void*), void* userData)
+i32 fc_thread_create_suspended(fc_thread_t* outThread, void (*func)(void*), void* userData)
 {
 	HANDLE thread = CreateThread(NULL, 0, func, userData, CREATE_SUSPENDED, NULL);
 	if (!thread)
@@ -215,9 +215,9 @@ void fc_thread_join(fc_thread_t thread)
 	WaitForSingleObject((HANDLE)thread.id, INFINITE);
 }
 
-void fc_thread_set_affinity(fc_thread_t thread, int32_t coreID)
+void fc_thread_set_affinity(fc_thread_t thread, i32 coreID)
 {
-	DWORD_PTR mask = (int32_t)(1 << coreID);
+	DWORD_PTR mask = (i32)(1 << coreID);
 	SetThreadAffinityMask((HANDLE)thread.id, mask);
 }
 
