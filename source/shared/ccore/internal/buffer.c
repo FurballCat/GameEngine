@@ -3,23 +3,22 @@
 #include "buffer.h"
 #include <string.h>
 #include <stdio.h>
+#include "ccore/fileIO.h"
 
 #include "memory.h"
 
-bool fc_load_binary_file_into_binary_buffer(const char* path, fc_binary_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks)
+bool fc_load_binary_file_into_binary_buffer(fc_depot_t* depot, fc_file_path_t path, fc_binary_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	FILE* pFile = fopen(path, "rb");
-	if(pFile && pBuffer)
+	fc_file_t* file = fc_file_open(depot, path, "rb");
+	if(file && pBuffer)
 	{
-		fseek(pFile, 0, SEEK_END);
-		u64 size = ftell(pFile);
-		fseek(pFile, 0, SEEK_SET);
+		const u64 size = fc_file_size(file);
 		
 		pBuffer->pData = FUR_ALLOC(size, 8, FC_MEMORY_SCOPE_GLOBAL, pAllocCallbacks);
 		pBuffer->size = size;
 		
-		fread(pBuffer->pData, size, 1, pFile);
-		fclose(pFile);
+		fc_file_read(pBuffer->pData, size, 1, file);
+		fc_file_close(file);
 		
 		return true;
 	}
@@ -68,20 +67,18 @@ u32 fc_peek_binary_buffer(fc_binary_buffer_stream_t* stream, u32 numBytes, void*
 	return 0;
 }
 
-bool fc_load_text_file_into_text_buffer(const char* path, fc_text_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks)
+bool fc_load_text_file_into_text_buffer(fc_depot_t* depot, fc_file_path_t path, fc_text_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	FILE* pFile = fopen(path, "r");
-	if(pFile && pBuffer)
+	fc_file_t* file = fc_file_open(depot, path, "r");
+	if (file && pBuffer)
 	{
-		fseek(pFile, 0, SEEK_END);
-		u64 size = ftell(pFile);
-		fseek(pFile, 0, SEEK_SET);
+		const u64 size = fc_file_size(file);
 		
 		pBuffer->pData = (char*)FUR_ALLOC(size, 8, FC_MEMORY_SCOPE_GLOBAL, pAllocCallbacks);
 		pBuffer->size = size;
 		
-		fread(pBuffer->pData, size, 1, pFile);
-		fclose(pFile);
+		fc_file_read(pBuffer->pData, size, 1, file);
+		fc_file_close(file);
 		
 		return true;
 	}

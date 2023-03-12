@@ -10,6 +10,7 @@
 #include "ccore/public.h"
 #include "ccore/textParsing.h"
 #include "ccore/buffer.h"
+#include "ccore/fileIO.h"
 
 #include "renderer.h"
 #include "vulkan.h"
@@ -137,7 +138,9 @@ enum fr_result_t fr_create_app(const struct fr_app_desc_t* pDesc,
 	{
 		// Load the icon image file
 		GLFWimage icon;
-		icon.pixels = stbi_load(pDesc->iconPath, &icon.width, &icon.height, 0, 4); // 4 indicates RGBA format
+		fc_file_t* file = fc_file_open(pDesc->depot, pDesc->iconPath, "rb");
+		icon.pixels = stbi_load_from_file((FILE*)file, &icon.width, &icon.height, 0, 4); // 4 indicates RGBA format
+		fc_file_close(file);
 		if (!icon.pixels)
 		{
 			fur_set_last_error("Failed to load icon image.");
@@ -220,8 +223,9 @@ typedef struct fr_font_t
 
 typedef struct fr_font_desc_t
 {
-	const char* atlasPath;		// image with all glyphs
-	const char* glyphsInfoPath;	// UV and sizes of each glyph and character mapping
+	fc_depot_t* depot;
+	fc_file_path_t atlasPath;		// image with all glyphs
+	fc_file_path_t glyphsInfoPath;	// UV and sizes of each glyph and character mapping
 } fr_font_desc_t;
 
 void fr_font_release(VkDevice device, fr_font_t* font, fc_alloc_callbacks_t* pAllocCallbacks)
@@ -251,7 +255,9 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 		// load texture
 		{
 			int texChannels;
-			font->pixelsData = (void*)stbi_load(desc->atlasPath, &width, &height, &texChannels, STBI_rgb_alpha);
+			fc_file_t* file = fc_file_open(desc->depot, desc->atlasPath, "rb");
+			font->pixelsData = (void*)stbi_load_from_file((FILE*)file, &width, &height, &texChannels, STBI_rgb_alpha);
+			fc_file_close(file);
 			font->atlasWidth = width;
 			font->atlasHeight = height;
 			
@@ -260,7 +266,7 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 			if(!font->pixelsData)
 			{
 				char txt[256];
-				sprintf(txt, "Can't load font atlas \'%s\'", desc->atlasPath);
+				sprintf(txt, "Can't load font atlas \'%s\'", fc_file_path_debug_str(desc->depot, desc->atlasPath));
 				fur_set_last_error(txt);
 				res = FR_RESULT_ERROR;
 			}
@@ -285,10 +291,10 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 	if(res == FR_RESULT_OK)
 	{
 		fc_text_buffer_t textBuffer = {0};
-		if(!fc_load_text_file_into_text_buffer(desc->glyphsInfoPath, &textBuffer, pAllocCallbacks))
+		if(!fc_load_text_file_into_text_buffer(desc->depot, desc->glyphsInfoPath, &textBuffer, pAllocCallbacks))
 		{
 			char txt[256];
-			sprintf(txt, "Can't load file %s", desc->glyphsInfoPath);
+			sprintf(txt, "Can't load file %s", fc_file_path_debug_str(desc->depot, desc->glyphsInfoPath));
 			fur_set_last_error(txt);
 			return FR_RESULT_ERROR;
 		}
@@ -573,12 +579,12 @@ u32 fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, const f3
 
 /*************************************************************/
 
-enum fr_result_t fr_create_shader_module(VkDevice device, const char* path, VkShaderModule* pShader, struct fc_alloc_callbacks_t* pAllocCallbacks)
+enum fr_result_t fr_create_shader_module(VkDevice device, fc_depot_t* depot, fc_file_path_t path, VkShaderModule* pShader, struct fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	struct fc_binary_buffer_t buffer;
 	memset(&buffer, 0, sizeof(struct fc_binary_buffer_t));
 	
-	if(fc_load_binary_file_into_binary_buffer(path, &buffer, pAllocCallbacks))
+	if(fc_load_binary_file_into_binary_buffer(depot, path, &buffer, pAllocCallbacks))
 	{
 		VkShaderModuleCreateInfo createInfo = {0};
 		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -590,7 +596,7 @@ enum fr_result_t fr_create_shader_module(VkDevice device, const char* path, VkSh
 		
 		if (res != VK_SUCCESS)
 		{
-			fur_set_last_error(path);
+			fur_set_last_error("Can't create shader: %s", fc_file_path_debug_str(depot, path));
 			return FR_RESULT_ERROR_SHADER_MODULE_CREATION;
 		}
 		
@@ -599,7 +605,7 @@ enum fr_result_t fr_create_shader_module(VkDevice device, const char* path, VkSh
 	else
 	{
 		char txt[256];
-		sprintf(txt, "Can't load file %s", path);
+		sprintf(txt, "Can't load file %s", fc_file_path_debug_str(depot, path));
 		fur_set_last_error(txt);
 		return FR_RESULT_ERROR;
 	}
@@ -660,10 +666,6 @@ typedef struct fr_mesh_t
 	u32 numChunks;
 } fr_mesh_t;
 
-const char* g_texturePathZeldaDiff = "../../../../../assets/characters/zelda/mesh/textures/zelda_diff.png";
-const char* g_texturePathHairDiff = "../../../../../assets/characters/zelda/mesh/textures/hair_diff.png";
-const char* g_texturePathEyesDiff = "../../../../../assets/characters/zelda/mesh/textures/eyes_diff2.png";
-
 #define NUM_TEXTURES_IN_ARRAY 3
 #define NUM_MAX_MESH_UNIFORM_BUFFERS 40
 #define NUM_MAX_PROXIES_ALLOCATED 256
@@ -684,6 +686,8 @@ typedef struct fr_renderer_t
 	VkPhysicalDevice physicalDevice;
 	VkDevice device;
 	
+	fc_depot_t* depot;
+
 	u32 idxQueueGraphics;
 	u32 idxQueuePresent;
 	
@@ -813,6 +817,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	
 	enum fr_result_t res = FR_RESULT_OK;
 	
+	pRenderer->depot = pDesc->depot;
+
 	// create vulkan instance
 	if(res == FR_RESULT_OK)
 	{
@@ -1151,72 +1157,59 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create shader libraries
 	
 	// todo: remove that, paths should be passed or something
-	// note: paths for mac when using fopen requires additional "../../../" because of bundle
-#ifdef PLATFORM_WINDOWS
-	const char* basicVertexShaderPath = "../../../shaders/compiled/basic_vs.spv";
-	const char* basicVertexShaderNoSkinPath = "../../../shaders/compiled/basic_vs_no_skin.spv";
-	const char* basicFragmentShaderPath = "../../../shaders/compiled/basic_fs.spv";
-	const char* debugVertexShaderPath = "../../../shaders/compiled/debug_vs.spv";
-	const char* debugFragmentShaderPath = "../../../shaders/compiled/debug_fs.spv";
-	const char* textVertexShaderPath = "../../../shaders/compiled/text_vs.spv";
-	const char* textFragmentShaderPath = "../../../shaders/compiled/text_fs.spv";
-	const char* rectVertexShaderPath = "../../../shaders/compiled/rect_vs.spv";
-	const char* rectFragmentShaderPath = "../../../shaders/compiled/rect_fs.spv";
-#elif PLATFORM_MAC
-	const char* basicVertexShaderPath = "../../../../../shaders/compiled/basic_vs.spv";
-	const char* basicVertexShaderNoSkinPath = "../../../../../shaders/compiled/basic_vs_no_skin.spv";
-	const char* basicFragmentShaderPath = "../../../../../shaders/compiled/basic_fs.spv";
-	const char* debugVertexShaderPath = "../../../../../shaders/compiled/debug_vs.spv";
-	const char* debugFragmentShaderPath = "../../../../../shaders/compiled/debug_fs.spv";
-	const char* textVertexShaderPath = "../../../../../shaders/compiled/text_vs.spv";
-	const char* textFragmentShaderPath = "../../../../../shaders/compiled/text_fs.spv";
-	const char* rectVertexShaderPath = "../../../../../shaders/compiled/rect_vs.spv";
-	const char* rectFragmentShaderPath = "../../../../../shaders/compiled/rect_fs.spv";
-#endif
+	const fc_file_path_t basicVertexShaderPath = fc_file_path_create(pRenderer->depot, "shaders/compiled/basic_vs.spv");
+	const fc_file_path_t basicVertexShaderNoSkinPath = fc_file_path_create(pRenderer->depot, "shaders/compiled/basic_vs_no_skin.spv");
+	const fc_file_path_t basicFragmentShaderPath = fc_file_path_create(pRenderer->depot, "shaders/compiled/basic_fs.spv");
+	const fc_file_path_t debugVertexShaderPath = fc_file_path_create(pRenderer->depot, "shaders/compiled/debug_vs.spv");
+	const fc_file_path_t debugFragmentShaderPath = fc_file_path_create(pRenderer->depot, "shaders/compiled/debug_fs.spv");
+	const fc_file_path_t textVertexShaderPath = fc_file_path_create(pRenderer->depot, "shaders/compiled/text_vs.spv");
+	const fc_file_path_t textFragmentShaderPath = fc_file_path_create(pRenderer->depot, "shaders/compiled/text_fs.spv");
+	const fc_file_path_t rectVertexShaderPath = fc_file_path_create(pRenderer->depot, "shaders/compiled/rect_vs.spv");
+	const fc_file_path_t rectFragmentShaderPath = fc_file_path_create(pRenderer->depot, "shaders/compiled/rect_fs.spv");
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = fr_create_shader_module(pRenderer->device, basicVertexShaderPath, &pRenderer->vertexShaderModule, pAllocCallbacks);
+		res = fr_create_shader_module(pRenderer->device, pRenderer->depot, basicVertexShaderPath, &pRenderer->vertexShaderModule, pAllocCallbacks);
 	}
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = fr_create_shader_module(pRenderer->device, basicVertexShaderNoSkinPath, &pRenderer->vertexShaderNoSkinModule, pAllocCallbacks);
+		res = fr_create_shader_module(pRenderer->device, pRenderer->depot, basicVertexShaderNoSkinPath, &pRenderer->vertexShaderNoSkinModule, pAllocCallbacks);
 	}
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = fr_create_shader_module(pRenderer->device, basicFragmentShaderPath, &pRenderer->fragmentShaderModule, pAllocCallbacks);
+		res = fr_create_shader_module(pRenderer->device, pRenderer->depot, basicFragmentShaderPath, &pRenderer->fragmentShaderModule, pAllocCallbacks);
 	}
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = fr_create_shader_module(pRenderer->device, debugVertexShaderPath, &pRenderer->debugVertexShaderModule, pAllocCallbacks);
+		res = fr_create_shader_module(pRenderer->device, pRenderer->depot, debugVertexShaderPath, &pRenderer->debugVertexShaderModule, pAllocCallbacks);
 	}
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = fr_create_shader_module(pRenderer->device, debugFragmentShaderPath, &pRenderer->debugFragmentShaderModule, pAllocCallbacks);
+		res = fr_create_shader_module(pRenderer->device, pRenderer->depot, debugFragmentShaderPath, &pRenderer->debugFragmentShaderModule, pAllocCallbacks);
 	}
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = fr_create_shader_module(pRenderer->device, textVertexShaderPath, &pRenderer->textVertexShaderModule, pAllocCallbacks);
+		res = fr_create_shader_module(pRenderer->device, pRenderer->depot, textVertexShaderPath, &pRenderer->textVertexShaderModule, pAllocCallbacks);
 	}
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = fr_create_shader_module(pRenderer->device, textFragmentShaderPath, &pRenderer->textFragmentShaderModule, pAllocCallbacks);
+		res = fr_create_shader_module(pRenderer->device, pRenderer->depot, textFragmentShaderPath, &pRenderer->textFragmentShaderModule, pAllocCallbacks);
 	}
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = fr_create_shader_module(pRenderer->device, rectVertexShaderPath, &pRenderer->rectVertexShaderModule, pAllocCallbacks);
+		res = fr_create_shader_module(pRenderer->device, pRenderer->depot, rectVertexShaderPath, &pRenderer->rectVertexShaderModule, pAllocCallbacks);
 	}
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = fr_create_shader_module(pRenderer->device, rectFragmentShaderPath, &pRenderer->rectFragmentShaderModule, pAllocCallbacks);
+		res = fr_create_shader_module(pRenderer->device, pRenderer->depot, rectFragmentShaderPath, &pRenderer->rectFragmentShaderModule, pAllocCallbacks);
 	}
 	
 	// debug draw bindings
@@ -1767,8 +1760,9 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		fr_font_desc_t desc = {0};
-		desc.atlasPath = "../../../data/font/debug-font-2.png";
-		desc.glyphsInfoPath = "../../../data/font/debug-font-data-2.txt";
+		desc.atlasPath = fc_file_path_create(pRenderer->depot, "data/font/debug-font-2.png");
+		desc.glyphsInfoPath = fc_file_path_create(pRenderer->depot, "data/font/debug-font-data-2.txt");
+		desc.depot = pRenderer->depot;
 		
 		res = fr_font_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->textFont, pAllocCallbacks);
 	}

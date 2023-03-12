@@ -13,6 +13,8 @@ extern "C"
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 typedef struct fm_mat4 fm_mat4;
 typedef u32 fc_string_hash_t;
+typedef struct fc_depot_t fc_depot_t;
+typedef u64 fc_file_path_t;
 
 // Render result code
 enum fr_result_t
@@ -27,22 +29,24 @@ enum fr_result_t
 // If render result code is not OK then this function returns additional info
 CREND_API const char* fr_get_last_error(void);
 
-struct fr_app_t;
+typedef struct fr_app_t fr_app_t;
 
-struct fr_app_desc_t
+typedef struct fr_app_desc_t
 {
 	u32 viewportWidth;
 	u32 viewportHeight;
 	const char* appTitle;
-	const char* iconPath;
-};
+
+	fc_depot_t* depot;
+	fc_file_path_t iconPath;
+} fr_app_desc_t;
 	
-CREND_API enum fr_result_t fr_create_app(const struct fr_app_desc_t* pDesc,
-									struct fr_app_t** ppApp,
-									struct fc_alloc_callbacks_t* pAllocCallbacks);
+CREND_API enum fr_result_t fr_create_app(const fr_app_desc_t* pDesc,
+									fr_app_t** ppApp,
+									fc_alloc_callbacks_t* pAllocCallbacks);
 	
-CREND_API enum fr_result_t fr_release_app(struct fr_app_t* pApp,
-									 struct fc_alloc_callbacks_t* pAllocCallbacks);
+CREND_API enum fr_result_t fr_release_app(fr_app_t* pApp,
+									 fc_alloc_callbacks_t* pAllocCallbacks);
 
 // Returns 0 on exit
 CREND_API u32 fr_update_app(struct fr_app_t* pApp);
@@ -51,14 +55,15 @@ CREND_API u32 fr_update_app(struct fr_app_t* pApp);
 typedef struct fr_renderer_t fr_renderer_t;
 
 // Renderer creation description
-struct fr_renderer_desc_t
+typedef struct fr_renderer_desc_t
 {
 	struct fr_app_t* pApp;
-};
+	fc_depot_t* depot;
+} fr_renderer_desc_t;
 
-CREND_API enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t*	pDesc,
-					   struct fr_renderer_t**						ppRenderer,
-					   struct fc_alloc_callbacks_t*		pAllocCallbacks);
+CREND_API enum fr_result_t fr_create_renderer(const fr_renderer_desc_t*	pDesc,
+					   fr_renderer_t**						ppRenderer,
+					   fc_alloc_callbacks_t*		pAllocCallbacks);
 
 CREND_API enum fr_result_t fr_release_renderer(struct fr_renderer_t* 			pRenderer,
 						struct fc_alloc_callbacks_t*	pAllocCallbacks);

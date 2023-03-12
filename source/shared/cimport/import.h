@@ -29,8 +29,6 @@ typedef struct fi_depot_t
 {
 	const char* path;
 } fi_depot_t;
-	
-void fc_path_concat(char* output, const char* folderAbsolute, const char* directoryRelative, const char* fileName, const char* fileExtension);
 
 // -----
 	

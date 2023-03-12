@@ -1069,17 +1069,3 @@ void fr_mesh_release(fr_resource_mesh_t* pMesh, fc_alloc_callbacks_t* pAllocCall
 	FUR_FREE(pMesh->chunks, pAllocCallbacks);
 	FUR_FREE(pMesh, pAllocCallbacks);
 }
-
-void fc_path_concat(char* output, const char* folderAbsolute, const char* directoryRelative, const char* fileName, const char* fileExtension)
-{
-	const u64 folderLen = strlen(folderAbsolute);
-	const u64 dirLen = strlen(directoryRelative);
-	const u64 nameLen = strlen(fileName);
-	const u64 extLen = strlen(fileExtension);
-	
-	memcpy(output, folderAbsolute, folderLen);
-	memcpy(output + folderLen, directoryRelative, dirLen);
-	memcpy(output + folderLen + dirLen, fileName, nameLen);
-	memcpy(output + folderLen + dirLen + nameLen, fileExtension, extLen);
-	memcpy(output + folderLen + dirLen + nameLen + extLen, "\0", 1);
-}

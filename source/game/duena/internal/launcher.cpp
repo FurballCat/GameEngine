@@ -15,6 +15,7 @@
 #include "ccore/jobs.h"
 #include "ccore/textParsing.h"
 #include "ccore/serialize.h"
+#include "ccore/fileio.h"
 #include "cinput/public.h"
 #include "cgame/world.h"
 
@@ -425,24 +426,6 @@ typedef struct fg_game_object_t
 	
 } fg_game_object_t;
 
-const fc_binary_buffer_t* fg_load_script(fg_resource_register_t* reg, const char* path,
-										 fc_string_hash_t name, fc_alloc_callbacks_t* pAllocCallbacks)
-{
-	FUR_ASSERT(reg->numScripts + 1 < FG_MAX_NUM_SCRIPTS);
-	
-	// load
-	fc_binary_buffer_t* script = (fc_binary_buffer_t*)FUR_ALLOC_AND_ZERO(sizeof(fc_binary_buffer_t), 0, FC_MEMORY_SCOPE_SCRIPT, pAllocCallbacks);
-	fc_load_binary_file_into_binary_buffer(path, script, pAllocCallbacks);
-	
-	// register
-	const i32 idx = reg->numScripts;
-	reg->scriptsNames[idx] = name;
-	reg->scripts[idx] = script;
-	reg->numScripts++;
-	
-	return script;
-}
-
 const fa_anim_clip_t* fg_load_anim(fg_resource_register_t* reg, const fi_depot_t* depot, const char* name,
 								   const fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks)
 {
@@ -577,6 +560,7 @@ void fg_register_type_factories()
 struct FurGameEngine
 {
 	struct fr_app_t* pApp;
+	fc_depot_t* depot;
 	struct fr_renderer_t* pRenderer;
 	fp_physics_t* pPhysics;
 	fa_anim_sys_t* animSystem;
@@ -587,6 +571,9 @@ struct FurGameEngine
 	fg_world_t* pWorld;
 	
 	fi_input_manager_t* pInputManager;
+
+	// resource path hashes
+	fc_file_path_t zeldaScriptPath;
 	
 	// animation
 	fa_rig_t* pRig;
@@ -692,16 +679,31 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	FurGameEngine* pEngine = (FurGameEngine*)malloc(sizeof(FurGameEngine));
 	memset(pEngine, 0, sizeof(FurGameEngine));
 	
+	fc_string_hash_register_init(pAllocCallbacks);
+
+	// mount loose file depot
+	{
+		fc_depot_desc_t desc = { 0 };
+		desc.type = FC_DEPOT_LOOSE_FILES;
+
+#if PLATFORM_OSX
+		desc.path = "../../../../../";
+#elif PLATFORM_WINDOWS
+		desc.path = "../../../";
+#endif
+
+		pEngine->depot = fc_depot_mount(&desc, pAllocCallbacks);
+	}
+
 	fr_app_desc_t appDesc;
 	appDesc.appTitle = desc.m_mainApp.m_title;
 	appDesc.viewportWidth = desc.m_mainApp.m_width;
 	appDesc.viewportHeight = desc.m_mainApp.m_height;
-	appDesc.iconPath = "../../../data/icon/furball-cat-icon-128x128.png";
+	appDesc.iconPath = fc_file_path_create(pEngine->depot, "data/icon/furball-cat-icon-128x128.png");
+	appDesc.depot = pEngine->depot;
 
 	fr_result_t res = fr_create_app(&appDesc, &pEngine->pApp, pAllocCallbacks);
-	
-	fc_string_hash_register_init(pAllocCallbacks);
-	
+
 	if(res == FR_RESULT_OK)
 	{
 		pEngine->pInputManager = fi_input_manager_create(pAllocCallbacks);
@@ -711,6 +713,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	{
 		fr_renderer_desc_t rendererDesc;
 		rendererDesc.pApp = pEngine->pApp;
+		rendererDesc.depot = pEngine->depot;
 		
 		res = fr_create_renderer(&rendererDesc, &pEngine->pRenderer, pAllocCallbacks);
 	}
@@ -747,7 +750,9 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	
 	// load scripts
 	{
-		fc_load_binary_file_into_binary_buffer("../../../scripts/zelda-state-script.bin", &pEngine->zeldaStateScript, pAllocCallbacks);
+		pEngine->zeldaScriptPath = fc_file_path_create(pEngine->depot, "scripts/zelda-state-script.bin");
+
+		fc_load_binary_file_into_binary_buffer(pEngine->depot, pEngine->zeldaScriptPath, &pEngine->zeldaStateScript, pAllocCallbacks);
 		fg_resource_add_script(&pEngine->pWorld->resources, SID("ss-zelda"), &pEngine->zeldaStateScript);
 	}
 	
@@ -1868,7 +1873,7 @@ void fg_input_actions_update(FurGameEngine* pEngine, f32 dt)
 void fc_dev_menu_reload_scripts(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	fc_release_binary_buffer(&pEngine->zeldaStateScript, pAllocCallbacks);
-	fc_load_binary_file_into_binary_buffer("../../../scripts/zelda-state-script.bin", &pEngine->zeldaStateScript, pAllocCallbacks);
+	fc_load_binary_file_into_binary_buffer(pEngine->depot, pEngine->zeldaScriptPath, &pEngine->zeldaStateScript, pAllocCallbacks);
 }
 
 void fc_dev_menu_show_player_anim_state(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAllocCallbacks)
@@ -2258,11 +2263,6 @@ FUR_JOB_ENTRY_POINT(test_job_with_sub_job)
 
 void furMainEngineGameUpdate(FurGameEngine* pEngine, f32 dt, fc_alloc_callbacks_t* pAllocCallbacks)
 {
-	// test BVH debug draw
-	{
-		fp_bvh_debug_draw(&pEngine->testBVH);
-	}
-	
 	// show debug FPS
 	if(pEngine->debugShowFPS)
 	{
@@ -2384,18 +2384,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, f32 dt, fc_alloc_callbacks_
 		fm_vec4 lookAtPoint = {2.0f * sinf(time), 2.0f * cosf(time), 1.0f + 1.0f * sinf(time * 0.6f), 1.0f};	// in world space
 		
 		f32 color[4] = FUR_COLOR_MAGENTA;
-		f32 extent[] = {0.1f, 0.1f, 0.1f};
-		fc_dbg_box_wire(&lookAtPoint.x, extent, color);
-		
-		extent[0] = 0.07f;
-		extent[1] = 0.07f;
-		extent[2] = 0.07f;
-		fc_dbg_box_wire(&lookAtPoint.x, extent, color);
-		
-		extent[0] = 0.04f;
-		extent[1] = 0.04f;
-		extent[2] = 0.04f;
-		fc_dbg_box_wire(&lookAtPoint.x, extent, color);
+		fc_dbg_sphere_wire(&lookAtPoint.x, 0.1f, color);
 		
 		const f32 distanceToLookAtPoint = fm_vec4_distance(&lookAtPoint, &playerLocator.pos);
 		
@@ -2849,6 +2838,8 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	
 	fi_input_manager_release(pEngine->pInputManager, pAllocCallbacks);
 	
+	fc_depot_unmount(pEngine->depot, pAllocCallbacks);
+
 	fc_string_hash_register_release(pAllocCallbacks);
 	
 	fc_profiler_release(pAllocCallbacks);
