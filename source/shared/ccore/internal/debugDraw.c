@@ -449,6 +449,42 @@ void fc_dbg_circle(const float center[3], const float radius, const float up[3],
 	}
 }
 
+void fc_dbg_sphere_wire(const float center[3], const float radius, const float color[4])
+{
+	float mat[3][3] = {
+		{ 1.0f, 0.0f, 0.0f },
+		{ 0.0f, 1.0f, 0.0f },
+		{ 0.0f, 0.0f, 1.0f }
+	};
+
+	for (int32_t k = 0; k < 3; ++k)
+	{
+		float v_start[3] = {
+		center[0] + radius * (cosf(0.0f) * mat[k%3][0] + sinf(0.0f) * mat[(k+1)%3][0]),
+		center[1] + radius * (cosf(0.0f) * mat[k%3][1] + sinf(0.0f) * mat[(k+1)%3][1]),
+		center[2] + radius * (cosf(0.0f) * mat[k%3][2] + sinf(0.0f) * mat[(k+1)%3][2])
+		};
+
+		const uint32_t segments = radius * 100.0f;
+		const float segment_angle = 2.0f * M_PI / segments;
+
+		for (int32_t i = 1; i <= segments; i++)
+		{
+			const float v_end[3] = {
+				center[0] + radius * (cosf(segment_angle * i) * mat[k%3][0] + sinf(segment_angle * i) * mat[(k+1)%3][0]),
+				center[1] + radius * (cosf(segment_angle * i) * mat[k%3][1] + sinf(segment_angle * i) * mat[(k+1)%3][1]),
+				center[2] + radius * (cosf(segment_angle * i) * mat[k%3][2] + sinf(segment_angle * i) * mat[(k+1)%3][2])
+			};
+
+			fc_dbg_line(v_start, v_end, color);
+
+			v_start[0] = v_end[0];
+			v_start[1] = v_end[1];
+			v_start[2] = v_end[2];
+		}
+	}
+}
+
 void fc_dbg_text(float x, float y, const char* txt, const float color[4], float scale)
 {
 	const uint32_t length = (uint32_t)strlen(txt);
