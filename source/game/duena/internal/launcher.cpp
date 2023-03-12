@@ -426,7 +426,7 @@ typedef struct fg_game_object_t
 	
 } fg_game_object_t;
 
-const fa_anim_clip_t* fg_load_anim(fg_resource_register_t* reg, const fi_depot_t* depot, const char* name,
+const fa_anim_clip_t* fg_load_anim(fg_resource_register_t* reg, fc_depot_t* depot, const char* name,
 								   const fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	fa_anim_clip_t* animClip = NULL;
@@ -439,44 +439,24 @@ const fa_anim_clip_t* fg_load_anim(fg_resource_register_t* reg, const fi_depot_t
 		const u64 nameLength = strlen(name);
 		
 		char pathEngine[256] = {};
-		memcpy(pathEngine, depot->path, strlen(depot->path));
-		memcpy(pathEngine + strlen(depot->path), directory, dirLength);
-		memcpy(pathEngine + strlen(depot->path) + dirLength, name, nameLength);
-		memcpy(pathEngine + strlen(depot->path) + dirLength + nameLength, engineExtension, strlen(engineExtension));
-		
-		FILE* engineFile = fopen(pathEngine, "rb");
-		
-		// import animation if not done yet
-		if(!engineFile)
-		{
-			char pathImport[256] = {};
-			memcpy(pathImport, directory, dirLength);
-			memcpy(pathImport + dirLength, name, nameLength);
-			memcpy(pathImport + dirLength + nameLength, extension, strlen(extension));
-			
-			fi_import_anim_clip_ctx_t ctx = {};
-			ctx.path = pathImport;
-			ctx.extractRootMotion = true;
-			ctx.rig = rig;
-			
-			fi_import_anim_clip(depot, &ctx, &animClip, pAllocCallbacks);
-		}
+		fc_path_concat(pathEngine, "", "data/anim/", name, ".anim");
+
+		fc_file_path_t file_path = fc_file_path_create(depot, pathEngine);
+		fc_file_t* file = fc_file_open(depot, file_path, "rb");
 		
 		// try loading or saving engine file
+		fc_serializer_t serializer = {};
+		serializer.file = file;
+		serializer.isWriting = false;
+			
+		if(!serializer.isWriting)
 		{
-			fc_serializer_t serializer = {};
-			serializer.file = engineFile ? engineFile : fopen(pathEngine, "wb");
-			serializer.isWriting = !engineFile;
-			
-			if(!serializer.isWriting)
-			{
-				animClip = (fa_anim_clip_t*)FUR_ALLOC_AND_ZERO(sizeof(fa_anim_clip_t), 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-			}
-			
-			fa_anim_clip_serialize(&serializer, animClip, pAllocCallbacks);
-			
-			fclose(serializer.file);
+			animClip = (fa_anim_clip_t*)FUR_ALLOC_AND_ZERO(sizeof(fa_anim_clip_t), 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 		}
+			
+		fa_anim_clip_serialize(&serializer, animClip, pAllocCallbacks);
+
+		fc_file_close(file);
 		
 		// register animation
 		const i32 idxAnim = reg->numAnimations;
@@ -784,21 +764,15 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		const char* depotPath = "../../../";
 #endif
 
-		fi_depot_t depot;
-		depot.path = depotPath;
-
-		const char* characterRigPath = "assets/characters/zelda/animations/zelda-a-pose.fbx";
-		char pathRigEngine[256] = {};
-		fc_path_concat(pathRigEngine, depotPath, "data/rig/", "zelda-a-pose", ".rig");
-		
 		// load rig
 		{
-			FILE* engineFile = fopen(pathRigEngine, "rb");
+			const fc_file_path_t rigPath = fc_file_path_create(pEngine->depot, "data/rig/zelda-a-pose.rig");
+			fc_file_t* file = fc_file_open(pEngine->depot, rigPath, "rb");
 			
-			if(engineFile)
+			if(file)
 			{
 				fc_serializer_t ser = {};
-				ser.file = engineFile;
+				ser.file = file;
 				ser.isWriting = false;
 				pEngine->pRig = (fa_rig_t*)FUR_ALLOC_AND_ZERO(sizeof(fa_rig_t), 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 				fa_rig_serialize(&ser, pEngine->pRig, pAllocCallbacks);
@@ -806,6 +780,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		}
 		
 		// import rig
+#if 0
 		if(!pEngine->pRig)
 		{
 			fi_import_rig_ctx_t ctx = {};
@@ -1081,68 +1056,66 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			ser.isWriting = true;
 			fa_rig_serialize(&ser, pEngine->pRig, pAllocCallbacks);
 		}
+#endif
 
-		pEngine->pAnimClipWindProtect = fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-upper-wind-protect", pEngine->pRig, pAllocCallbacks);
-		pEngine->pAnimClipHoldSword = fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-upper-hold-sword", pEngine->pRig, pAllocCallbacks);
+		pEngine->pAnimClipWindProtect = fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-upper-wind-protect", pEngine->pRig, pAllocCallbacks);
+		pEngine->pAnimClipHoldSword = fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-upper-hold-sword", pEngine->pRig, pAllocCallbacks);
 		
-		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-idle-stand-relaxed", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-funny-poses", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-funny-pose-2", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-funny-pose-3", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-funny-pose-4", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-loco-run-relaxed", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-run-to-idle-sharp", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-loco-idle-to-run-0", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-loco-jump-in-place", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-loco-jump", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-additive", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-a-pose", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-face-idle", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-idle-stand-01", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-hands-idle", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-wind-01", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, &depot, "zelda-jump-loop", pEngine->pRig, pAllocCallbacks);
+		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-idle-stand-relaxed", pEngine->pRig, pAllocCallbacks);
+		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-poses", pEngine->pRig, pAllocCallbacks);
+		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-pose-2", pEngine->pRig, pAllocCallbacks);
+		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-pose-3", pEngine->pRig, pAllocCallbacks);
+		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-pose-4", pEngine->pRig, pAllocCallbacks);
+		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-run-relaxed", pEngine->pRig, pAllocCallbacks);
+		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-run-to-idle-sharp", pEngine->pRig, pAllocCallbacks);
+		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-idle-to-run-0", pEngine->pRig, pAllocCallbacks);
+		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-jump-in-place", pEngine->pRig, pAllocCallbacks);
+		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-jump", pEngine->pRig, pAllocCallbacks);
+		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-additive", pEngine->pRig, pAllocCallbacks);
+		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-a-pose", pEngine->pRig, pAllocCallbacks);
+		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-face-idle", pEngine->pRig, pAllocCallbacks);
+		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-idle-stand-01", pEngine->pRig, pAllocCallbacks);
+		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-hands-idle", pEngine->pRig, pAllocCallbacks);
+		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-wind-01", pEngine->pRig, pAllocCallbacks);
+		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-jump-loop", pEngine->pRig, pAllocCallbacks);
 		
 		// load meshes
 		{
 			fr_load_mesh_ctx_t meshCtx = {};
-			meshCtx.path = "data/mesh/";
-			meshCtx.fileName = "zelda-sword";
-			const char* texturePaths[] = {"data/texture/melee_diff.png"};
+			meshCtx.path = fc_file_path_create(pEngine->depot, "data/mesh/zelda-sword.mesh");
+			fc_file_path_t texturePaths[] = {fc_file_path_create(pEngine->depot, "data/texture/melee_diff.png")};
 			const i32 textureIndices[] = {0};
 			meshCtx.texturePaths = texturePaths;
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
 			meshCtx.textureIndices = textureIndices;
 			meshCtx.numTextureIndices = FUR_ARRAY_SIZE(textureIndices);
-			pEngine->swordMesh = fr_load_mesh(pEngine->pRenderer, &depot, &meshCtx, pAllocCallbacks);
+			pEngine->swordMesh = fr_load_mesh(pEngine->pRenderer, pEngine->depot, &meshCtx, pAllocCallbacks);
 		}
 		
 		// load chest mesh
 		{
 			fr_load_mesh_ctx_t meshCtx = {};
-			meshCtx.path = "data/mesh/";
-			meshCtx.fileName = "chest";
-			const char* texturePaths[] = {"data/texture/chest_albedo.png"};
+			meshCtx.path = fc_file_path_create(pEngine->depot, "data/mesh/chest.mesh");
+			fc_file_path_t texturePaths[] = { fc_file_path_create(pEngine->depot, "data/texture/chest_albedo.png")};
 			const i32 textureIndices[] = {0};
 			meshCtx.texturePaths = texturePaths;
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
 			meshCtx.textureIndices = textureIndices;
 			meshCtx.numTextureIndices = FUR_ARRAY_SIZE(textureIndices);
-			pEngine->chestMesh = fr_load_mesh(pEngine->pRenderer, &depot, &meshCtx, pAllocCallbacks);
+			pEngine->chestMesh = fr_load_mesh(pEngine->pRenderer, pEngine->depot, &meshCtx, pAllocCallbacks);
 		}
 		
 		// load block mesh
 		{
 			fr_load_mesh_ctx_t meshCtx = {};
-			meshCtx.path = "data/mesh/";
-			meshCtx.fileName = "skull_block_PBR_fc";
-			const char* texturePaths[] = {"data/texture/b_stone1_Color.png"};
+			meshCtx.path = fc_file_path_create(pEngine->depot, "data/mesh/skull_block_PBR_fc.mesh");
+			fc_file_path_t texturePaths[] = { fc_file_path_create(pEngine->depot, "data/texture/b_stone1_Color.png")};
 			const i32 textureIndices[] = {0};
 			meshCtx.texturePaths = texturePaths;
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
 			meshCtx.textureIndices = textureIndices;
 			meshCtx.numTextureIndices = FUR_ARRAY_SIZE(textureIndices);
-			pEngine->blockMesh = fr_load_mesh(pEngine->pRenderer, &depot, &meshCtx, pAllocCallbacks);
+			pEngine->blockMesh = fr_load_mesh(pEngine->pRenderer, pEngine->depot, &meshCtx, pAllocCallbacks);
 		}
 		
 		// set block positions and create colliders
@@ -1162,31 +1135,30 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		for(u32 i=0; i<5; ++i)
 		{
 			char txtPath[256];
-			sprintf(txtPath, "rock-0%i", i+1);
+			sprintf(txtPath, "data/mesh/rock-0%i.mesh", i+1);
 			
 			char txtTexturePath[256];
 			sprintf(txtTexturePath, "data/texture/rock-0%i.png", i+1);
 			
 			fr_load_mesh_ctx_t meshCtx = {};
-			meshCtx.path = "data/mesh/";
-			meshCtx.fileName = txtPath;
-			const char* texturePaths[] = {txtTexturePath};
+			meshCtx.path = fc_file_path_create(pEngine->depot, txtPath);
+			fc_file_path_t texturePaths[] = { fc_file_path_create(pEngine->depot, txtTexturePath) };
 			const i32 textureIndices[] = {0};
 			meshCtx.texturePaths = texturePaths;
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
 			meshCtx.textureIndices = textureIndices;
 			meshCtx.numTextureIndices = FUR_ARRAY_SIZE(textureIndices);
-			pEngine->rockMeshes[i] = fr_load_mesh(pEngine->pRenderer, &depot, &meshCtx, pAllocCallbacks);
+			pEngine->rockMeshes[i] = fr_load_mesh(pEngine->pRenderer, pEngine->depot, &meshCtx, pAllocCallbacks);
 		}
 		
 		// load zelda mesh
 		{
 			fr_load_mesh_ctx_t meshCtx = {};
-			meshCtx.path = "data/mesh/";
-			meshCtx.fileName = "zelda-mesh";
-			const char* texturePaths[] = {"data/texture/zelda_diff.png",
-				"data/texture/hair_diff.png",
-				"data/texture/eyes_diff2.png"
+			meshCtx.path = fc_file_path_create(pEngine->depot, "data/mesh/zelda-mesh.mesh");
+			fc_file_path_t texturePaths[] = {
+				fc_file_path_create(pEngine->depot, "data/texture/zelda_diff.png"),
+				fc_file_path_create(pEngine->depot, "data/texture/hair_diff.png"),
+				fc_file_path_create(pEngine->depot, "data/texture/eyes_diff2.png")
 			};
 			const i32 textureIndices[] = {0, 0, 1, 0, 2, 0, 1};
 			meshCtx.texturePaths = texturePaths;
@@ -1196,7 +1168,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 			meshCtx.isSkinned = true;
 			meshCtx.boneNames = pEngine->pRig->boneNameHashes;
 			meshCtx.numBones = pEngine->pRig->numBones;
-			pEngine->zeldaMesh = fr_load_mesh(pEngine->pRenderer, &depot, &meshCtx, pAllocCallbacks);
+			pEngine->zeldaMesh = fr_load_mesh(pEngine->pRenderer, pEngine->depot, &meshCtx, pAllocCallbacks);
 		}
 	}
 	
@@ -1407,8 +1379,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	// spawn zelda game object
 	{
 		const i32 props_num = 1;
-		fc_string_hash_t prop_names[props_num] = {SID("state-script")};
-		fg_spawn_info_prop_value_t prop_values[props_num] = {};
+		static fc_string_hash_t prop_names[props_num] = {SID("state-script")};
+		static fg_spawn_info_prop_value_t prop_values[props_num] = {};
 		prop_values[0].asStringHash = SID("ss-zelda");
 		
 		static fg_spawner_t spawner = {};

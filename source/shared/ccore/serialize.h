@@ -83,16 +83,17 @@ typedef struct _iobuf FILE;
 #else
 #endif
 
+typedef struct fc_depot_t fc_depot_t;
+typedef u64 fc_file_path_t;
+typedef struct fc_file_t fc_file_t;
+
 // interface - use this + FUR_SER_ADD, FUR_SER_REM macros
 typedef struct fc_serializer_t
 {
 	i32 version;
-	FILE* file;
+	fc_file_t* file;
 	bool isWriting;
 } fc_serializer_t;
-
-void fc_serialize_load(const char* path, fc_serializer_t* outSerializer);
-void fc_serialize_save(const char* path, fc_serializer_t* outSerializer);
 
 // simple type serialization functions
 void fc_serialize_int8(fc_serializer_t* pSerializer, int8_t* prop);

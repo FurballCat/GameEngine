@@ -75,17 +75,16 @@ struct fr_scene_t;
 // render proxy - can be a mesh, a particle system, anything that can be rendered and has position
 typedef struct fr_proxy_t fr_proxy_t;
 
-typedef struct fi_depot_t fi_depot_t;
+typedef u64 fc_file_path_t;
 
 typedef struct fr_load_mesh_ctx_t
 {
-	const char* path;
-	const char* fileName;
-	
+	fc_file_path_t path;
+
 	const i32* textureIndices;
 	i32 numTextureIndices;
 	
-	const char** texturePaths;
+	fc_file_path_t* texturePaths;
 	u32 numTextures;
 	
 	bool isSkinned;
@@ -94,7 +93,7 @@ typedef struct fr_load_mesh_ctx_t
 } fr_load_mesh_ctx_t;
 
 // load mesh, the ownership is kept inside renderer, so no need to
-CREND_API fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, const fr_load_mesh_ctx_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks);
+CREND_API fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, fc_depot_t* depot, const fr_load_mesh_ctx_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks);
 
 // release proxy, might also release the associated data (meshes, textures, etc.)
 CREND_API void fr_release_proxy(fr_renderer_t* pRenderer, fr_proxy_t* proxy, fc_alloc_callbacks_t* pAllocCallbacks);

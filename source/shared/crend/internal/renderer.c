@@ -2848,40 +2848,21 @@ void frSerialize_example(fr_serializer_t* ser, fr_example_struct_t* data)
 	FR_ADD_FIELD(FR_VER_INITIAL, fieldA);
 }
 
-fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, const fr_load_mesh_ctx_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks)
+fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fc_depot_t* depot, const fr_load_mesh_ctx_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	fr_resource_mesh_t* meshResource = NULL;
 	
-	char pathEngine[256] = {0};
-	fc_path_concat(pathEngine, depot->path, ctx->path, ctx->fileName, ".mesh");
-	FILE* engineFile = fopen(pathEngine, "rb");
-	
-	// load mesh
-	if(!engineFile)
 	{
-		char pathImport[256] = {0};
-		fc_path_concat(pathImport, "", ctx->path, ctx->fileName, ".fbx");
-		
-		fi_import_mesh_ctx_t loadCtx;
-		loadCtx.path = pathImport;
-		
-		fi_import_mesh(depot, &loadCtx, &meshResource, pAllocCallbacks);
-	}
-	
-	// load or save serialized file
-	{
-		fc_serializer_t ser = {0};
-		ser.file = engineFile ? engineFile : fopen(pathEngine, "wb");
-		ser.isWriting = (engineFile == NULL);
-		
-		if(!ser.isWriting)
-		{
-			meshResource = FUR_ALLOC_AND_ZERO(sizeof(fr_resource_mesh_t), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
-		}
-		
+		fc_file_t* file = fc_file_open(depot, ctx->path, "rb");
+
+		fc_serializer_t ser = { 0 };
+		ser.file = file;
+
+		meshResource = FUR_ALLOC_AND_ZERO(sizeof(fr_resource_mesh_t), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+
 		fr_resource_mesh_serialize(&ser, meshResource, pAllocCallbacks);
-		
-		fclose(ser.file);
+
+		fc_file_close(file);
 	}
 	
 	fr_mesh_t* mesh = FUR_ALLOC_AND_ZERO(sizeof(fr_mesh_t), 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
@@ -2912,14 +2893,14 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fi_depot_t* depot, cons
 		
 		// load texture
 		{
-			const char* texturePathRelative = ctx->texturePaths[i];
-			char texturePath[256] = {0};
-			sprintf(texturePath, "%s%s", depot->path, texturePathRelative);
-			
+			fc_file_t* file = fc_file_open(depot, ctx->texturePaths[i], "rb");
+
 			int texChannels;
-			stbi_uc* pixels = stbi_load(texturePath, &imageWidth[i], &imageHeight[i], &texChannels, STBI_rgb_alpha);
+			stbi_uc* pixels = stbi_load_from_file((FILE*)file, &imageWidth[i], &imageHeight[i], &texChannels, STBI_rgb_alpha);
 			imageSize = imageWidth[i] * imageHeight[i] * 4;
 			
+			fc_file_close(file);
+
 			FUR_ASSERT(pixels);
 			
 			imageStagingOffset[i] = stagingBuilder.totalSize;
