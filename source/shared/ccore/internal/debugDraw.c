@@ -6,6 +6,7 @@
 #include "debugDraw.h"
 #include "memory.h"
 #include "furAssert.h"
+#include <corecrt_math_defines.h>
 
 #define FC_DEBUG_FRAGMENTS_LINES_CAPACITY 4096
 #define FC_DEBUG_FRAGMENTS_TRIANGLES_CAPACITY 4096
@@ -394,6 +395,58 @@ void fc_dbg_plane(const float center[3], const float halfLength, const float col
 	
 	fc_dbg_triangle(planeC, planeB, planeA, color);
 	fc_dbg_triangle(planeA, planeD, planeC, color);
+}
+
+void fc_dbg_helper_cross(const float a[3], const float b[3], float c[3])
+{
+	c[0] = a[1] * b[2] - a[2] * b[1];
+	c[1] = a[0] * b[2] - a[2] * b[0];
+	c[2] = a[0] * b[1] - a[1] * b[0];
+}
+
+void fc_dbg_helper_perpendicular(float v1[3], float v2[3])
+{
+	// Find the index of the smallest element in v1
+	int i = (abs(v1[0]) < abs(v1[1])) ? 0 : 1;
+	i = (abs(v1[i]) < abs(v1[2])) ? i : 2;
+
+	// Compute the perpendicular vector by setting the smallest element to zero
+	v2[0] = v2[1] = v2[2] = 0.0f;
+	v2[(i + 1) % 3] = v1[(i + 2) % 3];
+	v2[(i + 2) % 3] = -v1[(i + 1) % 3];
+}
+
+void fc_dbg_circle(const float center[3], const float radius, const float up[3], const float color[4])
+{
+	float right[3] = { 0 };
+	fc_dbg_helper_perpendicular(up, right);
+
+	float left[3] = { 0 };
+	fc_dbg_helper_cross(up, right, left);
+
+	float v_start[3] = {
+		center[0] + radius * (cosf(0.0f) * right[0] + sinf(0.0f) * left[0]),
+		center[1] + radius * (cosf(0.0f) * right[1] + sinf(0.0f) * left[1]),
+		center[2] + radius * (cosf(0.0f) * right[2] + sinf(0.0f) * left[2])
+	};
+
+	const uint32_t segments = radius * 100.0f;
+	const float segment_angle = 2.0f * M_PI / segments;
+
+	for (int32_t i = 1; i <= segments; i++)
+	{
+		const float v_end[3] = {
+			center[0] + radius * (cosf(segment_angle * i) * right[0] + sinf(segment_angle * i) * left[0]),
+			center[1] + radius * (cosf(segment_angle * i) * right[1] + sinf(segment_angle * i) * left[1]),
+			center[2] + radius * (cosf(segment_angle * i) * right[2] + sinf(segment_angle * i) * left[2])
+		};
+
+		fc_dbg_line(v_start, v_end, color);
+
+		v_start[0] = v_end[0];
+		v_start[1] = v_end[1];
+		v_start[2] = v_end[2];
+	}
 }
 
 void fc_dbg_text(float x, float y, const char* txt, const float color[4], float scale)

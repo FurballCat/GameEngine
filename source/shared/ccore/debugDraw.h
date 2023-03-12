@@ -30,6 +30,7 @@ CCORE_API void fc_dbg_line(const float start[3], const float end[3], const float
 CCORE_API void fc_dbg_triangle(const float pointA[3], const float pointB[3], const float pointC[3], const float color[4]);
 CCORE_API void fc_dbg_box_wire(const float center[3], const float extent[3], const float color[4]);
 CCORE_API void fc_dbg_plane(const float center[3], const float halfLength, const float color[4]);
+CCORE_API void fc_dbg_circle(const float center[3], const float radius, const float up[3], const float color[4]);
 	
 // use sprintf( txt, "blah blah %u", value ) and pass txt to the function (txt is char txt[32] or any other reasonable size)
 CCORE_API void fc_dbg_text(float x, float y, const char* txt, const float color[4], float scale);
