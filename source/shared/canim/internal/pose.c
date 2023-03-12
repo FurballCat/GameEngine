@@ -121,7 +121,7 @@ void fa_pose_local_to_model(fa_pose_t* modelPose, const fa_pose_t* localPose, co
 	u32 numBones = MIN(modelPose->numXforms, localPose->numXforms);
 	
 	// iterate non-root bones
-	for(uint16_t i = 0; i < numBones; ++i)
+	for(u16 i = 0; i < numBones; ++i)
 	{
 		const int16_t idxParent = parentIndices[i];
 		if(idxParent >= 0)

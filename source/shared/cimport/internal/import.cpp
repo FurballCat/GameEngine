@@ -371,15 +371,15 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 
 struct fi_temp_anim_curve_key_t
 {
-	uint16_t keyTime;
+	u16 keyTime;
 	bool isRotation;
 	bool isLastCompMinus;	// for rotation
-	uint16_t keyValues[3];
+	u16 keyValues[3];
 };
 
 struct fi_temp_anim_curve_t
 {
-	uint16_t index;
+	u16 index;
 	std::vector<fi_temp_anim_curve_key_t> keys;
 	std::vector<fi_temp_anim_curve_key_t> posKeys;
 };
@@ -429,24 +429,24 @@ const f32 Km  = 4.0*(0.4142135679721832275390625); // 4(sqrt(2)-1)
 const f32 Khf = 2.414213657379150390625;           // sqrt(2)+1 = 1/(sqrt(2)-1)
 const f32 Khi = 0.17157287895679473876953125;      // 3-2sqrt(2)
 
-f32 fa_decompress_float_minus_one_plus_one(uint16_t value)
+f32 fa_decompress_float_minus_one_plus_one(u16 value)
 {
 	return (((f32)value) / 65535.0f) * 2.0f - 1.0f;
 }
 
-uint16_t fa_compress_float_minus_one_plus_on(f32 value)
+u16 fa_compress_float_minus_one_plus_on(f32 value)
 {
-	return (uint16_t)(((value + 1.0f) / 2.0f) * 65535.0f);
+	return (u16)(((value + 1.0f) / 2.0f) * 65535.0f);
 }
 
-void fm_vec3_to_16bit(const fm_vec3* v, uint16_t* b)
+void fm_vec3_to_16bit(const fm_vec3* v, u16* b)
 {
 	b[0] = fa_compress_float_minus_one_plus_on(v->x);
 	b[1] = fa_compress_float_minus_one_plus_on(v->y);
 	b[2] = fa_compress_float_minus_one_plus_on(v->z);
 }
 
-void fm_16bit_to_vec3(const uint16_t* b, fm_vec3* v)
+void fm_16bit_to_vec3(const u16* b, fm_vec3* v)
 {
 	v->x = fa_decompress_float_minus_one_plus_one(b[0]);
 	v->y = fa_decompress_float_minus_one_plus_one(b[1]);
@@ -480,14 +480,14 @@ fm_quat quat_ihm(const fm_vec3* v)
 	return q;
 }
 
-void quat_fhm_16bit(fm_quat q, uint16_t* v)
+void quat_fhm_16bit(fm_quat q, u16* v)
 {
 	fm_vec3 vec;
 	quat_fhm(q, &vec);
 	fm_vec3_to_16bit(&vec, v);
 }
 
-fm_quat quat_ihm_16bit(const uint16_t* b)
+fm_quat quat_ihm_16bit(const u16* b)
 {
 	fm_vec3 vec;
 	fm_16bit_to_vec3(b, &vec);
@@ -496,13 +496,13 @@ fm_quat quat_ihm_16bit(const uint16_t* b)
 
 const f32 c_positionCompressionRange = 20.0f;
 
-void vec4_com_16bit(fm_vec4 v, uint16_t* b)
+void vec4_com_16bit(fm_vec4 v, u16* b)
 {
 	fm_vec3 vec = {v.x / c_positionCompressionRange, v.y / c_positionCompressionRange, v.z / c_positionCompressionRange};
 	fm_vec3_to_16bit(&vec, b);
 }
 
-fm_vec4 vec4_decom_16bit(const uint16_t* v)
+fm_vec4 vec4_decom_16bit(const u16* v)
 {
 	fm_vec3 vec;
 	fm_16bit_to_vec3(v, &vec);
@@ -516,7 +516,7 @@ fm_vec4 vec4_decom_16bit(const uint16_t* v)
 	return res;
 }
 
-f32 fa_decompress_key_time(const uint16_t time)
+f32 fa_decompress_key_time(const u16 time)
 {
 	return ((f32)time) / 24.0f;
 }
@@ -557,7 +557,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 		
 		if(numBones > 0)
 		{
-			const uint16_t numCurves = numBones * 2;	// two channels: position & rotation
+			const u16 numCurves = numBones * 2;	// two channels: position & rotation
 			tempClip.curves.reserve(numCurves);
 			u32 numAllKeys = 0;
 			
@@ -615,7 +615,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 					f32 value[3] = {0.0f};
 					fi_sample_fbx_anim_curve(bone->m_rotation, 3, value, time);
 					
-					tempCurve.keys[i].keyTime = (uint16_t)(time * 24.0f);
+					tempCurve.keys[i].keyTime = (u16)(time * 24.0f);
 					
 					fm_euler_angles angles;
 					
@@ -626,7 +626,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 					fm_quat quat;
 					fm_quat_make_from_euler_angles_xyz(&angles, &quat);
 					
-					uint16_t* key = tempCurve.keys[i].keyValues;
+					u16* key = tempCurve.keys[i].keyValues;
 					quat_fhm_16bit(quat, key);
 					
 					tempCurve.keys[i].isLastCompMinus = quat.r < 0.0f;
@@ -687,7 +687,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 					f32 value[3] = {0.0f};
 					fi_sample_fbx_anim_curve(bone->m_translation, 3, value, time);
 					
-					tempCurve.posKeys[i].keyTime = (uint16_t)(time * 24.0f);
+					tempCurve.posKeys[i].keyTime = (u16)(time * 24.0f);
 					
 					fm_vec4 pos;
 					
@@ -701,7 +701,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 					//	printf("t=%1.2f   p={%1.3f, %1.3f, %1.3f}\n", time, pos.x, pos.y, pos.z);
 					//}
 					
-					uint16_t* key = tempCurve.posKeys[i].keyValues;
+					u16* key = tempCurve.posKeys[i].keyValues;
 					vec4_com_16bit(pos, key);
 					
 					tempCurve.posKeys[i].isLastCompMinus = false;
@@ -721,7 +721,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 			animClip->dataKeys = (fa_anim_curve_key_t*)FUR_ALLOC(sizeof(fa_anim_curve_key_t) * numAllKeys, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 			
 			animClip->numDataKeys = numAllKeys;
-			animClip->numCurves = (uint16_t)tempClip.curves.size();
+			animClip->numCurves = (u16)tempClip.curves.size();
 			animClip->duration = duration;
 			animClip->name = SID_REG(animName.c_str());
 			

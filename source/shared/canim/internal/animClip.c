@@ -13,24 +13,24 @@ void fa_anim_clip_release(fa_anim_clip_t* clip, fc_alloc_callbacks_t* pAllocCall
 	FUR_FREE(clip, pAllocCallbacks);
 }
 
-f32 fa_decompress_float_minus_one_plus_one(uint16_t value)
+f32 fa_decompress_float_minus_one_plus_one(u16 value)
 {
 	return (((f32)value) / 65535.0f) * 2.0f - 1.0f;
 }
 
-uint16_t fa_compress_float_minus_one_plus_one(f32 value)
+u16 fa_compress_float_minus_one_plus_one(f32 value)
 {
-	return (uint16_t)(((value + 1.0f) / 2.0f) * 65535.0f);
+	return (u16)(((value + 1.0f) / 2.0f) * 65535.0f);
 }
 
-void fm_vec3_to_16bit(const fm_vec3* v, uint16_t* b)
+void fm_vec3_to_16bit(const fm_vec3* v, u16* b)
 {
 	b[0] = fa_compress_float_minus_one_plus_one(v->x);
 	b[1] = fa_compress_float_minus_one_plus_one(v->y);
 	b[2] = fa_compress_float_minus_one_plus_one(v->z);
 }
 
-void fm_16bit_to_vec3(const uint16_t* b, fm_vec3* v)
+void fm_16bit_to_vec3(const u16* b, fm_vec3* v)
 {
 	v->x = fa_decompress_float_minus_one_plus_one(b[0]);
 	v->y = fa_decompress_float_minus_one_plus_one(b[1]);
@@ -68,14 +68,14 @@ fm_quat quat_ihm(const fm_vec3* v)
 	return q;
 }
 
-void quat_fhm_16bit(fm_quat q, uint16_t* v)
+void quat_fhm_16bit(fm_quat q, u16* v)
 {
 	fm_vec3 vec;
 	quat_fhm(q, &vec);
 	fm_vec3_to_16bit(&vec, v);
 }
 
-fm_quat quat_ihm_16bit(const uint16_t* b)
+fm_quat quat_ihm_16bit(const u16* b)
 {
 	fm_vec3 vec;
 	fm_16bit_to_vec3(b, &vec);
@@ -84,13 +84,13 @@ fm_quat quat_ihm_16bit(const uint16_t* b)
 
 const f32 c_posRange = 20.0f;
 
-void vec4_com_16bit(fm_vec4 v, uint16_t* b)
+void vec4_com_16bit(fm_vec4 v, u16* b)
 {
 	fm_vec3 vec = {v.x / c_posRange, v.y / c_posRange, v.z / c_posRange};
 	fm_vec3_to_16bit(&vec, b);
 }
 
-fm_vec4 vec4_decom_16bit(const uint16_t* v)
+fm_vec4 vec4_decom_16bit(const u16* v)
 {
 	fm_vec3 vec;
 	fm_16bit_to_vec3(v, &vec);
@@ -106,17 +106,17 @@ fm_vec4 vec4_decom_16bit(const uint16_t* v)
 
 void fa_decompress_rotation_key(const fa_anim_curve_key_t* key, fm_quat* rot)
 {
-	const uint16_t* keyData = key->keyData;
+	const u16* keyData = key->keyData;
 	*rot = quat_ihm_16bit(keyData);
 }
 
 void fa_decompress_position_key(const fa_anim_curve_key_t* key, fm_vec4* pos)
 {
-	const uint16_t* keyData = key->keyData;
+	const u16* keyData = key->keyData;
 	*pos = vec4_decom_16bit(keyData);
 }
 
-f32 fa_decompress_key_time(const uint16_t time)
+f32 fa_decompress_key_time(const u16 time)
 {
 	return ((f32)time) / 24.0f;
 }
@@ -125,9 +125,9 @@ void fa_anim_curve_sample(const fa_anim_curve_t* curve, f32 time, bool asAdditiv
 {
 	// rotation
 	{
-		const uint16_t numKeys = curve->numRotKeys;
+		const u16 numKeys = curve->numRotKeys;
 	
-		uint16_t idx = 0;
+		u16 idx = 0;
 		
 		// this could be a binary search
 		while(idx < (numKeys-1) && fa_decompress_key_time(curve->rotKeys[idx].keyTime) < time)
@@ -135,8 +135,8 @@ void fa_anim_curve_sample(const fa_anim_curve_t* curve, f32 time, bool asAdditiv
 			++idx;
 		}
 		
-		const uint16_t upperIdx = idx;
-		const uint16_t lowerIdx = idx == 0 ? idx : idx - 1;
+		const u16 upperIdx = idx;
+		const u16 lowerIdx = idx == 0 ? idx : idx - 1;
 		
 		fm_quat rot;
 		
@@ -165,9 +165,9 @@ void fa_anim_curve_sample(const fa_anim_curve_t* curve, f32 time, bool asAdditiv
 	
 	// position
 	{
-		const uint16_t numKeys = curve->numPosKeys;
+		const u16 numKeys = curve->numPosKeys;
 	
-		uint16_t idx = 0;
+		u16 idx = 0;
 		
 		// this could be a binary search
 		while(idx < (numKeys-1) && fa_decompress_key_time(curve->posKeys[idx].keyTime) < time)
@@ -175,8 +175,8 @@ void fa_anim_curve_sample(const fa_anim_curve_t* curve, f32 time, bool asAdditiv
 			++idx;
 		}
 		
-		const uint16_t upperIdx = idx;
-		const uint16_t lowerIdx = idx == 0 ? idx : idx - 1;
+		const u16 upperIdx = idx;
+		const u16 lowerIdx = idx == 0 ? idx : idx - 1;
 		
 		fm_vec4 pos;
 		
@@ -233,7 +233,7 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, f32 time, bool asAdditive, 
 		for(u32 i_c=0; i_c<numCurves; ++i_c)
 		{
 			const fa_anim_curve_t* curve = &clip->curves[i_c];
-			const uint16_t idxXform = curve->index;
+			const u16 idxXform = curve->index;
 			
 			fa_anim_curve_sample(curve, time, asAdditive, &pose->xforms[idxXform]);
 			
@@ -278,7 +278,7 @@ void fa_anim_clip_serialize(fc_serializer_t* pSerializer, fa_anim_clip_t* clip, 
 	FUR_SER_ADD_BUFFER(FA_ANIM_VER_BASE, clip->dataKeys, clip->numDataKeys * sizeof(fa_anim_curve_key_t));
 	
 	// fix pointers for anim curves
-	uint16_t keyCounter = 0;
+	u16 keyCounter = 0;
 	for(i32 i=0; i<clip->numCurves; ++i)
 	{
 		clip->curves[i].rotKeys = clip->dataKeys + keyCounter;

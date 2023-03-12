@@ -19,7 +19,7 @@ extern "C"
 	i32*: fc_serialize_int32, \
 	int64_t*: fc_serialize_int64, \
 	u8*: fc_serialize_uint8,	\
-	uint16_t*: fc_serialize_uint16, \
+	u16*: fc_serialize_uint16, \
 	u32*: fc_serialize_uint32, \
 	uint64_t*: fc_serialize_uint64, \
 	f32*: fc_serialize_float, \
@@ -35,7 +35,7 @@ extern "C"
 	i32*: fc_serialize_int32, \
 	int64_t*: fc_serialize_int64, \
 	u8*: fc_serialize_uint8,	\
-	uint16_t*: fc_serialize_uint16, \
+	u16*: fc_serialize_uint16, \
 	u32*: fc_serialize_uint32, \
 	uint64_t*: fc_serialize_uint64, \
 	f32*: fc_serialize_float, \
@@ -100,7 +100,7 @@ void fc_serialize_int16(fc_serializer_t* pSerializer, int16_t* prop);
 void fc_serialize_int32(fc_serializer_t* pSerializer, i32* prop);
 void fc_serialize_int64(fc_serializer_t* pSerializer, int64_t* prop);
 void fc_serialize_uint8(fc_serializer_t* pSerializer, u8* prop);
-void fc_serialize_uint16(fc_serializer_t* pSerializer, uint16_t* prop);
+void fc_serialize_uint16(fc_serializer_t* pSerializer, u16* prop);
 void fc_serialize_uint32(fc_serializer_t* pSerializer, u32* prop);
 void fc_serialize_uint64(fc_serializer_t* pSerializer, uint64_t* prop);
 void fc_serialize_float(fc_serializer_t* pSerializer, f32* prop);

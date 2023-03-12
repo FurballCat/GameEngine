@@ -15,7 +15,7 @@ typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 typedef struct fi_input_event_t
 {
 	f32 value;
-	uint16_t eventID;
+	u16 eventID;
 	u8 playerID;
 	u8 deviceID;
 } fi_input_event_t;

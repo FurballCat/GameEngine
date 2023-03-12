@@ -24,8 +24,8 @@ typedef struct fa_pose_t
 	u8* weightsXforms;
 	u8* weightsTracks;
 	
-	uint16_t numXforms;
-	uint16_t numTracks;
+	u16 numXforms;
+	u16 numTracks;
 	
 	u32 flags;
 } fa_pose_t;

@@ -163,7 +163,7 @@ typedef struct fs_segment_header_t
 {
 	u8 segmentId;		// type of segment data (what to expect next)
 	u8 padding;
-	uint16_t dataSize; 		// segment size in bytes
+	u16 dataSize; 		// segment size in bytes
 	fc_string_hash_t name;	// unique name in segment scope (to know what to look for)
 } fs_lambda_header_t;
 

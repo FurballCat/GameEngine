@@ -18,8 +18,8 @@ typedef struct fi_hid_element_info_t
 {
 	IOHIDElementRef m_elementRef;
 	IOHIDElementType m_type;
-	uint16_t m_usagePage;
-	uint16_t m_usage;
+	u16 m_usagePage;
+	u16 m_usage;
 	i32 m_minValue;
 	i32 m_maxValue;
 } fi_hid_element_info_t;
@@ -31,12 +31,12 @@ typedef struct fi_device_info_t
 	u32 m_numElements;
 	
 	int8_t m_buttonMappings[MAX_CONTROLLER_BUTTON_MAPPINGS];
-	uint16_t m_leftAnalogXMapping;
-	uint16_t m_leftAnalogYMapping;
-	uint16_t m_leftTriggerAnalogMapping;
-	uint16_t m_rightAnalogXMapping;
-	uint16_t m_rightAnalogYMapping;
-	uint16_t m_rightTriggerAnalogMapping;
+	u16 m_leftAnalogXMapping;
+	u16 m_leftAnalogYMapping;
+	u16 m_leftTriggerAnalogMapping;
+	u16 m_rightAnalogXMapping;
+	u16 m_rightAnalogYMapping;
+	u16 m_rightTriggerAnalogMapping;
 } fi_device_info_t;
 
 typedef struct fi_controller_state_t

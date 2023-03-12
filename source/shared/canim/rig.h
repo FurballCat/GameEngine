@@ -21,10 +21,10 @@ void fm_axis_to_vec4(fm_axis_t axis, fm_vec4* v);
 
 typedef struct fa_ik_setup_t
 {
-	uint16_t idxBeginParent;
-	uint16_t idxBegin;
-	uint16_t idxMid;
-	uint16_t idxEnd;
+	u16 idxBeginParent;
+	u16 idxBegin;
+	u16 idxMid;
+	u16 idxEnd;
 	fm_axis_t hingeAxisMid;
 	f32 minAngle;
 	f32 maxAngle;
@@ -32,9 +32,9 @@ typedef struct fa_ik_setup_t
 
 typedef struct fa_look_at_setup_t
 {
-	uint16_t idxHead;
-	uint16_t idxNeck;
-	uint16_t idxSpine3;
+	u16 idxHead;
+	u16 idxNeck;
+	u16 idxSpine3;
 	
 	// half-angle limits in radians
 	f32 limitYaw;

@@ -33,8 +33,8 @@ typedef struct fc_profiler_scope_t
 	struct fc_profiler_scope_t* parent;	// kept only because of fibers
 	fc_timeval_t startTime;
 	fc_timeval_t stopTime;
-	uint16_t depth;	// depth in callstack
-	uint16_t threadID;	// the thread that closed the scope
+	u16 depth;	// depth in callstack
+	u16 threadID;	// the thread that closed the scope
 } fc_profiler_scope_t;
 
 CCORE_API fc_profiler_scope_t* fc_profiler_scope_begin(const char* name);

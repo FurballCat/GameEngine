@@ -153,7 +153,7 @@ void fa_cmd_identity(fa_cmd_buffer_recorder_t* recorder)
 typedef struct fa_cmd_anim_sample_data_t
 {
 	f32 time;
-	uint16_t animClipId;
+	u16 animClipId;
 	bool asAdditive;
 } fa_cmd_anim_sample_data_t;
 
@@ -194,14 +194,14 @@ fa_cmd_status_t fa_cmd_impl_anim_sample(fa_cmd_context_t* ctx, const void* cmdDa
 	return FA_CMD_STATUS_OK;
 }
 
-void fa_cmd_anim_sample(fa_cmd_buffer_recorder_t* recorder, f32 time, uint16_t animClipId)
+void fa_cmd_anim_sample(fa_cmd_buffer_recorder_t* recorder, f32 time, u16 animClipId)
 {
 	fa_cmd_anim_sample_data_t data = { time, animClipId, false };
 	fa_cmd_buffer_write(recorder, fa_cmd_impl_anim_sample, &data, sizeof(fa_cmd_anim_sample_data_t));
 	recorder->poseStackSizeTracking += 1;
 }
 
-void fa_cmd_anim_sample_additive(fa_cmd_buffer_recorder_t* recorder, f32 time, uint16_t animClipId)
+void fa_cmd_anim_sample_additive(fa_cmd_buffer_recorder_t* recorder, f32 time, u16 animClipId)
 {
 	fa_cmd_anim_sample_data_t data = { time, animClipId, true };
 	fa_cmd_buffer_write(recorder, fa_cmd_impl_anim_sample, &data, sizeof(fa_cmd_anim_sample_data_t));
@@ -212,7 +212,7 @@ void fa_cmd_anim_sample_additive(fa_cmd_buffer_recorder_t* recorder, f32 time, u
 typedef struct fa_cmd_anim_sample_with_locomotion_data_t
 {
 	f32 time;
-	uint16_t animClipId;
+	u16 animClipId;
 	bool asAdditive;
 	bool resetLoco;
 	i32 loops;
@@ -365,7 +365,7 @@ fa_cmd_status_t fa_cmd_impl_anim_sample_with_locomotion(fa_cmd_context_t* ctx, c
 	return FA_CMD_STATUS_OK;
 }
 
-void fa_cmd_anim_sample_with_locomotion(fa_cmd_buffer_recorder_t* recorder, f32 time, uint16_t animClipId, bool resetLoco, i32 loops, f32* prevLocoPos, f32* prevLocoRot)
+void fa_cmd_anim_sample_with_locomotion(fa_cmd_buffer_recorder_t* recorder, f32 time, u16 animClipId, bool resetLoco, i32 loops, f32* prevLocoPos, f32* prevLocoRot)
 {
 	fa_cmd_anim_sample_with_locomotion_data_t data = { time, animClipId, false, resetLoco, loops, prevLocoPos, prevLocoRot };
 	fa_cmd_buffer_write(recorder, fa_cmd_impl_anim_sample_with_locomotion, &data, sizeof(fa_cmd_anim_sample_with_locomotion_data_t));
@@ -453,7 +453,7 @@ void fa_cmd_apply_additive(fa_cmd_buffer_recorder_t* recorder, f32 weight)
 // use cached pose command
 typedef struct fa_cmd_use_cached_pose_data_t
 {
-	uint16_t poseId;
+	u16 poseId;
 } fa_cmd_use_cached_pose_data_t;
 
 fa_cmd_status_t fa_cmd_impl_use_cached_pose(fa_cmd_context_t* ctx, const void* cmdData)
@@ -480,7 +480,7 @@ fa_cmd_status_t fa_cmd_impl_use_cached_pose(fa_cmd_context_t* ctx, const void* c
 	return FA_CMD_STATUS_OK;
 }
 
-void fa_cmd_use_cached_pose(fa_cmd_buffer_recorder_t* recorder, uint16_t poseId)
+void fa_cmd_use_cached_pose(fa_cmd_buffer_recorder_t* recorder, u16 poseId)
 {
 	fa_cmd_use_cached_pose_data_t data = { poseId };
 	fa_cmd_buffer_write(recorder, fa_cmd_impl_use_cached_pose, &data, sizeof(fa_cmd_use_cached_pose_data_t));
@@ -490,7 +490,7 @@ void fa_cmd_use_cached_pose(fa_cmd_buffer_recorder_t* recorder, uint16_t poseId)
 // apply mask command
 typedef struct fa_cmd_apply_mask_data_t
 {
-	uint16_t maskId;
+	u16 maskId;
 } fa_cmd_apply_mask_data_t;
 
 fa_cmd_status_t fa_cmd_impl_apply_mask(fa_cmd_context_t* ctx, const void* cmdData)
@@ -514,7 +514,7 @@ fa_cmd_status_t fa_cmd_impl_apply_mask(fa_cmd_context_t* ctx, const void* cmdDat
 	
 	for(u32 i=0; i<pose.numXforms; ++i)
 	{
-		const uint16_t weight = ((uint16_t)pose.weightsXforms[i] * (uint16_t)mask[i]) / 255;
+		const u16 weight = ((u16)pose.weightsXforms[i] * (u16)mask[i]) / 255;
 		pose.weightsXforms[i] = (u8)weight;
 	}
 	
@@ -530,7 +530,7 @@ fa_cmd_status_t fa_cmd_impl_apply_mask(fa_cmd_context_t* ctx, const void* cmdDat
 	return FA_CMD_STATUS_OK;
 }
 
-void fa_cmd_apply_mask(fa_cmd_buffer_recorder_t* recorder, uint16_t maskId)
+void fa_cmd_apply_mask(fa_cmd_buffer_recorder_t* recorder, u16 maskId)
 {
 	fa_cmd_apply_mask_data_t data = { maskId };
 	fa_cmd_buffer_write(recorder, fa_cmd_impl_apply_mask, &data, sizeof(fa_cmd_apply_mask_data_t));

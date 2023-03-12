@@ -23,7 +23,7 @@ FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_int32, i32 )
 FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_int64, int64_t )
 
 FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_uint8, u8 )
-FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_uint16, uint16_t )
+FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_uint16, u16 )
 FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_uint32, u32 )
 FUR_SIMPLE_TYPE_SERIALIZER_IMPL( fc_serialize_uint64, uint64_t )
 

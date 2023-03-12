@@ -17,15 +17,15 @@ typedef struct fc_serializer_t fc_serializer_t;
 
 typedef struct fa_anim_curve_key_t
 {
-	uint16_t keyTime;
-	uint16_t keyData[3];
+	u16 keyTime;
+	u16 keyData[3];
 } fa_anim_curve_key_t;
 
 typedef struct fa_anim_curve_t
 {
-	uint16_t index;
-	uint16_t numRotKeys;
-	uint16_t numPosKeys;
+	u16 index;
+	u16 numRotKeys;
+	u16 numPosKeys;
 	fa_anim_curve_key_t* rotKeys;
 	fa_anim_curve_key_t* posKeys;
 } fa_anim_curve_t;

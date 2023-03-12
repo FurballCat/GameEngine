@@ -336,7 +336,7 @@ void fa_character_init(fa_character_t* character, const fa_rig_t* rig, fc_alloc_
 {
 	character->rig = rig;
 	
-	const uint16_t numBones = rig->numBones;
+	const u16 numBones = rig->numBones;
 	
 	character->poseMS = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 	character->layerFullBody.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);

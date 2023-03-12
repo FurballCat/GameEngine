@@ -80,7 +80,7 @@ typedef struct fc_mem_debug_info_t
 	const char* line;
 	u64 size;
 	enum fc_memory_scope_t scope;
-	uint16_t offsetToOriginalPtr;
+	u16 offsetToOriginalPtr;
 	//u32 markerEnd;
 	
 } fc_mem_debug_info_t;
@@ -106,7 +106,7 @@ void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, u64 size, u64 align
 	
 	ptr = malloc(size);
 	
-	uint16_t offset_forward = 0;
+	u16 offset_forward = 0;
 	if(alignment != 0)
 	{
 		void* ptr_candidate = ((u8*)ptr) + (sizeof(fc_mem_debug_info_t) + alignment-1);

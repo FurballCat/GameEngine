@@ -73,14 +73,14 @@ CANIM_API void fa_cmd_end(fa_cmd_buffer_recorder_t* recorder);
 
 CANIM_API void fa_cmd_ref_pose(fa_cmd_buffer_recorder_t* recorder);
 CANIM_API void fa_cmd_identity(fa_cmd_buffer_recorder_t* recorder);
-CANIM_API void fa_cmd_anim_sample(fa_cmd_buffer_recorder_t* recorder, f32 time, uint16_t animClipId);
-CANIM_API void fa_cmd_anim_sample_additive(fa_cmd_buffer_recorder_t* recorder, f32 time, uint16_t animClipId);
+CANIM_API void fa_cmd_anim_sample(fa_cmd_buffer_recorder_t* recorder, f32 time, u16 animClipId);
+CANIM_API void fa_cmd_anim_sample_additive(fa_cmd_buffer_recorder_t* recorder, f32 time, u16 animClipId);
 CANIM_API void fa_cmd_blend2(fa_cmd_buffer_recorder_t* recorder, f32 alpha);
-CANIM_API void fa_cmd_blend_override(fa_cmd_buffer_recorder_t* recorder, f32 alpha, uint16_t maskId);
+CANIM_API void fa_cmd_blend_override(fa_cmd_buffer_recorder_t* recorder, f32 alpha, u16 maskId);
 CANIM_API void fa_cmd_blend_additive(fa_cmd_buffer_recorder_t* recorder, f32 alpha);
-CANIM_API void fa_cmd_use_cached_pose(fa_cmd_buffer_recorder_t* recorder, uint16_t poseId);
-CANIM_API void fa_cmd_apply_mask(fa_cmd_buffer_recorder_t* recorder, uint16_t maskId);
-CANIM_API void fa_cmd_anim_sample_with_locomotion(fa_cmd_buffer_recorder_t* recorder, f32 time, uint16_t animClipId, bool resetLoco, i32 loops, f32* prevLocoPos, f32* prevLocoRot);
+CANIM_API void fa_cmd_use_cached_pose(fa_cmd_buffer_recorder_t* recorder, u16 poseId);
+CANIM_API void fa_cmd_apply_mask(fa_cmd_buffer_recorder_t* recorder, u16 maskId);
+CANIM_API void fa_cmd_anim_sample_with_locomotion(fa_cmd_buffer_recorder_t* recorder, f32 time, u16 animClipId, bool resetLoco, i32 loops, f32* prevLocoPos, f32* prevLocoRot);
 
 #ifdef __cplusplus
 }
