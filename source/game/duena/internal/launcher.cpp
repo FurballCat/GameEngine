@@ -696,7 +696,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	appDesc.appTitle = desc.m_mainApp.m_title;
 	appDesc.viewportWidth = desc.m_mainApp.m_width;
 	appDesc.viewportHeight = desc.m_mainApp.m_height;
-	
+	appDesc.iconPath = "../../../data/icon/furball-cat-icon-128x128.png";
+
 	fr_result_t res = fr_create_app(&appDesc, &pEngine->pApp, pAllocCallbacks);
 	
 	fc_string_hash_register_init(pAllocCallbacks);

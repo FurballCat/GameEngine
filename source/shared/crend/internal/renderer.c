@@ -132,6 +132,23 @@ enum fr_result_t fr_create_app(const struct fr_app_desc_t* pDesc,
 	
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	pApp->pWindow = glfwCreateWindow(pApp->viewportWidth, pApp->viewportHeight, pApp->title, NULL, NULL);
+
+	// set icon
+	{
+		// Load the icon image file
+		GLFWimage icon;
+		icon.pixels = stbi_load(pDesc->iconPath, &icon.width, &icon.height, 0, 4); // 4 indicates RGBA format
+		if (!icon.pixels)
+		{
+			fur_set_last_error("Failed to load icon image.");
+			return FR_RESULT_ERROR;
+		}
+
+		glfwSetWindowIcon(pApp->pWindow, 1, &icon);
+
+		// Free the icon image data
+		stbi_image_free(icon.pixels);
+	}
 	
 	if(pApp->pWindow == NULL)
 	{

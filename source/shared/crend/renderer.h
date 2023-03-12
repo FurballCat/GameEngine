@@ -34,6 +34,7 @@ struct fr_app_desc_t
 	uint32_t viewportWidth;
 	uint32_t viewportHeight;
 	const char* appTitle;
+	const char* iconPath;
 };
 	
 CREND_API enum fr_result_t fr_create_app(const struct fr_app_desc_t* pDesc,
