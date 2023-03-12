@@ -29,9 +29,6 @@ typedef struct fp_physics_t
 	PxFoundation* foundation;
 	PxPhysics* physics;
 	PxRigidStatic* worldPlane;
-	PxRigidDynamic* testCapsule;
-	PxRigidDynamic* testCapsule2;
-	PxRevoluteJoint* testJoint;
 	PxMaterial* testMaterial;
 	
 	PxControllerManager* controllerManager;
@@ -61,6 +58,7 @@ void fp_physics_init_scene(fp_physics_t* physics, fc_alloc_callbacks_t* pAllocCa
 	PxRigidActorExt::createExclusiveShape(*physics->worldPlane, plane, &physics->testMaterial, 1);
 	pScene->addActor(*physics->worldPlane);
 	
+	/*
 	// capsule test
 	{
 		physics->testCapsule = physics->physics->createRigidDynamic(PxTransform(PxVec3(-2.0f, 0.0f, 2.0f), PxQuat(0.1f, PxVec3(0,1,0))));
@@ -88,9 +86,10 @@ void fp_physics_init_scene(fp_physics_t* physics, fc_alloc_callbacks_t* pAllocCa
 	}
 	
 	// test joint between capsules
-//	{
-//		PxSphericalJointCreate(physics->physics, physics->testCapsule, <#const PxTransform &localFrame0#>, <#PxRigidActor *actor1#>, <#const PxTransform &localFrame1#>)
-//	}
+	{
+		PxSphericalJointCreate(physics->physics, physics->testCapsule, <#const PxTransform &localFrame0#>, <#PxRigidActor *actor1#>, <#const PxTransform &localFrame1#>)
+	}
+	*/
 	
 	// todo: refactor, probably shouldn't be created here
 	{
