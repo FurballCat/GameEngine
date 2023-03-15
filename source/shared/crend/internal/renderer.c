@@ -178,10 +178,6 @@ enum fr_result_t fr_release_app(struct fr_app_t* pApp,
 	// release debug fragments - since now you cannot use debug lines
 	fc_dbg_release(pAllocCallbacks);
 	
-	// validate memory - after this line there should be no fur_alloc/fur_free functions called
-	// all memory deallocations should be already done at this point
-	FUR_ASSERT(fc_validate_memory());
-	
 	return FR_RESULT_OK;
 }
 

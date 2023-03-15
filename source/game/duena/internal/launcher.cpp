@@ -656,8 +656,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 {
 	fc_profiler_init(pAllocCallbacks);
 	
-	FurGameEngine* pEngine = (FurGameEngine*)malloc(sizeof(FurGameEngine));
-	memset(pEngine, 0, sizeof(FurGameEngine));
+	FurGameEngine* pEngine = (FurGameEngine*)FUR_ALLOC_AND_ZERO(sizeof(FurGameEngine), 0, FC_MEMORY_SCOPE_CORE, pAllocCallbacks);
 	
 	fc_string_hash_register_init(pAllocCallbacks);
 
@@ -715,7 +714,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 	else
 	{
 		furSetLastError(fr_get_last_error());
-		free(pEngine);
+		FUR_FREE(pEngine, pAllocCallbacks);
 		return false;
 	}
 	
@@ -2819,7 +2818,7 @@ bool furMainEngineTerminate(FurGameEngine* pEngine, fc_alloc_callbacks_t* pAlloc
 	// release all memory before this call, otherwise it might be treated as memory leak
 	fr_release_app(pEngine->pApp, pAllocCallbacks);
 	
-	free(pEngine);	// rest of the deallocations should happen through allocators
+	FUR_FREE(pEngine, pAllocCallbacks);	// rest of the deallocations should happen through allocators
 	
 	return true;
 }
@@ -2853,6 +2852,10 @@ int main()
 	{
 		return 1;
 	}
+
+	// validate memory - after this line there should be no fur_alloc/fur_free functions called
+	// all memory deallocations should be already done at this point
+	FUR_ASSERT(fc_validate_memory());
 	
 	return 0;
 }
