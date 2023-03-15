@@ -10,3 +10,7 @@
 	path = thirdparty/glfw
 	url = https://github.com/glfw/glfw.git
 	ignore = dirty
+[submodule "thirdparty/ImGuiBundle"]
+	path = thirdparty/ImGuiBundle
+	url = https://github.com/pthom/imgui_bundle.git
+	ignore = dirty
