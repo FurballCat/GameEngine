@@ -285,7 +285,7 @@ void fp_physics_get_player_info(fp_physics_t* physics, fp_physics_player_info_t*
 	//const PxVec3 x = t.q.getBasisVector0();
 	//const PxVec3 y = t.q.getBasisVector1();
 	//const PxVec3 z = t.q.getBasisVector2();
-	playerInfo->locator->rot = fm_quat_identity();
+	fm_quat_identity(&playerInfo->locator->rot);
 }
 
 // ----- BOUNDING VOLUME HIERARCHY -----

@@ -17,15 +17,15 @@ void fa_dangle_simulate_single_step(fa_dangle* dangle, f32 dt)
 	for(u32 i=1; i<count; ++i)	// start from 1, as 0 is attach point
 	{
 		// v = v + dt * g
-		dangle->v[i] = fm_vec4_add(dangle->v[i], gravity);
+		fm_vec4_add(&dangle->v[i], &gravity, &dangle->v[i]);
 		
 		// damping velocity
-		dangle->v[i] = fm_vec4_mulf(dangle->v[i], damping_coef);
+		fm_vec4_mulf(&dangle->v[i], damping_coef, &dangle->v[i]);
 		
 		// p = x0 + dt * v
 		fm_vec4 vel = dangle->v[i];
-		vel = fm_vec4_mulf(vel, dt);
-		dangle->p[i] = fm_vec4_add(dangle->x0[i], vel);
+		fm_vec4_mulf(&vel, dt, &vel);
+		fm_vec4_add(&dangle->x0[i], &vel, &dangle->p[i]);
 	}
 	
 	const u32 numIterations = 4;
@@ -39,15 +39,15 @@ void fa_dangle_simulate_single_step(fa_dangle* dangle, f32 dt)
 			// distance constraint
 			const f32 refDistance = dangle->d[i-1];
 			fm_vec4 disp;
-			disp = fm_vec4_sub(p1, p0);
+			fm_vec4_sub(&p1, &p0, &disp);
 			
-			const f32 distance = fm_vec4_mag(disp);
-			disp = fm_vec4_norm(disp);
+			const f32 distance = fm_vec4_mag(&disp);
+			fm_vec4_normalize(&disp);
 			
 			const f32 constraintDist = refDistance - distance;
-			disp = fm_vec4_mulf(disp, constraintDist);
+			fm_vec4_mulf(&disp, constraintDist, &disp);
 			
-			dangle->p[i] = fm_vec4_add(dangle->p[i], disp);
+			fm_vec4_add(&dangle->p[i], &disp, &dangle->p[i]);
 			
 			// sphere collision constraint
 			if(dangle->spherePos)
@@ -55,13 +55,14 @@ void fa_dangle_simulate_single_step(fa_dangle* dangle, f32 dt)
 				const fm_vec4 spherePos = *dangle->spherePos;
 				const f32 sphereRadius = dangle->sphereRadius;
 				
-				fm_vec4 sphereDir = fm_vec4_sub(dangle->p[i], spherePos);
-				const f32 sphereDist = fm_vec4_mag(sphereDir);
+				fm_vec4 sphereDir;
+				fm_vec4_sub(&dangle->p[i], &spherePos, &sphereDir);
+				f32 sphereDist = fm_vec4_mag(&sphereDir);
 				if(sphereDist < sphereRadius)
 				{
-					sphereDir = fm_vec4_norm(sphereDir);
-					sphereDir = fm_vec4_mulf(sphereDir, sphereRadius - sphereDist);
-					dangle->p[i] = fm_vec4_add(dangle->p[i], sphereDir);
+					fm_vec4_normalize(&sphereDir);
+					fm_vec4_mulf(&sphereDir, sphereRadius - sphereDist, &sphereDir);
+					fm_vec4_add(&dangle->p[i], &sphereDir, &dangle->p[i]);
 				}
 			}
 		}
@@ -70,8 +71,8 @@ void fa_dangle_simulate_single_step(fa_dangle* dangle, f32 dt)
 	const f32 inv_dt = (dt > 0.00000001f) ? 1.0f / dt : 0.0f;
 	for(u32 i=1; i<count; ++i)	// start from 1, as 0 is attach point
 	{
-		dangle->v[i] = fm_vec4_sub(dangle->p[i], dangle->x0[i]);
-		dangle->v[i] = fm_vec4_mulf(dangle->v[i], inv_dt);
+		fm_vec4_sub(&dangle->p[i], &dangle->x0[i], &dangle->v[i]);
+		fm_vec4_mulf(&dangle->v[i], inv_dt, &dangle->v[i]);
 		dangle->x0[i] = dangle->p[i];
 	}
 }
@@ -131,9 +132,17 @@ void fa_dangle_to_matrices_z_up(const fa_dangle* dangle, const fm_mat4* attachme
 	
 	for(u32 i=1; i<count; ++i)
 	{
-		const fm_vec4 z = fm_vec4_norm(fm_vec4_sub(p[i], p[i+1]));
-		const fm_vec4 y = fm_vec4_norm(fm_vec4_cross(z, refDir));
-		const fm_vec4 x = fm_vec4_norm(fm_vec4_cross(y, z));
+		fm_vec4 z;
+		fm_vec4_sub(&p[i], &p[i+1], &z);
+		fm_vec4_normalize(&z);
+		
+		fm_vec4 y;
+		fm_vec4_cross(&z, &refDir, &y);
+		fm_vec4_normalize(&y);
+		
+		fm_vec4 x;
+		fm_vec4_cross(&y, &z, &x);
+		fm_vec4_normalize(&x);
 		
 		matrices[i].x = x;
 		matrices[i].y = y;
@@ -158,9 +167,17 @@ void fa_dangle_to_matrices_y_down(const fa_dangle* dangle, const fm_mat4* attach
 	
 	for(u32 i=0; i<count; ++i)
 	{
-		const fm_vec4 y = fm_vec4_norm(fm_vec4_sub(p[i+1], p[i]));
-		const fm_vec4 z = fm_vec4_norm(fm_vec4_cross(refDir, y));
-		const fm_vec4 x = fm_vec4_norm(fm_vec4_cross(y, z));
+		fm_vec4 y;
+		fm_vec4_sub(&p[i+1], &p[i], &y);
+		fm_vec4_normalize(&y);
+		
+		fm_vec4 z;
+		fm_vec4_cross(&refDir, &y, &z);
+		fm_vec4_normalize(&z);
+		
+		fm_vec4 x;
+		fm_vec4_cross(&y, &z, &x);
+		fm_vec4_normalize(&x);
 		
 		matrices[i].x = x;
 		matrices[i].y = y;

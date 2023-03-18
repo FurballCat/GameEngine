@@ -157,15 +157,18 @@ void fg_camera_get_directions(fg_camera_system_t* sys, fm_vec4* dirForward, fm_v
 {
 	const fg_camera_t* camera = &sys->finalCamera;
 	
-	const fm_quat rot = fm_quat_conj(camera->locator.rot);
+	fm_quat rot = camera->locator.rot;
+	fm_quat_conj(&rot);
 	
-	*dirForward = fm_vec4_neg(fm_quat_axis_y(rot));
+	*dirForward = fm_quat_axis_y(&rot);
+	fm_vec4_neg(dirForward);
 	dirForward->z = 0.0f;
-	*dirForward = fm_vec4_norm(*dirForward);
+	fm_vec4_normalize(dirForward);
 	
-	*dirLeft = fm_vec4_neg(fm_quat_axis_x(rot));
+	*dirLeft = fm_quat_axis_x(&rot);
+	fm_vec4_neg(dirLeft);
 	dirLeft->z = 0.0f;
-	*dirLeft = fm_vec4_norm(*dirLeft);
+	fm_vec4_normalize(dirLeft);
 }
 
 void fg_camera_view_matrix(fg_camera_system_t* sys, fm_mat4* matrix)
@@ -174,7 +177,8 @@ void fg_camera_view_matrix(fg_camera_system_t* sys, fm_mat4* matrix)
 	
 	//fm_mat4_lookat_lh(&camera->eye, &camera->at, &camera->up, matrix);
 	fm_xform locator = camera->locator;
-	locator.pos = fm_vec4_neg(fm_quat_rot(locator.rot, locator.pos));
+	fm_quat_rot(&locator.rot, &locator.pos, &locator.pos);
+	fm_vec4_neg(&locator.pos);
 	
 	fm_xform_to_mat4(&locator, matrix);
 	fm_mat4_transpose(matrix);
@@ -212,7 +216,7 @@ void fg_camera_follow_begin(fg_camera_ctx_t* ctx, void* userData)
 
 	// try to find the params that makes this camera the most similar to last frame
 	fm_euler_angles angles = {0};
-	angles = fm_quat_to_euler(lastCamera->locator.rot);
+	fm_quat_to_euler(&lastCamera->locator.rot, &angles);
 	
 	fg_camera_follow_t* data = (fg_camera_follow_t*)userData;
 	data->yaw = -angles.yaw;
@@ -254,22 +258,23 @@ void fg_camera_follow_update(fg_camera_ctx_t* ctx, void* userData)
 	const f32 zoomSpeed = 1.0f * ctx->dt;
 	cameraZoom += zoomSpeed * (ctx->zoom);
 	
-	dir_forward = fm_vec4_norm(eye);
-	dir_left = fm_vec4_cross(dir_forward, up);
-	dir_forward = fm_vec4_cross(up, dir_left);
-	dir_left = fm_vec4_norm(dir_left);
+	dir_forward = eye;
+	fm_vec4_normalize(&dir_forward);
+	fm_vec4_cross(&dir_forward, &up, &dir_left);
+	fm_vec4_cross(&up, &dir_left, &dir_forward);
+	fm_vec4_normalize(&dir_left);
 	
-	eye = fm_vec4_mulf(eye, cameraZoom);
-	eye = fm_vec4_add(eye, camera_at);
+	fm_vec4_mulf(&eye, cameraZoom, &eye);
+	fm_vec4_add(&eye, &camera_at, &eye);
 	
 	fm_euler_angles angles = {0};
 	angles.yaw = -data->yaw;
 	angles.pitch = -data->pitch;
 	
-	eye = fm_vec4_add(eye, ctx->ownerPosition);
+	fm_vec4_add(&eye, &ctx->ownerPosition, &eye);
 	
 	ctx->camera->locator.pos = eye;
-	ctx->camera->locator.rot = fm_quat_make_from_euler_angles_yzpxry(angles);
+	fm_quat_make_from_euler_angles_yzpxry(&angles, &ctx->camera->locator.rot);
 	ctx->camera->fov = data->fov;
 }
 

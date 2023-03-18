@@ -10,14 +10,6 @@ extern "C"
 #include "ccore/types.h"
 #include <immintrin.h>
 
-#define FM_VEC4_AXIS_X {1.0f, 0.0f, 0.0f, 0.0f}
-#define FM_VEC4_AXIS_Y {0.0f, 1.0f, 0.0f, 0.0f}
-#define FM_VEC4_AXIS_Z {0.0f, 0.0f, 1.0f, 0.0f} 
-
-#define FM_PI 3.14159265358979323846264338327950288
-#define FM_PI_2 1.57079632679489661923
-#define FM_DEG_TO_RAD(_x) _x * FM_PI / 180.0
-
 typedef struct fm_vec2
 {
 	f32 x, y;

@@ -1290,8 +1290,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		refPoseLeft2.pos.w = 0.0f;
 		refPoseRight2.pos.w = 0.0f;
 		
-		const f32 dLeft = fm_vec4_mag(refPoseLeft2.pos);
-		const f32 dRight = fm_vec4_mag(refPoseRight2.pos);
+		const f32 dLeft = fm_vec4_mag(&refPoseLeft2.pos);
+		const f32 dRight = fm_vec4_mag(&refPoseRight2.pos);
 		
 		pEngine->zeldaDangleHairLeft.d[0] = dLeft;
 		pEngine->zeldaDangleHairLeft.d[1] = dLeft;
@@ -1357,21 +1357,21 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FurGameEngine** ppEngine, 
 		{
 			fm_xform refPose = pEngine->pRig->refPose[pEngine->zeldaCapeIdxL[j]];
 			refPose.pos.w = 0.0f;
-			pEngine->zeldaCapeL.d[j] = fm_vec4_mag(refPose.pos);
+			pEngine->zeldaCapeL.d[j] = fm_vec4_mag(&refPose.pos);
 		}
 		
 		for(u32 j=0; j<4; ++j)
 		{
 			fm_xform refPose = pEngine->pRig->refPose[pEngine->zeldaCapeIdxC[j]];
 			refPose.pos.w = 0.0f;
-			pEngine->zeldaCapeC.d[j] = fm_vec4_mag(refPose.pos);
+			pEngine->zeldaCapeC.d[j] = fm_vec4_mag(&refPose.pos);
 		}
 		
 		for(u32 j=0; j<4; ++j)
 		{
 			fm_xform refPose = pEngine->pRig->refPose[pEngine->zeldaCapeIdxR[j]];
 			refPose.pos.w = 0.0f;
-			pEngine->zeldaCapeR.d[j] = fm_vec4_mag(refPose.pos);
+			pEngine->zeldaCapeR.d[j] = fm_vec4_mag(&refPose.pos);
 		}
 	}
 	
@@ -1593,7 +1593,7 @@ fs_variant_t fs_native_get_variable(fs_script_ctx_t* ctx, u32 numArgs, const fs_
 	}
 	else if(varName == SID("is-running"))
 	{
-		result.asBool = fm_vec4_mag2(gameObj->logicMove) > 0.0f;
+		result.asBool = fm_vec4_mag2(&gameObj->logicMove) > 0.0f;
 	}
 	else if(varName == SID("is-jump"))
 	{
@@ -2357,7 +2357,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, f32 dt, fc_alloc_callbacks_
 		f32 color[4] = FUR_COLOR_MAGENTA;
 		fc_dbg_sphere_wire(&lookAtPoint.x, 0.1f, color);
 		
-		const f32 distanceToLookAtPoint = fm_vec4_distance(lookAtPoint, playerLocator.pos);
+		const f32 distanceToLookAtPoint = fm_vec4_distance(&lookAtPoint, &playerLocator.pos);
 		
 		if(pEngine->zeldaGameObject.animCharacter->animInfo.useLookAt)
 		{
@@ -2415,20 +2415,20 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, f32 dt, fc_alloc_callbacks_
 		}
 		else
 		{
-			const f32 speed = fm_vec4_mag(pEngine->zeldaGameObject.velocity);
+			const f32 speed = fm_vec4_mag(&pEngine->zeldaGameObject.velocity);
 			if(speed > 0.0f)
 			{
 				pEngine->zeldaGameObject.velocity.x += pEngine->zeldaGameObject.animCharacter->animInfo.desiredMove.x * 1.2f;
 				pEngine->zeldaGameObject.velocity.y += pEngine->zeldaGameObject.animCharacter->animInfo.desiredMove.y * 1.2f;
-				pEngine->zeldaGameObject.velocity = fm_vec4_norm(pEngine->zeldaGameObject.velocity);
-				pEngine->zeldaGameObject.velocity = fm_vec4_mulf(pEngine->zeldaGameObject.velocity, speed);
+				fm_vec4_normalize(&pEngine->zeldaGameObject.velocity);
+				fm_vec4_mulf(&pEngine->zeldaGameObject.velocity, speed, &pEngine->zeldaGameObject.velocity);
 			}
 		}
 		
 		// apply gravity
 		pEngine->zeldaGameObject.velocity.z += -9.81f * dt;
 		
-		playerDisplacement = fm_vec4_mulf(pEngine->zeldaGameObject.velocity, dt);
+		fm_vec4_mulf(&pEngine->zeldaGameObject.velocity, dt, &playerDisplacement);
 		physicsCtx.playerDisplacement = &playerDisplacement;
 		fp_physics_update(pEngine->pPhysics, &physicsCtx);
 		
@@ -2455,7 +2455,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, f32 dt, fc_alloc_callbacks_
 			fm_mat4_rot_z(pEngine->zeldaGameObject.animCharacter->animInfo.currentYaw, &playerMat);
 			
 			fm_vec4 invPlayerMove;
-			invPlayerMove = fm_mat4_transform(&playerMat, playerMove);
+			fm_mat4_transform(&playerMat, &playerMove, &invPlayerMove);
 			
 			pEngine->windVelocity.x -= invPlayerMove.x;
 			pEngine->windVelocity.y -= invPlayerMove.y;
@@ -2631,9 +2631,12 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, f32 dt, fc_alloc_callbacks_
 		fm_vec4 dirLeft = {};
 		fg_camera_get_directions(pEngine->cameraSystem, &dirForward, &dirLeft);
 		
-		const fm_vec4 playerMoveForward = fm_vec4_mulf(dirForward, maxSpeed * pEngine->actionMoveY);
-		const fm_vec4 playerMoveLeft = fm_vec4_mulf(dirLeft, maxSpeed * pEngine->actionMoveX);
-		const fm_vec4 playerMove = fm_vec4_add(playerMoveForward, playerMoveLeft);
+		fm_vec4 playerMoveForward;
+		fm_vec4_mulf(&dirForward, maxSpeed * pEngine->actionMoveY, &playerMoveForward);
+		fm_vec4 playerMoveLeft;
+		fm_vec4_mulf(&dirLeft, maxSpeed * pEngine->actionMoveX, &playerMoveLeft);
+		fm_vec4 playerMove;
+		fm_vec4_add(&playerMoveForward, &playerMoveLeft, &playerMove);
 		
 		pEngine->zeldaGameObject.animCharacter->animInfo.animToLogicMotionRotationAlpha = 1.0f;
 		pEngine->zeldaGameObject.animCharacter->animInfo.animToLogicMotionTranslationAlpha = 0.0f;

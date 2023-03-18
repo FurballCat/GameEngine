@@ -319,29 +319,33 @@ fa_cmd_status_t fa_cmd_impl_anim_sample_with_locomotion(fa_cmd_context_t* ctx, c
 		{
 			for(;loopsLeft>0; --loopsLeft)
 			{
-				currLocoPos = fm_xform_apply(&singleMotionLoop, currLocoPos);
-				currLocoRot = fm_quat_mul(currLocoRot, singleMotionLoop.rot);
+				fm_xform_apply(&singleMotionLoop, &currLocoPos, &currLocoPos);
+				fm_quat_mul(&currLocoRot, &singleMotionLoop.rot, &currLocoRot);
 			}
 		}
 		else if(loopsLeft < 0)
 		{
-			const fm_quat singleMotionLoopRotConj = fm_quat_conj(singleMotionLoop.rot);
+			fm_quat singleMotionLoopRotConj = singleMotionLoop.rot;
+			fm_quat_conj(&singleMotionLoopRotConj);
 			
 			for(;loopsLeft<0; ++loopsLeft)
 			{
-				currLocoPos = fm_vec4_sub(currLocoPos, singleMotionLoop.pos);
-				currLocoPos = fm_quat_rot(singleMotionLoopRotConj, currLocoPos);
+				fm_vec4_sub(&currLocoPos, &singleMotionLoop.pos, &currLocoPos);
+				fm_quat_rot(&singleMotionLoopRotConj, &currLocoPos, &currLocoPos);
 				
-				currLocoRot = fm_quat_mul(singleMotionLoopRotConj, currLocoRot);
+				fm_quat_mul(&singleMotionLoopRotConj, &currLocoRot, &currLocoRot);
 			}
 		}
 	}
 	
-	const fm_quat prevLocoRotConj = fm_quat_conj(prevLocoRot);
+	fm_quat prevLocoRotConj = prevLocoRot;
+	fm_quat_conj(&prevLocoRotConj);
 	
-	currLocoRot = fm_quat_norm(fm_quat_mul(currLocoRot, prevLocoRotConj));
-	currLocoPos = fm_vec4_sub(currLocoPos, prevLocoPos);
-	currLocoPos = fm_quat_rot(prevLocoRotConj, currLocoPos);
+	fm_quat_mul(&currLocoRot, &prevLocoRotConj, &currLocoRot);
+	fm_vec4_sub(&currLocoPos, &prevLocoPos, &currLocoPos);
+	fm_quat_rot(&prevLocoRotConj, &currLocoPos, &currLocoPos);
+	
+	fm_quat_norm(&currLocoRot);
 	
 	// save new locomotion to prev loco
 	data->prevLocoRot[0] = currLocoXform.rot.i;

@@ -300,7 +300,7 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 					rotation.roll = FM_DEG_TO_RAD(-z);
 					
 					rig.m_referencePose[i].pos = position;
-					rig.m_referencePose[i].rot = fm_quat_make_from_euler_angles_xyz(rotation);
+					fm_quat_make_from_euler_angles_xyz(&rotation, &rig.m_referencePose[i].rot);
 				}
 				
 				for(i32 i=0; i<sortedRigBones.size(); ++i)
@@ -464,7 +464,7 @@ void quat_fhm(fm_quat q, fm_vec3* v)
 
 fm_quat quat_ihm(const fm_vec3* v)
 {
-	f32 d = Khi * fm_vec3_dot(*v, *v);
+	f32 d = Khi * fm_vec3_dot(v, v);
 	f32 a = (1.0+d);
 	f32 b = (1.0-d)*Km;
 	f32 c = 1.0/(a*a);
@@ -623,7 +623,8 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 					angles.pitch = FM_DEG_TO_RAD(-value[0]);
 					angles.roll = FM_DEG_TO_RAD(-value[2]);
 					
-					const fm_quat quat = fm_quat_make_from_euler_angles_xyz(angles);
+					fm_quat quat;
+					fm_quat_make_from_euler_angles_xyz(&angles, &quat);
 					
 					u16* key = tempCurve.keys[i].keyValues;
 					quat_fhm_16bit(quat, key);
@@ -791,13 +792,17 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 		const u32 locoNumPosKeys = curveLoco->numPosKeys;
 		const u32 locoNumRotKeys = curveLoco->numRotKeys;
 		
-		const fm_vec4 posBegin = vec4_decom_16bit(curveLoco->posKeys[0].keyData);
-		const fm_vec4 posEnd = vec4_decom_16bit(curveLoco->posKeys[locoNumPosKeys - 1].keyData);
-		const fm_quat rotBegin = quat_ihm_16bit(curveLoco->rotKeys[0].keyData);
-		const fm_quat rotEnd = quat_ihm_16bit(curveLoco->rotKeys[locoNumRotKeys - 1].keyData);
+		fm_vec4 posBegin = vec4_decom_16bit(curveLoco->posKeys[0].keyData);
+		fm_vec4 posEnd = vec4_decom_16bit(curveLoco->posKeys[locoNumPosKeys-1].keyData);
+		fm_quat rotBegin = quat_ihm_16bit(curveLoco->rotKeys[0].keyData);
+		fm_quat rotEnd = quat_ihm_16bit(curveLoco->rotKeys[locoNumRotKeys-1].keyData);
 		
-		const fm_vec4 posLoop = fm_vec4_sub(posEnd, posBegin);
-		const fm_quat rotLoop = fm_quat_mul(fm_quat_conj(rotBegin), rotEnd);
+		fm_vec4 posLoop = {};
+		fm_vec4_sub(&posEnd, &posBegin, &posLoop);
+		
+		fm_quat_conj(&rotBegin);
+		fm_quat rotLoop = {};
+		fm_quat_mul(&rotBegin, &rotEnd, &rotLoop);
 		
 		animClip->motionDelta[0] = posLoop.x;
 		animClip->motionDelta[1] = posLoop.y;
@@ -817,7 +822,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 			
 			fm_xform locoXform = {};
 			fa_anim_curve_sample(curveLoco, keyTime, false, &locoXform);
-			pos = fm_vec4_sub(pos, locoXform.pos);
+			fm_vec4_sub(&pos, &locoXform.pos, &pos);
 			
 			vec4_com_16bit(pos, curveHips->posKeys[k].keyData);
 		}
@@ -831,8 +836,8 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 			fm_xform locoXform = {};
 			fa_anim_curve_sample(curveLoco, keyTime, false, &locoXform);
 			
-			locoXform.rot = fm_quat_conj(locoXform.rot);
-			rot = fm_quat_mul(rot, locoXform.rot);
+			fm_quat_conj(&locoXform.rot);
+			fm_quat_mul(&rot, &locoXform.rot, &rot);
 			
 			quat_fhm_16bit(rot, curveHips->rotKeys[k].keyData);
 		}

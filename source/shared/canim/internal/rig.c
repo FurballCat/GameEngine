@@ -48,7 +48,7 @@ const u8* fa_rig_get_mask(const fa_rig_t* rig, fa_mask_t mask)
 	return NULL;
 }
 
-fm_vec4 fm_axis_to_vec4(fm_axis_t axis)
+void fm_axis_to_vec4(fm_axis_t axis, fm_vec4* v)
 {
 	static fm_vec4 axes[6] = {
 		{1, 0, 0, 0},
@@ -59,7 +59,7 @@ fm_vec4 fm_axis_to_vec4(fm_axis_t axis)
 		{0, 0, -1, 0},
 	};
 	
-	return axes[axis];
+	*v = axes[axis];
 }
 /*
 typedef struct fa_rig_t
