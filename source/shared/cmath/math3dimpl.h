@@ -8,7 +8,7 @@ extern "C"
 #endif // __cplusplus
 
 #include <math.h>
-#include "math3d.h"
+#include "cmath/mathtypes.h"
 
 #define MAX(a, b) a > b ? a : b
 #define MIN(a, b) a < b ? a : b
@@ -44,169 +44,363 @@ static inline f32 xm_vec4_dot(const xm_vec4 v1, const xm_vec4 v2)
 	return 0.0f;
 }
 
-///////////////////////
+//////////////////////////////////////////////////
+// generic (C11 overloading style) math functions
 
-static inline f32 fm_vec3_dot(const fm_vec3* a, const fm_vec3* b)
+#define fm_add(a, b) _Generic((a)) \
+	fm_vec3: fm_vec3_add, \
+	fm_vec4: fm_vec4_add, \
+	fm_quat: fm_quat_add, \
+	)(a, b)
+
+#define fm_sub(a, b) _Generic((a)) \
+	fm_vec3: fm_vec3_sub, \
+	fm_vec4: fm_vec4_sub, \
+	)(a, b)
+
+#define fm_mul(a, b) _Generic((a) + (b)) \
+	fm_vec3 + fm_vec3: fm_vec3_mul, \
+	fm_vec3 + f32: fm_vec3_mulf, \
+	fm_vec4 + fm_vec4: fm_vec4_mul, \
+	fm_vec4 + f32: fm_vec4_mulf, \
+	fm_quat + fm_quat: fm_quat_mul, \
+	fm_quat + f32: fm_quat_mulf, \
+	fm_xform + fm_xform: fm_xform_mul, \
+	)(a, b)
+
+#define fm_norm(a) _Generic((a)) \
+	fm_vec3: fm_vec3_norm, \
+	fm_vec4: fm_vec4_norm, \
+	fm_quat: fm_quat_norm, \
+	)(a)
+
+#define fm_lerp(a, b, t) _Generic((a))	\
+	fm_vec3: fm_vec3_lerp, \
+	fm_vec4: fm_vec4_lerp, \
+	fm_quat: fm_quat_lerp, \
+	fm_xform: fm_xform_lerp, \
+	)(a, b, t)
+
+#define fm_slerp(a, b, t) _Generic((a))	\
+	fm_quat: fm_quat_slerp, \
+	fm_xform: fm_xform_slerp, \
+	)(a, b, t)
+
+//////////////////////////
+// math functions by name
+
+static inline f32 fm_vec3_dot(const fm_vec3 a, const fm_vec3 b)
 {
-	return a->x * b->x + a->y * b->y + a->z * b->z;
+	return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-static inline void fm_vec3_add(const fm_vec3* a, const fm_vec3* b, fm_vec3* v)
+static inline fm_vec3 fm_vec3_add(const fm_vec3 a, const fm_vec3 b)
 {
-	v->x = a->x + b->x;
-	v->y = a->y + b->y;
-	v->z = a->z + b->z;
+	const fm_vec3 res = { a.x + b.x, a.y + b.y, a.z + b.z };
+	return res;
 }
 
-static inline void fm_vec3_sub(const fm_vec3* a, const fm_vec3* b, fm_vec3* v)
+static inline fm_vec3 fm_vec3_sub(const fm_vec3 a, const fm_vec3 b)
 {
-	v->x = a->x - b->x;
-	v->y = a->y - b->y;
-	v->z = a->z - b->z;
+	const fm_vec3 res = { a.x - b.x, a.y - b.y, a.z - b.z };
+	return res;
 }
 
-static inline f32 fm_vec3_mag(const fm_vec3* v)
+static inline fm_vec3 fm_vec3_mul(const fm_vec3 a, const fm_vec3 b)
 {
-	return sqrtf(v->x * v->x + v->y * v->y + v->z * v->z);
+	const fm_vec3 res = { a.x * b.x, a.y * b.y, a.z * b.z };
+	return res;
+}
+
+static inline fm_vec3 fm_vec3_mulf(const fm_vec3 a, const f32 s)
+{
+	const fm_vec3 res = { a.x * s, a.y * s, a.z * s };
+	return res;
+}
+
+static inline f32 fm_vec3_mag(const fm_vec3 v)
+{
+	return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 	
-static inline void fm_vec3_norm(fm_vec3* v)
+static inline fm_vec3 fm_vec3_norm(const fm_vec3 v)
 {
 	const f32 magnitude = fm_vec3_mag(v);
 	const f32 magnitudeInv = 1.0f / magnitude;
 	
-	v->x *= magnitudeInv;
-	v->y *= magnitudeInv;
-	v->z *= magnitudeInv;
+	const fm_vec3 res = { v.x * magnitudeInv, v.y * magnitudeInv, v.z * magnitudeInv };
+	return res;
 }
 	
-static inline void fm_vec4_zeros(fm_vec4* v)
+static inline fm_vec3 fm_vec3_lerp(const fm_vec3 a, const fm_vec3 b, const f32 alpha)
 {
-	v->x = 0.0f;
-	v->y = 0.0f;
-	v->z = 0.0f;
-	v->w = 0.0f;
+	const f32 invAlpha = 1.0f - alpha;
+
+	const fm_vec3 res = { a.x * alpha + b.x * invAlpha, a.y * alpha + b.y * invAlpha, a.z * alpha + b.z * invAlpha };
+	return res;
+}
+
+static inline fm_vec4 fm_vec4_zeros()
+{
+	const fm_vec4 res = { 0.0f, 0.0f, 0.0f, 0.0f };
+	return res;
 }
 	
-static inline void fm_vec4_add(const fm_vec4* a, const fm_vec4* b, fm_vec4* v)
+static inline fm_vec4 fm_vec4_add(const fm_vec4 a, const fm_vec4 b)
 {
-	v->x = a->x + b->x;
-	v->y = a->y + b->y;
-	v->z = a->z + b->z;
-	v->w = a->w + b->w;
+	const fm_vec4 res = { a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w };
+	return res;
 }
 
-static inline void fm_vec4_sub(const fm_vec4* a, const fm_vec4* b, fm_vec4* v)
+static inline fm_vec4 fm_vec4_sub(const fm_vec4 a, const fm_vec4 b)
 {
-	v->x = a->x - b->x;
-	v->y = a->y - b->y;
-	v->z = a->z - b->z;
-	v->w = a->w - b->w;
+	const fm_vec4 res = { a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w };
+	return res;
 }
 
-static inline void fm_vec4_neg(fm_vec4* v)
+static inline fm_vec4 fm_vec4_mul(const fm_vec4 a, const fm_vec4 b)
 {
-	v->x = -v->x;
-	v->y = -v->y;
-	v->z = -v->z;
-	v->w = -v->w;
+	const fm_vec4 res = { a.x * b.x, a.y * b.y, a.z * b.z, a.w * b.w };
+	return res;
 }
 
-static inline f32 fm_vec4_mag(const fm_vec4* v)
+static inline fm_vec4 fm_vec4_neg(const fm_vec4 v)
 {
-	return sqrtf(v->x * v->x + v->y * v->y + v->z * v->z + v->w * v->w);
+	const fm_vec4 res = { -v.x, -v.y, -v.z, -v.w };
+	return res;
 }
 
-static inline f32 fm_vec4_mag2(const fm_vec4* v)
+static inline f32 fm_vec4_mag(const fm_vec4 v)
 {
-	return v->x * v->x + v->y * v->y + v->z * v->z + v->w * v->w;
+	return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w);
 }
 
-static inline void fm_vec4_abs(fm_vec4* v)
+static inline f32 fm_vec4_mag2(const fm_vec4 v)
 {
-	v->x = fabsf(v->x);
-	v->y = fabsf(v->y);
-	v->z = fabsf(v->z);
-	v->w = fabsf(v->w);
+	return v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w;
 }
 
-static inline f32 fm_vec4_dot(const fm_vec4* a, const fm_vec4* b)
+static inline fm_vec4 fm_vec4_abs(const fm_vec4 v)
 {
-	return a->x * b->x + a->y * b->y + a->z * b->z + a->w * b->w;
+	const fm_vec4 res = { fabsf(v.x), fabsf(v.y), fabsf(v.z), fabsf(v.w) };
+	return res;
 }
 
-static inline void fm_vec4_mulf(const fm_vec4* v, const f32 t, fm_vec4* output)
+static inline f32 fm_vec4_dot(const fm_vec4 a, const fm_vec4 b)
 {
-	output->x = v->x * t;
-	output->y = v->y * t;
-	output->z = v->z * t;
-	output->w = v->w * t;
+	return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 }
 
-static inline void fm_vec4_cross(const fm_vec4* a, const fm_vec4* b, fm_vec4* v)
+static inline fm_vec4 fm_vec4_mulf(const fm_vec4 v, const f32 t)
 {
-	v->x = a->y * b->z - a->z * b->y;
-	v->y = a->z * b->x - a->x * b->z;
-	v->z = a->x * b->y - a->y * b->x;
-	v->w = 0.0f;
+	const fm_vec4 res = { v.x * t, v.y * t, v.z * t, v.w * t };
+	return res;
 }
 
-static inline void fm_vec4_normalize(fm_vec4* v)
+static inline fm_vec4 fm_vec4_cross(const fm_vec4 a, const fm_vec4 b)
+{
+	const fm_vec4 res = { a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x, 0.0f };
+	return res;
+}
+
+static inline fm_vec4 fm_vec4_norm(const fm_vec4 v)
 {
 	const f32 magnitude = fm_vec4_mag(v);
 	const f32 magnitudeInv = 1.0f / magnitude;
-	
-	v->x *= magnitudeInv;
-	v->y *= magnitudeInv;
-	v->z *= magnitudeInv;
-	v->w *= magnitudeInv;
+
+	const fm_vec4 res = { v.x * magnitudeInv, v.y * magnitudeInv, v.z * magnitudeInv, v.w * magnitudeInv };
+	return res;
 }
 
-static inline void fm_vec4_lerp(const fm_vec4* a, const fm_vec4* b, f32 alpha, fm_vec4* c)
+static inline fm_vec4 fm_vec4_lerp(const fm_vec4 a, const fm_vec4 b, const f32 alpha)
 {
 	const f32 invAlpha = 1.0f - alpha;
-	c->x = a->x * alpha + b->x * invAlpha;
-	c->y = a->y * alpha + b->y * invAlpha;
-	c->z = a->z * alpha + b->z * invAlpha;
-	c->w = a->w * alpha + b->w * invAlpha;
+
+	const fm_vec4 res = { a.x * alpha + b.x * invAlpha, a.y * alpha + b.y * invAlpha, a.z * alpha + b.z * invAlpha, a.w * alpha + b.w * invAlpha };
+	return res;
 }
 
-static inline void fm_vec4_rot_between(const fm_vec4* from, const fm_vec4* to, fm_quat* rot)
+static inline f32 fm_clamp(const f32 value, const f32 min, const f32 max)
 {
-	fm_vec4 fromNorm = *from;
-	fm_vec4_normalize(&fromNorm);
-	fm_vec4 toNorm = *to;
-	fm_vec4_normalize(&toNorm);
+	if (value < min)
+		return min;
+
+	if (value > max)
+		return max;
+
+	return value;
+}
+
+static inline f32 fm_snap_near_zero(const f32 value, const f32 threshold)
+{
+	if (fabsf(value) < threshold)
+		return 0.0f;
+
+	return value;
+}
+
+static inline f32 fm_sign(const f32 value)
+{
+	return value >= 0.0f ? 1.0f : -1.0f;
+}
+
+static inline fm_quat fm_quat_identity()
+{
+	const fm_quat res = { 0.0f, 0.0f, 0.0f, 1.0f };
+	return res;
+}
+
+static inline f32 fm_quat_dot3(const fm_quat a, const fm_quat b)
+{
+	return a.i * b.i + a.j * b.j + a.k * b.k;
+}
+
+static inline f32 fm_quat_dot(const fm_quat a, const fm_quat b)
+{
+	return a.i * b.i + a.j * b.j + a.k * b.k + a.r * b.r;
+}
+
+static inline fm_vec4 fm_quat_cross3(const fm_quat a, const fm_quat b)
+{
+	const fm_vec4 res = { a.j * b.k - a.k * b.j, a.k * b.i - a.i * b.k, a.i * b.j - a.j * b.i, 0.0f };
+	return res;
+}
+
+static inline fm_quat fm_quat_add(const fm_quat a, const fm_quat b)
+{
+	const fm_quat res = { a.i + b.i, a.j + b.j, a.k + b.k, a.r + b.r };
+	return res;
+}
+
+static inline fm_quat fm_quat_mul(const fm_quat a, const fm_quat b)
+{
+	const f32 i = a.r * b.i + a.k * b.j - a.j * b.k + a.i * b.r;
+	const f32 j = -a.k * b.i + a.r * b.j + a.i * b.k + a.j * b.r;
+	const f32 k = a.j * b.i - a.i * b.j + a.r * b.k + a.k * b.r;
+	const f32 r = -a.i * b.i - a.j * b.j - a.k * b.k + a.r * b.r;
+
+	const fm_quat res = { i, j, k, r };
+	return res;
+}
+
+static inline fm_quat fm_quat_mulf(const fm_quat a, const f32 t)
+{
+	const fm_quat res = { a.i * t, a.j * t, a.k * t, a.r * t };
+	return res;
+}
+
+static inline fm_vec4 fm_quat_rot(const fm_quat q, const fm_vec4 v)
+{
+	const f32 dot_qv = v.x * q.i + v.y * q.j + v.z * q.k;
+	const f32 mag_qv = q.i * q.i + q.j * q.j + q.k * q.k;
+
+	const f32 s1 = 2.0f * dot_qv;
+	const f32 s2 = q.r * q.r - mag_qv;
+	const f32 s3 = 2.0f * q.r;
+
+	const fm_vec4 qv = { q.i, q.j, q.k, 0.0f };
+	const fm_vec4 cross_qv = fm_vec4_cross(v, qv);
 	
-	const f32 cosAlpha = fm_vec4_dot(&fromNorm, &toNorm);
+	const fm_vec4 res = {
+		s1 * qv.x + s2 * v.x + s3 * cross_qv.x,
+		s1 * qv.y + s2 * v.y + s3 * cross_qv.y,
+		s1 * qv.z + s2 * v.z + s3 * cross_qv.z,
+		0.0f };
+
+	return res;
+}
+
+static inline fm_quat fm_quat_norm(fm_quat q)
+{
+	const f32 n = sqrtf(q.i * q.i + q.j * q.j + q.k * q.k + q.r * q.r);
+	const f32 n_inv = 1.0f / n;
+	
+	const fm_quat res = { q.i * n_inv, q.j * n_inv, q.k * n_inv, q.r * n_inv };
+	return res;
+}
+
+static inline fm_quat fm_quat_neg(const fm_quat q)
+{
+	const fm_quat res = { -q.i, -q.j, -q.k, -q.r };
+	return res;
+}
+
+static inline fm_quat fm_quat_make_from_axis_angle(const f32 x, const f32 y, const f32 z, const f32 angle)
+{
+	const f32 scale = sinf(angle / 2.0f) / sqrtf(x * x + y * y + z * z);
+
+	const fm_quat res = { scale * x, scale * y, scale * z, cosf(angle / 2.0f) };
+	return res;
+}
+
+static inline fm_quat fm_quat_make_from_euler_angles_yzpxry(const fm_euler_angles angles)
+{
+	const fm_quat p = fm_quat_make_from_axis_angle(1.0f, 0.0f, 0.0f, angles.pitch);
+	const fm_quat r = fm_quat_make_from_axis_angle(0.0f, 1.0f, 0.0f, angles.roll);
+	const fm_quat y = fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, angles.yaw);
+
+	const fm_quat tmp = fm_quat_mul(p, y);
+	return fm_quat_mul(tmp, r);
+}
+
+static inline fm_quat fm_quat_make_from_euler_angles_xyz(const fm_euler_angles angles)
+{
+	const fm_quat x = fm_quat_make_from_axis_angle(1.0f, 0.0f, 0.0f, angles.pitch);
+	const fm_quat y = fm_quat_make_from_axis_angle(0.0f, 1.0f, 0.0f, angles.yaw);
+	const fm_quat z = fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, angles.roll);
+
+	const fm_quat tmp = fm_quat_mul(y, x);
+	return fm_quat_mul(z, tmp);
+}
+
+static inline fm_quat fm_quat_make_from_euler_angles_pyyzrx(const fm_euler_angles angles)
+{
+	const fm_quat p = fm_quat_make_from_axis_angle(0.0f, 1.0f, 0.0f, angles.pitch);
+	const fm_quat r = fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, angles.roll);
+	const fm_quat y = fm_quat_make_from_axis_angle(1.0f, 0.0f, 0.0f, angles.yaw);
+
+	const fm_quat tmp = fm_quat_mul(y, p);
+	return fm_quat_mul(tmp, r);
+}
+
+static inline fm_quat fm_quat_make_from_euler_angles_pxryyz(const fm_euler_angles angles)
+{
+	const fm_quat p = fm_quat_make_from_axis_angle(0.0f, 1.0f, 0.0f, angles.pitch);
+	const fm_quat r = fm_quat_make_from_axis_angle(1.0f, 0.0f, 0.0f, angles.roll);
+	const fm_quat y = fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, angles.yaw);
+
+	const fm_quat tmp = fm_quat_mul(r, p);
+	return fm_quat_mul(tmp, y);
+}
+
+static inline fm_quat fm_vec4_rot_between(const fm_vec4 from, const fm_vec4 to)
+{
+	fm_quat rot = fm_quat_identity();
+
+	const fm_vec4 fromNorm = fm_vec4_norm(from);
+	const fm_vec4 toNorm = fm_vec4_norm(to);
+	
+	const f32 cosAlpha = fm_vec4_dot(fromNorm, toNorm);
 	const f32 alpha = -acosf(cosAlpha);
 	if(fabsf(alpha) > 0.0001f)
 	{
-		fm_vec4 axis;
-		fm_vec4_cross(&fromNorm, &toNorm, &axis);
-		if(fm_vec4_mag2(&axis) > 0.0f)
+		fm_vec4 axis = fm_vec4_cross(fromNorm, toNorm);
+		if(fm_vec4_mag2(axis) > 0.0f)
 		{
-			fm_vec4_normalize(&axis);
+			axis = fm_vec4_norm(axis);
 
-			fm_quat_make_from_axis_angle(axis.x, axis.y, axis.z, alpha, rot);
-			fm_quat_norm(rot);
-		}
-		else
-		{
-			fm_quat_identity(rot);
+			rot = fm_quat_make_from_axis_angle(axis.x, axis.y, axis.z, alpha);
+			rot = fm_quat_norm(rot);
 		}
 	}
-	else
-	{
-		fm_quat_identity(rot);
-	}
+
+	return rot;
 }
 
-static inline f32 fm_vec4_distance(const fm_vec4* a, const fm_vec4* b)
+static inline f32 fm_vec4_distance(const fm_vec4 a, const fm_vec4 b)
 {
-	fm_vec4 diff = {0};
-	fm_vec4_sub(a, b, &diff);
-	return fm_vec4_mag(&diff);
+	const fm_vec4 diff = fm_vec4_sub(a, b);
+	return fm_vec4_mag(diff);
 }
 
 static inline void fm_mat4_identity(fm_mat4* m)
@@ -256,33 +450,26 @@ static inline void fm_mat4_rot_z(const f32 phi, fm_mat4* m)
 	m->w.x = 0; m->w.y = 0; m->w.z = 0; m->w.w = 1;
 }
 
-static inline void fm_mat4_lookat_lh(const fm_vec4* eye, const fm_vec4* at, const fm_vec4* up, fm_mat4* m)
+static inline void fm_mat4_lookat_lh(const fm_vec4 eye, const fm_vec4 at, const fm_vec4 up, fm_mat4* m)
 {
-	fm_vec4 axis_y;
-	fm_vec4_sub(at, eye, &axis_y);
-	fm_vec4_normalize(&axis_y);
-	
-	fm_vec4 axis_x;
-	fm_vec4_cross(&axis_y, up, &axis_x);
-	fm_vec4_normalize(&axis_x);
-	
-	fm_vec4 axis_z;
-	fm_vec4_cross(&axis_x, &axis_y, &axis_z);
+	const fm_vec4 axis_y = fm_vec4_norm(fm_vec4_sub(at, eye));
+	const fm_vec4 axis_x = fm_vec4_norm(fm_vec4_cross(axis_y, up));
+	const fm_vec4 axis_z = fm_vec4_cross(axis_x, axis_y);
 	
 	m->x.x = axis_x.x;
 	m->x.y = axis_x.y;
 	m->x.z = axis_x.z;
-	m->x.w = -fm_vec4_dot(&axis_x, eye);
+	m->x.w = -fm_vec4_dot(axis_x, eye);
 	
 	m->y.x = axis_y.x;
 	m->y.y = axis_y.y;
 	m->y.z = axis_y.z;
-	m->y.w = -fm_vec4_dot(&axis_y, eye);
+	m->y.w = -fm_vec4_dot(axis_y, eye);
 	
 	m->z.x = axis_z.x;
 	m->z.y = axis_z.y;
 	m->z.z = axis_z.z;
-	m->z.w = -fm_vec4_dot(&axis_z, eye);
+	m->z.w = -fm_vec4_dot(axis_z, eye);
 	
 	m->w.x = 0.0f;
 	m->w.y = 0.0f;
@@ -290,33 +477,26 @@ static inline void fm_mat4_lookat_lh(const fm_vec4* eye, const fm_vec4* at, cons
 	m->w.w = 1.0f;
 }
 
-static inline void fm_mat4_lookat_rh(const fm_vec4* eye, const fm_vec4* at, const fm_vec4* up, fm_mat4* m)
+static inline void fm_mat4_lookat_rh(const fm_vec4 eye, const fm_vec4 at, const fm_vec4 up, fm_mat4* m)
 {
-	fm_vec4 axis_z;
-	fm_vec4_sub(eye, at, &axis_z);
-	fm_vec4_normalize(&axis_z);
-	
-	fm_vec4 axis_x;
-	fm_vec4_cross(up, &axis_z, &axis_x);
-	fm_vec4_normalize(&axis_x);
-	
-	fm_vec4 axis_y;
-	fm_vec4_cross(&axis_z, &axis_x, &axis_y);
+	const fm_vec4 axis_z = fm_vec4_norm(fm_vec4_sub(eye, at));
+	const fm_vec4 axis_x = fm_vec4_norm(fm_vec4_cross(up, axis_z));
+	const fm_vec4 axis_y = fm_vec4_cross(axis_z, axis_x);
 	
 	m->x.x = axis_x.x;
 	m->x.y = axis_x.y;
 	m->x.z = axis_x.z;
-	m->x.w = fm_vec4_dot(&axis_x, eye);
+	m->x.w = fm_vec4_dot(axis_x, eye);
 	
 	m->y.x = axis_y.x;
 	m->y.y = axis_y.y;
 	m->y.z = axis_y.z;
-	m->y.w = fm_vec4_dot(&axis_y, eye);
+	m->y.w = fm_vec4_dot(axis_y, eye);
 	
 	m->z.x = axis_z.x;
 	m->z.y = axis_z.y;
 	m->z.z = axis_z.z;
-	m->z.w = fm_vec4_dot(&axis_z, eye);
+	m->z.w = fm_vec4_dot(axis_z, eye);
 	
 	m->w.x = 0.0f;
 	m->w.y = 0.0f;
@@ -495,132 +675,13 @@ static inline void fm_mat4_mul(const fm_mat4* a, const fm_mat4* b, fm_mat4* m)
 	m->w.w = m33;
 }
 	
-static inline void fm_mat4_transform(const fm_mat4* m, const fm_vec4* a, fm_vec4* b)
+static inline fm_vec4 fm_mat4_transform(const fm_mat4* m, const fm_vec4 a)
 {
-	b->x = fm_vec4_dot(a, &m->x);
-	b->y = fm_vec4_dot(a, &m->y);
-	b->z = fm_vec4_dot(a, &m->z);
-	b->w = fm_vec4_dot(a, &m->w);
-}
-
-static inline f32 fm_clamp(const f32 value, const f32 min, const f32 max)
-{
-	if(value < min)
-		return min;
-	
-	if(value > max)
-		return max;
-	
-	return value;
-}
-
-static inline f32 fm_snap_near_zero(const f32 value, const f32 threshold)
-{
-	if(fabsf(value) < threshold)
-		return 0.0f;
-	
-	return value;
+	const fm_vec4 res = { fm_vec4_dot(a, m->x), fm_vec4_dot(a, m->y), fm_vec4_dot(a, m->z), fm_vec4_dot(a, m->w) };
+	return res;
 }
 	
-static inline f32 fm_sign(const f32 value)
-{
-	return value >= 0.0f ? 1.0f : -1.0f;
-}
-
-static inline void fm_quat_identity(fm_quat* q)
-{
-	q->i = 0.0f;
-	q->j = 0.0f;
-	q->k = 0.0f;
-	q->r = 1.0f;
-}
-
-static inline f32 fm_quat_dot3(const fm_quat* a, const fm_quat* b)
-{
-	return a->i * b->i + a->j * b->j + a->k * b->k;
-}
-	
-static inline f32 fm_quat_dot(const fm_quat* a, const fm_quat* b)
-{
-	return a->i * b->i + a->j * b->j + a->k * b->k + a->r * b->r;
-}
-
-static inline void fm_quat_cross3(const fm_quat* a, const fm_quat* b, fm_vec4* v)
-{
-	v->x = a->j * b->k - a->k * b->j;
-	v->y = a->k * b->i - a->i * b->k;
-	v->z = a->i * b->j - a->j * b->i;
-	v->w = 0.0f;
-}
-
-static inline void fm_quat_add(fm_quat* v, const fm_quat* a, const fm_quat* b)
-{
-	v->i = a->i + b->i;
-	v->j = a->j + b->j;
-	v->k = a->k + b->k;
-	v->r = a->r + b->r;
-}
-	
-static inline void fm_quat_mul(const fm_quat* a, const fm_quat* b, fm_quat* c)
-{
-	const f32 i = a->r * b->i + a->k * b->j - a->j * b->k + a->i * b->r;
-	const f32 j = -a->k * b->i + a->r * b->j + a->i * b->k + a->j * b->r;
-	const f32 k = a->j * b->i - a->i * b->j + a->r * b->k + a->k * b->r;
-	const f32 r = -a->i * b->i - a->j * b->j - a->k * b->k + a->r * b->r;
-	
-	c->i = i;
-	c->j = j;
-	c->k = k;
-	c->r = r;
-}
-	
-static inline void fm_quat_mulf(fm_quat* c, const fm_quat* a, f32 t)
-{
-	c->i = a->i * t;
-	c->j = a->j * t;
-	c->k = a->k * t;
-	c->r = a->r * t;
-}
-
-static inline void fm_quat_rot(const fm_quat* q, const fm_vec4* v, fm_vec4* c)
-{
-	const f32 dot_qv = v->x * q->i + v->y * q->j + v->z * q->k;
-	const f32 mag_qv = q->i * q->i + q->j * q->j + q->k * q->k;
-	
-	const f32 s1 = 2.0f * dot_qv;
-	const f32 s2 = q->r * q->r - mag_qv;
-	const f32 s3 = 2.0f * q->r;
-	
-	const fm_vec4 qv = {q->i, q->j, q->k, 0.0f};
-	fm_vec4 cross_qv;
-	fm_vec4_cross(v, &qv, &cross_qv);
-	
-	c->x = s1 * qv.x + s2 * v->x + s3 * cross_qv.x;
-	c->y = s1 * qv.y + s2 * v->y + s3 * cross_qv.y;
-	c->z = s1 * qv.z + s2 * v->z + s3 * cross_qv.z;
-	c->w = 0.0f;
-}
-
-static inline void fm_quat_norm(fm_quat* q)
-{
-	const f32 n = sqrtf(q->i * q->i + q->j * q->j + q->k * q->k + q->r * q->r);
-	const f32 n_inv = 1.0f / n;
-	
-	q->i *= n_inv;
-	q->j *= n_inv;
-	q->k *= n_inv;
-	q->r *= n_inv;
-}
-
-static inline void fm_quat_neg(fm_quat* q_out, const fm_quat* q_in)
-{
-	q_out->i = -q_in->i;
-	q_out->j = -q_in->j;
-	q_out->k = -q_in->k;
-	q_out->r = -q_in->r;
-}
-	
-static inline void fm_quat_slerp(const fm_quat* unitQuat0, const fm_quat* unitQuat1, f32 t, fm_quat* result)
+static inline fm_quat fm_quat_slerp(const fm_quat unitQuat0, const fm_quat unitQuat1, const f32 t)
 {
 	fm_quat start, tmpQ_0, tmpQ_1;
 	f32 recipSinAngle, scale0, scale1, cosAngle, angle;
@@ -628,11 +689,11 @@ static inline void fm_quat_slerp(const fm_quat* unitQuat0, const fm_quat* unitQu
 	if ( cosAngle < 0.0f )
 	{
 		cosAngle = -cosAngle;
-		fm_quat_neg( &start, unitQuat0 );
+		start = fm_quat_neg( unitQuat0 );
 	}
 	else
 	{
-		start = *unitQuat0;
+		start = unitQuat0;
 	}
 	if ( cosAngle < FM_SLERP_TOL )
 	{
@@ -646,35 +707,38 @@ static inline void fm_quat_slerp(const fm_quat* unitQuat0, const fm_quat* unitQu
 		scale0 = ( 1.0f - t );
 		scale1 = t;
 	}
-	fm_quat_mulf( &tmpQ_0, &start, scale0 );
-	fm_quat_mulf( &tmpQ_1, unitQuat1, scale1 );
-	fm_quat_add( result, &tmpQ_0, &tmpQ_1 );
+	tmpQ_0 = fm_quat_mulf( start, scale0 );
+	tmpQ_1 = fm_quat_mulf( unitQuat1, scale1 );
+	return fm_quat_add( tmpQ_0, tmpQ_1 );
 }
 
-static inline void fm_quat_lerp(const fm_quat* a, const fm_quat* b, f32 alpha, fm_quat* c)
+static inline fm_quat fm_quat_lerp(const fm_quat a, const fm_quat b, const f32 alpha)
 {
 	const f32 alpha_inv = 1.0f - alpha;
-	c->i = a->i * alpha_inv + b->i * alpha;
-	c->j = a->j * alpha_inv + b->j * alpha;
-	c->k = a->k * alpha_inv + b->k * alpha;
-	c->r = a->r * alpha_inv + b->r * alpha;
+	const fm_quat res = {
+		a.i * alpha_inv + b.i * alpha,
+		a.j * alpha_inv + b.j * alpha,
+		a.k * alpha_inv + b.k * alpha,
+		a.r * alpha_inv + b.r * alpha };
+
+	return res;
 }
 
-static inline void fm_quat_to_mat4(const fm_quat* q, fm_mat4* m)
+static inline void fm_quat_to_mat4(const fm_quat q, fm_mat4* m)
 {
-	m->x.x = 1.0f - 2.0f * q->j * q->j - 2.0f * q->k * q->k;
-	m->x.y = 2.0f * q->i * q->j - 2.0f * q->k * q->r;
-	m->x.z = 2.0f * q->i * q->k + 2.0f * q->j * q->r;
+	m->x.x = 1.0f - 2.0f * q.j * q.j - 2.0f * q.k * q.k;
+	m->x.y = 2.0f * q.i * q.j - 2.0f * q.k * q.r;
+	m->x.z = 2.0f * q.i * q.k + 2.0f * q.j * q.r;
 	m->x.w = 0.0f;
 	
-	m->y.x = 2.0f * q->i * q->j + 2.0f * q->k * q->r;
-	m->y.y = 1.0f - 2.0f * q->i * q->i - 2.0f * q->k * q->k;
-	m->y.z = 2.0f * q->j * q->k - 2.0f * q->i * q->r;
+	m->y.x = 2.0f * q.i * q.j + 2.0f * q.k * q.r;
+	m->y.y = 1.0f - 2.0f * q.i * q.i - 2.0f * q.k * q.k;
+	m->y.z = 2.0f * q.j * q.k - 2.0f * q.i * q.r;
 	m->y.w = 0.0f;
 	
-	m->z.x = 2.0f * q->i * q->k - 2.0f * q->j * q->r;
-	m->z.y = 2.0f * q->j * q->k + 2.0f * q->i * q->r;
-	m->z.z = 1.0f - 2.0f * q->i * q->i - 2.0f * q->j * q->j;
+	m->z.x = 2.0f * q.i * q.k - 2.0f * q.j * q.r;
+	m->z.y = 2.0f * q.j * q.k + 2.0f * q.i * q.r;
+	m->z.z = 1.0f - 2.0f * q.i * q.i - 2.0f * q.j * q.j;
 	m->z.w = 0.0f;
 	
 	m->w.x = 0.0f;
@@ -683,44 +747,46 @@ static inline void fm_quat_to_mat4(const fm_quat* q, fm_mat4* m)
 	m->w.w = 1.0f;
 }
 
-static inline void fm_quat_to_euler(const fm_quat* q, fm_euler_angles* angles)
+static inline fm_euler_angles fm_quat_to_euler(const fm_quat q)
 {
+	fm_euler_angles angles;
+
 	// roll (x-axis rotation)
-	f32 sinr_cosp = 2.0f * (q->r * q->i + q->j * q->k);
-	f32 cosr_cosp = 1.0f - 2.0f * (q->i * q->i + q->j * q->j);
-	angles->roll = atan2f(sinr_cosp, cosr_cosp);
+	f32 sinr_cosp = 2.0f * (q.r * q.i + q.j * q.k);
+	f32 cosr_cosp = 1.0f - 2.0f * (q.i * q.i + q.j * q.j);
+	angles.roll = atan2f(sinr_cosp, cosr_cosp);
 
 	// pitch (y-axis rotation)
-	f32 sinp = 2.0f * (q->r * q->j - q->k * q->i);
+	f32 sinp = 2.0f * (q.r * q.j - q.k * q.i);
 	if (fabs(sinp) >= 1.0f)
-		angles->pitch = (f32)FM_PI / 2.0f * fm_sign(sinp); // use 90 degrees if out of range
+		angles.pitch = (f32)FM_PI / 2.0f * fm_sign(sinp); // use 90 degrees if out of range
 	else
-		angles->pitch = asinf(sinp);
+		angles.pitch = asinf(sinp);
 
 	// yaw (z-axis rotation)
-	f32 siny_cosp = 2.0f * (q->r * q->k + q->i * q->j);
-	f32 cosy_cosp = 1.0f - 2.0f * (q->j * q->j + q->k * q->k);
-	angles->yaw = atan2f(siny_cosp, cosy_cosp);
+	f32 siny_cosp = 2.0f * (q.r * q.k + q.i * q.j);
+	f32 cosy_cosp = 1.0f - 2.0f * (q.j * q.j + q.k * q.k);
+	angles.yaw = atan2f(siny_cosp, cosy_cosp);
+
+	return angles;
 }
 
-static inline void fm_quat_rot_axis_angle(const fm_vec4* axis, const f32 angle, fm_quat* q)
+static inline fm_quat fm_quat_rot_axis_angle(const fm_vec4 axis, const f32 angle)
 {
 	const f32 scale = sinf(angle / 2) / fm_vec4_mag(axis);
-	q->i = scale * axis->x;
-	q->j = scale * axis->y;
-	q->k = scale * axis->z;
-	q->r = cosf(angle / 2.0f);
+	const fm_quat res = { scale * axis.x, scale * axis.y, scale * axis.z, cosf(angle / 2.0f) };
+	return res;
 }
 
-static inline void fm_quat_to_axis_angle(const fm_quat* q, fm_vec4* axis, f32* angle)
+static inline void fm_quat_to_axis_angle(const fm_quat q, fm_vec4* axis, f32* angle)
 {
-	*angle = acosf(fm_clamp(q->r, -1.0f, 1.0f)) * 2.0f;
+	*angle = acosf(fm_clamp(q.r, -1.0f, 1.0f)) * 2.0f;
 	if(fabsf(*angle) > 0.0001f)
 	{
 		const f32 scale = sinf(*angle / 2.0f);
-		axis->x = q->i / scale;
-		axis->y = q->j / scale;
-		axis->z = q->k / scale;
+		axis->x = q.i / scale;
+		axis->y = q.j / scale;
+		axis->z = q.k / scale;
 		axis->w = 0.0f;
 	}
 	else
@@ -732,142 +798,76 @@ static inline void fm_quat_to_axis_angle(const fm_quat* q, fm_vec4* axis, f32* a
 	}
 }
 	
-static inline void fm_quat_make_from_axis_angle(f32 x, f32 y, f32 z, const f32 angle, fm_quat* q)
+static inline fm_quat fm_quat_conj(const fm_quat q)
 {
-	const f32 scale = sinf(angle / 2) / sqrt(x*x + y*y + z*z);
-	q->i = scale * x;
-	q->j = scale * y;
-	q->k = scale * z;
-	q->r = cosf(angle / 2.0f);
-}
-	
-static inline void fm_quat_make_from_euler_angles_yzpxry(const fm_euler_angles* angles, fm_quat* quat)
-{
-	fm_quat p;
-	fm_quat_make_from_axis_angle(1.0f, 0.0f, 0.0f, angles->pitch, &p);
-	fm_quat r;
-	fm_quat_make_from_axis_angle(0.0f, 1.0f, 0.0f, angles->roll, &r);
-	fm_quat y;
-	fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, angles->yaw, &y);
-	
-	fm_quat tmp;
-	fm_quat_mul(&p, &y, &tmp);
-	fm_quat_mul(&tmp, &r, quat);
-}
-	
-static inline void fm_quat_make_from_euler_angles_xyz(const fm_euler_angles* angles, fm_quat* quat)
-{
-	fm_quat x;
-	fm_quat_make_from_axis_angle(1.0f, 0.0f, 0.0f, angles->pitch, &x);
-	fm_quat y;
-	fm_quat_make_from_axis_angle(0.0f, 1.0f, 0.0f, angles->yaw, &y);
-	fm_quat z;
-	fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, angles->roll, &z);
-	
-	fm_quat tmp;
-	fm_quat_mul(&y, &x, &tmp);
-	fm_quat_mul(&z, &tmp, quat);
-}
-	
-static inline void fm_quat_make_from_euler_angles_pyyzrx(const fm_euler_angles* angles, fm_quat* quat)
-{
-	fm_quat p;
-	fm_quat_make_from_axis_angle(0.0f, 1.0f, 0.0f, angles->pitch, &p);
-	fm_quat r;
-	fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, angles->roll, &r);
-	fm_quat y;
-	fm_quat_make_from_axis_angle(1.0f, 0.0f, 0.0f, angles->yaw, &y);
-	
-	fm_quat tmp;
-	fm_quat_mul(&y, &p, &tmp);
-	fm_quat_mul(&tmp, &r, quat);
-}
-	
-static inline void fm_quat_make_from_euler_angles_pxryyz(const fm_euler_angles* angles, fm_quat* quat)
-{
-	fm_quat p;
-	fm_quat_make_from_axis_angle(0.0f, 1.0f, 0.0f, angles->pitch, &p);
-	fm_quat r;
-	fm_quat_make_from_axis_angle(1.0f, 0.0f, 0.0f, angles->roll, &r);
-	fm_quat y;
-	fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, angles->yaw, &y);
-	
-	fm_quat tmp;
-	fm_quat_mul(&r, &p, &tmp);
-	fm_quat_mul(&tmp, &y, quat);
+	const fm_quat res = { -q.i, -q.j, -q.k, q.r };
+	return res;
 }
 
-static inline void fm_quat_conj(fm_quat* q)
+static inline fm_vec4 fm_quat_axis_x(const fm_quat q)
 {
-	q->i = -q->i;
-	q->j = -q->j;
-	q->k = -q->k;
+	const fm_vec4 axis_x = { 1.0f, 0.0f, 0.0f, 0.0f };
+	const fm_vec4 res = fm_quat_rot(q, axis_x);
+	return res;
 }
 
-static inline fm_vec4 fm_quat_axis_x(fm_quat* q)
+static inline fm_vec4 fm_quat_axis_y(const fm_quat q)
 {
-	fm_vec4 axis = {1.0f, 0.0f, 0.0f, 0.0f};
-	fm_quat_rot(q, &axis, &axis);
-	return axis;
+	const fm_vec4 axis_y = { 0.0f, 1.0f, 0.0f, 0.0f };
+	const fm_vec4 res = fm_quat_rot(q, axis_y);
+	return res;
 }
 
-static inline fm_vec4 fm_quat_axis_y(fm_quat* q)
+static inline fm_vec4 fm_quat_axis_z(const fm_quat q)
 {
-	fm_vec4 axis = {0.0f, 1.0f, 0.0f, 0.0f};
-	fm_quat_rot(q, &axis, &axis);
-	return axis;
-}
-
-static inline fm_vec4 fm_quat_axis_z(fm_quat* q)
-{
-	fm_vec4 axis = {0.0f, 0.0f, 1.0f, 0.0f};
-	fm_quat_rot(q, &axis, &axis);
-	return axis;
+	const fm_vec4 axis_z = { 0.0f, 0.0f, 1.0f, 0.0f };
+	const fm_vec4 res = fm_quat_rot(q, axis_z);
+	return res;
 }
 
 static inline void fm_xform_identity(fm_xform* x)
 {
-	fm_vec4_zeros(&x->pos);
-	fm_quat_identity(&x->rot);
+	x->pos = fm_vec4_zeros();
+	x->rot = fm_quat_identity();
 }
 	
 static inline void fm_xform_mul(const fm_xform* a, const fm_xform* b, fm_xform* c)
 {
-	fm_vec4 rotatedB;
-	fm_quat_rot(&a->rot, &b->pos, &rotatedB);
-	fm_vec4_add(&a->pos, &rotatedB, &c->pos);
-	fm_quat_mul(&a->rot, &b->rot, &c->rot);
+	const fm_vec4 rotatedB = fm_quat_rot(a->rot, b->pos);
+
+	c->pos = fm_vec4_add(a->pos, rotatedB);
+	c->rot = fm_quat_mul(a->rot, b->rot);
 }
 
-static inline void fm_xform_lerp(const fm_xform* a, const fm_xform* b, f32 alpha, fm_xform* c)
+static inline void fm_xform_lerp(const fm_xform* a, const fm_xform* b, const f32 alpha, fm_xform* c)
 {
-	fm_vec4_lerp(&b->pos, &a->pos, alpha, &c->pos);
-	fm_quat_lerp(&a->rot, &b->rot, alpha, &c->rot);
+	c->pos = fm_vec4_lerp(b->pos, a->pos, alpha);
+	c->rot = fm_quat_lerp(a->rot, b->rot, alpha);
 }
 
 static inline void fm_xform_slerp(const fm_xform* a, const fm_xform* b, f32 alpha, fm_xform* c)
 {
-	fm_vec4_lerp(&b->pos, &a->pos, alpha, &c->pos);
-	fm_quat_slerp(&a->rot, &b->rot, alpha, &c->rot);
+	c->pos = fm_vec4_lerp(b->pos, a->pos, alpha);
+	c->rot = fm_quat_slerp(a->rot, b->rot, alpha);
 }
 
 static inline void fm_xform_to_mat4(const fm_xform* x, fm_mat4* m)
 {
-	const fm_quat* q = &x->rot;
+	const fm_quat q = x->rot;
 	
-	m->x.x = 1.0f - 2.0f * q->j * q->j - 2.0f * q->k * q->k;
-	m->x.y = 2.0f * q->i * q->j - 2.0f * q->k * q->r;
-	m->x.z = 2.0f * q->i * q->k + 2.0f * q->j * q->r;
+	m->x.x = 1.0f - 2.0f * q.j * q.j - 2.0f * q.k * q.k;
+	m->x.y = 2.0f * q.i * q.j - 2.0f * q.k * q.r;
+	m->x.z = 2.0f * q.i * q.k + 2.0f * q.j * q.r;
 	m->x.w = 0.0f;
 	
-	m->y.x = 2.0f * q->i * q->j + 2.0f * q->k * q->r;
-	m->y.y = 1.0f - 2.0f * q->i * q->i - 2.0f * q->k * q->k;
-	m->y.z = 2.0f * q->j * q->k - 2.0f * q->i * q->r;
+	m->y.x = 2.0f * q.i * q.j + 2.0f * q.k * q.r;
+	m->y.y = 1.0f - 2.0f * q.i * q.i - 2.0f * q.k * q.k;
+	m->y.z = 2.0f * q.j * q.k - 2.0f * q.i * q.r;
 	m->y.w = 0.0f;
 	
-	m->z.x = 2.0f * q->i * q->k - 2.0f * q->j * q->r;
-	m->z.y = 2.0f * q->j * q->k + 2.0f * q->i * q->r;
-	m->z.z = 1.0f - 2.0f * q->i * q->i - 2.0f * q->j * q->j;
+	m->z.x = 2.0f * q.i * q.k - 2.0f * q.j * q.r;
+	m->z.y = 2.0f * q.j * q.k + 2.0f * q.i * q.r;
+	m->z.z = 1.0f - 2.0f * q.i * q.i - 2.0f * q.j * q.j;
 	m->z.w = 0.0f;
 	
 	m->w.x = x->pos.x;
@@ -876,68 +876,44 @@ static inline void fm_xform_to_mat4(const fm_xform* x, fm_mat4* m)
 	m->w.w = 1.0f;
 }
 
-static inline void fm_xform_apply(const fm_xform* x, const fm_vec4* a, fm_vec4* v)
+static inline fm_vec4 fm_xform_apply(const fm_xform* x, const fm_vec4 a)
 {
-	fm_quat_rot(&x->rot, a, v);
-	fm_vec4_add(&x->pos, v, v);
+	fm_vec4 res = fm_vec4_add(x->pos, fm_quat_rot(x->rot, a));
+	return res;
 }
 
-static inline void fm_xform_apply_inv(const fm_xform* x, const fm_vec4* a, fm_vec4* v)
+static inline fm_vec4 fm_xform_apply_inv(const fm_xform* x, const fm_vec4 a)
 {
-	fm_quat invRot = x->rot;
-	fm_quat_conj(&invRot);
-	fm_vec4_sub(a, &x->pos, v);
-	fm_quat_rot(&invRot, v, v);
+	const fm_quat invRot = fm_quat_conj(x->rot);
+	return fm_quat_rot(invRot, fm_vec4_sub(a, x->pos));
 }
 
 #define FM_CATMULL_ROM_ALPHA 0.5f
 
-static inline f32 fm_catmull_rom_get_t_value(const f32 t, const fm_vec4* p0, const  fm_vec4* p1)
+static inline f32 fm_catmull_rom_get_t_value(const f32 t, const fm_vec4 p0, const  fm_vec4 p1)
 {
-	const f32 a = powf(p1->x - p0->x, 2.0f) + powf(p1->y - p0->y, 2.0f) + powf(p1->z - p0->z, 2.0f) + powf(p1->w - p0->w, 2.0f);
+	const f32 a = powf(p1.x - p0.x, 2.0f) + powf(p1.y - p0.y, 2.0f) + powf(p1.z - p0.z, 2.0f) + powf(p1.w - p0.w, 2.0f);
 	const f32 b = powf(a, 0.5f);
 	const f32 c = powf(b, FM_CATMULL_ROM_ALPHA);
 	return c + t;
 }
 
-static inline void fm_spline_catmull_rom(const fm_vec4* p0, const fm_vec4* p1, const fm_vec4* p2, const fm_vec4* p3,
-										 const f32 t, fm_vec4* output )
+static inline fm_vec4 fm_spline_catmull_rom(const fm_vec4 p0, const fm_vec4 p1, const fm_vec4 p2, const fm_vec4 p3, const f32 t )
 {
 	const f32 t0 = 0.0f;
 	const f32 t1 = fm_catmull_rom_get_t_value(t0, p0, p1);
 	const f32 t2 = fm_catmull_rom_get_t_value(t1, p1, p2);
 	const f32 t3 = fm_catmull_rom_get_t_value(t2, p2, p3);
 	
-	fm_vec4 tmp1;
+	const fm_vec4 a1 = fm_vec4_add(fm_vec4_mulf(p0, (t1 - t) / (t1 - t0)), fm_vec4_mulf(p1, (t - t0) / (t1 - t0)));
+	const fm_vec4 a2 = fm_vec4_add(fm_vec4_mulf(p0, (t2 - t) / (t2 - t1)), fm_vec4_mulf(p1, (t - t1) / (t2 - t1)));
+	const fm_vec4 a3 = fm_vec4_add(fm_vec4_mulf(p0, (t3 - t) / (t3 - t2)), fm_vec4_mulf(p1, (t - t2) / (t3 - t2)));
+	const fm_vec4 b1 = fm_vec4_add(fm_vec4_mulf(a1, (t2 - t) / (t2 - t0)), fm_vec4_mulf(a2, (t - t0) / (t2 - t0)));
+	const fm_vec4 b2 = fm_vec4_add(fm_vec4_mulf(a2, (t3 - t) / (t3 - t1)), fm_vec4_mulf(a3, (t - t1) / (t3 - t1)));
 	
-	fm_vec4 a1;
-	fm_vec4_mulf(p0, (t1-t)/(t1-t0), &a1);
-	fm_vec4_mulf(p1, (t-t0)/(t1-t0), &tmp1);
-	fm_vec4_add(&a1, &tmp1, &a1);
-	
-	fm_vec4 a2;
-	fm_vec4_mulf(p0, (t2-t)/(t2-t1), &a2);
-	fm_vec4_mulf(p1, (t-t1)/(t2-t1), &tmp1);
-	fm_vec4_add(&a2, &tmp1, &a2);
-	
-	fm_vec4 a3;
-	fm_vec4_mulf(p0, (t3-t)/(t3-t2), &a3);
-	fm_vec4_mulf(p1, (t-t2)/(t3-t2), &tmp1);
-	fm_vec4_add(&a3, &tmp1, &a3);
-	
-	fm_vec4 b1;
-	fm_vec4_mulf(&a1, (t2-t)/(t2-t0), &b1);
-	fm_vec4_mulf(&a2, (t-t0)/(t2-t0), &tmp1);
-	fm_vec4_add(&b1, &tmp1, &b1);
-	
-	fm_vec4 b2;
-	fm_vec4_mulf(&a2, (t3-t)/(t3-t1), &b2);
-	fm_vec4_mulf(&a3, (t-t1)/(t3-t1), &tmp1);
-	fm_vec4_add(&b2, &tmp1, &b2);
-	
-	fm_vec4_mulf(&b1, (t2-t)/(t2-t1), output);
-	fm_vec4_mulf(&b2, (t-t1)/(t2-t1), &tmp1);
-	fm_vec4_add(output, &tmp1, output);
+	const fm_vec4 output = fm_vec4_add(fm_vec4_mulf(b1, (t2 - t) / (t2 - t1)), fm_vec4_mulf(b2, (t - t1) / (t2 - t1)));
+
+	return output;
 }
 	
 static inline f32 fm_curve_uniform_s(f32 alpha)
@@ -960,15 +936,15 @@ static inline bool fm_intersection_box_box(const fm_box* a, const fm_box* b)
 	return false;
 }
 
-static inline bool fm_intersection_box_point(const fm_box* a, const fm_vec3* b)
+static inline bool fm_intersection_box_point(const fm_box* a, const fm_vec3 b)
 {
-	if(fabs(a->center.x - b->x) > a->extent.x)
+	if(fabs(a->center.x - b.x) > a->extent.x)
 		return false;
 	
-	if(fabs(a->center.y - b->y) > a->extent.y)
+	if(fabs(a->center.y - b.y) > a->extent.y)
 		return false;
 	
-	if(fabs(a->center.z - b->z) > a->extent.z)
+	if(fabs(a->center.z - b.z) > a->extent.z)
 		return false;
 	
 	return false;
@@ -976,27 +952,21 @@ static inline bool fm_intersection_box_point(const fm_box* a, const fm_vec3* b)
 
 static inline void fm_box_append(fm_box* a, const fm_box* b)
 {
-	fm_vec3 a_max;
-	fm_vec3_add(&a->center, &a->extent, &a_max);
+	const fm_vec3 a_max = fm_vec3_add(a->center, a->extent);
+	const fm_vec3 a_min = fm_vec3_sub(a->center, a->extent);
 	
-	fm_vec3 a_min;
-	fm_vec3_sub(&a->center, &a->extent, &a_min);
+	const fm_vec3 b_max = fm_vec3_add(b->center, b->extent);
+	const fm_vec3 b_min = fm_vec3_sub(b->center, b->extent);
 	
-	fm_vec3 b_max;
-	fm_vec3_add(&b->center, &b->extent, &b_max);
+	const fm_vec3 r_max = {
+		MAX(a_max.x, b_max.x),
+		MAX(a_max.y, b_max.y),
+		MAX(a_max.z, b_max.z) };
 	
-	fm_vec3 b_min;
-	fm_vec3_sub(&b->center, &b->extent, &b_min);
-	
-	fm_vec3 r_max;
-	r_max.x = MAX(a_max.x, b_max.x);
-	r_max.y = MAX(a_max.y, b_max.y);
-	r_max.z = MAX(a_max.z, b_max.z);
-	
-	fm_vec3 r_min;
-	r_min.x = MIN(a_min.x, b_min.x);
-	r_min.y = MIN(a_min.y, b_min.y);
-	r_min.z = MIN(a_min.z, b_min.z);
+	const fm_vec3 r_min = {
+		MIN(a_min.x, b_min.x),
+		MIN(a_min.y, b_min.y),
+		MIN(a_min.z, b_min.z) };
 	
 	a->center.x = (r_max.x + r_min.x) / 2.0f;
 	a->center.y = (r_max.y + r_min.y) / 2.0f;

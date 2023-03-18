@@ -43,7 +43,7 @@ void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup
 	
 	fm_vec4 endEffector = chainMS[3].pos;
 	fm_vec4 target;
-	fm_vec4_lerp(&targetFixed, &endEffector, weightIK, &target);
+	target = fm_vec4_lerp(targetFixed, endEffector, weightIK);
 	
 	static u32 num_iterations = 20;
 	for(u32 it=0; it<num_iterations; ++it)
@@ -55,58 +55,46 @@ void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup
 			
 			endEffector = chainMS[3].pos;
 			
-			fm_vec4 e_i;
-			fm_vec4_sub(&endEffector, &chainMS[i].pos, &e_i);
-			fm_vec4 t_i;
-			fm_vec4_sub(&target, &chainMS[i].pos, &t_i);
+			const fm_vec4 e_i = fm_vec4_norm(fm_vec4_sub(endEffector, chainMS[i].pos));
+			const fm_vec4 t_i = fm_vec4_norm(fm_vec4_sub(target, chainMS[i].pos));
 			
-			fm_vec4_normalize(&e_i);
-			fm_vec4_normalize(&t_i);
-			const f32 angle = -acosf(fm_vec4_dot(&e_i, &t_i));
+			const f32 angle = -acosf(fm_vec4_dot(e_i, t_i));
 			const bool canRot = fabsf(angle) > 0.0001f;
 			if(canRot)
 			{
-				fm_vec4 axis;
-				fm_vec4_cross(&e_i, &t_i, &axis);
-				if(fm_vec4_mag2(&axis) > 0.0f)
+				fm_vec4 axis = fm_vec4_cross(e_i, t_i);
+				if(fm_vec4_mag2(axis) > 0.0f)
 				{
-					fm_vec4_normalize(&axis);
+					axis = fm_vec4_norm(axis);
 					
-					fm_quat rot;
-					fm_quat_rot_axis_angle(&axis, angle, &rot);
+					const fm_quat rot = fm_quat_rot_axis_angle(axis, angle);
 					
-					fm_quat invMS = chainMS[ip].rot;
-					fm_quat_conj(&invMS);
+					const fm_quat invMS = fm_quat_conj(chainMS[ip].rot);
 					
 					// take axis for hinge
-					fm_vec4 jointAxis;
-					fm_axis_to_vec4(hingeAxis, &jointAxis);
-					fm_quat_rot(&chainMS[i].rot, &jointAxis, &jointAxis);
+					fm_vec4 jointAxis = fm_axis_to_vec4(hingeAxis);
+					jointAxis = fm_quat_rot(chainMS[i].rot, jointAxis);
 					
 					// rotate
-					fm_quat_mul(&rot, &chainMS[i].rot, &chainMS[i].rot);
+					chainMS[i].rot = fm_quat_mul(rot, chainMS[i].rot);
 					
 					// hinge constraint
 					if(i == 2)
 					{
-						fm_vec4 jointAxisNew;
-						fm_axis_to_vec4(hingeAxis, &jointAxisNew);
-						fm_quat_rot(&chainMS[i].rot, &jointAxisNew, &jointAxisNew);
-						fm_quat backRot;
-						fm_vec4_rot_between(&jointAxisNew, &jointAxis, &backRot);
-						fm_quat_mul(&backRot, &chainMS[i].rot, &chainMS[i].rot);
+						const fm_vec4 jointAxisNew = fm_quat_rot(chainMS[i].rot, fm_axis_to_vec4(hingeAxis));
+						const fm_quat backRot = fm_vec4_rot_between(jointAxisNew, jointAxis);
+						chainMS[i].rot = fm_quat_mul(backRot, chainMS[i].rot);
 					}
 					
 					// write back to LS
-					fm_quat_mul(&invMS, &chainMS[i].rot, &chainLS[i].rot);
-					fm_quat_norm(&chainLS[i].rot);
+					chainLS[i].rot = fm_quat_norm(fm_quat_mul(invMS, chainMS[i].rot));
 					
 					// constrain angle
 					if(i == 2)
 					{
 						fm_vec4 rotAxis;
 						f32 rotAngle;
-						fm_quat_to_axis_angle(&chainLS[i].rot, &rotAxis, &rotAngle);
+						fm_quat_to_axis_angle(chainLS[i].rot, &rotAxis, &rotAngle);
 						
 						if(fabsf(rotAngle) > 0.00001f)
 						{
@@ -115,14 +103,13 @@ void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup
 								rotAngle -= 2 * FM_PI;
 							}
 							
-							fm_vec4 origRotAxis;
-							fm_axis_to_vec4(hingeAxis, &origRotAxis);
-							if(fm_vec4_dot(&origRotAxis, &rotAxis) > 0.0f)
+							const fm_vec4 origRotAxis = fm_axis_to_vec4(hingeAxis);
+							if(fm_vec4_dot(origRotAxis, rotAxis) > 0.0f)
 								rotAngle = fm_clamp(rotAngle, angleMin, angleMax);
 							else
 								rotAngle = fm_clamp(rotAngle, -angleMax, -angleMin);
 							
-							fm_quat_rot_axis_angle(&rotAxis, rotAngle, &chainLS[i].rot);
+							chainLS[i].rot = fm_quat_rot_axis_angle(rotAxis, rotAngle);
 							fm_xform_mul(&chainMS[ip], &chainLS[i], &chainMS[i]);
 						}
 					}
@@ -139,10 +126,8 @@ void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup
 	}
 	
 	// recreate original foot MS orientation
-	fm_quat invCurrKneeMS = chainMS[2].rot;
-	fm_quat_conj(&invCurrKneeMS);
-	fm_quat footCorrection;
-	fm_quat_mul(&invCurrKneeMS, &originalFootMS, &footCorrection);
+	const fm_quat invCurrKneeMS = fm_quat_conj(chainMS[2].rot);
+	const fm_quat footCorrection = fm_quat_mul(invCurrKneeMS, originalFootMS);
 	chainLS[3].rot = footCorrection;
 	
 	// write results to poseLS
@@ -588,22 +573,18 @@ void fa_character_ik(fa_character_t* character, fa_cross_layer_context_t* layerC
 			{
 				fm_vec4 leftHipPos = poseMS.xforms[character->rig->ikLeftLeg.idxBeginParent].pos;
 				fm_vec4 rightHipPos = poseMS.xforms[character->rig->ikRightLeg.idxBeginParent].pos;
-				fm_vec4 leftTargetDir;
-				fm_vec4_sub(&leftTarget, &leftHipPos, &leftTargetDir);
-				fm_vec4 rightTargetDir;
-				fm_vec4_sub(&rightTarget, &rightHipPos, &rightTargetDir);
+				const fm_vec4 leftTargetDir = fm_vec4_sub(leftTarget, leftHipPos);
+				const fm_vec4 rightTargetDir = fm_vec4_sub(rightTarget, rightHipPos);
 				
-				const f32 leftDistance = fm_vec4_mag(&leftTargetDir);
-				const f32 rightDistance = fm_vec4_mag(&rightTargetDir);
-				fm_vec4 leftLegVec = poseLS.xforms[character->rig->ikLeftLeg.idxMid].pos;
-				fm_vec4_add(&leftLegVec, &poseLS.xforms[character->rig->ikLeftLeg.idxEnd].pos, &leftLegVec);
-				fm_vec4 rightLegVec = poseLS.xforms[character->rig->ikRightLeg.idxMid].pos;
-				fm_vec4_add(&rightLegVec, &poseLS.xforms[character->rig->ikRightLeg.idxEnd].pos, &rightLegVec);
+				const f32 leftDistance = fm_vec4_mag(leftTargetDir);
+				const f32 rightDistance = fm_vec4_mag(rightTargetDir);
+				const fm_vec4 leftLegVec = fm_vec4_add(poseLS.xforms[character->rig->ikLeftLeg.idxMid].pos, poseLS.xforms[character->rig->ikLeftLeg.idxEnd].pos);
+				const fm_vec4 rightLegVec = fm_vec4_add(poseLS.xforms[character->rig->ikRightLeg.idxMid].pos, poseLS.xforms[character->rig->ikRightLeg.idxEnd].pos);
 				
 				const f32 footCorrectionDistance = 0.15f;
 				
-				const f32 leftLegLength = fm_vec4_mag(&leftLegVec) + footCorrectionDistance;
-				const f32 rightLegLength = fm_vec4_mag(&rightLegVec) + footCorrectionDistance;
+				const f32 leftLegLength = fm_vec4_mag(leftLegVec) + footCorrectionDistance;
+				const f32 rightLegLength = fm_vec4_mag(rightLegVec) + footCorrectionDistance;
 				
 				f32 pelvisCorrectionHeight = 0.0f;
 				if(leftLegLength < leftDistance)
@@ -636,8 +617,7 @@ void fa_character_look_at(fa_character_t* character, fa_pose_t* poseLS, fa_pose_
 	
 	// transform look at from model space to head space
 	fm_xform locator = poseMS->xforms[setup->idxHead];
-	fm_vec4 lookAtLocatorSpace = {0};
-	fm_xform_apply_inv(&locator, &lookAtMS, &lookAtLocatorSpace);
+	fm_vec4 lookAtLocatorSpace = fm_xform_apply_inv(&locator, lookAtMS);
 	
 	// assume +X axis is forward direction (depends on the rig)
 	fm_vec4 forward = {1.0f, 0.0f, 0.0f, 0.0f};
@@ -671,29 +651,23 @@ void fa_character_look_at(fa_character_t* character, fa_pose_t* poseLS, fa_pose_
 		character->lookAtHeadPitch = character->lookAtHeadPitch * 0.95f + pitch * 0.05f;
 		
 		// prepare new look-at position
-		fm_quat yawRot = {0};
-		fm_quat_make_from_axis_angle(0.0f, 1.0f, 0.0f, character->lookAtHeadYaw, &yawRot);
+		const fm_quat yawRot = fm_quat_make_from_axis_angle(0.0f, 1.0f, 0.0f, character->lookAtHeadYaw);
+		const fm_quat pitchRot = fm_quat_make_from_axis_angle(0.0f, 0.0f, -1.0f, character->lookAtHeadPitch);
 		
-		fm_quat pitchRot = {0};
-		fm_quat_make_from_axis_angle(0.0f, 0.0f, -1.0f, character->lookAtHeadPitch, &pitchRot);
-		
-		fm_quat_rot(&yawRot, &forward, &dir);
-		fm_quat_rot(&pitchRot, &dir, &dir);
-		const f32 mag = fm_vec4_mag(&lookAtLocatorSpace);
-		fm_vec4_mulf(&dir, mag, &lookAtLocatorSpace);
+		dir = fm_quat_rot(pitchRot, fm_quat_rot(yawRot, forward));
+		const f32 mag = fm_vec4_mag(lookAtLocatorSpace);
+		lookAtLocatorSpace = fm_vec4_mulf(dir, mag);
 	}
 	
 	// calculate final look-at rotation correction with weight
-	fm_quat headCorrection = {0};
-	fm_vec4_rot_between(&forward, &lookAtLocatorSpace, &headCorrection);
+	fm_quat headCorrection = fm_vec4_rot_between(forward, lookAtLocatorSpace);
 	
 	// apply weight to look-at
-	fm_quat identity = {0};
-	fm_quat_identity(&identity);
-	fm_quat_slerp(&identity, &headCorrection, weight, &headCorrection);
+	fm_quat identity = fm_quat_identity();
+	headCorrection = fm_quat_slerp(identity, headCorrection, weight);
 	
 	// apply look-at rotation correction to local space
-	fm_quat_mul(&headCorrection, &poseLS->xforms[setup->idxHead].rot, &poseLS->xforms[setup->idxHead].rot);
+	poseLS->xforms[setup->idxHead].rot = fm_quat_mul(headCorrection, poseLS->xforms[setup->idxHead].rot);
 }
 
 void fa_character_animate(fa_character_t* character, const fa_character_animate_ctx_t* ctx)
@@ -706,16 +680,14 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		
 		// get world locator of the character
 		const fm_vec4 posWS = {info->worldPos.x, info->worldPos.y, info->worldPos.z, 1.0f};
-		fm_quat rotWS = {0};
-		fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, info->currentYaw, &rotWS);
+		const fm_quat rotWS = fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, info->currentYaw);
 		
 		// move look-at WS to MS
 		const fm_vec4 lookAtWS = {info->lookAtPoint.x, info->lookAtPoint.y, info->lookAtPoint.z, 1.0f};
-		fm_vec4_sub(&lookAtWS, &posWS, &lookAtMS);
+		lookAtMS = fm_vec4_sub(lookAtWS, posWS);
 		
-		fm_quat invRotWS = rotWS;
-		fm_quat_conj(&invRotWS);
-		fm_quat_rot(&invRotWS, &lookAtMS, &lookAtMS);
+		fm_quat invRotWS = fm_quat_conj(rotWS);
+		lookAtMS = fm_quat_rot(invRotWS, lookAtMS);
 	}
 	
 	// allocate pose stack and command buffer memory
@@ -869,24 +841,21 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			
 			fm_xform animMotionDelta = poseMS.xforms[idxLocoJoint];
 			
-			fm_vec4_sub(&animMotionDelta.pos, &poseMS.xforms[0].pos, &animMotionDelta.pos);
+			animMotionDelta.pos = fm_vec4_sub(animMotionDelta.pos, poseMS.xforms[0].pos);
 			
-			fm_quat rootQuatConj = poseMS.xforms[0].rot;
-			fm_quat_conj(&rootQuatConj);
+			const fm_quat rootQuatConj = fm_quat_conj(poseMS.xforms[0].rot);
 			
-			fm_quat_mul(&animMotionDelta.rot, &rootQuatConj, &animMotionDelta.rot);
-			fm_quat_norm(&animMotionDelta.rot);
+			animMotionDelta.rot = fm_quat_norm(fm_quat_mul(animMotionDelta.rot, rootQuatConj));
 			
 			// we know it's gonna be motion 2D (for now) so axis should be vertical in pose space
 			fm_vec4 axis = {0};
 			f32 animYawDelta = 0.0f;
-			fm_quat_to_axis_angle(&animMotionDelta.rot, &axis, &animYawDelta);
+			fm_quat_to_axis_angle(animMotionDelta.rot, &axis, &animYawDelta);
 			
 			animYawDelta *= -fm_sign(axis.y);	// the axis flips depending on direction of rotation (to left, to right)
 			
-			fm_quat rotWS = {0};
-			fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, character->animInfo.currentYaw, &rotWS);
-			fm_quat_rot(&rotWS, &animMotionDelta.pos, &animMotionDelta.pos);
+			const fm_quat rotWS = fm_quat_make_from_axis_angle(0.0f, 0.0f, 1.0f, character->animInfo.currentYaw);
+			animMotionDelta.pos = fm_quat_rot(rotWS, animMotionDelta.pos);
 			
 			// motion from logic
 			const fm_vec4 logicMotionDelta = {character->animInfo.desiredMove.x, character->animInfo.desiredMove.y, 0.0f};
@@ -895,9 +864,9 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			f32 logicCurrentYaw = character->animInfo.currentYaw;
 			f32 logicYawDelta = 0.0f;
 			
-			if(fm_vec4_mag2(&logicMotionDir) > 0.001f)
+			if(fm_vec4_mag2(logicMotionDir) > 0.001f)
 			{
-				fm_vec4_normalize(&logicMotionDir);
+				logicMotionDir = fm_vec4_norm(logicMotionDir);
 				logicCurrentYaw = -fm_sign(logicMotionDir.y) * acosf(logicMotionDir.x);
 				logicYawDelta = logicCurrentYaw - character->animInfo.currentYaw;
 			}
@@ -910,8 +879,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			
 			const f32 animToLogicMotionSpeedAlpha = character->animInfo.animToLogicMotionTranslationAlpha;
 			
-			fm_vec4 finalMotionDelta = {0};
-			fm_vec4_lerp(&logicMotionDelta, &animMotionDelta.pos, animToLogicMotionSpeedAlpha, &finalMotionDelta);
+			const fm_vec4 finalMotionDelta = fm_vec4_lerp(logicMotionDelta, animMotionDelta.pos, animToLogicMotionSpeedAlpha);
 			
 			character->animInfo.rootMotionDelta.x = finalMotionDelta.x;
 			character->animInfo.rootMotionDelta.y = finalMotionDelta.y;

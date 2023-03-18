@@ -50,7 +50,7 @@ void quat_fhm(fm_quat q, fm_vec3* v)
 	v->z = q.k * s;
 }
 
-fm_quat quat_ihm(const fm_vec3* v)
+fm_quat quat_ihm(const fm_vec3 v)
 {
 	f32 d = Khi * fm_vec3_dot(v, v);
 	f32 a = (1.0f + d);
@@ -60,9 +60,9 @@ fm_quat quat_ihm(const fm_vec3* v)
 	
 	f32 bc = b * c;
 	
-	q.i = v->x * bc;
-	q.j = v->y * bc;
-	q.k = v->z * bc;
+	q.i = v.x * bc;
+	q.j = v.y * bc;
+	q.k = v.z * bc;
 	q.r = (1.0f + d * (d - 6.0f)) * c;
 	
 	return q;
@@ -79,7 +79,7 @@ fm_quat quat_ihm_16bit(const u16* b)
 {
 	fm_vec3 vec;
 	fm_16bit_to_vec3(b, &vec);
-	return quat_ihm(&vec);
+	return quat_ihm(vec);
 }
 
 const f32 c_posRange = 20.0f;
@@ -156,8 +156,7 @@ void fa_anim_curve_sample(const fa_anim_curve_t* curve, f32 time, bool asAdditiv
 			const f32 time2 = fa_decompress_key_time(curve->rotKeys[upperIdx].keyTime);
 			
 			f32 alpha = (time - time1) / (time2 - time1);
-			fm_quat_lerp(&rot1, &rot2, alpha, &rot);
-			fm_quat_norm(&rot);
+			rot = fm_quat_norm(fm_quat_lerp(rot1, rot2, alpha));
 		}
 		
 		xform->rot = rot;
@@ -196,7 +195,7 @@ void fa_anim_curve_sample(const fa_anim_curve_t* curve, f32 time, bool asAdditiv
 			const f32 time2 = fa_decompress_key_time(curve->posKeys[upperIdx].keyTime);
 			
 			f32 alpha = (time - time1) / (time2 - time1);
-			fm_vec4_lerp(&pos2, &pos1, alpha, &pos);
+			pos = fm_vec4_lerp(pos2, pos1, alpha);
 		}
 		
 		xform->pos = pos;
@@ -208,10 +207,10 @@ void fa_anim_curve_sample(const fa_anim_curve_t* curve, f32 time, bool asAdditiv
 		fa_decompress_rotation_key(&curve->rotKeys[0], &firstKey.rot);
 		fa_decompress_position_key(&curve->posKeys[0], &firstKey.pos);
 		
-		fm_quat_conj(&firstKey.rot);
+		firstKey.rot = fm_quat_conj(firstKey.rot);
 		
-		fm_quat_mul(&firstKey.rot, &xform->rot, &xform->rot);
-		fm_vec4_sub(&xform->pos, &firstKey.pos, &xform->pos);
+		xform->rot = fm_quat_mul(firstKey.rot, xform->rot);
+		xform->pos = fm_vec4_sub(xform->pos, firstKey.pos);
 	}
 }
 

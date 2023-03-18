@@ -3,5 +3,4 @@ include(${CMAKE_SOURCE_DIR}/config/CMakeLists.txt)
 
 target_link_libraries(${ProjectName}
 	ccore
-	canim
-	cmath)
+	canim)

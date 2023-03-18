@@ -286,10 +286,9 @@ void fa_pose_apply_additive(fa_pose_t* out, const fa_pose_t* base, const fa_pose
 			for(u32 i=0; i<numXforms; ++i)
 			{
 				fm_xform addXform = add_xforms[i];
-				fm_vec4_mulf(&addXform.pos, weight, &addXform.pos);
-				fm_quat identity;
-				fm_quat_identity(&identity);
-				fm_quat_slerp(&identity, &addXform.rot, weight, &addXform.rot);
+				addXform.pos = fm_vec4_mulf(addXform.pos, weight);
+				fm_quat identity = fm_quat_identity();
+				addXform.rot = fm_quat_slerp(identity, addXform.rot, weight);
 				fm_xform_mul(&base_xforms[i], &addXform, &out_xforms[i]);
 			}
 		}

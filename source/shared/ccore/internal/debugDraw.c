@@ -404,7 +404,7 @@ void fc_dbg_helper_cross(const f32 a[3], const f32 b[3], f32 c[3])
 	c[2] = a[0] * b[1] - a[1] * b[0];
 }
 
-void fc_dbg_helper_perpendicular(f32 v1[3], f32 v2[3])
+void fc_dbg_helper_perpendicular(const f32 v1[3], f32 v2[3])
 {
 	// Find the index of the smallest element in v1
 	int i = (abs(v1[0]) < abs(v1[1])) ? 0 : 1;

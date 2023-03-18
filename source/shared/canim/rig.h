@@ -17,7 +17,7 @@ typedef u32 fc_string_hash_t;
 typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
 typedef struct fc_serializer_t fc_serializer_t;
 
-void fm_axis_to_vec4(fm_axis_t axis, fm_vec4* v);
+fm_vec4 fm_axis_to_vec4(fm_axis_t axis);
 
 typedef struct fa_ik_setup_t
 {
