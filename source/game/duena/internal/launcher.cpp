@@ -2420,7 +2420,7 @@ void furMainEngineGameUpdate(FurGameEngine* pEngine, f32 dt, fc_alloc_callbacks_
 			{
 				pEngine->zeldaGameObject.velocity.x += pEngine->zeldaGameObject.animCharacter->animInfo.desiredMove.x * 1.2f;
 				pEngine->zeldaGameObject.velocity.y += pEngine->zeldaGameObject.animCharacter->animInfo.desiredMove.y * 1.2f;
-				fm_vec4_normalize(&pEngine->zeldaGameObject.velocity);
+				fm_vec4_norm(&pEngine->zeldaGameObject.velocity);
 				fm_vec4_mulf(&pEngine->zeldaGameObject.velocity, speed, &pEngine->zeldaGameObject.velocity);
 			}
 		}

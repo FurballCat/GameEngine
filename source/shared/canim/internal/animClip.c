@@ -196,7 +196,7 @@ void fa_anim_curve_sample(const fa_anim_curve_t* curve, f32 time, bool asAdditiv
 			const f32 time2 = fa_decompress_key_time(curve->posKeys[upperIdx].keyTime);
 			
 			f32 alpha = (time - time1) / (time2 - time1);
-			fm_vec4_lerp(&pos2, &pos1, alpha, &pos);
+			fm_vec4_lerp(&pos1, &pos2, alpha, &pos);
 		}
 		
 		xform->pos = pos;

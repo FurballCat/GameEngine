@@ -44,42 +44,238 @@ static inline f32 xm_vec4_dot(const xm_vec4 v1, const xm_vec4 v2)
 	return 0.0f;
 }
 
-///////////////////////
+/********************************/
+/* Vector 2 math implementation */
 
+// Sets all components of a vector to 0
+static inline void fm_vec2_zeros(fm_vec2* v)
+{
+	v->x = 0.0f;
+	v->y = 0.0f;
+}
+
+// Adds two vectors
+static inline void fm_vec2_add(const fm_vec2* a, const fm_vec2* b, fm_vec2* out)
+{
+	out->x = a->x + b->x;
+	out->y = a->y + b->y;
+}
+
+// Subtracts two vectors
+static inline void fm_vec2_sub(const fm_vec2* a, const fm_vec2* b, fm_vec2* out)
+{
+	out->x = a->x - b->x;
+	out->y = a->y - b->y;
+}
+
+// Multiplies two vectors (component-wise)
+static inline void fm_vec2_mul(const fm_vec2* a, const fm_vec2* b, fm_vec2* out)
+{
+	out->x = a->x * b->x;
+	out->y = a->y * b->y;
+}
+
+// Divides two vectors (component-wise)
+static inline void fm_vec2_div(const fm_vec2* a, const fm_vec2* b, fm_vec2* out)
+{
+	out->x = a->x / b->x;
+	out->y = a->y / b->y;
+}
+
+// Multiplies a vector by a scalar
+static inline void fm_vec2_mulf(const fm_vec2* v, f32 s, fm_vec2* out)
+{
+	out->x = v->x * s;
+	out->y = v->y * s;
+}
+
+// Calculates the length (magnitude) of a vector
+static inline f32 fm_vec2_mag(const fm_vec2* v)
+{
+	return sqrtf(v->x * v->x + v->y * v->y);
+}
+
+// Returns the magnitude squared of a vector
+static inline f32 fm_vec2_mag2(const fm_vec2* v)
+{
+	return v->x * v->x + v->y * v->y;
+}
+
+// Sets all components of a vector to their absolute value
+static inline void fm_vec2_abs(fm_vec2* v)
+{
+	v->x = fabsf(v->x);
+	v->y = fabsf(v->y);
+}
+
+// Negates all components of a vector
+static inline void fm_vec2_neg(fm_vec2* v)
+{
+	v->x = -v->x;
+	v->y = -v->y;
+}
+
+// Normalizes a vector (makes its length/magnitude equal to 1)
+static inline void fm_vec2_norm(fm_vec2* v)
+{
+	const f32 length = fm_vec2_mag(v);
+	if (length > 0.0f)
+	{
+		f32 inv_length = 1.0f / length;
+		v->x *= inv_length;
+		v->y *= inv_length;
+	}
+}
+
+// Linearly interpolates between two vectors
+static inline void fm_vec2_lerp(const fm_vec2* a, const fm_vec2* b, const f32 alpha, fm_vec2* c)
+{
+	const f32 invAlpha = 1.0f - alpha;
+	c->x = a->x * invAlpha + b->x * alpha;
+	c->y = a->y * invAlpha + b->y * alpha;
+}
+
+// Calculates the dot product of two vectors
+static inline f32 fm_vec2_dot(const fm_vec2* v1, const fm_vec2* v2)
+{
+	return v1->x * v2->x + v1->y * v2->y;
+}
+
+// Calculates distance between two vectors
+static inline f32 fm_vec2_distance(const fm_vec2* a, const fm_vec2* b)
+{
+	fm_vec2 diff = { 0 };
+	fm_vec2_sub(a, b, &diff);
+	return fm_vec2_mag(&diff);
+}
+
+/********************************/
+/* Vector 3 math implementation */
+
+// Sets all components of a vector to 0
+static inline void fm_vec3_zeros(fm_vec3* v)
+{
+	v->x = 0.0f;
+	v->y = 0.0f;
+	v->z = 0.0f;
+}
+
+// Adds two vectors
+static inline void fm_vec3_add(const fm_vec3* a, const fm_vec3* b, fm_vec3* out)
+{
+	out->x = a->x + b->x;
+	out->y = a->y + b->y;
+	out->z = a->z + b->z;
+}
+
+// Subtracts two vectors
+static inline void fm_vec3_sub(const fm_vec3* a, const fm_vec3* b, fm_vec3* out)
+{
+	out->x = a->x - b->x;
+	out->y = a->y - b->y;
+	out->z = a->z - b->z;
+}
+
+// Multiplies two vectors (component-wise)
+static inline void fm_vec3_mul(const fm_vec3* a, const fm_vec3* b, fm_vec3* out)
+{
+	out->x = a->x * b->x;
+	out->y = a->y * b->y;
+	out->z = a->z * b->z;
+}
+
+// Divides two vectors (component-wise)
+static inline void fm_vec3_div(const fm_vec3* a, const fm_vec3* b, fm_vec3* out)
+{
+	out->x = a->x / b->x;
+	out->y = a->y / b->y;
+	out->z = a->z / b->z;
+}
+
+// Multiplies a vector by a scalar
+static inline void fm_vec3_mulf(const fm_vec3* v, f32 s, fm_vec3* out)
+{
+	out->x = v->x * s;
+	out->y = v->y * s;
+	out->z = v->z * s;
+}
+
+// Calculates the length (magnitude) of a vector
+static inline f32 fm_vec3_mag(const fm_vec3* v)
+{
+	return sqrtf(v->x * v->x + v->y * v->y + v->z * v->z);
+}
+
+// Returns the magnitude squared of a vector
+static inline f32 fm_vec3_mag2(const fm_vec3* v)
+{
+	return v->x * v->x + v->y * v->y + v->z * v->z;
+}
+
+// Sets all components of a vector to their absolute value
+static inline void fm_vec3_abs(fm_vec3* v)
+{
+	v->x = fabsf(v->x);
+	v->y = fabsf(v->y);
+	v->z = fabsf(v->z);
+}
+
+// Negates all components of a vector
+static inline void fm_vec3_neg(fm_vec3* v)
+{
+	v->x = -v->x;
+	v->y = -v->y;
+	v->z = -v->z;
+}
+
+// Normalizes a vector (makes its length/magnitude equal to 1)
+static inline void fm_vec3_norm(fm_vec3* v)
+{
+	const f32 length = fm_vec3_mag(v);
+	if (length > 0.0f)
+	{
+		f32 inv_length = 1.0f / length;
+		v->x *= inv_length;
+		v->y *= inv_length;
+		v->z *= inv_length;
+	}
+}
+
+// Linearly interpolates between two vectors
+static inline void fm_vec3_lerp(const fm_vec3* a, const fm_vec3* b, const f32 alpha, fm_vec3* out)
+{
+	const f32 invAlpha = 1.0f - alpha;
+	out->x = a->x * invAlpha + b->x * alpha;
+	out->y = a->y * invAlpha + b->y * alpha;
+	out->z = a->z * invAlpha + b->z * alpha;
+}
+
+// Calculates the dot product of two vectors
 static inline f32 fm_vec3_dot(const fm_vec3* a, const fm_vec3* b)
 {
 	return a->x * b->x + a->y * b->y + a->z * b->z;
 }
 
-static inline void fm_vec3_add(const fm_vec3* a, const fm_vec3* b, fm_vec3* v)
+// Calculates the cross product of two vectors
+static inline void fm_vec3_cross(const fm_vec3* a, const fm_vec3* b, fm_vec3* out)
 {
-	v->x = a->x + b->x;
-	v->y = a->y + b->y;
-	v->z = a->z + b->z;
+	out->x = a->y * b->z - a->z * b->y;
+	out->y = a->z * b->x - a->x * b->z;
+	out->z = a->x * b->y - a->y * b->x;
 }
 
-static inline void fm_vec3_sub(const fm_vec3* a, const fm_vec3* b, fm_vec3* v)
+// Calculates distance between two vectors
+static inline f32 fm_vec3_distance(const fm_vec3* a, const fm_vec3* b)
 {
-	v->x = a->x - b->x;
-	v->y = a->y - b->y;
-	v->z = a->z - b->z;
+	fm_vec3 diff = { 0 };
+	fm_vec3_sub(a, b, &diff);
+	return fm_vec3_mag(&diff);
 }
 
-static inline f32 fm_vec3_mag(const fm_vec3* v)
-{
-	return sqrtf(v->x * v->x + v->y * v->y + v->z * v->z);
-}
-	
-static inline void fm_vec3_norm(fm_vec3* v)
-{
-	const f32 magnitude = fm_vec3_mag(v);
-	const f32 magnitudeInv = 1.0f / magnitude;
-	
-	v->x *= magnitudeInv;
-	v->y *= magnitudeInv;
-	v->z *= magnitudeInv;
-}
-	
+/********************************/
+/* Vector 4 math implementation */
+
+// Sets all components of a vector to 0
 static inline void fm_vec4_zeros(fm_vec4* v)
 {
 	v->x = 0.0f;
@@ -87,41 +283,65 @@ static inline void fm_vec4_zeros(fm_vec4* v)
 	v->z = 0.0f;
 	v->w = 0.0f;
 }
-	
-static inline void fm_vec4_add(const fm_vec4* a, const fm_vec4* b, fm_vec4* v)
+
+// Adds two vectors
+static inline void fm_vec4_add(const fm_vec4* a, const fm_vec4* b, fm_vec4* out)
 {
-	v->x = a->x + b->x;
-	v->y = a->y + b->y;
-	v->z = a->z + b->z;
-	v->w = a->w + b->w;
+	out->x = a->x + b->x;
+	out->y = a->y + b->y;
+	out->z = a->z + b->z;
+	out->w = a->w + b->w;
 }
 
-static inline void fm_vec4_sub(const fm_vec4* a, const fm_vec4* b, fm_vec4* v)
+// Subtracts two vectors
+static inline void fm_vec4_sub(const fm_vec4* a, const fm_vec4* b, fm_vec4* out)
 {
-	v->x = a->x - b->x;
-	v->y = a->y - b->y;
-	v->z = a->z - b->z;
-	v->w = a->w - b->w;
+	out->x = a->x - b->x;
+	out->y = a->y - b->y;
+	out->z = a->z - b->z;
+	out->w = a->w - b->w;
 }
 
-static inline void fm_vec4_neg(fm_vec4* v)
+// Multiplies two vectors (component-wise)
+static inline void fm_vec4_mul(const fm_vec4* a, const fm_vec4* b, fm_vec4* out)
 {
-	v->x = -v->x;
-	v->y = -v->y;
-	v->z = -v->z;
-	v->w = -v->w;
+	out->x = a->x * b->x;
+	out->y = a->y * b->y;
+	out->z = a->z * b->z;
+	out->w = a->w * b->w;
 }
 
+// Divides two vectors (component-wise)
+static inline void fm_vec4_div(const fm_vec4* a, const fm_vec4* b, fm_vec4* out)
+{
+	out->x = a->x / b->x;
+	out->y = a->y / b->y;
+	out->z = a->z / b->z;
+	out->w = a->w / b->w;
+}
+
+// Multiplies a vector by a scalar
+static inline void fm_vec4_mulf(const fm_vec4* v, f32 s, fm_vec4* out)
+{
+	out->x = v->x * s;
+	out->y = v->y * s;
+	out->z = v->z * s;
+	out->w = v->w * s;
+}
+
+// Calculates the length (magnitude) of a vector
 static inline f32 fm_vec4_mag(const fm_vec4* v)
 {
 	return sqrtf(v->x * v->x + v->y * v->y + v->z * v->z + v->w * v->w);
 }
 
+// Returns the magnitude squared of a vector
 static inline f32 fm_vec4_mag2(const fm_vec4* v)
 {
 	return v->x * v->x + v->y * v->y + v->z * v->z + v->w * v->w;
 }
 
+// Sets all components of a vector to their absolute value
 static inline void fm_vec4_abs(fm_vec4* v)
 {
 	v->x = fabsf(v->x);
@@ -130,19 +350,22 @@ static inline void fm_vec4_abs(fm_vec4* v)
 	v->w = fabsf(v->w);
 }
 
+// Negates all components of a vector
+static inline void fm_vec4_neg(fm_vec4* v)
+{
+	v->x = -v->x;
+	v->y = -v->y;
+	v->z = -v->z;
+	v->w = -v->w;
+}
+
+// Calculates the dot product of two vectors
 static inline f32 fm_vec4_dot(const fm_vec4* a, const fm_vec4* b)
 {
 	return a->x * b->x + a->y * b->y + a->z * b->z + a->w * b->w;
 }
 
-static inline void fm_vec4_mulf(const fm_vec4* v, const f32 t, fm_vec4* output)
-{
-	output->x = v->x * t;
-	output->y = v->y * t;
-	output->z = v->z * t;
-	output->w = v->w * t;
-}
-
+// Calculates the cross product of two vectors (vec4 is treated like vec3, w = 0)
 static inline void fm_vec4_cross(const fm_vec4* a, const fm_vec4* b, fm_vec4* v)
 {
 	v->x = a->y * b->z - a->z * b->y;
@@ -151,7 +374,8 @@ static inline void fm_vec4_cross(const fm_vec4* a, const fm_vec4* b, fm_vec4* v)
 	v->w = 0.0f;
 }
 
-static inline void fm_vec4_normalize(fm_vec4* v)
+// Normalizes a vector (makes its length/magnitude equal to 1)
+static inline void fm_vec4_norm(fm_vec4* v)
 {
 	const f32 magnitude = fm_vec4_mag(v);
 	const f32 magnitudeInv = 1.0f / magnitude;
@@ -162,21 +386,23 @@ static inline void fm_vec4_normalize(fm_vec4* v)
 	v->w *= magnitudeInv;
 }
 
+// Linearly interpolates between two vectors
 static inline void fm_vec4_lerp(const fm_vec4* a, const fm_vec4* b, f32 alpha, fm_vec4* c)
 {
 	const f32 invAlpha = 1.0f - alpha;
-	c->x = a->x * alpha + b->x * invAlpha;
-	c->y = a->y * alpha + b->y * invAlpha;
-	c->z = a->z * alpha + b->z * invAlpha;
-	c->w = a->w * alpha + b->w * invAlpha;
+	c->x = a->x * invAlpha + b->x * alpha;
+	c->y = a->y * invAlpha + b->y * alpha;
+	c->z = a->z * invAlpha + b->z * alpha;
+	c->w = a->w * invAlpha + b->w * alpha;
 }
 
+// Calculates quaternion rotation between two vectors
 static inline void fm_vec4_rot_between(const fm_vec4* from, const fm_vec4* to, fm_quat* rot)
 {
 	fm_vec4 fromNorm = *from;
-	fm_vec4_normalize(&fromNorm);
+	fm_vec4_norm(&fromNorm);
 	fm_vec4 toNorm = *to;
-	fm_vec4_normalize(&toNorm);
+	fm_vec4_norm(&toNorm);
 	
 	const f32 cosAlpha = fm_vec4_dot(&fromNorm, &toNorm);
 	const f32 alpha = -acosf(cosAlpha);
@@ -186,7 +412,7 @@ static inline void fm_vec4_rot_between(const fm_vec4* from, const fm_vec4* to, f
 		fm_vec4_cross(&fromNorm, &toNorm, &axis);
 		if(fm_vec4_mag2(&axis) > 0.0f)
 		{
-			fm_vec4_normalize(&axis);
+			fm_vec4_norm(&axis);
 
 			fm_quat_make_from_axis_angle(axis.x, axis.y, axis.z, alpha, rot);
 			fm_quat_norm(rot);
@@ -202,12 +428,16 @@ static inline void fm_vec4_rot_between(const fm_vec4* from, const fm_vec4* to, f
 	}
 }
 
+// Calculates distance between two vectors
 static inline f32 fm_vec4_distance(const fm_vec4* a, const fm_vec4* b)
 {
 	fm_vec4 diff = {0};
 	fm_vec4_sub(a, b, &diff);
 	return fm_vec4_mag(&diff);
 }
+
+/******************************/
+/* Matrix math implementation */
 
 static inline void fm_mat4_identity(fm_mat4* m)
 {
@@ -260,11 +490,11 @@ static inline void fm_mat4_lookat_lh(const fm_vec4* eye, const fm_vec4* at, cons
 {
 	fm_vec4 axis_y;
 	fm_vec4_sub(at, eye, &axis_y);
-	fm_vec4_normalize(&axis_y);
+	fm_vec4_norm(&axis_y);
 	
 	fm_vec4 axis_x;
 	fm_vec4_cross(&axis_y, up, &axis_x);
-	fm_vec4_normalize(&axis_x);
+	fm_vec4_norm(&axis_x);
 	
 	fm_vec4 axis_z;
 	fm_vec4_cross(&axis_x, &axis_y, &axis_z);
@@ -294,11 +524,11 @@ static inline void fm_mat4_lookat_rh(const fm_vec4* eye, const fm_vec4* at, cons
 {
 	fm_vec4 axis_z;
 	fm_vec4_sub(eye, at, &axis_z);
-	fm_vec4_normalize(&axis_z);
+	fm_vec4_norm(&axis_z);
 	
 	fm_vec4 axis_x;
 	fm_vec4_cross(up, &axis_z, &axis_x);
-	fm_vec4_normalize(&axis_x);
+	fm_vec4_norm(&axis_x);
 	
 	fm_vec4 axis_y;
 	fm_vec4_cross(&axis_z, &axis_x, &axis_y);
@@ -841,13 +1071,13 @@ static inline void fm_xform_mul(const fm_xform* a, const fm_xform* b, fm_xform* 
 
 static inline void fm_xform_lerp(const fm_xform* a, const fm_xform* b, f32 alpha, fm_xform* c)
 {
-	fm_vec4_lerp(&b->pos, &a->pos, alpha, &c->pos);
+	fm_vec4_lerp(&a->pos, &b->pos, alpha, &c->pos);
 	fm_quat_lerp(&a->rot, &b->rot, alpha, &c->rot);
 }
 
 static inline void fm_xform_slerp(const fm_xform* a, const fm_xform* b, f32 alpha, fm_xform* c)
 {
-	fm_vec4_lerp(&b->pos, &a->pos, alpha, &c->pos);
+	fm_vec4_lerp(&a->pos, &b->pos, alpha, &c->pos);
 	fm_quat_slerp(&a->rot, &b->rot, alpha, &c->rot);
 }
 

@@ -43,7 +43,7 @@ void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup
 	
 	fm_vec4 endEffector = chainMS[3].pos;
 	fm_vec4 target;
-	fm_vec4_lerp(&targetFixed, &endEffector, weightIK, &target);
+	fm_vec4_lerp(&endEffector, &targetFixed, weightIK, &target);
 	
 	static u32 num_iterations = 20;
 	for(u32 it=0; it<num_iterations; ++it)
@@ -60,8 +60,8 @@ void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup
 			fm_vec4 t_i;
 			fm_vec4_sub(&target, &chainMS[i].pos, &t_i);
 			
-			fm_vec4_normalize(&e_i);
-			fm_vec4_normalize(&t_i);
+			fm_vec4_norm(&e_i);
+			fm_vec4_norm(&t_i);
 			const f32 angle = -acosf(fm_vec4_dot(&e_i, &t_i));
 			const bool canRot = fabsf(angle) > 0.0001f;
 			if(canRot)
@@ -70,7 +70,7 @@ void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup
 				fm_vec4_cross(&e_i, &t_i, &axis);
 				if(fm_vec4_mag2(&axis) > 0.0f)
 				{
-					fm_vec4_normalize(&axis);
+					fm_vec4_norm(&axis);
 					
 					fm_quat rot;
 					fm_quat_rot_axis_angle(&axis, angle, &rot);
@@ -897,7 +897,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			
 			if(fm_vec4_mag2(&logicMotionDir) > 0.001f)
 			{
-				fm_vec4_normalize(&logicMotionDir);
+				fm_vec4_norm(&logicMotionDir);
 				logicCurrentYaw = -fm_sign(logicMotionDir.y) * acosf(logicMotionDir.x);
 				logicYawDelta = logicCurrentYaw - character->animInfo.currentYaw;
 			}
@@ -911,7 +911,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 			const f32 animToLogicMotionSpeedAlpha = character->animInfo.animToLogicMotionTranslationAlpha;
 			
 			fm_vec4 finalMotionDelta = {0};
-			fm_vec4_lerp(&logicMotionDelta, &animMotionDelta.pos, animToLogicMotionSpeedAlpha, &finalMotionDelta);
+			fm_vec4_lerp(&animMotionDelta.pos, &logicMotionDelta, animToLogicMotionSpeedAlpha, &finalMotionDelta);
 			
 			character->animInfo.rootMotionDelta.x = finalMotionDelta.x;
 			character->animInfo.rootMotionDelta.y = finalMotionDelta.y;

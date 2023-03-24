@@ -42,7 +42,7 @@ void fa_dangle_simulate_single_step(fa_dangle* dangle, f32 dt)
 			fm_vec4_sub(&p1, &p0, &disp);
 			
 			const f32 distance = fm_vec4_mag(&disp);
-			fm_vec4_normalize(&disp);
+			fm_vec4_norm(&disp);
 			
 			const f32 constraintDist = refDistance - distance;
 			fm_vec4_mulf(&disp, constraintDist, &disp);
@@ -60,7 +60,7 @@ void fa_dangle_simulate_single_step(fa_dangle* dangle, f32 dt)
 				f32 sphereDist = fm_vec4_mag(&sphereDir);
 				if(sphereDist < sphereRadius)
 				{
-					fm_vec4_normalize(&sphereDir);
+					fm_vec4_norm(&sphereDir);
 					fm_vec4_mulf(&sphereDir, sphereRadius - sphereDist, &sphereDir);
 					fm_vec4_add(&dangle->p[i], &sphereDir, &dangle->p[i]);
 				}
@@ -134,15 +134,15 @@ void fa_dangle_to_matrices_z_up(const fa_dangle* dangle, const fm_mat4* attachme
 	{
 		fm_vec4 z;
 		fm_vec4_sub(&p[i], &p[i+1], &z);
-		fm_vec4_normalize(&z);
+		fm_vec4_norm(&z);
 		
 		fm_vec4 y;
 		fm_vec4_cross(&z, &refDir, &y);
-		fm_vec4_normalize(&y);
+		fm_vec4_norm(&y);
 		
 		fm_vec4 x;
 		fm_vec4_cross(&y, &z, &x);
-		fm_vec4_normalize(&x);
+		fm_vec4_norm(&x);
 		
 		matrices[i].x = x;
 		matrices[i].y = y;
@@ -169,15 +169,15 @@ void fa_dangle_to_matrices_y_down(const fa_dangle* dangle, const fm_mat4* attach
 	{
 		fm_vec4 y;
 		fm_vec4_sub(&p[i+1], &p[i], &y);
-		fm_vec4_normalize(&y);
+		fm_vec4_norm(&y);
 		
 		fm_vec4 z;
 		fm_vec4_cross(&refDir, &y, &z);
-		fm_vec4_normalize(&z);
+		fm_vec4_norm(&z);
 		
 		fm_vec4 x;
 		fm_vec4_cross(&y, &z, &x);
-		fm_vec4_normalize(&x);
+		fm_vec4_norm(&x);
 		
 		matrices[i].x = x;
 		matrices[i].y = y;

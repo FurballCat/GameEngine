@@ -163,12 +163,12 @@ void fg_camera_get_directions(fg_camera_system_t* sys, fm_vec4* dirForward, fm_v
 	*dirForward = fm_quat_axis_y(&rot);
 	fm_vec4_neg(dirForward);
 	dirForward->z = 0.0f;
-	fm_vec4_normalize(dirForward);
+	fm_vec4_norm(dirForward);
 	
 	*dirLeft = fm_quat_axis_x(&rot);
 	fm_vec4_neg(dirLeft);
 	dirLeft->z = 0.0f;
-	fm_vec4_normalize(dirLeft);
+	fm_vec4_norm(dirLeft);
 }
 
 void fg_camera_view_matrix(fg_camera_system_t* sys, fm_mat4* matrix)
@@ -259,10 +259,10 @@ void fg_camera_follow_update(fg_camera_ctx_t* ctx, void* userData)
 	cameraZoom += zoomSpeed * (ctx->zoom);
 	
 	dir_forward = eye;
-	fm_vec4_normalize(&dir_forward);
+	fm_vec4_norm(&dir_forward);
 	fm_vec4_cross(&dir_forward, &up, &dir_left);
 	fm_vec4_cross(&up, &dir_left, &dir_forward);
-	fm_vec4_normalize(&dir_left);
+	fm_vec4_norm(&dir_left);
 	
 	fm_vec4_mulf(&eye, cameraZoom, &eye);
 	fm_vec4_add(&eye, &camera_at, &eye);
