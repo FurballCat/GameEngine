@@ -1242,7 +1242,7 @@ static inline void fm_spline_catmull_rom(const fm_vec4* p0, const fm_vec4* p1, c
 	fm_vec4_mulf(&b2, (t-t1)/(t2-t1), &tmp1);
 	fm_vec4_add(output, &tmp1, output);
 }
-	
+
 /***************************/
 /* Box collision detection */
 
