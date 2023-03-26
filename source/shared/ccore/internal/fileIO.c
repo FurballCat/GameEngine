@@ -76,7 +76,7 @@ fc_depot_t* fc_depot_mount(const fc_depot_desc_t* desc, fc_alloc_callbacks_t* pA
 
 i32 fc_depot_find_file_idx(fc_depot_t* depot, fc_file_path_t path)
 {
-	for (i32 i = 0; i < depot->numPaths; ++i)
+	for (u32 i = 0; i < depot->numPaths; ++i)
 	{
 		if (depot->hashes[i] == path)
 			return i;
@@ -170,4 +170,9 @@ u64 fc_file_size(fc_file_t* file)
 void fc_file_read(void* output, u64 size, u64 count, fc_file_t* file)
 {
 	fread(output, size, count, (FILE*)file);
+}
+
+CCORE_API void fc_file_write(const void* input, u64 size, u64 count, fc_file_t* file)
+{
+	fwrite(input, size, count, (FILE*)file);
 }

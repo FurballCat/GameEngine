@@ -30,18 +30,18 @@ extern "C"
 #elif PLATFORM_WINDOWS
 
 #define fc_serialize(_serializer, _property) _Generic((_property), \
-	int8_t*: fc_serialize_int8,	\
-	int16_t*: fc_serialize_int16, \
-	i32*: fc_serialize_int32, \
-	int64_t*: fc_serialize_int64, \
-	u8*: fc_serialize_uint8,	\
-	u16*: fc_serialize_uint16, \
-	u32*: fc_serialize_uint32, \
-	uint64_t*: fc_serialize_uint64, \
-	f32*: fc_serialize_float, \
-	f64*: fc_serialize_double, \
+	int8_t*: fc_serialize_i8,	\
+	int16_t*: fc_serialize_i16, \
+	i32*: fc_serialize_i32, \
+	int64_t*: fc_serialize_i64, \
+	u8*: fc_serialize_u8,	\
+	u16*: fc_serialize_u16, \
+	u32*: fc_serialize_u32, \
+	uint64_t*: fc_serialize_u64, \
+	f32*: fc_serialize_f32, \
+	f64*: fc_serialize_f64, \
 	fa_anim_curve_t*: fa_serialize_anim_curve, \
-	enum fm_axis_t*: fc_serialize_uint32 \
+	enum fm_axis_t*: fc_serialize_u32 \
 )(_serializer, _property)
 
 #endif
@@ -96,16 +96,16 @@ typedef struct fc_serializer_t
 } fc_serializer_t;
 
 // simple type serialization functions
-void fc_serialize_int8(fc_serializer_t* pSerializer, int8_t* prop);
-void fc_serialize_int16(fc_serializer_t* pSerializer, int16_t* prop);
-void fc_serialize_int32(fc_serializer_t* pSerializer, i32* prop);
-void fc_serialize_int64(fc_serializer_t* pSerializer, int64_t* prop);
-void fc_serialize_uint8(fc_serializer_t* pSerializer, u8* prop);
-void fc_serialize_uint16(fc_serializer_t* pSerializer, u16* prop);
-void fc_serialize_uint32(fc_serializer_t* pSerializer, u32* prop);
-void fc_serialize_uint64(fc_serializer_t* pSerializer, uint64_t* prop);
-void fc_serialize_float(fc_serializer_t* pSerializer, f32* prop);
-void fc_serialize_double(fc_serializer_t* pSerializer, f64* prop);
+void fc_serialize_i8(fc_serializer_t* pSerializer, i8* prop);
+void fc_serialize_i16(fc_serializer_t* pSerializer, i16* prop);
+void fc_serialize_i32(fc_serializer_t* pSerializer, i32* prop);
+void fc_serialize_i64(fc_serializer_t* pSerializer, i64* prop);
+void fc_serialize_u8(fc_serializer_t* pSerializer, u8* prop);
+void fc_serialize_u16(fc_serializer_t* pSerializer, u16* prop);
+void fc_serialize_u32(fc_serializer_t* pSerializer, u32* prop);
+void fc_serialize_u64(fc_serializer_t* pSerializer, u64* prop);
+void fc_serialize_f32(fc_serializer_t* pSerializer, f32* prop);
+void fc_serialize_f64(fc_serializer_t* pSerializer, f64* prop);
 
 void fc_serialize_buffer(fc_serializer_t* pSerializer, void* ptr, u32 size);
 

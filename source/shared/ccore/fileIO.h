@@ -56,6 +56,7 @@ CCORE_API void fc_file_close(fc_file_t* file);
 CCORE_API void fc_file_seek(fc_file_t* file, i64 offset, i32 origin);
 CCORE_API u64 fc_file_size(fc_file_t* file);
 CCORE_API void fc_file_read(void* output, u64 size, u64 count, fc_file_t* file);
+CCORE_API void fc_file_write(const void* input, u64 size, u64 count, fc_file_t* file);
 
 // todo: implement async io
 
