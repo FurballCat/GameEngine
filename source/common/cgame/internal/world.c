@@ -91,23 +91,6 @@ fc_string_hash_t fg_spawn_info_get_string_hash(const fg_spawn_info_t* info, fc_s
 	return defaultValue;
 }
 
-void fg_game_object_handle_array_alloc(fg_game_object_handle_array_t* arr, i32 capacity, fc_alloc_callbacks_t* pAllocCallbacks)
-{
-	FUR_ASSERT(arr->data == NULL);
-	
-	arr->data = FUR_ALLOC_ARRAY_AND_ZERO(fg_game_object_handle_t, capacity, 0, FC_MEMORY_SCOPE_GAME, pAllocCallbacks);
-	arr->num = 0;
-	arr->capacity = capacity;
-}
-
-void fg_game_object_handle_array_free(fg_game_object_handle_array_t* arr, fc_alloc_callbacks_t* pAllocCallbacks)
-{
-	FUR_ASSERT(arr->data != NULL);
-	FUR_FREE(arr->data, pAllocCallbacks);
-	arr->num = 0;
-	arr->capacity = 0;
-}
-
 void fg_world_init(fg_world_t* world, fc_alloc_callbacks_t* pAllocCallbacks)
 {
 	// init by zero
@@ -122,7 +105,7 @@ void fg_world_init(fg_world_t* world, fc_alloc_callbacks_t* pAllocCallbacks)
 	world->levelHeap->size = 0;
 	
 	// allocate update buckets
-	fg_game_object_handle_array_alloc(&world->buckets[FG_UPDATE_BUCKET_CHARACTERS], 256, pAllocCallbacks);
+	fc_array_alloc_and_zero(&world->buckets[FG_UPDATE_BUCKET_CHARACTERS], fg_game_object_handle_t, 256, 8, FC_MEMORY_SCOPE_GAME, pAllocCallbacks);
 }
 
 void fg_world_release(fg_world_t* world, fc_alloc_callbacks_t* pAllocCallbacks)
@@ -132,7 +115,7 @@ void fg_world_release(fg_world_t* world, fc_alloc_callbacks_t* pAllocCallbacks)
 	FUR_FREE(world->levelHeap, pAllocCallbacks);
 	
 	// release update buckets
-	fg_game_object_handle_array_free(&world->buckets[FG_UPDATE_BUCKET_CHARACTERS], pAllocCallbacks);
+	fc_array_free(&world->buckets[FG_UPDATE_BUCKET_CHARACTERS], pAllocCallbacks);
 	
 	// release resources
 	for(i32 i=0; i<world->resources.numAnimations; ++i)

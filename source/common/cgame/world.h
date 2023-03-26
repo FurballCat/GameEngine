@@ -177,20 +177,8 @@ typedef struct fg_game_object_handle_t
 	fc_string_hash_t name;
 } fg_game_object_handle_t;
 
-typedef struct fg_game_object_handle_array_t
-{
-	fg_game_object_handle_t* data;
-	i32 num;
-	i32 capacity;
-} fg_game_object_handle_array_t;
-
-typedef struct fg_game_object_handle_map_t
-{
-	fc_string_hash_t* names;
-	i32* indices;
-	i32 num;
-	i32 capacity;
-} fg_game_object_handle_map_t;
+FUR_DEFINE_ARRAY_TYPE(fg_game_object_handle_array_t, fg_game_object_handle_t);
+FUR_DEFINE_ARRAY_TYPE(fc_game_object_array_t, fg_game_object_2_t);
 
 typedef struct fg_spawner_t
 {
@@ -218,9 +206,9 @@ typedef struct fg_world_t
 	// list of all game object info (use game object index to get data)
 	fg_game_object_info_storage_t gameObjects;
 	
-	// quick game object search map
-	fg_game_object_handle_map_t gameObjectMap;
-	
+	// list of all game objects
+	fc_game_object_array_t allGameObjects;
+
 	// memory for dynamic objects (game objects), does not include resources like animation, meshes, textures
 	fc_mem_rel_heap_alloc_t* levelHeap;
 	

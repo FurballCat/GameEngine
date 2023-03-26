@@ -371,3 +371,135 @@ void fc_relocate_pointer(void** ptr, i32 delta, void* lowerBound, void* upperBou
 		*ptr = (u8*) *ptr + delta;
 	}
 }
+
+void* fc_array_add(fc_array_t* arr)
+{
+	FUR_ASSERT(arr);
+	FUR_ASSERT(arr->data);
+	FUR_ASSERT(arr->num < arr->capacity);
+
+	const u32 idx = arr->num;
+	arr->num++;
+
+	return ((u8*)arr->data + idx * arr->stride);
+}
+
+static inline void* fc_array_at_unsafe(fc_array_t* arr, u32 idx)
+{
+	return ((u8*)arr->data + idx * arr->stride);
+}
+
+void* fc_array_at(fc_array_t* arr, u32 idx)
+{
+	FUR_ASSERT(arr);
+	FUR_ASSERT(arr->data);
+	FUR_ASSERT(arr->num > 0);
+	FUR_ASSERT(idx < arr->num);
+
+	return fc_array_at_unsafe(arr, idx);
+}
+
+void fc_array_remove_swap(fc_array_t* arr, u32 idx)
+{
+	FUR_ASSERT(arr);
+	FUR_ASSERT(arr->data);
+	FUR_ASSERT(arr->num > 0);
+	FUR_ASSERT(idx < arr->num);
+
+	if (arr->num > 1)
+	{
+		void* lastElem = fc_array_at_unsafe(arr, arr->num - 1);
+		void* removedElem = fc_array_at_unsafe(arr, idx);
+
+		memcpy(removedElem, lastElem, arr->stride);
+	}
+
+	arr->num--;
+}
+
+static inline void* fc_map_key_at_unsafe(fc_map_t* map, u32 idx)
+{
+	return ((u8*)map->keys + idx * map->keyStride);
+}
+
+static inline void* fc_map_elem_at_unsafe(fc_map_t* map, u32 idx)
+{
+	return ((u8*)map->elems + idx * map->elemStride);
+}
+
+void* fc_map_insert(fc_map_t* map, void* key, void* elem)
+{
+	FUR_ASSERT(map);
+	FUR_ASSERT(map->keys && map->elems);
+
+	void* elemFound = fc_map_find(map, key);
+	if (elemFound)
+	{
+		memcpy(elemFound, elem, map->elemStride);
+	}
+	else
+	{
+		FUR_ASSERT(map->num < map->capacity);
+		const u32 idx = map->num;
+		
+		void* keyStorage = fc_map_key_at_unsafe(map, idx);
+		memcpy(keyStorage, key, map->keyStride);
+
+		void* elemStorage = fc_map_elem_at_unsafe(map, idx);
+		memcpy(elemStorage, elem, map->elemStride);
+	}
+}
+
+void* fc_map_find(fc_map_t* map, void* key)
+{
+	FUR_ASSERT(map);
+	FUR_ASSERT(map->keys);
+
+	void* result = NULL;
+
+	for (u32 i = 0; i < map->num; ++i)
+	{
+		if (memcmp(key, fc_map_key_at_unsafe(map, i), map->keyStride) == 0)
+		{
+			result = fc_map_elem_at_unsafe(map, i);
+		}
+	}
+
+	return result;
+}
+
+bool fc_map_remove_swap(fc_map_t* map, void* key)
+{
+	FUR_ASSERT(map);
+	FUR_ASSERT(map->keys);
+
+	u32 idx = 0;
+	bool found = false;
+
+	for (u32 i = 0; i < map->num; ++i)
+	{
+		if (memcmp(key, fc_map_key_at_unsafe(map, i), map->keyStride) == 0)
+		{
+			idx = i;
+			found = true;
+		}
+	}
+
+	if (!found)
+		return false;
+
+	if (map->num > 1)
+	{
+		void* foundKey = fc_map_key_at_unsafe(map, idx);
+		void* lastKey = fc_map_key_at_unsafe(map, map->num - 1);
+		memcpy(foundKey, lastKey, map->keyStride);
+
+		void* foundElem = fc_map_elem_at_unsafe(map, idx);
+		void* lastElem = fc_map_elem_at_unsafe(map, map->num - 1);
+		memcpy(foundElem, lastElem, map->elemStride);
+	}
+
+	map->num--;
+
+	return true;
+}

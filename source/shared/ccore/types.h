@@ -24,6 +24,26 @@ typedef int64_t i64;
 typedef float f32;
 typedef double f64;
 
+#define FUR_DEFINE_ARRAY_TYPE(_arrayType, _elemType) \
+	typedef struct _arrayType \
+	{ \
+		_elemType* data; \
+		u32 capacity; \
+		u32 num; \
+		u32 stride; \
+	} _arrayType
+
+#define FUR_DEFINE_MAP_TYPE(_mapType, _keyType, _elemType) \
+	typedef struct _mapType \
+	{ \
+		_keyType* keys; \
+		_elemType* elems; \
+		u32 capacity; \
+		u32 num; \
+		u16 keyStride; \
+		u16 elemStride; \
+	} _mapType
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

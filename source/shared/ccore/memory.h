@@ -155,7 +155,95 @@ CCORE_API fc_alloc_callbacks_t fc_mem_rel_heap_get_callbacks(fc_mem_rel_heap_all
 CCORE_API void fc_relocate_pointer(void** ptr, i32 delta, void* lowerBound, void* upperBound);
 
 #define FUR_ARRAY_SIZE(_arr) sizeof(_arr) / sizeof(_arr[0])
-	
+
+// static array generic type, to define one use FUR_DEFINE_ARRAY_TYPE( your_array_type_name, element_type );
+typedef struct fc_array_t
+{
+	void* data;
+	u32 capacity;
+	u32 num;
+	u32 stride;
+} fc_array_t;
+
+CCORE_API void* fc_array_add(fc_array_t* arr);
+CCORE_API void* fc_array_at(fc_array_t* arr, u32 idx);
+CCORE_API void fc_array_remove_swap(fc_array_t* arr, u32 idx);
+
+#define fc_array_alloc(_arrayPtr, _type, _capacity, _alignment, _scope, _pAllocCallbacks)	\
+	do { \
+		FUR_ASSERT(!(_arrayPtr)->data);	\
+		(_arrayPtr)->data = FUR_ALLOC(sizeof(_type) * _capacity, _alignment, _scope, _pAllocCallbacks);	\
+		(_arrayPtr)->capacity = _capacity;	\
+		(_arrayPtr)->num = 0;	\
+		(_arrayPtr)->stride = sizeof(_type);	\
+	} while(false)
+
+#define fc_array_alloc_and_zero(_arrayPtr, _type, _capacity, _alignment, _scope, _pAllocCallbacks)	\
+	do { \
+		FUR_ASSERT(!(_arrayPtr)->data);	\
+		(_arrayPtr)->data = FUR_ALLOC_AND_ZERO(sizeof(_type) * _capacity, _alignment, _scope, _pAllocCallbacks); \
+		(_arrayPtr)->capacity = _capacity;	\
+		(_arrayPtr)->num = 0;	\
+		(_arrayPtr)->stride = sizeof(_type);	\
+	} while(false)
+
+#define fc_array_free(_arrayPtr, _pAllocCallbacks)	\
+	do { \
+		FUR_FREE((_arrayPtr)->data, _pAllocCallbacks); \
+		(_arrayPtr)->data = NULL;	\
+		(_arrayPtr)->num = 0;	\
+		(_arrayPtr)->capacity = 0;	\
+		(_arrayPtr)->stride = 0;	\
+	} while(false)
+
+// static map generic type, to define one use FUR_DEFINE_MAP_TYPE( your_array_type_name, element_type );
+typedef struct fc_map_t
+{
+	void* keys;
+	void* elems;
+	u32 capacity;
+	u32 num;
+	u16 keyStride;
+	u16 elemStride;
+} fc_map_t;
+
+CCORE_API void* fc_map_insert(fc_map_t* map, void* key, void* elem);
+CCORE_API void* fc_map_find(fc_map_t* map, void* key);
+CCORE_API void fc_map_remove_swap(fc_map_t* map, void* key);
+
+#define fc_map_alloc(_mapPtr, _keyType, _elemType, _capacity, _alignment, _scope, _pAllocCallbacks)	\
+	do { \
+		FUR_ASSERT(!(_mapPtr)->keys && !(_mapPtr)->elems);	\
+		(_mapPtr)->keys = FUR_ALLOC(sizeof(_keyType) * _capacity, _alignment, _scope, _pAllocCallbacks);	\
+		(_mapPtr)->elems = FUR_ALLOC(sizeof(_elemType) * _capacity, _alignment, _scope, _pAllocCallbacks);	\
+		(_mapPtr)->capacity = _capacity;	\
+		(_mapPtr)->num = 0;	\
+		(_mapPtr)->keyStride = sizeof(_keyType);	\
+		(_mapPtr)->elemStride = sizeof(_elemType);	\
+	} while(false)
+
+#define fc_map_alloc_and_zero(_mapPtr, _keyType, _elemType, _capacity, _alignment, _scope, _pAllocCallbacks)	\
+	do { \
+		FUR_ASSERT(!(_mapPtr)->keys && !(_mapPtr)->elems);	\
+		(_mapPtr)->keys = FUR_ALLOC_AND_ZERO(sizeof(_keyType) * _capacity, _alignment, _scope, _pAllocCallbacks);	\
+		(_mapPtr)->elems = FUR_ALLOC_AND_ZERO(sizeof(_elemType) * _capacity, _alignment, _scope, _pAllocCallbacks);	\
+		(_mapPtr)->capacity = _capacity;	\
+		(_mapPtr)->num = 0;	\
+		(_mapPtr)->keyStride = sizeof(_keyType);	\
+		(_mapPtr)->elemStride = sizeof(_elemType);	\
+	} while(false)
+
+#define fc_map_free(_mapPtr, _pAllocCallbacks)	\
+	do { \
+		FUR_FREE((_mapPtr)->keys, _pAllocCallbacks); \
+		FUR_FREE((_mapPtr)->elems, _pAllocCallbacks); \
+		(_mapPtr)->keys = NULL;	\
+		(_mapPtr)->num = 0;	\
+		(_mapPtr)->capacity = 0;	\
+		(_mapPtr)->keyStride = 0;	\
+		(_mapPtr)->elemStride = 0;	\
+	} while(false)
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus
