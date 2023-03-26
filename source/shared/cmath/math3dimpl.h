@@ -44,6 +44,52 @@ static inline f32 xm_vec4_dot(const xm_vec4 v1, const xm_vec4 v2)
 	return 0.0f;
 }
 
+/******************************/
+/* Scalar math implementation */
+
+// Clamps a value between a minimum and maximum value
+static inline f32 fm_clamp(const f32 value, const f32 min, const f32 max)
+{
+	if (value < min)
+		return min;
+
+	if (value > max)
+		return max;
+
+	return value;
+}
+
+// Snaps a value to zero if it is within a certain threshold
+static inline f32 fm_snap_near_zero(const f32 value, const f32 threshold)
+{
+	if (fabsf(value) < threshold)
+		return 0.0f;
+
+	return value;
+}
+
+// Returns the sign of a value as a positive or negative one
+static inline f32 fm_sign(const f32 value)
+{
+	return value >= 0.0f ? 1.0f : -1.0f;
+}
+
+
+// Calculate ease-in/ease-out uniform-s curve
+static inline f32 fm_curve_uniform_s(f32 alpha)
+{
+	f32 sqt = alpha * alpha;
+	return sqt / (2.0f * (sqt - alpha) + 1.0f);
+}
+
+// Swaps a and b in memory
+static inline void fm_swapf(f32* a, f32* b)
+{
+	const f32 c = *a;
+	*a = *b;
+	*b = c;
+}
+
 /********************************/
 /* Vector 2 math implementation */
 
@@ -439,6 +485,7 @@ static inline f32 fm_vec4_distance(const fm_vec4* a, const fm_vec4* b)
 /******************************/
 /* Matrix math implementation */
 
+// Sets matrix to identity
 static inline void fm_mat4_identity(fm_mat4* m)
 {
 	m->x.x = 1.0f;
@@ -462,6 +509,7 @@ static inline void fm_mat4_identity(fm_mat4* m)
 	m->w.w = 1.0f;
 }
 
+// Creates matrix of rotation along X-axis
 static inline void fm_mat4_rot_x(const f32 phi, fm_mat4* m)
 {
 	m->x.x = 1; m->x.y = 0; m->x.z = 0; m->x.w = 0;
@@ -470,6 +518,7 @@ static inline void fm_mat4_rot_x(const f32 phi, fm_mat4* m)
 	m->w.x = 0; m->w.y = 0; m->w.z = 0; m->w.w = 1;
 }
 
+// Creates matrix of rotation along Y-axis
 static inline void fm_mat4_rot_y(const f32 phi, fm_mat4* m)
 {
 	m->x.x = cosf(phi); m->x.y = 0; m->x.z = sinf(phi); m->x.w = 0;
@@ -478,6 +527,7 @@ static inline void fm_mat4_rot_y(const f32 phi, fm_mat4* m)
 	m->w.x = 0; m->w.y = 0; m->w.z = 0; m->w.w = 1;
 }
 
+// Creates matrix of rotation along Z-axis
 static inline void fm_mat4_rot_z(const f32 phi, fm_mat4* m)
 {
 	m->x.x = cosf(phi); m->x.y = -sinf(phi); m->x.z = 0; m->x.w = 0;
@@ -486,6 +536,7 @@ static inline void fm_mat4_rot_z(const f32 phi, fm_mat4* m)
 	m->w.x = 0; m->w.y = 0; m->w.z = 0; m->w.w = 1;
 }
 
+// Creates camera look-at matrix for left-handed coordinate system
 static inline void fm_mat4_lookat_lh(const fm_vec4* eye, const fm_vec4* at, const fm_vec4* up, fm_mat4* m)
 {
 	fm_vec4 axis_y;
@@ -520,6 +571,7 @@ static inline void fm_mat4_lookat_lh(const fm_vec4* eye, const fm_vec4* at, cons
 	m->w.w = 1.0f;
 }
 
+// Creates camera look-at matrix for right-handed coordinate system
 static inline void fm_mat4_lookat_rh(const fm_vec4* eye, const fm_vec4* at, const fm_vec4* up, fm_mat4* m)
 {
 	fm_vec4 axis_z;
@@ -554,7 +606,7 @@ static inline void fm_mat4_lookat_rh(const fm_vec4* eye, const fm_vec4* at, cons
 	m->w.w = 1.0f;
 }
 	
-// projection matrix, b - bottom, t - top, l - left, r - right, n - near, f - far
+// Projection matrix, b - bottom, t - top, l - left, r - right, n - near, f - far
 static inline void fm_mat4_ortho_projection(const f32 b, const f32 t, const f32 l, const f32 r,
 									  const f32 n, const f32 f, fm_mat4* m)
 {
@@ -620,7 +672,7 @@ static inline void fm_mat4_ortho_projection(const f32 b, const f32 t, const f32 
 #endif
 }
 	
-// projection matrix, b - bottom, t - top, l - left, r - right, n - near, f - far
+// Projection matrix, b - bottom, t - top, l - left, r - right, n - near, f - far
 static inline void fm_mat4_projection(const f32 b, const f32 t, const f32 l, const f32 r,
 						const f32 n, const f32 f, fm_mat4* m)
 {
@@ -652,7 +704,7 @@ static inline void fm_mat4_projection(const f32 b, const f32 t, const f32 l, con
 	m->w.w = 0;
 }
 
-// projection matrix based on fov and aspect ratio
+// Projection matrix based on fov and aspect ratio
 static inline void fm_mat4_projection_fov(const f32 fov, const f32 aspectRatio,
 							const f32 near, const f32 far, fm_mat4* m)
 {
@@ -665,13 +717,7 @@ static inline void fm_mat4_projection_fov(const f32 fov, const f32 aspectRatio,
 	fm_mat4_projection(bottom, top, left, right, near, far, m);
 }
 
-static inline void fm_swapf(f32* a, f32* b)
-{
-	const f32 c = *a;
-	*a = *b;
-	*b = c;
-}
-
+// Transpose of matrix m
 static inline void fm_mat4_transpose(fm_mat4* m)
 {
 	fm_swapf(&m->x.y, &m->y.x);
@@ -682,7 +728,8 @@ static inline void fm_mat4_transpose(fm_mat4* m)
 	fm_swapf(&m->z.w, &m->w.z);
 }
 
-static inline void fm_mat4_mul(const fm_mat4* a, const fm_mat4* b, fm_mat4* m)
+// Multiplies two matrices a and b and stores the output in out
+static inline void fm_mat4_mul(const fm_mat4* a, const fm_mat4* b, fm_mat4* out)
 {
 	const f32 m00 = a->x.x * b->x.x + a->x.y * b->y.x + a->x.z * b->z.x + a->x.w * b->w.x;
 	const f32 m01 = a->x.x * b->x.y + a->x.y * b->y.y + a->x.z * b->z.y + a->x.w * b->w.y;
@@ -704,59 +751,40 @@ static inline void fm_mat4_mul(const fm_mat4* a, const fm_mat4* b, fm_mat4* m)
 	const f32 m32 = a->w.x * b->x.z + a->w.y * b->y.z + a->w.z * b->z.z + a->w.w * b->w.z;
 	const f32 m33 = a->w.x * b->x.w + a->w.y * b->y.w + a->w.z * b->z.w + a->w.w * b->w.w;
 	
-	m->x.x = m00;
-	m->x.y = m01;
-	m->x.z = m02;
-	m->x.w = m03;
+	out->x.x = m00;
+	out->x.y = m01;
+	out->x.z = m02;
+	out->x.w = m03;
 	
-	m->y.x = m10;
-	m->y.y = m11;
-	m->y.z = m12;
-	m->y.w = m13;
+	out->y.x = m10;
+	out->y.y = m11;
+	out->y.z = m12;
+	out->y.w = m13;
 	
-	m->z.x = m20;
-	m->z.y = m21;
-	m->z.z = m22;
-	m->z.w = m23;
+	out->z.x = m20;
+	out->z.y = m21;
+	out->z.z = m22;
+	out->z.w = m23;
 	
-	m->w.x = m30;
-	m->w.y = m31;
-	m->w.z = m32;
-	m->w.w = m33;
-}
-	
-static inline void fm_mat4_transform(const fm_mat4* m, const fm_vec4* a, fm_vec4* b)
-{
-	b->x = fm_vec4_dot(a, &m->x);
-	b->y = fm_vec4_dot(a, &m->y);
-	b->z = fm_vec4_dot(a, &m->z);
-	b->w = fm_vec4_dot(a, &m->w);
+	out->w.x = m30;
+	out->w.y = m31;
+	out->w.z = m32;
+	out->w.w = m33;
 }
 
-static inline f32 fm_clamp(const f32 value, const f32 min, const f32 max)
+// Transforms vector a by matrix m and stores result in out
+static inline void fm_mat4_transform(const fm_mat4* m, const fm_vec4* a, fm_vec4* out)
 {
-	if(value < min)
-		return min;
-	
-	if(value > max)
-		return max;
-	
-	return value;
+	out->x = fm_vec4_dot(a, &m->x);
+	out->y = fm_vec4_dot(a, &m->y);
+	out->z = fm_vec4_dot(a, &m->z);
+	out->w = fm_vec4_dot(a, &m->w);
 }
 
-static inline f32 fm_snap_near_zero(const f32 value, const f32 threshold)
-{
-	if(fabsf(value) < threshold)
-		return 0.0f;
-	
-	return value;
-}
-	
-static inline f32 fm_sign(const f32 value)
-{
-	return value >= 0.0f ? 1.0f : -1.0f;
-}
+/**********************************/
+/* Quaternion math implementation */
 
+// Set quaternion to identity (0,0,0,1)
 static inline void fm_quat_identity(fm_quat* q)
 {
 	q->i = 0.0f;
@@ -765,16 +793,19 @@ static inline void fm_quat_identity(fm_quat* q)
 	q->r = 1.0f;
 }
 
+// Compute dot product of the 3-vector part of two quaternions
 static inline f32 fm_quat_dot3(const fm_quat* a, const fm_quat* b)
 {
 	return a->i * b->i + a->j * b->j + a->k * b->k;
 }
-	
+
+// Compute dot product of two quaternions
 static inline f32 fm_quat_dot(const fm_quat* a, const fm_quat* b)
 {
 	return a->i * b->i + a->j * b->j + a->k * b->k + a->r * b->r;
 }
 
+// Compute cross product of the 3-vector part of two quaternions
 static inline void fm_quat_cross3(const fm_quat* a, const fm_quat* b, fm_vec4* v)
 {
 	v->x = a->j * b->k - a->k * b->j;
@@ -783,35 +814,39 @@ static inline void fm_quat_cross3(const fm_quat* a, const fm_quat* b, fm_vec4* v
 	v->w = 0.0f;
 }
 
-static inline void fm_quat_add(fm_quat* v, const fm_quat* a, const fm_quat* b)
+// Add two quaternions
+static inline void fm_quat_add(const fm_quat* a, const fm_quat* b, fm_quat* out)
 {
-	v->i = a->i + b->i;
-	v->j = a->j + b->j;
-	v->k = a->k + b->k;
-	v->r = a->r + b->r;
+	out->i = a->i + b->i;
+	out->j = a->j + b->j;
+	out->k = a->k + b->k;
+	out->r = a->r + b->r;
 }
-	
-static inline void fm_quat_mul(const fm_quat* a, const fm_quat* b, fm_quat* c)
+
+// Multiply two quaternions and store the result in a third quaternion
+static inline void fm_quat_mul(const fm_quat* a, const fm_quat* b, fm_quat* out)
 {
 	const f32 i = a->r * b->i + a->k * b->j - a->j * b->k + a->i * b->r;
 	const f32 j = -a->k * b->i + a->r * b->j + a->i * b->k + a->j * b->r;
 	const f32 k = a->j * b->i - a->i * b->j + a->r * b->k + a->k * b->r;
 	const f32 r = -a->i * b->i - a->j * b->j - a->k * b->k + a->r * b->r;
 	
-	c->i = i;
-	c->j = j;
-	c->k = k;
-	c->r = r;
-}
-	
-static inline void fm_quat_mulf(fm_quat* c, const fm_quat* a, f32 t)
-{
-	c->i = a->i * t;
-	c->j = a->j * t;
-	c->k = a->k * t;
-	c->r = a->r * t;
+	out->i = i;
+	out->j = j;
+	out->k = k;
+	out->r = r;
 }
 
+// Multiply a quaternion with a scalar
+static inline void fm_quat_mulf(const fm_quat* a, f32 t, fm_quat* out)
+{
+	out->i = a->i * t;
+	out->j = a->j * t;
+	out->k = a->k * t;
+	out->r = a->r * t;
+}
+
+// Rotation of a vector by a quaternion
 static inline void fm_quat_rot(const fm_quat* q, const fm_vec4* v, fm_vec4* c)
 {
 	const f32 dot_qv = v->x * q->i + v->y * q->j + v->z * q->k;
@@ -831,6 +866,7 @@ static inline void fm_quat_rot(const fm_quat* q, const fm_vec4* v, fm_vec4* c)
 	c->w = 0.0f;
 }
 
+// Normalize a quaternion
 static inline void fm_quat_norm(fm_quat* q)
 {
 	const f32 n = sqrtf(q->i * q->i + q->j * q->j + q->k * q->k + q->r * q->r);
@@ -842,6 +878,7 @@ static inline void fm_quat_norm(fm_quat* q)
 	q->r *= n_inv;
 }
 
+// Negate a quaternion
 static inline void fm_quat_neg(fm_quat* q_out, const fm_quat* q_in)
 {
 	q_out->i = -q_in->i;
@@ -849,7 +886,18 @@ static inline void fm_quat_neg(fm_quat* q_out, const fm_quat* q_in)
 	q_out->k = -q_in->k;
 	q_out->r = -q_in->r;
 }
-	
+
+// Linear interpolation between two quaternions
+static inline void fm_quat_lerp(const fm_quat* a, const fm_quat* b, f32 alpha, fm_quat* c)
+{
+	const f32 alpha_inv = 1.0f - alpha;
+	c->i = a->i * alpha_inv + b->i * alpha;
+	c->j = a->j * alpha_inv + b->j * alpha;
+	c->k = a->k * alpha_inv + b->k * alpha;
+	c->r = a->r * alpha_inv + b->r * alpha;
+}
+
+// Spherical linear interpolation between two quaternions based on given ratio
 static inline void fm_quat_slerp(const fm_quat* unitQuat0, const fm_quat* unitQuat1, f32 t, fm_quat* result)
 {
 	fm_quat start, tmpQ_0, tmpQ_1;
@@ -876,20 +924,12 @@ static inline void fm_quat_slerp(const fm_quat* unitQuat0, const fm_quat* unitQu
 		scale0 = ( 1.0f - t );
 		scale1 = t;
 	}
-	fm_quat_mulf( &tmpQ_0, &start, scale0 );
-	fm_quat_mulf( &tmpQ_1, unitQuat1, scale1 );
-	fm_quat_add( result, &tmpQ_0, &tmpQ_1 );
+	fm_quat_mulf( &start, scale0, &tmpQ_0 );
+	fm_quat_mulf( unitQuat1, scale1, &tmpQ_1 );
+	fm_quat_add( &tmpQ_0, &tmpQ_1, result );
 }
 
-static inline void fm_quat_lerp(const fm_quat* a, const fm_quat* b, f32 alpha, fm_quat* c)
-{
-	const f32 alpha_inv = 1.0f - alpha;
-	c->i = a->i * alpha_inv + b->i * alpha;
-	c->j = a->j * alpha_inv + b->j * alpha;
-	c->k = a->k * alpha_inv + b->k * alpha;
-	c->r = a->r * alpha_inv + b->r * alpha;
-}
-
+// Converts quaternion to 4x4 matrix
 static inline void fm_quat_to_mat4(const fm_quat* q, fm_mat4* m)
 {
 	m->x.x = 1.0f - 2.0f * q->j * q->j - 2.0f * q->k * q->k;
@@ -913,6 +953,7 @@ static inline void fm_quat_to_mat4(const fm_quat* q, fm_mat4* m)
 	m->w.w = 1.0f;
 }
 
+// Converts quaternion to Euler angles (roll, pitch, yaw)
 static inline void fm_quat_to_euler(const fm_quat* q, fm_euler_angles* angles)
 {
 	// roll (x-axis rotation)
@@ -933,6 +974,7 @@ static inline void fm_quat_to_euler(const fm_quat* q, fm_euler_angles* angles)
 	angles->yaw = atan2f(siny_cosp, cosy_cosp);
 }
 
+// Calculates a quaternion representing a rotation around an axis by a given angle
 static inline void fm_quat_rot_axis_angle(const fm_vec4* axis, const f32 angle, fm_quat* q)
 {
 	const f32 scale = sinf(angle / 2) / fm_vec4_mag(axis);
@@ -942,6 +984,7 @@ static inline void fm_quat_rot_axis_angle(const fm_vec4* axis, const f32 angle, 
 	q->r = cosf(angle / 2.0f);
 }
 
+// Convert a quaternion to an axis-angle representation
 static inline void fm_quat_to_axis_angle(const fm_quat* q, fm_vec4* axis, f32* angle)
 {
 	*angle = acosf(fm_clamp(q->r, -1.0f, 1.0f)) * 2.0f;
@@ -961,7 +1004,8 @@ static inline void fm_quat_to_axis_angle(const fm_quat* q, fm_vec4* axis, f32* a
 		axis->w = 0.0f;
 	}
 }
-	
+
+// Create a quaternion from an axis-angle representation
 static inline void fm_quat_make_from_axis_angle(f32 x, f32 y, f32 z, const f32 angle, fm_quat* q)
 {
 	const f32 scale = sinf(angle / 2) / sqrt(x*x + y*y + z*z);
@@ -970,7 +1014,8 @@ static inline void fm_quat_make_from_axis_angle(f32 x, f32 y, f32 z, const f32 a
 	q->k = scale * z;
 	q->r = cosf(angle / 2.0f);
 }
-	
+
+// Create a quaternion from Euler angles in the Yaw-Z Pitch-X Roll-Y convention
 static inline void fm_quat_make_from_euler_angles_yzpxry(const fm_euler_angles* angles, fm_quat* quat)
 {
 	fm_quat p;
@@ -984,7 +1029,8 @@ static inline void fm_quat_make_from_euler_angles_yzpxry(const fm_euler_angles* 
 	fm_quat_mul(&p, &y, &tmp);
 	fm_quat_mul(&tmp, &r, quat);
 }
-	
+
+// Create a quaternion from Euler angles in the Pitch-X Yaw-Y Roll-Z convention
 static inline void fm_quat_make_from_euler_angles_xyz(const fm_euler_angles* angles, fm_quat* quat)
 {
 	fm_quat x;
@@ -998,7 +1044,8 @@ static inline void fm_quat_make_from_euler_angles_xyz(const fm_euler_angles* ang
 	fm_quat_mul(&y, &x, &tmp);
 	fm_quat_mul(&z, &tmp, quat);
 }
-	
+
+// Create a quaternion from Euler angles in the Pitch-Y Yaw-Z Roll-X convention
 static inline void fm_quat_make_from_euler_angles_pyyzrx(const fm_euler_angles* angles, fm_quat* quat)
 {
 	fm_quat p;
@@ -1012,7 +1059,8 @@ static inline void fm_quat_make_from_euler_angles_pyyzrx(const fm_euler_angles* 
 	fm_quat_mul(&y, &p, &tmp);
 	fm_quat_mul(&tmp, &r, quat);
 }
-	
+
+// Create a quaternion from Euler angles in the Pitch-X Roll-Y Yaw-Z convention
 static inline void fm_quat_make_from_euler_angles_pxryyz(const fm_euler_angles* angles, fm_quat* quat)
 {
 	fm_quat p;
@@ -1027,6 +1075,7 @@ static inline void fm_quat_make_from_euler_angles_pxryyz(const fm_euler_angles* 
 	fm_quat_mul(&tmp, &y, quat);
 }
 
+// Compute the conjugate of a quaternion (same as inverse for unit quaternions)
 static inline void fm_quat_conj(fm_quat* q)
 {
 	q->i = -q->i;
@@ -1034,6 +1083,7 @@ static inline void fm_quat_conj(fm_quat* q)
 	q->k = -q->k;
 }
 
+// Get the X-axis of a quaternion
 static inline fm_vec4 fm_quat_axis_x(fm_quat* q)
 {
 	fm_vec4 axis = {1.0f, 0.0f, 0.0f, 0.0f};
@@ -1041,6 +1091,7 @@ static inline fm_vec4 fm_quat_axis_x(fm_quat* q)
 	return axis;
 }
 
+// Get the Y-axis of a quaternion
 static inline fm_vec4 fm_quat_axis_y(fm_quat* q)
 {
 	fm_vec4 axis = {0.0f, 1.0f, 0.0f, 0.0f};
@@ -1048,6 +1099,7 @@ static inline fm_vec4 fm_quat_axis_y(fm_quat* q)
 	return axis;
 }
 
+// Get the Z-axis of a quaternion
 static inline fm_vec4 fm_quat_axis_z(fm_quat* q)
 {
 	fm_vec4 axis = {0.0f, 0.0f, 1.0f, 0.0f};
@@ -1055,12 +1107,17 @@ static inline fm_vec4 fm_quat_axis_z(fm_quat* q)
 	return axis;
 }
 
+/*********************************/
+/* Transform math implementation */
+
+// Set identity transform
 static inline void fm_xform_identity(fm_xform* x)
 {
 	fm_vec4_zeros(&x->pos);
 	fm_quat_identity(&x->rot);
 }
-	
+
+// Multiply two transforms
 static inline void fm_xform_mul(const fm_xform* a, const fm_xform* b, fm_xform* c)
 {
 	fm_vec4 rotatedB;
@@ -1069,18 +1126,21 @@ static inline void fm_xform_mul(const fm_xform* a, const fm_xform* b, fm_xform* 
 	fm_quat_mul(&a->rot, &b->rot, &c->rot);
 }
 
+// Interpolate two transforms linearly
 static inline void fm_xform_lerp(const fm_xform* a, const fm_xform* b, f32 alpha, fm_xform* c)
 {
 	fm_vec4_lerp(&a->pos, &b->pos, alpha, &c->pos);
 	fm_quat_lerp(&a->rot, &b->rot, alpha, &c->rot);
 }
 
+// Interpolate two transforms spherically
 static inline void fm_xform_slerp(const fm_xform* a, const fm_xform* b, f32 alpha, fm_xform* c)
 {
 	fm_vec4_lerp(&a->pos, &b->pos, alpha, &c->pos);
 	fm_quat_slerp(&a->rot, &b->rot, alpha, &c->rot);
 }
 
+// Convert transform to a 4x4 matrix
 static inline void fm_xform_to_mat4(const fm_xform* x, fm_mat4* m)
 {
 	const fm_quat* q = &x->rot;
@@ -1106,12 +1166,14 @@ static inline void fm_xform_to_mat4(const fm_xform* x, fm_mat4* m)
 	m->w.w = 1.0f;
 }
 
+// Apply transform to a vector
 static inline void fm_xform_apply(const fm_xform* x, const fm_vec4* a, fm_vec4* v)
 {
 	fm_quat_rot(&x->rot, a, v);
 	fm_vec4_add(&x->pos, v, v);
 }
 
+// Apply inverse transform to a vector
 static inline void fm_xform_apply_inv(const fm_xform* x, const fm_vec4* a, fm_vec4* v)
 {
 	fm_quat invRot = x->rot;
@@ -1119,6 +1181,9 @@ static inline void fm_xform_apply_inv(const fm_xform* x, const fm_vec4* a, fm_ve
 	fm_vec4_sub(a, &x->pos, v);
 	fm_quat_rot(&invRot, v, v);
 }
+
+/******************************/
+/* Spline math implementation */
 
 #define FM_CATMULL_ROM_ALPHA 0.5f
 
@@ -1130,6 +1195,7 @@ static inline f32 fm_catmull_rom_get_t_value(const f32 t, const fm_vec4* p0, con
 	return c + t;
 }
 
+// Calculates Catmull-rom spline between points p1 and p2
 static inline void fm_spline_catmull_rom(const fm_vec4* p0, const fm_vec4* p1, const fm_vec4* p2, const fm_vec4* p3,
 										 const f32 t, fm_vec4* output )
 {
@@ -1170,12 +1236,10 @@ static inline void fm_spline_catmull_rom(const fm_vec4* p0, const fm_vec4* p1, c
 	fm_vec4_add(output, &tmp1, output);
 }
 	
-static inline f32 fm_curve_uniform_s(f32 alpha)
-{
-	f32 sqt = alpha * alpha;
-	return sqt / (2.0f * (sqt - alpha) + 1.0f);
-}
+/***************************/
+/* Box collision detection */
 
+// Checks overlap of box a and b
 static inline bool fm_intersection_box_box(const fm_box* a, const fm_box* b)
 {
 	if(fabs(a->center.x - b->center.x) > (a->extent.x + b->extent.x))
@@ -1190,6 +1254,7 @@ static inline bool fm_intersection_box_box(const fm_box* a, const fm_box* b)
 	return false;
 }
 
+// Checks overlap of box a and point b
 static inline bool fm_intersection_box_point(const fm_box* a, const fm_vec3* b)
 {
 	if(fabs(a->center.x - b->x) > a->extent.x)
@@ -1204,6 +1269,7 @@ static inline bool fm_intersection_box_point(const fm_box* a, const fm_vec3* b)
 	return false;
 }
 
+// Extends box a to include box b
 static inline void fm_box_append(fm_box* a, const fm_box* b)
 {
 	fm_vec3 a_max;
