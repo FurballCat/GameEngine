@@ -8,10 +8,17 @@ extern "C"
 #endif // __cplusplus
 
 #include <math.h>
-#include "math3d.h"
+#include "mathtypes.h"
 
-#define MAX(a, b) a > b ? a : b
-#define MIN(a, b) a < b ? a : b
+#define FM_MAX(a, b) a > b ? a : b
+#define FM_MIN(a, b) a < b ? a : b
+
+#define FM_PI 3.141592653589793f
+#define FM_PI_2 1.57079632679489661923f
+#define FM_DEG_TO_RAD(_x) _x * FM_PI / 180.0f
+#define FM_VEC4_AXIS_X {1.0f, 0.0f, 0.0f, 0.0f}
+#define FM_VEC4_AXIS_Y {0.0f, 1.0f, 0.0f, 0.0f}
+#define FM_VEC4_AXIS_Z {0.0f, 0.0f, 1.0f, 0.0f}
 
 #define FM_SLERP_TOL 0.995f
 
@@ -440,38 +447,6 @@ static inline void fm_vec4_lerp(const fm_vec4* a, const fm_vec4* b, f32 alpha, f
 	c->y = a->y * invAlpha + b->y * alpha;
 	c->z = a->z * invAlpha + b->z * alpha;
 	c->w = a->w * invAlpha + b->w * alpha;
-}
-
-// Calculates quaternion rotation between two vectors
-static inline void fm_vec4_rot_between(const fm_vec4* from, const fm_vec4* to, fm_quat* rot)
-{
-	fm_vec4 fromNorm = *from;
-	fm_vec4_norm(&fromNorm);
-	fm_vec4 toNorm = *to;
-	fm_vec4_norm(&toNorm);
-	
-	const f32 cosAlpha = fm_vec4_dot(&fromNorm, &toNorm);
-	const f32 alpha = -acosf(cosAlpha);
-	if(fabsf(alpha) > 0.0001f)
-	{
-		fm_vec4 axis;
-		fm_vec4_cross(&fromNorm, &toNorm, &axis);
-		if(fm_vec4_mag2(&axis) > 0.0f)
-		{
-			fm_vec4_norm(&axis);
-
-			fm_quat_make_from_axis_angle(axis.x, axis.y, axis.z, alpha, rot);
-			fm_quat_norm(rot);
-		}
-		else
-		{
-			fm_quat_identity(rot);
-		}
-	}
-	else
-	{
-		fm_quat_identity(rot);
-	}
 }
 
 // Calculates distance between two vectors
@@ -929,6 +904,48 @@ static inline void fm_quat_slerp(const fm_quat* unitQuat0, const fm_quat* unitQu
 	fm_quat_add( &tmpQ_0, &tmpQ_1, result );
 }
 
+// Create a quaternion from an axis-angle representation
+static inline void fm_quat_make_from_axis_angle(f32 x, f32 y, f32 z, const f32 angle, fm_quat* q)
+{
+	const f32 scale = sinf(angle / 2.0f) / sqrtf(x * x + y * y + z * z);
+	q->i = scale * x;
+	q->j = scale * y;
+	q->k = scale * z;
+	q->r = cosf(angle / 2.0f);
+}
+
+// Calculates quaternion rotation between two vectors
+static inline void fm_vec4_rot_between(const fm_vec4* from, const fm_vec4* to, fm_quat* rot)
+{
+	fm_vec4 fromNorm = *from;
+	fm_vec4_norm(&fromNorm);
+	fm_vec4 toNorm = *to;
+	fm_vec4_norm(&toNorm);
+
+	const f32 cosAlpha = fm_vec4_dot(&fromNorm, &toNorm);
+	const f32 alpha = -acosf(cosAlpha);
+	if (fabsf(alpha) > 0.0001f)
+	{
+		fm_vec4 axis;
+		fm_vec4_cross(&fromNorm, &toNorm, &axis);
+		if (fm_vec4_mag2(&axis) > 0.0f)
+		{
+			fm_vec4_norm(&axis);
+
+			fm_quat_make_from_axis_angle(axis.x, axis.y, axis.z, alpha, rot);
+			fm_quat_norm(rot);
+		}
+		else
+		{
+			fm_quat_identity(rot);
+		}
+	}
+	else
+	{
+		fm_quat_identity(rot);
+	}
+}
+
 // Converts quaternion to 4x4 matrix
 static inline void fm_quat_to_mat4(const fm_quat* q, fm_mat4* m)
 {
@@ -1003,16 +1020,6 @@ static inline void fm_quat_to_axis_angle(const fm_quat* q, fm_vec4* axis, f32* a
 		axis->z = 0.0f;
 		axis->w = 0.0f;
 	}
-}
-
-// Create a quaternion from an axis-angle representation
-static inline void fm_quat_make_from_axis_angle(f32 x, f32 y, f32 z, const f32 angle, fm_quat* q)
-{
-	const f32 scale = sinf(angle / 2) / sqrt(x*x + y*y + z*z);
-	q->i = scale * x;
-	q->j = scale * y;
-	q->k = scale * z;
-	q->r = cosf(angle / 2.0f);
 }
 
 // Create a quaternion from Euler angles in the Yaw-Z Pitch-X Roll-Y convention
@@ -1285,14 +1292,14 @@ static inline void fm_box_append(fm_box* a, const fm_box* b)
 	fm_vec3_sub(&b->center, &b->extent, &b_min);
 	
 	fm_vec3 r_max;
-	r_max.x = MAX(a_max.x, b_max.x);
-	r_max.y = MAX(a_max.y, b_max.y);
-	r_max.z = MAX(a_max.z, b_max.z);
+	r_max.x = FM_MAX(a_max.x, b_max.x);
+	r_max.y = FM_MAX(a_max.y, b_max.y);
+	r_max.z = FM_MAX(a_max.z, b_max.z);
 	
 	fm_vec3 r_min;
-	r_min.x = MIN(a_min.x, b_min.x);
-	r_min.y = MIN(a_min.y, b_min.y);
-	r_min.z = MIN(a_min.z, b_min.z);
+	r_min.x = FM_MIN(a_min.x, b_min.x);
+	r_min.y = FM_MIN(a_min.y, b_min.y);
+	r_min.z = FM_MIN(a_min.z, b_min.z);
 	
 	a->center.x = (r_max.x + r_min.x) / 2.0f;
 	a->center.y = (r_max.y + r_min.y) / 2.0f;

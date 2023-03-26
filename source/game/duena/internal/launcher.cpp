@@ -1521,7 +1521,7 @@ fs_variant_t fs_native_animate(fs_script_ctx_t* ctx, u32 numArgs, const fs_varia
 	
 	fa_character_schedule_action_simple(gameObj->animCharacter, animateSlot, &animArgs);
 	
-	ctx->waitSeconds = MAX(ctx->waitSeconds - animArgs.fadeOutSec, 0.0f);
+	ctx->waitSeconds = FM_MAX(ctx->waitSeconds - animArgs.fadeOutSec, 0.0f);
 	
 	fs_variant_t result = {};
 	return result;
@@ -1992,7 +1992,7 @@ void fg_gameplay_update(FurGameEngine* pEngine, f32 dt)
 		
 		if(lambda->waitSeconds > 0.0f)
 		{
-			lambda->waitSeconds = MAX(lambda->waitSeconds - dt, 0.0f);
+			lambda->waitSeconds = FM_MAX(lambda->waitSeconds - dt, 0.0f);
 			
 			if(lambda->waitSeconds > 0.0f)
 			{

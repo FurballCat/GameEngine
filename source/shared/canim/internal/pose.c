@@ -92,7 +92,7 @@ void fa_pose_set_reference(const fa_rig_t* rig, fa_pose_t* pose, const u8* mask)
 
 void fa_pose_copy(fa_pose_t* dest, const fa_pose_t* src)
 {
-	const u32 numXforms = MIN(src->numXforms, dest->numXforms);
+	const u32 numXforms = FM_MIN(src->numXforms, dest->numXforms);
 	if(numXforms > 0)
 	{
 		memcpy(dest->xforms, src->xforms, sizeof(fm_xform) * numXforms);
@@ -102,7 +102,7 @@ void fa_pose_copy(fa_pose_t* dest, const fa_pose_t* src)
 		}
 	}
 	
-	const u32 numTracks = MIN(src->numTracks, dest->numTracks);
+	const u32 numTracks = FM_MIN(src->numTracks, dest->numTracks);
 	if(numTracks > 0)
 	{
 		memcpy(dest->tracks, src->tracks, sizeof(f32) * numTracks);
@@ -118,7 +118,7 @@ void fa_pose_local_to_model(fa_pose_t* modelPose, const fa_pose_t* localPose, co
 	const fm_xform* localXforms = localPose->xforms;
 	fm_xform* modelXforms = modelPose->xforms;
 	
-	u32 numBones = MIN(modelPose->numXforms, localPose->numXforms);
+	u32 numBones = FM_MIN(modelPose->numXforms, localPose->numXforms);
 	
 	// iterate non-root bones
 	for(u16 i = 0; i < numBones; ++i)
@@ -135,7 +135,7 @@ void fa_pose_local_to_model(fa_pose_t* modelPose, const fa_pose_t* localPose, co
 	}
 	
 	// copy tracks
-	u32 numTracks = MIN(modelPose->numTracks, localPose->numTracks);
+	u32 numTracks = FM_MIN(modelPose->numTracks, localPose->numTracks);
 	if(numTracks > 0)
 	{
 		memcpy(modelPose->tracks, localPose->tracks, sizeof(f32) * numTracks);
