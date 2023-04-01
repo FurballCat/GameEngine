@@ -106,6 +106,12 @@ void fg_world_init(fg_world_t* world, fc_alloc_callbacks_t* pAllocCallbacks)
 	
 	// allocate update buckets
 	fc_array_alloc_and_zero(&world->buckets[FG_UPDATE_BUCKET_CHARACTERS], fg_game_object_handle_t, 256, 8, FC_MEMORY_SCOPE_GAME, pAllocCallbacks);
+
+	// allocate resource maps
+	fc_map_alloc_and_zero(&world->resources.scripts, fc_string_hash_t, const fc_binary_buffer_t, 512, 0, FC_MEMORY_SCOPE_GAME, pAllocCallbacks);
+	fc_map_alloc_and_zero(&world->resources.animations, fc_string_hash_t, const fa_anim_clip_t*, 1024, 0, FC_MEMORY_SCOPE_GAME, pAllocCallbacks);
+	fc_map_alloc_and_zero(&world->resources.rigs, fc_string_hash_t, const fa_rig_t*, 128, 0, FC_MEMORY_SCOPE_GAME, pAllocCallbacks);
+	fc_map_alloc_and_zero(&world->resources.meshes, fc_string_hash_t, const fr_proxy_t*, 2048, 0, FC_MEMORY_SCOPE_GAME, pAllocCallbacks);
 }
 
 void fg_world_release(fg_world_t* world, fc_alloc_callbacks_t* pAllocCallbacks)
@@ -118,20 +124,26 @@ void fg_world_release(fg_world_t* world, fc_alloc_callbacks_t* pAllocCallbacks)
 	fc_array_free(&world->buckets[FG_UPDATE_BUCKET_CHARACTERS], pAllocCallbacks);
 	
 	// release resources
-	for(i32 i=0; i<world->resources.numAnimations; ++i)
+	for(u32 i=0; i<world->resources.animations.num; ++i)
 	{
-		fa_anim_clip_release((fa_anim_clip_t*)world->resources.animations[i], pAllocCallbacks);
+		fa_anim_clip_release((fa_anim_clip_t*)world->resources.animations.elems[i], pAllocCallbacks);
 	}
 	
-	for(i32 i=0; i<world->resources.numRigs; ++i)
+	for(u32 i=0; i<world->resources.rigs.num; ++i)
 	{
-		fa_rig_release((fa_rig_t*)world->resources.rigs[i], pAllocCallbacks);
+		fa_rig_release((fa_rig_t*)world->resources.rigs.elems[i], pAllocCallbacks);
 	}
 	
-	for(i32 i=0; i<world->resources.numScripts; ++i)
+	for(u32 i=0; i<world->resources.scripts.num; ++i)
 	{
-		fc_release_binary_buffer((fc_binary_buffer_t*)world->resources.scripts[i], pAllocCallbacks);
+		fc_release_binary_buffer((fc_binary_buffer_t*)world->resources.scripts.elems[i], pAllocCallbacks);
 	}
+
+	// release resource maps
+	fc_map_free(&world->resources.scripts, pAllocCallbacks);
+	fc_map_free(&world->resources.animations, pAllocCallbacks);
+	fc_map_free(&world->resources.rigs, pAllocCallbacks);
+	fc_map_free(&world->resources.meshes, pAllocCallbacks);
 }
 
 void fg_world_update(fg_world_t* world, fg_world_update_ctx_t* ctx, fg_update_bucket_t bucket)
@@ -202,90 +214,50 @@ void* fg_stack_alloc(fg_stack_allocator_t* allocator, i32 size)
 
 const fa_anim_clip_t* fg_resource_find_anim(const fg_resource_register_t* reg, fc_string_hash_t name)
 {
-	for(i32 i=0; i<reg->numAnimations; ++i)
-	{
-		if(reg->animationsNames[i] == name)
-			return reg->animations[i];
-	}
-	
-	FUR_ASSERT(false); // can't find resource
-	
-	return NULL;
+	const fa_anim_clip_t* result = (const fa_anim_clip_t*)fc_map_find(&reg->animations, &name);
+	FUR_ASSERT(result);
+	return result;
 }
 
 const fc_binary_buffer_t* fg_resource_find_script(const fg_resource_register_t* reg, fc_string_hash_t name)
 {
-	for(i32 i=0; i<reg->numScripts; ++i)
-	{
-		if(reg->scriptsNames[i] == name)
-			return reg->scripts[i];
-	}
-	
-	FUR_ASSERT(false); // can't find resource
-	
-	return NULL;
+	const fc_binary_buffer_t* result = (const fc_binary_buffer_t*)fc_map_find(&reg->scripts, &name);
+	FUR_ASSERT(result);
+	return result;
 }
 
 const fa_rig_t* fg_resource_find_rig(const fg_resource_register_t* reg, fc_string_hash_t name)
 {
-	for(i32 i=0; i<reg->numRigs; ++i)
-	{
-		if(reg->rigsNames[i] == name)
-			return reg->rigs[i];
-	}
-	
-	FUR_ASSERT(false); // can't find resource
-	
-	return NULL;
+	const fa_rig_t* result = (const fa_rig_t*)fc_map_find(&reg->rigs, &name);
+	FUR_ASSERT(result);
+	return result;
 }
 
 const fr_proxy_t* fg_resource_find_mesh(const fg_resource_register_t* reg, fc_string_hash_t name)
 {
-	for(i32 i=0; i<reg->numMeshes; ++i)
-	{
-		if(reg->meshesNames[i] == name)
-			return reg->meshes[i];
-	}
-	
-	FUR_ASSERT(false); // can't find resource
-	
-	return NULL;
+	const fr_proxy_t* result = (const fr_proxy_t*)fc_map_find(&reg->meshes, &name);
+	FUR_ASSERT(result);
+	return result;
 }
 
 void fg_resource_add_anim(fg_resource_register_t* reg, fc_string_hash_t name, const fa_anim_clip_t* res)
 {
-	FUR_ASSERT(reg->numAnimations < FG_MAX_NUM_ANIMATIONS);
-	
-	reg->animations[reg->numAnimations] = res;
-	reg->animationsNames[reg->numAnimations] = name;
-	reg->numAnimations++;
+	fc_map_insert(&reg->animations, &name, &res);
 }
 
 void fg_resource_add_script(fg_resource_register_t* reg, fc_string_hash_t name, const fc_binary_buffer_t* res)
 {
-	FUR_ASSERT(reg->numScripts < FG_MAX_NUM_SCRIPTS);
-	
-	reg->scripts[reg->numScripts] = res;
-	reg->scriptsNames[reg->numScripts] = name;
-	reg->numScripts++;
+	fc_map_insert(&reg->scripts, &name, &res);
 }
 
 void fg_resource_add_rig(fg_resource_register_t* reg, fc_string_hash_t name, const fa_rig_t* res)
 {
-	FUR_ASSERT(reg->numRigs < FG_MAX_NUM_RIGS);
-	
-	reg->rigs[reg->numRigs] = res;
-	reg->rigsNames[reg->numRigs] = name;
-	reg->numRigs++;
+	fc_map_insert(&reg->rigs, &name, &res);
 }
 
 void fg_resource_add_mesh(fg_resource_register_t* reg, fc_string_hash_t name, const fr_proxy_t* res)
 {
-	FUR_ASSERT(reg->numMeshes < FG_MAX_NUM_MESHES);
-	
-	reg->meshes[reg->numMeshes] = res;
-	reg->meshesNames[reg->numMeshes] = name;
-	reg->numMeshes++;
+	fc_map_insert(&reg->meshes, &name, &res);
 }
 
 fg_game_object_handle_t fg_game_object_storage_find_free_handle(fg_game_object_info_storage_t* storage)

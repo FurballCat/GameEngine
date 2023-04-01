@@ -108,29 +108,17 @@ typedef struct fa_anim_clip_t fa_anim_clip_t;
 typedef struct fa_rig_t fa_rig_t;
 typedef struct fr_proxy_t fr_proxy_t;
 
-#define FG_MAX_NUM_SCRIPTS 512
-#define FG_MAX_NUM_ANIMATIONS 1024
-#define FG_MAX_NUM_RIGS 128
-#define FG_MAX_NUM_MESHES 2048
+FUR_DEFINE_MAP_TYPE(fg_resource_map_scripts_t, fc_string_hash_t, const fc_binary_buffer_t*);
+FUR_DEFINE_MAP_TYPE(fg_resource_map_anim_clip_t, fc_string_hash_t, const fa_anim_clip_t*);
+FUR_DEFINE_MAP_TYPE(fg_resource_map_rig_t, fc_string_hash_t, const fa_rig_t*);
+FUR_DEFINE_MAP_TYPE(fg_resource_map_mesh_t, fc_string_hash_t, const fr_proxy_t*);
 
 typedef struct fg_resource_register_t
 {
-	fc_string_hash_t scriptsNames[FG_MAX_NUM_SCRIPTS];
-	const fc_binary_buffer_t* scripts[FG_MAX_NUM_SCRIPTS];
-	i32 numScripts;
-	
-	fc_string_hash_t animationsNames[FG_MAX_NUM_ANIMATIONS];
-	const fa_anim_clip_t* animations[FG_MAX_NUM_ANIMATIONS];
-	i32 numAnimations;
-	
-	fc_string_hash_t rigsNames[FG_MAX_NUM_ANIMATIONS];
-	const fa_rig_t* rigs[FG_MAX_NUM_ANIMATIONS];
-	i32 numRigs;
-	
-	fc_string_hash_t meshesNames[FG_MAX_NUM_ANIMATIONS];
-	const fr_proxy_t* meshes[FG_MAX_NUM_ANIMATIONS];
-	i32 numMeshes;
-	
+	fg_resource_map_scripts_t scripts;
+	fg_resource_map_anim_clip_t animations;
+	fg_resource_map_rig_t rigs;
+	fg_resource_map_mesh_t meshes;
 } fg_resource_register_t;
 
 const fa_anim_clip_t* fg_resource_find_anim(const fg_resource_register_t* reg, fc_string_hash_t name);

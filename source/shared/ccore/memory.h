@@ -207,9 +207,9 @@ typedef struct fc_map_t
 	u16 elemStride;
 } fc_map_t;
 
-CCORE_API void* fc_map_insert(fc_map_t* map, void* key, void* elem);
-CCORE_API void* fc_map_find(fc_map_t* map, void* key);
-CCORE_API void fc_map_remove_swap(fc_map_t* map, void* key);
+CCORE_API void fc_map_insert(fc_map_t* map, const void* key, void* elem);
+CCORE_API void* fc_map_find(fc_map_t* map, const void* key);
+CCORE_API bool fc_map_remove_swap(fc_map_t* map, const void* key);
 
 #define fc_map_alloc(_mapPtr, _keyType, _elemType, _capacity, _alignment, _scope, _pAllocCallbacks)	\
 	do { \

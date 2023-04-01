@@ -459,11 +459,7 @@ const fa_anim_clip_t* fg_load_anim(fg_resource_register_t* reg, fc_depot_t* depo
 		fc_file_close(file);
 		
 		// register animation
-		const i32 idxAnim = reg->numAnimations;
-		FUR_ASSERT(idxAnim < FG_MAX_NUM_ANIMATIONS);
-		reg->animationsNames[idxAnim] = SID_REG(name);
-		reg->animations[idxAnim] = animClip;
-		reg->numAnimations++;
+		fg_resource_add_anim(reg, SID_REG(name), animClip);
 	}
 	
 	return animClip;

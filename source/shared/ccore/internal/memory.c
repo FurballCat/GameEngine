@@ -419,15 +419,15 @@ void fc_array_remove_swap(fc_array_t* arr, u32 idx)
 
 static inline void* fc_map_key_at_unsafe(fc_map_t* map, u32 idx)
 {
-	return ((u8*)map->keys + idx * map->keyStride);
+	return ((u8*)map->keys + (idx * map->keyStride));
 }
 
-static inline void* fc_map_elem_at_unsafe(fc_map_t* map, u32 idx)
+static inline void* fc_map_elem_storage_ptr_at_unsafe(fc_map_t* map, u32 idx)
 {
-	return ((u8*)map->elems + idx * map->elemStride);
+	return ((u8*)map->elems + (idx * map->elemStride));
 }
 
-void* fc_map_insert(fc_map_t* map, void* key, void* elem)
+void fc_map_insert(fc_map_t* map, const void* key, void* elem)
 {
 	FUR_ASSERT(map);
 	FUR_ASSERT(map->keys && map->elems);
@@ -445,12 +445,14 @@ void* fc_map_insert(fc_map_t* map, void* key, void* elem)
 		void* keyStorage = fc_map_key_at_unsafe(map, idx);
 		memcpy(keyStorage, key, map->keyStride);
 
-		void* elemStorage = fc_map_elem_at_unsafe(map, idx);
+		void* elemStorage = fc_map_elem_storage_ptr_at_unsafe(map, idx);
 		memcpy(elemStorage, elem, map->elemStride);
+
+		map->num++;
 	}
 }
 
-void* fc_map_find(fc_map_t* map, void* key)
+void* fc_map_find(fc_map_t* map, const void* key)
 {
 	FUR_ASSERT(map);
 	FUR_ASSERT(map->keys);
@@ -461,14 +463,15 @@ void* fc_map_find(fc_map_t* map, void* key)
 	{
 		if (memcmp(key, fc_map_key_at_unsafe(map, i), map->keyStride) == 0)
 		{
-			result = fc_map_elem_at_unsafe(map, i);
+			result = *(void**)fc_map_elem_storage_ptr_at_unsafe(map, i);
+			break;
 		}
 	}
 
 	return result;
 }
 
-bool fc_map_remove_swap(fc_map_t* map, void* key)
+bool fc_map_remove_swap(fc_map_t* map, const void* key)
 {
 	FUR_ASSERT(map);
 	FUR_ASSERT(map->keys);
@@ -494,8 +497,8 @@ bool fc_map_remove_swap(fc_map_t* map, void* key)
 		void* lastKey = fc_map_key_at_unsafe(map, map->num - 1);
 		memcpy(foundKey, lastKey, map->keyStride);
 
-		void* foundElem = fc_map_elem_at_unsafe(map, idx);
-		void* lastElem = fc_map_elem_at_unsafe(map, map->num - 1);
+		void* foundElem = fc_map_elem_storage_ptr_at_unsafe(map, idx);
+		void* lastElem = fc_map_elem_storage_ptr_at_unsafe(map, map->num - 1);
 		memcpy(foundElem, lastElem, map->elemStride);
 	}
 
