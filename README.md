@@ -42,7 +42,7 @@ Common - game specific engine components, that are general enough that with litt
 Game - game specific code that cannot be reused in another game.
 
 ### Naming convention
-Code uses snake_naming_convention with prefix for specific engine component: 'fr_' rendering, 'fa_' animation, 'fc_' core, etc., and postfix for types '_t'.
+Types uses PascalCase and functions use camelCase. All with Fc or fc prefix, like FcType and fcFunc.
 Since Racket is used for scripts and game data structure definitions, the naming here is skewer-style: 'player-idle-01', 'rock-01', and so on.
 Each asset has to be identified by unique file name. This simplifies resource pipelines.
 
