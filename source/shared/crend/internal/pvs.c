@@ -25,7 +25,7 @@ typedef struct fr_skinning_buffer_t
 } fr_skinning_buffer_t;
 
 // add renderable thing to given potentially visible set and pass skinning matrices for it
-void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator, const fm_mat4* skinMatrices, i32 numSkinMatrices)
+void fcRenderPVSAddAndSkin(FcRenderPVS* pvs, FcRenderProxy* proxy, const fm_mat4* locator, const fm_mat4* skinMatrices, i32 numSkinMatrices)
 {
 	FUR_ASSERT(pvs->numProxies < pvs->numMaxDescriptorSets);
 	
@@ -45,11 +45,11 @@ void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locato
 	pvs->worldViewProjOffset += size;
 	pvs->numProxies += 1;
 	
-	fr_copy_data_to_buffer(device, pvs->worldViewProj.memory, &ubo, offset, size);
+	fcRenderCopyDataToBuffer(device, pvs->worldViewProj.memory, &ubo, offset, size);
 	
 	pvs->proxies[descriptorIndex] = proxy;
 	
-	fr_write_descriptor_set_ctx_t desc = {0};
+	FcRenderWriteDescriptorSetsCtx desc = {0};
 	desc.uniformBuffer = &pvs->worldViewProj;
 	desc.uniformBufferSize = size;
 	desc.uniformBufferOffset = offset;
@@ -93,16 +93,16 @@ void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locato
 		pvs->proxiesFlags[descriptorIndex] |= FR_PVS_PROXY_FLAG_SKINNED;
 	}
 	
-	fr_write_descriptor_set(device, &desc, pvs->descriptorSets[descriptorIndex]);
+	fcRenderWriteDescriptorSets(device, &desc, pvs->descriptorSets[descriptorIndex]);
 }
 
 // add renderable thing to given potentially visible set
-void fr_pvs_add(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator)
+void fcRenderPVSAdd(FcRenderPVS* pvs, FcRenderProxy* proxy, const fm_mat4* locator)
 {
-	fr_pvs_add_and_skin(pvs, proxy, locator, NULL, 0);
+	fcRenderPVSAddAndSkin(pvs, proxy, locator, NULL, 0);
 }
 
-void fr_pvs_clear(fr_pvs_t* pvs)
+void fcRenderPVSClear(FcRenderPVS* pvs)
 {
 	pvs->numProxies = 0;
 	pvs->numSkinningMatrices = 0;

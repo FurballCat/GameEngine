@@ -6,35 +6,35 @@
 #include "ccore/serialize.h"
 #include "cmath/public.h"
 
-void fa_anim_clip_release(fa_anim_clip_t* clip, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcAnimClipRelease(FcAnimClip* clip, FcAllocator* pAllocCallbacks)
 {
 	FUR_FREE(clip->curves, pAllocCallbacks);
 	FUR_FREE(clip->dataKeys, pAllocCallbacks);
 	FUR_FREE(clip, pAllocCallbacks);
 }
 
-f32 fa_decompress_float_minus_one_plus_one(u16 value)
+f32 fcAnimDecompressFloatMinusOnePlusOne(u16 value)
 {
 	return (((f32)value) / 65535.0f) * 2.0f - 1.0f;
 }
 
-u16 fa_compress_float_minus_one_plus_one(f32 value)
+u16 fcAnimCompressFloatMinusOnePlusOne(f32 value)
 {
 	return (u16)(((value + 1.0f) / 2.0f) * 65535.0f);
 }
 
 void fm_vec3_to_16bit(const fm_vec3* v, u16* b)
 {
-	b[0] = fa_compress_float_minus_one_plus_one(v->x);
-	b[1] = fa_compress_float_minus_one_plus_one(v->y);
-	b[2] = fa_compress_float_minus_one_plus_one(v->z);
+	b[0] = fcAnimCompressFloatMinusOnePlusOne(v->x);
+	b[1] = fcAnimCompressFloatMinusOnePlusOne(v->y);
+	b[2] = fcAnimCompressFloatMinusOnePlusOne(v->z);
 }
 
 void fm_16bit_to_vec3(const u16* b, fm_vec3* v)
 {
-	v->x = fa_decompress_float_minus_one_plus_one(b[0]);
-	v->y = fa_decompress_float_minus_one_plus_one(b[1]);
-	v->z = fa_decompress_float_minus_one_plus_one(b[2]);
+	v->x = fcAnimDecompressFloatMinusOnePlusOne(b[0]);
+	v->y = fcAnimDecompressFloatMinusOnePlusOne(b[1]);
+	v->z = fcAnimDecompressFloatMinusOnePlusOne(b[2]);
 }
 
 const f32 Km  = 4.0*(0.4142135679721832275390625); // 4(sqrt(2)-1)
@@ -104,24 +104,24 @@ fm_vec4 vec4_decom_16bit(const u16* v)
 	return res;
 }
 
-void fa_decompress_rotation_key(const fa_anim_curve_key_t* key, fm_quat* rot)
+void fcAnimDecompressRotationKey(const FcAnimCurveKey* key, fm_quat* rot)
 {
 	const u16* keyData = key->keyData;
 	*rot = quat_ihm_16bit(keyData);
 }
 
-void fa_decompress_position_key(const fa_anim_curve_key_t* key, fm_vec4* pos)
+void fcAnimDecompressPositionKey(const FcAnimCurveKey* key, fm_vec4* pos)
 {
 	const u16* keyData = key->keyData;
 	*pos = vec4_decom_16bit(keyData);
 }
 
-f32 fa_decompress_key_time(const u16 time)
+f32 fcAnimDecompressKeyTime(const u16 time)
 {
 	return ((f32)time) / 24.0f;
 }
 
-void fa_anim_curve_sample(const fa_anim_curve_t* curve, f32 time, bool asAdditive, fm_xform* xform)
+void fcAnimCurveSample(const FcAnimCurve* curve, f32 time, bool asAdditive, fm_xform* xform)
 {
 	// rotation
 	{
@@ -130,7 +130,7 @@ void fa_anim_curve_sample(const fa_anim_curve_t* curve, f32 time, bool asAdditiv
 		u16 idx = 0;
 		
 		// this could be a binary search
-		while(idx < (numKeys-1) && fa_decompress_key_time(curve->rotKeys[idx].keyTime) < time)
+		while(idx < (numKeys-1) && fcAnimDecompressKeyTime(curve->rotKeys[idx].keyTime) < time)
 		{
 			++idx;
 		}
@@ -142,18 +142,18 @@ void fa_anim_curve_sample(const fa_anim_curve_t* curve, f32 time, bool asAdditiv
 		
 		if(lowerIdx == upperIdx)
 		{
-			fa_decompress_rotation_key(&curve->rotKeys[idx], &rot);
+			fcAnimDecompressRotationKey(&curve->rotKeys[idx], &rot);
 		}
 		else
 		{
 			fm_quat rot1;
-			fa_decompress_rotation_key(&curve->rotKeys[lowerIdx], &rot1);
+			fcAnimDecompressRotationKey(&curve->rotKeys[lowerIdx], &rot1);
 			
 			fm_quat rot2;
-			fa_decompress_rotation_key(&curve->rotKeys[upperIdx], &rot2);
+			fcAnimDecompressRotationKey(&curve->rotKeys[upperIdx], &rot2);
 			
-			const f32 time1 = fa_decompress_key_time(curve->rotKeys[lowerIdx].keyTime);
-			const f32 time2 = fa_decompress_key_time(curve->rotKeys[upperIdx].keyTime);
+			const f32 time1 = fcAnimDecompressKeyTime(curve->rotKeys[lowerIdx].keyTime);
+			const f32 time2 = fcAnimDecompressKeyTime(curve->rotKeys[upperIdx].keyTime);
 			
 			f32 alpha = (time - time1) / (time2 - time1);
 			fm_quat_lerp(&rot1, &rot2, alpha, &rot);
@@ -170,7 +170,7 @@ void fa_anim_curve_sample(const fa_anim_curve_t* curve, f32 time, bool asAdditiv
 		u16 idx = 0;
 		
 		// this could be a binary search
-		while(idx < (numKeys-1) && fa_decompress_key_time(curve->posKeys[idx].keyTime) < time)
+		while(idx < (numKeys-1) && fcAnimDecompressKeyTime(curve->posKeys[idx].keyTime) < time)
 		{
 			++idx;
 		}
@@ -182,18 +182,18 @@ void fa_anim_curve_sample(const fa_anim_curve_t* curve, f32 time, bool asAdditiv
 		
 		if(lowerIdx == upperIdx)
 		{
-			fa_decompress_position_key(&curve->posKeys[idx], &pos);
+			fcAnimDecompressPositionKey(&curve->posKeys[idx], &pos);
 		}
 		else
 		{
 			fm_vec4 pos1;
-			fa_decompress_position_key(&curve->posKeys[lowerIdx], &pos1);
+			fcAnimDecompressPositionKey(&curve->posKeys[lowerIdx], &pos1);
 			
 			fm_vec4 pos2;
-			fa_decompress_position_key(&curve->posKeys[upperIdx], &pos2);
+			fcAnimDecompressPositionKey(&curve->posKeys[upperIdx], &pos2);
 			
-			const f32 time1 = fa_decompress_key_time(curve->posKeys[lowerIdx].keyTime);
-			const f32 time2 = fa_decompress_key_time(curve->posKeys[upperIdx].keyTime);
+			const f32 time1 = fcAnimDecompressKeyTime(curve->posKeys[lowerIdx].keyTime);
+			const f32 time2 = fcAnimDecompressKeyTime(curve->posKeys[upperIdx].keyTime);
 			
 			f32 alpha = (time - time1) / (time2 - time1);
 			fm_vec4_lerp(&pos1, &pos2, alpha, &pos);
@@ -205,8 +205,8 @@ void fa_anim_curve_sample(const fa_anim_curve_t* curve, f32 time, bool asAdditiv
 	if(asAdditive)
 	{
 		fm_xform firstKey;
-		fa_decompress_rotation_key(&curve->rotKeys[0], &firstKey.rot);
-		fa_decompress_position_key(&curve->posKeys[0], &firstKey.pos);
+		fcAnimDecompressRotationKey(&curve->rotKeys[0], &firstKey.rot);
+		fcAnimDecompressPositionKey(&curve->posKeys[0], &firstKey.pos);
 		
 		fm_quat_conj(&firstKey.rot);
 		
@@ -215,7 +215,7 @@ void fa_anim_curve_sample(const fa_anim_curve_t* curve, f32 time, bool asAdditiv
 	}
 }
 
-void fa_anim_clip_sample(const fa_anim_clip_t* clip, f32 time, bool asAdditive, fa_pose_t* pose, const u8* mask)
+void fcAnimClipSample(const FcAnimClip* clip, f32 time, bool asAdditive, FcPose* pose, const u8* mask)
 {
 	FUR_PROFILE("anim-clip-sample")
 	{
@@ -232,10 +232,10 @@ void fa_anim_clip_sample(const fa_anim_clip_t* clip, f32 time, bool asAdditive, 
 		const u32 numCurves = clip->numCurves;
 		for(u32 i_c=0; i_c<numCurves; ++i_c)
 		{
-			const fa_anim_curve_t* curve = &clip->curves[i_c];
+			const FcAnimCurve* curve = &clip->curves[i_c];
 			const u16 idxXform = curve->index;
 			
-			fa_anim_curve_sample(curve, time, asAdditive, &pose->xforms[idxXform]);
+			fcAnimCurveSample(curve, time, asAdditive, &pose->xforms[idxXform]);
 			
 			if(mask)
 			{
@@ -255,7 +255,7 @@ typedef enum fa_anim_clip_version_t
 	FA_ANIM_VER_LAST,
 } fa_anim_clip_version_t;
 
-void fa_anim_clip_serialize(fc_serializer_t* pSerializer, fa_anim_clip_t* clip, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcAnimClipSerialize(FcSerializer* pSerializer, FcAnimClip* clip, FcAllocator* pAllocCallbacks)
 {
 	FUR_SER_VERSION(FA_ANIM_VER_LAST-1);
 	
@@ -266,8 +266,8 @@ void fa_anim_clip_serialize(fc_serializer_t* pSerializer, fa_anim_clip_t* clip, 
 	
 	if(!pSerializer->isWriting)
 	{
-		clip->curves = FUR_ALLOC_ARRAY_AND_ZERO(fa_anim_curve_t, clip->numCurves, 8, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		clip->dataKeys = FUR_ALLOC_ARRAY_AND_ZERO(fa_anim_curve_key_t, clip->numDataKeys, 8, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		clip->curves = FUR_ALLOC_ARRAY_AND_ZERO(FcAnimCurve, clip->numCurves, 8, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		clip->dataKeys = FUR_ALLOC_ARRAY_AND_ZERO(FcAnimCurveKey, clip->numDataKeys, 8, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 	}
 	
 	for(i32 i=0; i<clip->numCurves; ++i)
@@ -275,7 +275,7 @@ void fa_anim_clip_serialize(fc_serializer_t* pSerializer, fa_anim_clip_t* clip, 
 		FUR_SER_ADD(FA_ANIM_VER_BASE, clip->curves[i]);
 	}
 	
-	FUR_SER_ADD_BUFFER(FA_ANIM_VER_BASE, clip->dataKeys, clip->numDataKeys * sizeof(fa_anim_curve_key_t));
+	FUR_SER_ADD_BUFFER(FA_ANIM_VER_BASE, clip->dataKeys, clip->numDataKeys * sizeof(FcAnimCurveKey));
 	
 	// fix pointers for anim curves
 	u16 keyCounter = 0;
@@ -294,7 +294,7 @@ void fa_anim_clip_serialize(fc_serializer_t* pSerializer, fa_anim_clip_t* clip, 
 	}
 }
 
-void fa_serialize_anim_curve(fc_serializer_t* pSerializer, fa_anim_curve_t* animCurve)
+void fcSerializeAnimCurve(FcSerializer* pSerializer, FcAnimCurve* animCurve)
 {
 	FUR_SER_ADD(FA_ANIM_VER_BASE, animCurve->index);
 	FUR_SER_ADD(FA_ANIM_VER_BASE, animCurve->numRotKeys);

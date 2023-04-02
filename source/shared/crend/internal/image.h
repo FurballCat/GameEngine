@@ -4,10 +4,10 @@
 
 #include "ccore/types.h"
 
-typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
+typedef struct FcAllocator FcAllocator;
 
 // desc for image creation
-typedef struct fr_image_desc_t
+typedef struct FcImageDesc
 {
 	VkDeviceSize size;
 	VkFormat format;
@@ -15,20 +15,20 @@ typedef struct fr_image_desc_t
 	VkMemoryPropertyFlags properties;
 	u32 width;
 	u32 height;
-} fr_image_desc_t;
+} FcImageDesc;
 
 // image compact handle and data
-typedef struct fr_image_t
+typedef struct FcImage
 {
 	VkImage image;
 	VkDeviceMemory memory;
 	VkImageView view;
 	VkDeviceSize size;
-} fr_image_t;
+} FcImage;
 
 // image creation, allocates memory
-void fr_image_create(VkDevice device, VkPhysicalDevice physicalDevice, const fr_image_desc_t* pDesc,
-					  fr_image_t* pImage, fc_alloc_callbacks_t* pAllocCallbacks);
+void fcImageCreate(VkDevice device, VkPhysicalDevice physicalDevice, const FcImageDesc* pDesc,
+					  FcImage* pImage, FcAllocator* pAllocCallbacks);
 
 // image release, deallocates memory
-void fr_image_release(VkDevice device, fr_image_t* pImage, struct fc_alloc_callbacks_t* pAllocCallbacks);
+void fcImageRelease(VkDevice device, FcImage* pImage, struct FcAllocator* pAllocCallbacks);

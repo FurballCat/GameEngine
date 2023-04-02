@@ -11,31 +11,31 @@
 	#error No HID input implementation for this platform
 #endif
 
-typedef struct fi_input_manager_t
+typedef struct FcInputManager
 {
-	fi_hid_input_t gamepad;
-} fi_input_manager_t;
+	FcInputHID gamepad;
+} FcInputManager;
 
-fi_input_manager_t* fi_input_manager_create(fc_alloc_callbacks_t* pAllocCallbacks)
+FcInputManager* fcInputManagerCreate(FcAllocator* pAllocCallbacks)
 {
-	fi_input_manager_t* pMgr = FUR_ALLOC_AND_ZERO(sizeof(fi_input_manager_t), 0, FC_MEMORY_SCOPE_INPUT, pAllocCallbacks);
+	FcInputManager* pMgr = FUR_ALLOC_AND_ZERO(sizeof(FcInputManager), 0, FC_MEMORY_SCOPE_INPUT, pAllocCallbacks);
 	
-	fi_hid_input_init(&pMgr->gamepad);
+	fcInputHIDInit(&pMgr->gamepad);
 	
 	return pMgr;
 }
 
-void fi_input_manager_release(fi_input_manager_t* pMgr, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcInputManagerRelease(FcInputManager* pMgr, FcAllocator* pAllocCallbacks)
 {
 	FUR_FREE(pMgr, pAllocCallbacks);
 }
 
-void fi_update_input_manager(fi_input_manager_t* pMgr, f64 currentTime)
+void fcInputManagerUpdate(FcInputManager* pMgr, f64 currentTime)
 {
-	fi_hid_input_update(&pMgr->gamepad, currentTime);
+	fcInputHIDUpdate(&pMgr->gamepad, currentTime);
 }
 
-u32 fi_get_input_events(const fi_input_manager_t* pMgr, fi_input_event_t* pEvents, u32 capacity, u32 startIndex)
+u32 fcInputManagerGetEvents(const FcInputManager* pMgr, FcInputEvent* pEvents, u32 capacity, u32 startIndex)
 {
-	return fi_hid_input_get_events(&pMgr->gamepad, pEvents, capacity, startIndex);
+	return fcInputHIDGetEvents(&pMgr->gamepad, pEvents, capacity, startIndex);
 }

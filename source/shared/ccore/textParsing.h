@@ -10,22 +10,22 @@ extern "C"
 #include "types.h"
 #include "api.h"
 	
-typedef struct fc_text_stream_ro_t
+typedef struct FcTextStreamRO
 {
 	const char* ptr;
 	const char* end;
-} fc_text_stream_ro_t;
+} FcTextStreamRO;
 
-CCORE_API bool fc_text_stream_is_eof(fc_text_stream_ro_t* stream, u32 offset);
-CCORE_API bool fc_text_parse_is_numeric(char chr);
-CCORE_API bool fc_text_parse_is_whitespace(char chr);
-CCORE_API bool fc_text_parse_whitespaces(fc_text_stream_ro_t* stream);
-CCORE_API bool fc_text_parse_character(fc_text_stream_ro_t* stream, char* outChar);
-CCORE_API bool fc_text_parse_keyword(fc_text_stream_ro_t* stream, const char* keyword);
-CCORE_API bool fc_text_parse_int32(fc_text_stream_ro_t* stream, i32* out);
-CCORE_API bool fc_text_parse_uint32(fc_text_stream_ro_t* stream, u32* out);
-CCORE_API bool fc_text_parse_float(fc_text_stream_ro_t* stream, f32* out);
-CCORE_API bool fc_text_parse_skip_line(fc_text_stream_ro_t* stream);
+CCORE_API bool fcTextStreamIsEOF(FcTextStreamRO* stream, u32 offset);
+CCORE_API bool fcTextParseIsNumeric(char chr);
+CCORE_API bool fcTextParseIsWhitespace(char chr);
+CCORE_API bool fcTextParseWhitespaces(FcTextStreamRO* stream);
+CCORE_API bool fcTextParseCharacter(FcTextStreamRO* stream, char* outChar);
+CCORE_API bool fcTextParseKeyword(FcTextStreamRO* stream, const char* keyword);
+CCORE_API bool fcTextParseInt32(FcTextStreamRO* stream, i32* out);
+CCORE_API bool fcTextParseUint32(FcTextStreamRO* stream, u32* out);
+CCORE_API bool fcTextParseFloat(FcTextStreamRO* stream, f32* out);
+CCORE_API bool fcTextParseSkipLine(FcTextStreamRO* stream);
 	
 #ifdef __cplusplus
 }

@@ -9,7 +9,7 @@
 
 #define MIN(x, y) x < y ? x : y
 
-void fa_rig_release(fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcRigRelease(FcRig* rig, FcAllocator* pAllocCallbacks)
 {
 	FUR_FREE(rig->boneNameHashes, pAllocCallbacks);
 	FUR_FREE(rig->parents, pAllocCallbacks);
@@ -25,7 +25,7 @@ void fa_rig_release(fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks)
 	FUR_FREE(rig, pAllocCallbacks);
 }
 
-int16_t fa_rig_find_bone_idx(const fa_rig_t* rig, fc_string_hash_t name)
+int16_t fcRigFindBoneIdx(const FcRig* rig, FcStringId name)
 {
 	for(i32 i=0; i<rig->numBones; ++i)
 	{
@@ -36,7 +36,7 @@ int16_t fa_rig_find_bone_idx(const fa_rig_t* rig, fc_string_hash_t name)
 	return -1;
 }
 
-const u8* fa_rig_get_mask(const fa_rig_t* rig, fa_mask_t mask)
+const u8* fcRigGetMask(const FcRig* rig, FcAnimMask mask)
 {
 	if(mask == FA_MASK_UPPER_BODY)
 		return rig->maskUpperBody;
@@ -62,9 +62,9 @@ void fm_axis_to_vec4(fm_axis_t axis, fm_vec4* v)
 	*v = axes[axis];
 }
 /*
-typedef struct fa_rig_t
+typedef struct FcRig
 {
-	fc_string_hash_t* boneNameHashes;
+	FcStringId* boneNameHashes;
 	int16_t* parents;
 	fm_xform* refPose;
 	u32 numBones;
@@ -73,26 +73,26 @@ typedef struct fa_rig_t
 	int16_t idxLocoJoint;	// root motion joint index
 	
 	// inverse kinematics
-	fa_ik_setup_t ikLeftLeg;
-	fa_ik_setup_t ikRightLeg;
+	FcAnimIKSetup ikLeftLeg;
+	FcAnimIKSetup ikRightLeg;
 	
 	// look-at
-	fa_look_at_setup_t headLookAt;
+	FcAnimLookAtSetup headLookAt;
 	
 	// masks
 	u8* maskUpperBody;
 	u8* maskFace;
 	u8* maskHands;
-} fa_rig_t;
+} FcRig;
 */
 
-typedef enum fa_rig_version_t
+typedef enum FcRigVersion
 {
 	FA_RIG_VER_BASE = 0,
 	FA_RIG_VER_LAST,
-} fa_rig_version_t;
+} FcRigVersion;
 
-void fa_rig_ik_setup_serialize(fc_serializer_t* pSerializer, fa_ik_setup_t* ikSetup, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcRigIkSetupSerialize(FcSerializer* pSerializer, FcAnimIKSetup* ikSetup, FcAllocator* pAllocCallbacks)
 {
 	FUR_SER_ADD(FA_RIG_VER_BASE, ikSetup->idxBegin);
 	FUR_SER_ADD(FA_RIG_VER_BASE, ikSetup->idxMid);
@@ -103,7 +103,7 @@ void fa_rig_ik_setup_serialize(fc_serializer_t* pSerializer, fa_ik_setup_t* ikSe
 	FUR_SER_ADD(FA_RIG_VER_BASE, ikSetup->minAngle);
 }
 
-void fa_rig_serialize(fc_serializer_t* pSerializer, fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcRigSerialize(FcSerializer* pSerializer, FcRig* rig, FcAllocator* pAllocCallbacks)
 {
 	FUR_SER_VERSION(FA_RIG_VER_LAST-1);
 	
@@ -113,24 +113,24 @@ void fa_rig_serialize(fc_serializer_t* pSerializer, fa_rig_t* rig, fc_alloc_call
 	
 	if(!pSerializer->isWriting)
 	{
-		rig->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(fc_string_hash_t, rig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		rig->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(FcStringId, rig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 		rig->refPose = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, rig->numBones, 8, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		rig->parents = FUR_ALLOC_ARRAY_AND_ZERO(int16_t, rig->numBones, 8, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		rig->parents = FUR_ALLOC_ARRAY_AND_ZERO(i16, rig->numBones, 8, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 		rig->maskUpperBody = FUR_ALLOC_ARRAY_AND_ZERO(u8, rig->numBones, 8, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 		rig->maskHands = FUR_ALLOC_ARRAY_AND_ZERO(u8, rig->numBones, 8, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 		rig->maskFace = FUR_ALLOC_ARRAY_AND_ZERO(u8, rig->numBones, 8, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 	}
 	
-	FUR_SER_ADD_BUFFER(FA_RIG_VER_BASE, rig->boneNameHashes, sizeof(fc_string_hash_t) * rig-> numBones);
+	FUR_SER_ADD_BUFFER(FA_RIG_VER_BASE, rig->boneNameHashes, sizeof(FcStringId) * rig-> numBones);
 	FUR_SER_ADD_BUFFER(FA_RIG_VER_BASE, rig->refPose, sizeof(fm_xform) * rig-> numBones);
-	FUR_SER_ADD_BUFFER(FA_RIG_VER_BASE, rig->parents, sizeof(int16_t) * rig-> numBones);
+	FUR_SER_ADD_BUFFER(FA_RIG_VER_BASE, rig->parents, sizeof(i16) * rig-> numBones);
 	FUR_SER_ADD_BUFFER(FA_RIG_VER_BASE, rig->maskUpperBody, sizeof(u8) * rig-> numBones);
 	FUR_SER_ADD_BUFFER(FA_RIG_VER_BASE, rig->maskHands, sizeof(u8) * rig-> numBones);
 	FUR_SER_ADD_BUFFER(FA_RIG_VER_BASE, rig->maskFace, sizeof(u8) * rig-> numBones);
 	
 	// inverse kinematics
-	fa_rig_ik_setup_serialize(pSerializer, &rig->ikLeftLeg, pAllocCallbacks);
-	fa_rig_ik_setup_serialize(pSerializer, &rig->ikRightLeg, pAllocCallbacks);
+	fcRigIkSetupSerialize(pSerializer, &rig->ikLeftLeg, pAllocCallbacks);
+	fcRigIkSetupSerialize(pSerializer, &rig->ikRightLeg, pAllocCallbacks);
 	
 	// look at
 	FUR_SER_ADD(FA_RIG_VER_BASE, rig->headLookAt.idxHead);

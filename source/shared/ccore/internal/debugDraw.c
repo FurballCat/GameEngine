@@ -27,7 +27,7 @@
 #define FC_DEBUG_RECTS_VERTEX_NUM_FLOATS 6
 #define FC_DEBUG_RECT_SIZE sizeof(f32) * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS * FC_DEBUG_RECT_NUM_VERTICES
 
-typedef struct fc_debug_fragments_t
+typedef struct FcDebugFragments
 {
 	// debug 3D lines
 	f32* linesData;
@@ -50,22 +50,22 @@ typedef struct fc_debug_fragments_t
 	u32 numRects;
 
 	// screen info
-	fc_dbg_screen_info_t screenInfo;
+	FcDebugScreenInfo screenInfo;
 	
-} fc_debug_fragments_t;
+} FcDebugFragments;
 
-fc_debug_fragments_t g_debugFragments;
+FcDebugFragments g_debugFragments;
 
-void fc_dbg_init(fc_alloc_callbacks_t* pAllocCallbacks)
+void fcDebugInit(FcAllocator* pAllocCallbacks)
 {
-	memset(&g_debugFragments, 0, sizeof(fc_debug_fragments_t));
+	memset(&g_debugFragments, 0, sizeof(FcDebugFragments));
 	
 	// lines alloc
-	g_debugFragments.linesData = FUR_ALLOC(fc_dbg_line_buffer_size(), 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
+	g_debugFragments.linesData = FUR_ALLOC(fcDebugLineBufferSize(), 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
 	g_debugFragments.numLines = 0;
 	
 	// triangles alloc
-	g_debugFragments.trianglesData = FUR_ALLOC(fc_dbg_triangle_buffer_size(), 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
+	g_debugFragments.trianglesData = FUR_ALLOC(fcDebugTriangleBufferSize(), 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
 	g_debugFragments.numTriangles = 0;
 	
 	// text alloc
@@ -100,7 +100,7 @@ void fc_dbg_init(fc_alloc_callbacks_t* pAllocCallbacks)
 	g_debugFragments.numTextLines = 0;
 }
 
-void fc_dbg_release(fc_alloc_callbacks_t* pAllocCallbacks)
+void fcDebugRelease(FcAllocator* pAllocCallbacks)
 {
 	FUR_FREE(g_debugFragments.linesData, pAllocCallbacks);
 	FUR_FREE(g_debugFragments.trianglesData, pAllocCallbacks);
@@ -110,10 +110,10 @@ void fc_dbg_release(fc_alloc_callbacks_t* pAllocCallbacks)
 	FUR_FREE(g_debugFragments.textScaleData, pAllocCallbacks);
 	FUR_FREE(g_debugFragments.rectData, pAllocCallbacks);
 	
-	memset(&g_debugFragments, 0, sizeof(fc_debug_fragments_t));
+	memset(&g_debugFragments, 0, sizeof(FcDebugFragments));
 }
 
-void fc_dbg_line(const f32 start[3], const f32 end[3], const f32 color[4])
+void fcDebugLine(const f32 start[3], const f32 end[3], const f32 color[4])
 {
 	FUR_ASSERT(g_debugFragments.numLines < FC_DEBUG_FRAGMENTS_LINES_CAPACITY);
 	
@@ -142,28 +142,28 @@ void fc_dbg_line(const f32 start[3], const f32 end[3], const f32 color[4])
 	FUR_ASSERT(idx == g_debugFragments.numLines * 2 * FC_DEBUG_VERTEX_NUM_FLOATS);
 }
 
-u32 fc_dbg_line_num_total_vertices(void)
+u32 fcDebugLineNumTotalVertices(void)
 {
 	return 2 * FC_DEBUG_FRAGMENTS_LINES_CAPACITY;
 }
 
-u32 fc_dbg_line_buffer_size(void)
+u32 fcDebugLineBufferSize(void)
 {
 	return FC_DEBUG_LINE_SIZE * FC_DEBUG_FRAGMENTS_LINES_CAPACITY;
 }
 
-void fc_dbg_buffers_lock(void)
+void fcDebugBuffersLock(void)
 {
 	// todo: implement when multithreading comes in
 }
 
-void fc_dbg_get_buffers(fc_dbg_buffer_desc_t* outDesc)
+void fcDebugBuffersGet(FcDebugBuffersDesc* outDesc)
 {
 	outDesc->linesData = g_debugFragments.linesData;
-	outDesc->linesDataSize = fc_dbg_line_current_lines_size();
+	outDesc->linesDataSize = fcDebugLineCurrentLinesSize();
 	
 	outDesc->trianglesData = g_debugFragments.trianglesData;
-	outDesc->trianglesDataSize = fc_dbg_triangles_current_triangles_size();
+	outDesc->trianglesDataSize = fcDebugTrianglesCurrentTrianglesSize();
 	
 	outDesc->textLocationData = g_debugFragments.textLocationData;
 	outDesc->textCharactersData = g_debugFragments.textCharactersData;
@@ -173,75 +173,75 @@ void fc_dbg_get_buffers(fc_dbg_buffer_desc_t* outDesc)
 	outDesc->textCharacterDataSize = g_debugFragments.numTextCharacters;
 	
 	outDesc->rectsData = g_debugFragments.rectData;
-	outDesc->rectsDataSize = fc_dbg_rects_current_data_size();
+	outDesc->rectsDataSize = fcDebugRectsCurrentDataSize();
 }
 
-const f32* fc_dbg_line_get_data(void)
+const f32* fcDebugLineGetData(void)
 {
 	return g_debugFragments.linesData;
 }
 
-u32 fc_dbg_line_current_num_lines(void)
+u32 fcDebugLineCurrentNumlines(void)
 {
 	return g_debugFragments.numLines;
 }
 
-u32 fc_dbg_line_current_lines_size(void)
+u32 fcDebugLineCurrentLinesSize(void)
 {
-	return FC_DEBUG_LINE_SIZE * fc_dbg_line_current_num_lines();
+	return FC_DEBUG_LINE_SIZE * fcDebugLineCurrentNumlines();
 }
 
-const f32* fc_dbg_triangles_get_data(void)
+const f32* fcDebugTrianglesGetData(void)
 {
 	return g_debugFragments.trianglesData;
 }
 
-u32 fc_dbg_triangles_current_num_triangles(void)
+u32 fcDebugTrianglesCurrentNumTriangles(void)
 {
 	return g_debugFragments.numTriangles;
 }
 
-u32 fc_dbg_triangles_current_triangles_size(void)
+u32 fcDebugTrianglesCurrentTrianglesSize(void)
 {
-	return FC_DEBUG_TRIANGLE_SIZE * fc_dbg_triangles_current_num_triangles();
+	return FC_DEBUG_TRIANGLE_SIZE * fcDebugTrianglesCurrentNumTriangles();
 }
 
-u32 fc_dbg_triangles_num_total_vertices(void)
+u32 fcDebugTrianglesNumTotalVertices(void)
 {
 	return 3 * FC_DEBUG_FRAGMENTS_TRIANGLES_CAPACITY;
 }
 
-u32 fc_dbg_rects_current_num_rects(void)
+u32 fcDebugRectsCurrentNumRects(void)
 {
 	return g_debugFragments.numRects;
 }
 
-u32 fc_dbg_rects_buffer_size(void)
+u32 fcDebugRectsBufferSize(void)
 {
-	return fc_dbg_rects_num_total_vertices() * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS * sizeof(f32);
+	return fcDebugRectsNumTotalVertices() * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS * sizeof(f32);
 }
 
-u32 fc_dbg_rects_current_num_vertices(void)
+u32 fcDebugRectsCurrentNumVertices(void)
 {
-	return fc_dbg_rects_current_num_rects() * FC_DEBUG_RECT_NUM_VERTICES;
+	return fcDebugRectsCurrentNumRects() * FC_DEBUG_RECT_NUM_VERTICES;
 }
 
-u32 fc_dbg_rects_current_data_size(void)
+u32 fcDebugRectsCurrentDataSize(void)
 {
-	return fc_dbg_rects_current_num_vertices() * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS * sizeof(f32);
+	return fcDebugRectsCurrentNumVertices() * FC_DEBUG_RECTS_VERTEX_NUM_FLOATS * sizeof(f32);
 }
 
-u32 fc_dbg_rects_num_total_vertices(void)
+u32 fcDebugRectsNumTotalVertices(void)
 {
 	return FC_DEBUG_RECT_NUM_VERTICES * FC_DEBUG_FRAGMENTS_RECTS_CAPACITY;
 }
 
-u32 fc_dbg_rect_num_floats_per_vertex(void)
+u32 fcDebugRectsNumFloatsPerVertex(void)
 {
 	return FC_DEBUG_RECTS_VERTEX_NUM_FLOATS;
 }
 
-void fc_dbg_buffers_clear()
+void fcDebugBuffersClear()
 {
 	g_debugFragments.numLines = 0;
 	g_debugFragments.numTriangles = 0;
@@ -250,12 +250,12 @@ void fc_dbg_buffers_clear()
 	g_debugFragments.numRects = 0;
 }
 
-void fc_dbg_buffers_unlock(void)
+void fcDebugBuffersUnlock(void)
 {
 	// todo: implement when multithreading comes in
 }
 
-void fc_dbg_triangle(const f32 pointA[3], const f32 pointB[3], const f32 pointC[3], const f32 color[4])
+void fcDebugTriangle(const f32 pointA[3], const f32 pointB[3], const f32 pointC[3], const f32 color[4])
 {
 	FUR_ASSERT(g_debugFragments.numTriangles < FC_DEBUG_FRAGMENTS_TRIANGLES_CAPACITY);
 	
@@ -293,12 +293,12 @@ void fc_dbg_triangle(const f32 pointA[3], const f32 pointB[3], const f32 pointC[
 	FUR_ASSERT(idx == g_debugFragments.numTriangles * 3 * FC_DEBUG_VERTEX_NUM_FLOATS);
 }
 
-u32 fc_dbg_triangle_buffer_size(void)
+u32 fcDebugTriangleBufferSize(void)
 {
 	return FC_DEBUG_TRIANGLE_SIZE * FC_DEBUG_FRAGMENTS_TRIANGLES_CAPACITY;
 }
 
-void fc_dbg_box_wire(const f32 center[3], const f32 extent[3], const f32 color[4])
+void fcDebugBoxWire(const f32 center[3], const f32 extent[3], const f32 color[4])
 {
 	// convert to min/max bounding box
 	f32 a[3];
@@ -314,97 +314,97 @@ void fc_dbg_box_wire(const f32 center[3], const f32 extent[3], const f32 color[4
 	{
 		f32 start[3] = {a[0], a[1], a[2]};
 		f32 end[3] = {b[0], a[1], a[2]};
-		fc_dbg_line(start, end, color);
+		fcDebugLine(start, end, color);
 	}
 	
 	{
 		f32 start[3] = {a[0], b[1], a[2]};
 		f32 end[3] = {b[0], b[1], a[2]};
-		fc_dbg_line(start, end, color);
+		fcDebugLine(start, end, color);
 	}
 	
 	{
 		f32 start[3] = {a[0], a[1], b[2]};
 		f32 end[3] = {b[0], a[1], b[2]};
-		fc_dbg_line(start, end, color);
+		fcDebugLine(start, end, color);
 	}
 	
 	{
 		f32 start[3] = {a[0], b[1], b[2]};
 		f32 end[3] = {b[0], b[1], b[2]};
-		fc_dbg_line(start, end, color);
+		fcDebugLine(start, end, color);
 	}
 	
 	// four y-axis aligned lines
 	{
 		f32 start[3] = {a[0], a[1], a[2]};
 		f32 end[3] = {a[0], b[1], a[2]};
-		fc_dbg_line(start, end, color);
+		fcDebugLine(start, end, color);
 	}
 	
 	{
 		f32 start[3] = {b[0], a[1], a[2]};
 		f32 end[3] = {b[0], b[1], a[2]};
-		fc_dbg_line(start, end, color);
+		fcDebugLine(start, end, color);
 	}
 	
 	{
 		f32 start[3] = {a[0], a[1], b[2]};
 		f32 end[3] = {a[0], b[1], b[2]};
-		fc_dbg_line(start, end, color);
+		fcDebugLine(start, end, color);
 	}
 	
 	{
 		f32 start[3] = {b[0], a[1], b[2]};
 		f32 end[3] = {b[0], b[1], b[2]};
-		fc_dbg_line(start, end, color);
+		fcDebugLine(start, end, color);
 	}
 	
 	// four z-axis aligned lines
 	{
 		f32 start[3] = {a[0], a[1], a[2]};
 		f32 end[3] = {a[0], a[1], b[2]};
-		fc_dbg_line(start, end, color);
+		fcDebugLine(start, end, color);
 	}
 	
 	{
 		f32 start[3] = {b[0], a[1], a[2]};
 		f32 end[3] = {b[0], a[1], b[2]};
-		fc_dbg_line(start, end, color);
+		fcDebugLine(start, end, color);
 	}
 	
 	{
 		f32 start[3] = {a[0], b[1], a[2]};
 		f32 end[3] = {a[0], b[1], b[2]};
-		fc_dbg_line(start, end, color);
+		fcDebugLine(start, end, color);
 	}
 	
 	{
 		f32 start[3] = {b[0], b[1], a[2]};
 		f32 end[3] = {b[0], b[1], b[2]};
-		fc_dbg_line(start, end, color);
+		fcDebugLine(start, end, color);
 	}
 }
 
-void fc_dbg_plane(const f32 center[3], const f32 halfLength, const f32 color[4])
+void fcDebugPlane(const f32 center[3], const f32 halfLength, const f32 color[4])
 {
 	const f32 planeA[3] = {-halfLength + center[0], -halfLength + center[1], center[2]};
 	const f32 planeB[3] = {-halfLength + center[0], halfLength + center[1], center[2]};
 	const f32 planeC[3] = {halfLength + center[0], halfLength + center[1], center[2]};
 	const f32 planeD[3] = {halfLength + center[0], -halfLength + center[1], center[2]};
 	
-	fc_dbg_triangle(planeC, planeB, planeA, color);
-	fc_dbg_triangle(planeA, planeD, planeC, color);
+	fcDebugTriangle(planeC, planeB, planeA, color);
+	fcDebugTriangle(planeA, planeD, planeC, color);
 }
 
-void fc_dbg_helper_cross(const f32 a[3], const f32 b[3], f32 c[3])
+void fcDebugHelperCross(const f32 a[3], const f32 b[3], f32 c[3])
 {
 	c[0] = a[1] * b[2] - a[2] * b[1];
 	c[1] = a[0] * b[2] - a[2] * b[0];
 	c[2] = a[0] * b[1] - a[1] * b[0];
 }
 
-void fc_dbg_helper_perpendicular(f32 v1[3], f32 v2[3])
+void fcDebugHelperPerpendicular(f32 v1[3], f32 v2[3])
 {
 	// Find the index of the smallest element in v1
 	int i = (abs(v1[0]) < abs(v1[1])) ? 0 : 1;
@@ -416,13 +416,13 @@ void fc_dbg_helper_perpendicular(f32 v1[3], f32 v2[3])
 	v2[(i + 2) % 3] = -v1[(i + 1) % 3];
 }
 
-void fc_dbg_circle(const f32 center[3], const f32 radius, const f32 up[3], const f32 color[4])
+void fcDebugCircle(const f32 center[3], const f32 radius, const f32 up[3], const f32 color[4])
 {
 	f32 right[3] = { 0 };
-	fc_dbg_helper_perpendicular(up, right);
+	fcDebugHelperPerpendicular(up, right);
 
 	f32 left[3] = { 0 };
-	fc_dbg_helper_cross(up, right, left);
+	fcDebugHelperCross(up, right, left);
 
 	f32 v_start[3] = {
 		center[0] + radius * (cosf(0.0f) * right[0] + sinf(0.0f) * left[0]),
@@ -441,7 +441,7 @@ void fc_dbg_circle(const f32 center[3], const f32 radius, const f32 up[3], const
 			center[2] + radius * (cosf(segment_angle * i) * right[2] + sinf(segment_angle * i) * left[2])
 		};
 
-		fc_dbg_line(v_start, v_end, color);
+		fcDebugLine(v_start, v_end, color);
 
 		v_start[0] = v_end[0];
 		v_start[1] = v_end[1];
@@ -449,7 +449,7 @@ void fc_dbg_circle(const f32 center[3], const f32 radius, const f32 up[3], const
 	}
 }
 
-void fc_dbg_sphere_wire(const f32 center[3], const f32 radius, const f32 color[4])
+void fcDebugSphereWire(const f32 center[3], const f32 radius, const f32 color[4])
 {
 	f32 mat[3][3] = {
 		{ 1.0f, 0.0f, 0.0f },
@@ -476,7 +476,7 @@ void fc_dbg_sphere_wire(const f32 center[3], const f32 radius, const f32 color[4
 				center[2] + radius * (cosf(segment_angle * i) * mat[k%3][2] + sinf(segment_angle * i) * mat[(k+1)%3][2])
 			};
 
-			fc_dbg_line(v_start, v_end, color);
+			fcDebugLine(v_start, v_end, color);
 
 			v_start[0] = v_end[0];
 			v_start[1] = v_end[1];
@@ -485,7 +485,7 @@ void fc_dbg_sphere_wire(const f32 center[3], const f32 radius, const f32 color[4
 	}
 }
 
-void fc_dbg_text(f32 x, f32 y, const char* txt, const f32 color[4], f32 scale)
+void fcDebugText(f32 x, f32 y, const char* txt, const f32 color[4], f32 scale)
 {
 	const u32 length = (u32)strlen(txt);
 	const u32 idx = g_debugFragments.numTextLines;
@@ -519,19 +519,19 @@ void fc_dbg_text(f32 x, f32 y, const char* txt, const f32 color[4], f32 scale)
 	*dataScale = scale;
 }
 
-void fc_dbg_get_screen_info(fc_dbg_screen_info_t* info)
+void fcDebugGetScreenInfo(FcDebugScreenInfo* info)
 {
 	*info = g_debugFragments.screenInfo;
 }
 
-void fc_dbg_set_screen_info(const fc_dbg_screen_info_t* info)
+void fcDebugSetScreenInfo(const FcDebugScreenInfo* info)
 {
 	g_debugFragments.screenInfo = *info;
 }
 
-void fc_dbg_apply_anchor(f32* x, f32* y, fc_dbg_screen_anchors_t anchor)
+void fcDebugApplyAnchor(f32* x, f32* y, FcDebugScreenAnchors anchor)
 {
-	fc_dbg_screen_info_t s = g_debugFragments.screenInfo;
+	FcDebugScreenInfo s = g_debugFragments.screenInfo;
 
 	switch (anchor)
 	{
@@ -559,7 +559,7 @@ void fc_dbg_apply_anchor(f32* x, f32* y, fc_dbg_screen_anchors_t anchor)
 	}
 }
 
-void fc_dbg_rect(f32 x, f32 y, f32 width, f32 height, const f32 color[4])
+void fcDebugRect(f32 x, f32 y, f32 width, f32 height, const f32 color[4])
 {
 	FUR_ASSERT(g_debugFragments.numRects < FC_DEBUG_FRAGMENTS_RECTS_CAPACITY);
 	
@@ -694,12 +694,12 @@ void fc_dbg_rect(f32 x, f32 y, f32 width, f32 height, const f32 color[4])
 	vertices += vertexStride;
 }
 
-u32 fc_dbg_text_characters_capacity(void)
+u32 fcDebugTextCharactersCapacity(void)
 {
 	return FC_DEBUG_FRAGMENTS_TEXT_CHARACTERS_CAPACITY;
 }
 
-u32 fc_dbg_text_num_total_characters(void)
+u32 fcDebugTextNumTotalCharacter(void)
 {
 	return FC_DEBUG_FRAGMENTS_TEXT_CHARACTERS_CAPACITY;
 }

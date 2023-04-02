@@ -7,18 +7,18 @@
 
 #include "memory.h"
 
-bool fc_load_binary_file_into_binary_buffer(fc_depot_t* depot, fc_file_path_t path, fc_binary_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks)
+bool fcBinaryBufferLoad(FcDepot* depot, FcFilePath path, FcBinaryBuffer* pBuffer, FcAllocator* pAllocCallbacks)
 {
-	fc_file_t* file = fc_file_open(depot, path, "rb");
+	FcFile* file = fcFileOpen(depot, path, "rb");
 	if(file && pBuffer)
 	{
-		const u64 size = fc_file_size(file);
+		const u64 size = fcFileSize(file);
 		
 		pBuffer->pData = FUR_ALLOC(size, 8, FC_MEMORY_SCOPE_GLOBAL, pAllocCallbacks);
 		pBuffer->size = size;
 		
-		fc_file_read(pBuffer->pData, size, 1, file);
-		fc_file_close(file);
+		fcFileRead(pBuffer->pData, size, 1, file);
+		fcFileClose(file);
 		
 		return true;
 	}
@@ -26,19 +26,19 @@ bool fc_load_binary_file_into_binary_buffer(fc_depot_t* depot, fc_file_path_t pa
 	return false;
 }
 
-void fc_release_binary_buffer(fc_binary_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcBinaryBufferRelease(FcBinaryBuffer* pBuffer, FcAllocator* pAllocCallbacks)
 {
 	FUR_FREE(pBuffer->pData, pAllocCallbacks);
 }
 
-void fc_init_binary_buffer_stream(const fc_binary_buffer_t* buffer, fc_binary_buffer_stream_t* outStream)
+void fcBinaryBufferStreamInit(const FcBinaryBuffer* buffer, FcBinaryBufferStream* outStream)
 {
 	outStream->buffer = buffer;
 	outStream->pos = buffer->pData;
 	outStream->endPos = (u8*)buffer->pData + buffer->size;
 }
 
-u32 fc_read_binary_buffer(fc_binary_buffer_stream_t* stream, u32 numBytes, void* output)
+u32 fcBinaryBufferStreamRead(FcBinaryBufferStream* stream, u32 numBytes, void* output)
 {
 	if((u8*)stream->pos + numBytes <= (u8*)stream->endPos)
 	{
@@ -53,7 +53,7 @@ u32 fc_read_binary_buffer(fc_binary_buffer_stream_t* stream, u32 numBytes, void*
 	return 0;
 }
 
-u32 fc_peek_binary_buffer(fc_binary_buffer_stream_t* stream, u32 numBytes, void* output)
+u32 fcBinaryBufferStreamPeek(FcBinaryBufferStream* stream, u32 numBytes, void* output)
 {
 	if((u8*)stream->pos + numBytes <= (u8*)stream->endPos)
 	{
@@ -67,18 +67,18 @@ u32 fc_peek_binary_buffer(fc_binary_buffer_stream_t* stream, u32 numBytes, void*
 	return 0;
 }
 
-bool fc_load_text_file_into_text_buffer(fc_depot_t* depot, fc_file_path_t path, fc_text_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks)
+bool fcTextBufferLoad(FcDepot* depot, FcFilePath path, FcTextBuffer* pBuffer, FcAllocator* pAllocCallbacks)
 {
-	fc_file_t* file = fc_file_open(depot, path, "r");
+	FcFile* file = fcFileOpen(depot, path, "r");
 	if (file && pBuffer)
 	{
-		const u64 size = fc_file_size(file);
+		const u64 size = fcFileSize(file);
 		
 		pBuffer->pData = (char*)FUR_ALLOC(size, 8, FC_MEMORY_SCOPE_GLOBAL, pAllocCallbacks);
 		pBuffer->size = size;
 		
-		fc_file_read(pBuffer->pData, size, 1, file);
-		fc_file_close(file);
+		fcFileRead(pBuffer->pData, size, 1, file);
+		fcFileClose(file);
 		
 		return true;
 	}
@@ -86,7 +86,7 @@ bool fc_load_text_file_into_text_buffer(fc_depot_t* depot, fc_file_path_t path, 
 	return false;
 }
 
-void fc_release_text_buffer(fc_text_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcTextBufferRelease(FcTextBuffer* pBuffer, FcAllocator* pAllocCallbacks)
 {
 	FUR_FREE(pBuffer->pData, pAllocCallbacks);
 }

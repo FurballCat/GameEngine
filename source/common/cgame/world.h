@@ -9,39 +9,39 @@ extern "C"
 {
 #endif // __cplusplus
 
-typedef u32 fc_string_hash_t;
-typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
-typedef struct fc_mem_rel_heap_alloc_t fc_mem_rel_heap_alloc_t;
+typedef u32 FcStringId;
+typedef struct FcAllocator FcAllocator;
+typedef struct FcMemRelHeapPool FcMemRelHeapPool;
 
 typedef union fg_spawn_info_prop_value_t
 {
 	i32 asInt32;
 	f32 asFloat;
-	fc_string_hash_t asStringHash;
+	FcStringId asStringHash;
 } fg_spawn_info_prop_value_t;
 
 typedef struct fg_spawn_info_properties_t
 {
 	i32 num;
-	fc_string_hash_t* names;
+	FcStringId* names;
 	fg_spawn_info_prop_value_t* values;
 } fg_spawn_info_properties_t;
 
 // info for initialising game object
-typedef struct fg_spawn_info_t
+typedef struct FcSpawnInfo
 {
 	// unique ID of the game object, can be used in scripts
-	fc_string_hash_t gameObjectName;
+	FcStringId gameObjectName;
 	
 	// key-value list of properties (only different than default)
 	fg_spawn_info_properties_t props;
 	
-} fg_spawn_info_t;
+} FcSpawnInfo;
 
 // get key-value properties through these functions
-f32 fg_spawn_info_get_float(const fg_spawn_info_t* info, fc_string_hash_t name, f32 defaultValue);
-i32 fg_spawn_info_get_int(const fg_spawn_info_t* info, fc_string_hash_t name, i32 defaultValue);
-fc_string_hash_t fg_spawn_info_get_string_hash(const fg_spawn_info_t* info, fc_string_hash_t name, fc_string_hash_t defaultValue);
+f32 fg_spawn_info_get_float(const FcSpawnInfo* info, FcStringId name, f32 defaultValue);
+i32 fg_spawn_info_get_int(const FcSpawnInfo* info, FcStringId name, i32 defaultValue);
+FcStringId fg_spawn_info_get_string_hash(const FcSpawnInfo* info, FcStringId name, FcStringId defaultValue);
 
 // stack allocator for game object used on init
 typedef struct fg_stack_allocator_t
@@ -53,180 +53,180 @@ typedef struct fg_stack_allocator_t
 
 void* fg_stack_alloc(fg_stack_allocator_t* allocator, i32 size);
 
-typedef enum fg_update_bucket_t
+typedef enum FcUpdateBucket
 {
 	FG_UPDATE_BUCKET_CHARACTERS = 0,
 	FG_UPDATE_BUCKET_COUNT
-} fg_update_bucket_t;
+} FcUpdateBucket;
 
-typedef struct fg_resource_register_t fg_resource_register_t;
-typedef struct fg_systems_register_t fg_systems_register_t;
-typedef struct fg_game_object_2_t fg_game_object_2_t;
+typedef struct FcResourceRegister FcResourceRegister;
+typedef struct FcSystems FcSystems;
+typedef struct FcGameObject FcGameObject;
 
-typedef struct fg_game_object_init_ctx_t
+typedef struct FcGameObjectInitCtx
 {
 	// all the information from spawner
-	const fg_spawn_info_t* info;
+	const FcSpawnInfo* info;
 	
 	// each object can allocate its memory on stack in level heap during init
-	fc_alloc_callbacks_t* stackAlloc;
+	FcAllocator* stackAlloc;
 	
 	// register of all available resources
-	const fg_resource_register_t* resources;
+	const FcResourceRegister* resources;
 	
 	// all systems
-	const fg_systems_register_t* systems;
+	const FcSystems* systems;
 	
 	// current global time
 	f64 globalTime;	// todo: remove?
-} fg_game_object_init_ctx_t;
+} FcGameObjectInitCtx;
 
-typedef bool (*fg_game_object_init_func_t)(fg_game_object_2_t* gameObject, fg_game_object_init_ctx_t* ctx);
+typedef bool (*FcGameObjectInitFn)(FcGameObject* gameObject, FcGameObjectInitCtx* ctx);
 
-typedef struct fg_game_object_update_ctx_t
+typedef struct FcGameObjectUpdateCtx
 {
 	f32 dt;
-} fg_game_object_update_ctx_t;
+} FcGameObjectUpdateCtx;
 
-typedef void (*fg_game_object_update_func_t)(fg_game_object_2_t* gameObject, fg_game_object_update_ctx_t* ctx);
+typedef void (*FcGameObjectUpdateFn)(FcGameObject* gameObject, FcGameObjectUpdateCtx* ctx);
 
-typedef struct fg_game_object_funcs_t
+typedef struct FcGameObjectFuncs
 {
-	fg_game_object_init_func_t init;
-	fg_game_object_update_func_t update;
-} fg_game_object_funcs_t;
+	FcGameObjectInitFn init;
+	FcGameObjectUpdateFn update;
+} FcGameObjectFuncs;
 
 // handle for the game object data
-typedef struct fg_game_object_2_t
+typedef struct FcGameObject
 {
-	const fg_game_object_funcs_t* fn;
-	fc_string_hash_t name;
-} fg_game_object_2_t;
+	const FcGameObjectFuncs* fn;
+	FcStringId name;
+} FcGameObject;
 
-typedef struct fc_binary_buffer_t fc_binary_buffer_t;
-typedef struct fa_anim_clip_t fa_anim_clip_t;
-typedef struct fa_rig_t fa_rig_t;
-typedef struct fr_proxy_t fr_proxy_t;
+typedef struct FcBinaryBuffer FcBinaryBuffer;
+typedef struct FcAnimClip FcAnimClip;
+typedef struct FcRig FcRig;
+typedef struct FcRenderProxy FcRenderProxy;
 
-FUR_DEFINE_MAP_TYPE(fg_resource_map_scripts_t, fc_string_hash_t, const fc_binary_buffer_t*);
-FUR_DEFINE_MAP_TYPE(fg_resource_map_anim_clip_t, fc_string_hash_t, const fa_anim_clip_t*);
-FUR_DEFINE_MAP_TYPE(fg_resource_map_rig_t, fc_string_hash_t, const fa_rig_t*);
-FUR_DEFINE_MAP_TYPE(fg_resource_map_mesh_t, fc_string_hash_t, const fr_proxy_t*);
+FUR_DEFINE_MAP_TYPE(FcResourceMapScripts, FcStringId, const FcBinaryBuffer*);
+FUR_DEFINE_MAP_TYPE(FcResourceMapAnimClips, FcStringId, const FcAnimClip*);
+FUR_DEFINE_MAP_TYPE(FcResourceMapRigs, FcStringId, const FcRig*);
+FUR_DEFINE_MAP_TYPE(FcResourceMapMeshes, FcStringId, const FcRenderProxy*);
 
-typedef struct fg_resource_register_t
+typedef struct FcResourceRegister
 {
-	fg_resource_map_scripts_t scripts;
-	fg_resource_map_anim_clip_t animations;
-	fg_resource_map_rig_t rigs;
-	fg_resource_map_mesh_t meshes;
-} fg_resource_register_t;
+	FcResourceMapScripts scripts;
+	FcResourceMapAnimClips animations;
+	FcResourceMapRigs rigs;
+	FcResourceMapMeshes meshes;
+} FcResourceRegister;
 
-const fa_anim_clip_t* fg_resource_find_anim(const fg_resource_register_t* reg, fc_string_hash_t name);
-const fc_binary_buffer_t* fg_resource_find_script(const fg_resource_register_t* reg, fc_string_hash_t name);
-const fa_rig_t* fg_resource_find_rig(const fg_resource_register_t* reg, fc_string_hash_t name);
-const fr_proxy_t* fg_resource_find_mesh(const fg_resource_register_t* reg, fc_string_hash_t name);
+const FcAnimClip* fcResourceRegisterFindAnimClip(const FcResourceRegister* reg, FcStringId name);
+const FcBinaryBuffer* fcResourceRegisterFindScript(const FcResourceRegister* reg, FcStringId name);
+const FcRig* fcResourceRegisterFindRig(const FcResourceRegister* reg, FcStringId name);
+const FcRenderProxy* fcResourceRegisterFindMesh(const FcResourceRegister* reg, FcStringId name);
 
-void fg_resource_add_anim(fg_resource_register_t* reg, fc_string_hash_t name, const fa_anim_clip_t* res);
-void fg_resource_add_script(fg_resource_register_t* reg, fc_string_hash_t name, const fc_binary_buffer_t* res);
-void fg_resource_add_rig(fg_resource_register_t* reg, fc_string_hash_t name, const fa_rig_t* res);
-void fg_resource_add_mesh(fg_resource_register_t* reg, fc_string_hash_t name, const fr_proxy_t* res);
+void fcResourceRegisterAddAnimClip(FcResourceRegister* reg, FcStringId name, const FcAnimClip* res);
+void fcResourceRegisterAddScript(FcResourceRegister* reg, FcStringId name, const FcBinaryBuffer* res);
+void fcResourceRegisterAddRig(FcResourceRegister* reg, FcStringId name, const FcRig* res);
+void fcResourceRegisterAddMesh(FcResourceRegister* reg, FcStringId name, const FcRenderProxy* res);
 
-typedef struct fr_renderer_t fr_renderer_t;
-typedef struct fa_anim_sys_t fa_anim_sys_t;
+typedef struct FcRenderer FcRenderer;
+typedef struct FcAnimSystem FcAnimSystem;
 
-typedef struct fg_systems_register_t
+typedef struct FcSystems
 {
-	fr_renderer_t* renderer;
-	fa_anim_sys_t* animation;
-} fg_systems_register_t;
+	FcRenderer* renderer;
+	FcAnimSystem* animation;
+} FcSystems;
 
 // used for defining how to initialise specific type of game object
-typedef struct fg_type_factory_t
+typedef struct FcGameObjectFactory
 {
 	// game object custom functions
-	fg_game_object_funcs_t fn;
+	FcGameObjectFuncs fn;
 	
 	// size information for relocatable memory management, see level heap
 	u32 memoryMaxSize;
 	
 	// which bucket is the game object updated in
-	fg_update_bucket_t updateBucket;
-} fg_type_factory_t;
+	FcUpdateBucket updateBucket;
+} FcGameObjectFactory;
 
-void fg_type_factory_register_new(fc_string_hash_t typeName, fg_type_factory_t factory);
+void fcGameObjectFactoryRegisterNew(FcStringId typeName, FcGameObjectFactory factory);
 
 // use index to get pointer to the game object, then compare go.name to name to f64 check
-typedef struct fg_game_object_handle_t
+typedef struct FcGameObjectHandle
 {
 	// index of the game object slot
 	i32 index;
 	
 	// unique name
-	fc_string_hash_t name;
-} fg_game_object_handle_t;
+	FcStringId name;
+} FcGameObjectHandle;
 
-FUR_DEFINE_ARRAY_TYPE(fg_game_object_handle_array_t, fg_game_object_handle_t);
-FUR_DEFINE_ARRAY_TYPE(fc_game_object_array_t, fg_game_object_2_t);
+FUR_DEFINE_ARRAY_TYPE(FcArrayGameObjectHandles, FcGameObjectHandle);
+FUR_DEFINE_ARRAY_TYPE(FcArrayGameObjects, FcGameObject);
 
-typedef struct fg_spawner_t
+typedef struct FcSpawner
 {
-	fc_string_hash_t typeName;
-	fc_string_hash_t name;
-	fg_spawn_info_t info;
-} fg_spawner_t;
+	FcStringId typeName;
+	FcStringId name;
+	FcSpawnInfo info;
+} FcSpawner;
 
 #define MAX_GAME_OBJECTS_SPAWNED 2048
 
-typedef struct fg_game_object_info_storage_t
+typedef struct FcGameObjectInfoStorage
 {
-	fg_game_object_2_t* ptr[MAX_GAME_OBJECTS_SPAWNED];
-	const fg_spawner_t* spawner[MAX_GAME_OBJECTS_SPAWNED];
+	FcGameObject* ptr[MAX_GAME_OBJECTS_SPAWNED];
+	const FcSpawner* spawner[MAX_GAME_OBJECTS_SPAWNED];
 	
 	// number of initialised game objects
 	i32 numInit;
 	
 	// total number of game objects
 	i32 num;
-} fg_game_object_info_storage_t;
+} FcGameObjectInfoStorage;
 
-typedef struct fg_world_t
+typedef struct FcWorld
 {
 	// list of all game object info (use game object index to get data)
-	fg_game_object_info_storage_t gameObjects;
+	FcGameObjectInfoStorage gameObjects;
 	
 	// list of all game objects
-	fc_game_object_array_t allGameObjects;
+	FcArrayGameObjects allGameObjects;
 
 	// memory for dynamic objects (game objects), does not include resources like animation, meshes, textures
-	fc_mem_rel_heap_alloc_t* levelHeap;
+	FcMemRelHeapPool* levelHeap;
 	
 	// all available resources in the world
-	fg_resource_register_t resources;
+	FcResourceRegister resources;
 	
 	// low-level systems
-	fg_systems_register_t systems;
+	FcSystems systems;
 	
 	// game objects in update buckets
-	fg_game_object_handle_array_t buckets[FG_UPDATE_BUCKET_COUNT];
+	FcArrayGameObjectHandles buckets[FG_UPDATE_BUCKET_COUNT];
 	
 	// true if something is pending to spawn
 	bool hasSpawnScheduled;
 	
-} fg_world_t;
+} FcWorld;
 
-void fg_world_init(fg_world_t* world, fc_alloc_callbacks_t* pAllocCallbacks);
-void fg_world_release(fg_world_t* world, fc_alloc_callbacks_t* pAllocCallbacks);
+void fcWorldInit(FcWorld* world, FcAllocator* pAllocCallbacks);
+void fcWorldRelease(FcWorld* world, FcAllocator* pAllocCallbacks);
 
-typedef struct fg_world_update_ctx_t
+typedef struct FcWorldUpdateCtx
 {
 	f32 dt;
-} fg_world_update_ctx_t;
+} FcWorldUpdateCtx;
 
-void fg_world_update(fg_world_t* world, fg_world_update_ctx_t* ctx, fg_update_bucket_t bucket);
+void fcWorldUpdate(FcWorld* world, FcWorldUpdateCtx* ctx, FcUpdateBucket bucket);
 
 // all resources should be already loaded at the time of spawn call
-fg_game_object_handle_t fg_spawn(const fg_spawner_t* spawner, fg_world_t* world);
-void fg_despawn(fg_game_object_handle_t handle, fg_world_t* world);
+FcGameObjectHandle fcSpawn(const FcSpawner* spawner, FcWorld* world);
+void fcDespawn(FcGameObjectHandle handle, FcWorld* world);
 
 #ifdef __cplusplus
 }

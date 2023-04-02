@@ -6,7 +6,7 @@
 #include "cmath/public.h"
 #include <string.h>
 
-void fa_pose_set_identity(fa_pose_t* pose, const u8* mask)
+void FcPoseSetIdentity(FcPose* pose, const u8* mask)
 {
 	fm_xform* xforms = pose->xforms;
 	f32* tracks = pose->tracks;
@@ -45,7 +45,7 @@ void fa_pose_set_identity(fa_pose_t* pose, const u8* mask)
 	}
 }
 
-void fa_pose_set_reference(const fa_rig_t* rig, fa_pose_t* pose, const u8* mask)
+void FcPoseSetReference(const FcRig* rig, FcPose* pose, const u8* mask)
 {
 	FUR_ASSERT(rig->numBones == pose->numXforms);
 	
@@ -90,7 +90,7 @@ void fa_pose_set_reference(const fa_rig_t* rig, fa_pose_t* pose, const u8* mask)
 
 // -----
 
-void fa_pose_copy(fa_pose_t* dest, const fa_pose_t* src)
+void FcPoseCopy(FcPose* dest, const FcPose* src)
 {
 	const u32 numXforms = FM_MIN(src->numXforms, dest->numXforms);
 	if(numXforms > 0)
@@ -113,7 +113,7 @@ void fa_pose_copy(fa_pose_t* dest, const fa_pose_t* src)
 	}
 }
 
-void fa_pose_local_to_model(fa_pose_t* modelPose, const fa_pose_t* localPose, const int16_t* parentIndices)
+void FcPoseLocalToModel(FcPose* modelPose, const FcPose* localPose, const int16_t* parentIndices)
 {
 	const fm_xform* localXforms = localPose->xforms;
 	fm_xform* modelXforms = modelPose->xforms;
@@ -142,7 +142,7 @@ void fa_pose_local_to_model(fa_pose_t* modelPose, const fa_pose_t* localPose, co
 	}
 }
 
-void fa_pose_blend_linear(fa_pose_t* out, const fa_pose_t* b, const fa_pose_t* a, f32 alpha)
+void FcPoseBlendLinear(FcPose* out, const FcPose* b, const FcPose* a, f32 alpha)
 {
 	FUR_ASSERT(out->numXforms == a->numXforms && a->numXforms == b->numXforms);
 	FUR_ASSERT(out->numTracks == a->numTracks && a->numTracks == b->numTracks);
@@ -265,7 +265,7 @@ void fa_pose_blend_linear(fa_pose_t* out, const fa_pose_t* b, const fa_pose_t* a
 	}
 }
 
-void fa_pose_apply_additive(fa_pose_t* out, const fa_pose_t* base, const fa_pose_t* add, f32 weight)
+void FcPoseApplyAdditive(FcPose* out, const FcPose* base, const FcPose* add, f32 weight)
 {
 	// blend xforms
 	{

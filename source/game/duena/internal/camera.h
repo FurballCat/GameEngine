@@ -11,41 +11,41 @@ extern "C"
 
 #include "ccore/types.h"
 
-typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
+typedef struct FcAllocator FcAllocator;
 typedef struct fm_mat4 fm_mat4;
 typedef struct fm_vec4 fm_vec4;
-typedef struct fg_camera_system_t fg_camera_system_t;
+typedef struct FcCameraSystem FcCameraSystem;
 
-typedef struct fg_camera_system_update_ctx
+typedef struct FcCameraSystemUpdateCtx
 {
 	f32 dt;
 	f32 rotationYaw;
 	f32 rotationPitch;
 	f32 zoom;
-} fg_camera_system_update_ctx;
+} FcCameraSystemUpdateCtx;
 
 // creation and update of camera system
-fg_camera_system_t* fg_camera_system_create(fc_alloc_callbacks_t* pAllocCallbacks);
-void fg_camera_system_release(fg_camera_system_t* sys, fc_alloc_callbacks_t* pAllocCallbacks);
-void fg_camera_system_update(fg_camera_system_t* sys, const fg_camera_system_update_ctx* ctx);
+FcCameraSystem* fcCameraSystemCreate(FcAllocator* pAllocCallbacks);
+void fcCameraSystemRelease(FcCameraSystem* sys, FcAllocator* pAllocCallbacks);
+void fcCameraSystemUpdate(FcCameraSystem* sys, const FcCameraSystemUpdateCtx* ctx);
 
 // getting final camera params
-void fg_camera_adjust_by_player_movement(fg_camera_system_t* sys, fm_mat4* playerMatrix);
-void fg_camera_get_directions(fg_camera_system_t* sys, fm_vec4* dirForward, fm_vec4* dirLeft);
-void fg_camera_view_matrix(fg_camera_system_t* sys, fm_mat4* matrix);
-void fg_camera_get_eye(fg_camera_system_t* sys, fm_vec4* eye);
-f32 fg_camera_get_fov(fg_camera_system_t* sys);
+void fcCameraSystemAdjustByPlayerMovement(FcCameraSystem* sys, fm_mat4* playerMatrix);
+void fcCameraSystemGetDirections(FcCameraSystem* sys, fm_vec4* dirForward, fm_vec4* dirLeft);
+void fcCameraSystemViewMatrix(FcCameraSystem* sys, fm_mat4* matrix);
+void fcCameraSystemGetEye(FcCameraSystem* sys, fm_vec4* eye);
+f32 fcCameraSystemGetFOV(FcCameraSystem* sys);
 
 // different camera implementations
-typedef struct fg_camera_params_follow_t
+typedef struct FcCameraParamsFollow
 {
 	f32 poleLength;
 	f32 height;
 	f32 zoom;
 	f32 fov;
-} fg_camera_params_follow_t;
+} FcCameraParamsFollow;
 
-void fg_camera_system_enable_camera_follow(fg_camera_system_t* sys, const fg_camera_params_follow_t* params, f32 fadeInSec);
+void fcEnableCameraFollow(FcCameraSystem* sys, const FcCameraParamsFollow* params, f32 fadeInSec);
 
 #ifdef __cplusplus
 }

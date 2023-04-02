@@ -10,53 +10,53 @@ extern "C"
 #include "ccore/types.h"
 #include "api.h"
 
-typedef struct fc_file_t fc_file_t;
-typedef struct fc_depot_t fc_depot_t;
-typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
+typedef struct FcFile FcFile;
+typedef struct FcDepot FcDepot;
+typedef struct FcAllocator FcAllocator;
 
-typedef enum fc_depot_type_t
+typedef enum FcDepotType
 {
 	FC_DEPOT_LOOSE_FILES = 0,
 	FC_DEPOT_PACKAGE,
-} fc_depot_type_t;
+} FcDepotType;
 
 // depot is a broker between app and storage
-typedef struct fc_depot_desc_t
+typedef struct FcDepotDesc
 {
 	// path to directory for loose files or package file
 	const char* path;
 
 	// is it a loose files depot or packaged depot
-	fc_depot_type_t type;
-} fc_depot_desc_t;
+	FcDepotType type;
+} FcDepotDesc;
 
 // open a depot
-CCORE_API fc_depot_t* fc_depot_mount(const fc_depot_desc_t* desc, fc_alloc_callbacks_t* pAllocCallbacks);
+CCORE_API FcDepot* fcDepotMount(const FcDepotDesc* desc, FcAllocator* pAllocCallbacks);
 
 // close a depot
-CCORE_API void fc_depot_unmount(fc_depot_t* depot, fc_alloc_callbacks_t* pAllocCallbacks);
+CCORE_API void fcDepotUnmount(FcDepot* depot, FcAllocator* pAllocCallbacks);
 
 // create a path hash - this shouldn't be done in packaged game
-typedef u64 fc_file_path_t;
-CCORE_API fc_file_path_t fc_file_path_create(fc_depot_t* depot, const char* path);
+typedef u64 FcFilePath;
+CCORE_API FcFilePath fcFilePathCreate(FcDepot* depot, const char* path);
 
 // hash to debug string
-CCORE_API const char* fc_file_path_debug_str(const fc_depot_t* depot, fc_file_path_t path);
+CCORE_API const char* fcFilePathAsDebugCstr(const FcDepot* depot, FcFilePath path);
 
 // helper for building paths
-CCORE_API void fc_path_concat(char* output, const char* folderAbsolute, const char* directoryRelative, const char* fileName, const char* fileExtension);
+CCORE_API void fcPathConcat(char* output, const char* folderAbsolute, const char* directoryRelative, const char* fileName, const char* fileExtension);
 
 // file API
 #define FUR_SEEK_CUR 1
 #define FUR_SEEK_END 2
 #define FUR_SEEK_SET 0
 
-CCORE_API fc_file_t* fc_file_open(fc_depot_t* depot, fc_file_path_t path, const char* mode);
-CCORE_API void fc_file_close(fc_file_t* file);
-CCORE_API void fc_file_seek(fc_file_t* file, i64 offset, i32 origin);
-CCORE_API u64 fc_file_size(fc_file_t* file);
-CCORE_API void fc_file_read(void* output, u64 size, u64 count, fc_file_t* file);
-CCORE_API void fc_file_write(const void* input, u64 size, u64 count, fc_file_t* file);
+CCORE_API FcFile* fcFileOpen(FcDepot* depot, FcFilePath path, const char* mode);
+CCORE_API void fcFileClose(FcFile* file);
+CCORE_API void fcFileSeek(FcFile* file, i64 offset, i32 origin);
+CCORE_API u64 fcFileSize(FcFile* file);
+CCORE_API void fcFileRead(void* output, u64 size, u64 count, FcFile* file);
+CCORE_API void fcFileWrite(const void* input, u64 size, u64 count, FcFile* file);
 
 // todo: implement async io
 

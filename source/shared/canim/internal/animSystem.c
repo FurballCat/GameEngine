@@ -7,42 +7,42 @@
 
 #define FUR_MAX_ANIM_CHARACTERS 32
 
-typedef struct fa_anim_sys_t
+typedef struct FcAnimSystem
 {
-	fa_character_t* characters[FUR_MAX_ANIM_CHARACTERS];
+	FcAnimCharacter* characters[FUR_MAX_ANIM_CHARACTERS];
 	i32 numCharacters;
 	
-} fa_anim_sys_t;
+} FcAnimSystem;
 
-fa_anim_sys_t* fa_anim_sys_init(fc_alloc_callbacks_t* pAllocCallbacks)
+FcAnimSystem* fcAnimSystemInit(FcAllocator* pAllocCallbacks)
 {
-	fa_anim_sys_t* sys = FUR_ALLOC_AND_ZERO(sizeof(fa_anim_sys_t), 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	FcAnimSystem* sys = FUR_ALLOC_AND_ZERO(sizeof(FcAnimSystem), 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 	return sys;
 }
 
-void fa_anim_sys_release(fa_anim_sys_t* sys, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcAnimSystemRelease(FcAnimSystem* sys, FcAllocator* pAllocCallbacks)
 {
 	FUR_FREE(sys, pAllocCallbacks);
 }
 
-fa_character_t* fa_anim_sys_create_character(const fa_character_desc_t* desc, fc_alloc_callbacks_t* pAllocCallbacks)
+FcAnimCharacter* fcAnimCharacterCreate(const FcAnimCharacterDesc* desc, FcAllocator* pAllocCallbacks)
 {
-	fa_character_t* character = FUR_ALLOC_AND_ZERO(sizeof(fa_character_t), 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	FcAnimCharacter* character = FUR_ALLOC_AND_ZERO(sizeof(FcAnimCharacter), 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
 	
-	fa_character_init(character, desc->rig, pAllocCallbacks);
+	fcAnimCharacterInit(character, desc->rig, pAllocCallbacks);
 	character->globalTime = desc->globalTime * 1000000;
 	
 	return character;
 }
 
-void fa_anim_sys_release_character(fa_character_t* character, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcAnimSystemAnimCharacterRelease(FcAnimCharacter* character, FcAllocator* pAllocCallbacks)
 {
-	fa_character_release(character, pAllocCallbacks);
+	fcAnimCharacterRelease(character, pAllocCallbacks);
 	
 	FUR_FREE(character, pAllocCallbacks);
 }
 
-void fa_anim_sys_add_character(fa_anim_sys_t* sys, fa_character_t* character)
+void fcAnimSystemAddCharacter(FcAnimSystem* sys, FcAnimCharacter* character)
 {
 	FUR_ASSERT(sys->numCharacters < FUR_MAX_ANIM_CHARACTERS);
 	
@@ -54,7 +54,7 @@ void fa_anim_sys_add_character(fa_anim_sys_t* sys, fa_character_t* character)
 	sys->characters[idx] = character;
 }
 
-void fa_anim_sys_remove_character(fa_anim_sys_t* sys, fa_character_t* character)
+void fcAnimSystemRemoveCharacter(FcAnimSystem* sys, FcAnimCharacter* character)
 {
 	for(i32 i=0; i<sys->numCharacters; ++i)
 	{
@@ -78,23 +78,23 @@ void fa_anim_sys_remove_character(fa_anim_sys_t* sys, fa_character_t* character)
 	}
 }
 
-void fa_anim_sys_update(fa_anim_sys_t* sys, const fa_anim_sys_update_ctx_t* ctx)
+void fcAnimSystemUpdate(FcAnimSystem* sys, const FcAnimSystemUpdateCtx* ctx)
 {
 	// for each character
 	for(i32 i=0; i<sys->numCharacters; ++i)
 	{
-		fa_character_t* character = sys->characters[i];
+		FcAnimCharacter* character = sys->characters[i];
 		
 		// sub arena allocator
-		fc_mem_arena_alloc_t arenaAlloc = fc_mem_arena_sub(*(ctx->arenaAlloc));	// note: when using jobs, remember to split the memory
+		FcMemArenaAllocator arenaAlloc = fcMemArenaSub(*(ctx->arenaAlloc));	// note: when using jobs, remember to split the memory
 		
 		// animation states update
-		fa_character_animate_ctx_t animateCtx = {0};
+		FcAnimCharacterUpdateCtx animateCtx = {0};
 		animateCtx.dt = ctx->dt;
 		animateCtx.arenaAlloc = &arenaAlloc;
 		animateCtx.showDebug = false;
 		
-		fa_character_animate(character, &animateCtx);
+		fcAnimCharacterUpdate(character, &animateCtx);
 		
 		// skinning
 		if(character->skinMatrices)

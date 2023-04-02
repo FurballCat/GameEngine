@@ -10,38 +10,38 @@ extern "C"
 #include "types.h"
 #include "api.h"
 	
-typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
-typedef u64 fc_file_path_t;
-typedef struct fc_depot_t fc_depot_t;
+typedef struct FcAllocator FcAllocator;
+typedef u64 FcFilePath;
+typedef struct FcDepot FcDepot;
 	
-typedef struct fc_binary_buffer_t
+typedef struct FcBinaryBuffer
 {
 	void* pData;
 	u64 size;
-} fc_binary_buffer_t;
+} FcBinaryBuffer;
 
-CCORE_API bool fc_load_binary_file_into_binary_buffer(fc_depot_t* depot, fc_file_path_t path, fc_binary_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks);
-CCORE_API void fc_release_binary_buffer(fc_binary_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks);
+CCORE_API bool fcBinaryBufferLoad(FcDepot* depot, FcFilePath path, FcBinaryBuffer* pBuffer, FcAllocator* pAllocCallbacks);
+CCORE_API void fcBinaryBufferRelease(FcBinaryBuffer* pBuffer, FcAllocator* pAllocCallbacks);
 
-typedef struct fc_binary_buffer_stream_t
+typedef struct FcBinaryBufferStream
 {
-	const fc_binary_buffer_t* buffer;
+	const FcBinaryBuffer* buffer;
 	void* pos;		// position in binary stream
 	void* endPos;	// indicates end of buffer
-} fc_binary_buffer_stream_t;
+} FcBinaryBufferStream;
 
-CCORE_API void fc_init_binary_buffer_stream(const fc_binary_buffer_t* buffer, fc_binary_buffer_stream_t* outStream);
-CCORE_API u32 fc_read_binary_buffer(fc_binary_buffer_stream_t* stream, u32 numBytes, void* output);
-CCORE_API u32 fc_peek_binary_buffer(fc_binary_buffer_stream_t* stream, u32 numBytes, void* output);
+CCORE_API void fcBinaryBufferStreamInit(const FcBinaryBuffer* buffer, FcBinaryBufferStream* outStream);
+CCORE_API u32 fcBinaryBufferStreamRead(FcBinaryBufferStream* stream, u32 numBytes, void* output);
+CCORE_API u32 fcBinaryBufferStreamPeek(FcBinaryBufferStream* stream, u32 numBytes, void* output);
 
-typedef struct fc_text_buffer_t
+typedef struct FcTextBuffer
 {
 	char* pData;
 	u64 size;
-} fc_text_buffer_t;
+} FcTextBuffer;
 	
-bool fc_load_text_file_into_text_buffer(fc_depot_t* depot, fc_file_path_t path, fc_text_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks);
-void fc_release_text_buffer(fc_text_buffer_t* pBuffer, fc_alloc_callbacks_t* pAllocCallbacks);
+bool fcTextBufferLoad(FcDepot* depot, FcFilePath path, FcTextBuffer* pBuffer, FcAllocator* pAllocCallbacks);
+void fcTextBufferRelease(FcTextBuffer* pBuffer, FcAllocator* pAllocCallbacks);
 	
 #ifdef __cplusplus
 }

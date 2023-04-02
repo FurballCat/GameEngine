@@ -10,25 +10,25 @@
 
 #define FUR_ASSERT(x) assert(x)
 
-void fr_buffer_create(VkDevice device, VkPhysicalDevice physicalDevice, const fr_buffer_desc_t* pDesc,
-					  fr_buffer_t* pBuffer, struct fc_alloc_callbacks_t* pAllocCallbacks)
+void fcRenderBufferCreate(VkDevice device, VkPhysicalDevice physicalDevice, const FcRenderBufferDesc* pDesc,
+					  FcRenderBuffer* pBuffer, struct FcAllocator* pAllocCallbacks)
 {
-	fr_create_buffer(device, physicalDevice, pDesc->size, pDesc->usage, pDesc->properties, &pBuffer->buffer, &pBuffer->memory, pAllocCallbacks);
+	fcRenderCreateBuffer(device, physicalDevice, pDesc->size, pDesc->usage, pDesc->properties, &pBuffer->buffer, &pBuffer->memory, pAllocCallbacks);
 	pBuffer->size = pDesc->size;
 }
 
-void fr_buffer_release(VkDevice device, fr_buffer_t* pBuffer, struct fc_alloc_callbacks_t* pAllocCallbacks)
+void fcRenderBufferRelease(VkDevice device, FcRenderBuffer* pBuffer, struct FcAllocator* pAllocCallbacks)
 {
 	vkDestroyBuffer(device, pBuffer->buffer, NULL);
 	vkFreeMemory(device, pBuffer->memory, NULL);
-	memset(pBuffer, 0, sizeof(fr_buffer_t));
+	memset(pBuffer, 0, sizeof(FcRenderBuffer));
 }
 
-void fr_create_buffer(VkDevice device, VkPhysicalDevice physicalDevice,
+void fcRenderCreateBuffer(VkDevice device, VkPhysicalDevice physicalDevice,
 					VkDeviceSize size, VkBufferUsageFlags usage,
 					VkMemoryPropertyFlags properties,
 					VkBuffer* buffer, VkDeviceMemory* bufferMemory,
-					struct fc_alloc_callbacks_t* pAllocCallbacks)
+					struct FcAllocator* pAllocCallbacks)
 {
 	VkBufferCreateInfo bufferInfo = {0};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -47,7 +47,7 @@ void fr_create_buffer(VkDevice device, VkPhysicalDevice physicalDevice,
 	VkMemoryAllocateInfo allocInfo = {0};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = fr_find_memory_type(physicalDevice, memRequirements.memoryTypeBits, properties);
+	allocInfo.memoryTypeIndex = fcRenderFindMemoryType(physicalDevice, memRequirements.memoryTypeBits, properties);
 	
 	if (vkAllocateMemory(device, &allocInfo, NULL, bufferMemory) != VK_SUCCESS)
 	{
@@ -57,11 +57,11 @@ void fr_create_buffer(VkDevice device, VkPhysicalDevice physicalDevice,
 	vkBindBufferMemory(device, *buffer, *bufferMemory, 0);
 }
 
-void fr_create_image(VkDevice device, VkPhysicalDevice physicalDevice,
+void fcRenderCreateImage(VkDevice device, VkPhysicalDevice physicalDevice,
 					  VkDeviceSize size, VkFormat format, VkBufferUsageFlags usage,
 					  VkMemoryPropertyFlags properties, u32 width, u32 height,
 					  VkImage* textureImage, VkDeviceMemory* textureImageMemory,
-					  struct fc_alloc_callbacks_t* pAllocCallbacks)
+					  struct FcAllocator* pAllocCallbacks)
 {
 	VkImageCreateInfo imageInfo = {0};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -91,7 +91,7 @@ void fr_create_image(VkDevice device, VkPhysicalDevice physicalDevice,
 	VkMemoryAllocateInfo allocInfo = {0};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = fr_find_memory_type(physicalDevice, memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	allocInfo.memoryTypeIndex = fcRenderFindMemoryType(physicalDevice, memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	
 	if (vkAllocateMemory(device, &allocInfo, NULL, textureImageMemory) != VK_SUCCESS)
 	{
@@ -101,7 +101,7 @@ void fr_create_image(VkDevice device, VkPhysicalDevice physicalDevice,
 	vkBindImageMemory(device, *textureImage, *textureImageMemory, 0);
 }
 
-void fr_copy_data_to_buffer(VkDevice device, VkDeviceMemory dst, const void* src, u32 offset, u32 size)
+void fcRenderCopyDataToBuffer(VkDevice device, VkDeviceMemory dst, const void* src, u32 offset, u32 size)
 {
 	void* data;
 	vkMapMemory(device, dst, offset, size, 0, &data);
@@ -109,7 +109,7 @@ void fr_copy_data_to_buffer(VkDevice device, VkDeviceMemory dst, const void* src
 	vkUnmapMemory(device, dst);
 }
 
-void fr_clear_data_in_buffer(VkDevice device, VkDeviceMemory dst, u32 offset, u32 size)
+void fcRenderClearDataInBuffer(VkDevice device, VkDeviceMemory dst, u32 offset, u32 size)
 {
 	void* data;
 	vkMapMemory(device, dst, offset, size, 0, &data);

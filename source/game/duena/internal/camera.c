@@ -8,16 +8,16 @@
 #define NUM_MAX_CAMERAS 16
 #define BYTES_PER_CAMERA_SLOT 128
 
-typedef struct fg_camera_t
+typedef struct FcCamera
 {
 	fm_xform locator;
 	f32 fov;
-} fg_camera_t;
+} FcCamera;
 
-typedef struct fg_camera_ctx_t
+typedef struct FcCameraCtx
 {
-	fg_camera_t* camera;
-	const fg_camera_t* lastFrameFinalCamera;
+	FcCamera* camera;
+	const FcCamera* lastFrameFinalCamera;
 	fm_vec4 ownerPosition;
 	
 	f32 dt;
@@ -25,27 +25,27 @@ typedef struct fg_camera_ctx_t
 	f32 rotationYaw;
 	f32 rotationPitch;
 	f32 zoom;
-} fg_camera_ctx_t;
+} FcCameraCtx;
 
-typedef void (*fg_camera_func_t)(fg_camera_ctx_t* ctx, void* userData);
+typedef void (*FcCameraFn)(FcCameraCtx* ctx, void* userData);
 
-typedef struct fg_camera_slot_t
+typedef struct FcCameraSlot
 {
-	fg_camera_t camera;
+	FcCamera camera;
 	void* userData;	// each camera has 128 bytes of memory to use
-	fg_camera_func_t fnBegin;
-	fg_camera_func_t fnUpdate;
+	FcCameraFn fnBegin;
+	FcCameraFn fnUpdate;
 	
 	f32 fadeInSec;
 	f32 fadeInTime;
 	
 	bool started;
-} fg_camera_slot_t;
+} FcCameraSlot;
 
-typedef struct fg_camera_system_t
+typedef struct FcCameraSystem
 {
 	// stack of active cameras, each updated and then blended into final result
-	fg_camera_slot_t cameraStack[NUM_MAX_CAMERAS];
+	FcCameraSlot cameraStack[NUM_MAX_CAMERAS];
 	u32 numCameraStack;
 	
 	void* stackUserMemory;
@@ -54,33 +54,33 @@ typedef struct fg_camera_system_t
 	fm_vec4 posPlayer;
 	
 	// result of all cameras blended into single camera
-	fg_camera_t finalCamera;
-} fg_camera_system_t;
+	FcCamera finalCamera;
+} FcCameraSystem;
 
-fg_camera_system_t g_cameraSystem;
+FcCameraSystem g_cameraSystem;
 
-fg_camera_system_t* fg_camera_system_create(fc_alloc_callbacks_t* pAllocCallbacks)
+FcCameraSystem* fcCameraSystemCreate(FcAllocator* pAllocCallbacks)
 {
 	g_cameraSystem.stackUserMemory = FUR_ALLOC_AND_ZERO(BYTES_PER_CAMERA_SLOT * NUM_MAX_CAMERAS, 16, FC_MEMORY_SCOPE_CAMERA, pAllocCallbacks);
 	
 	return &g_cameraSystem;
 }
 
-void fg_camera_system_release(fg_camera_system_t* sys, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcCameraSystemRelease(FcCameraSystem* sys, FcAllocator* pAllocCallbacks)
 {
 	FUR_FREE(sys->stackUserMemory, pAllocCallbacks);
 }
 
-void fg_camera_system_update(fg_camera_system_t* sys, const fg_camera_system_update_ctx* ctx)
+void fcCameraSystemUpdate(FcCameraSystem* sys, const FcCameraSystemUpdateCtx* ctx)
 {
-	fg_camera_ctx_t slotCtx = {0};
+	FcCameraCtx slotCtx = {0};
 	slotCtx.dt = ctx->dt;
 	slotCtx.rotationYaw = ctx->rotationYaw;
 	slotCtx.rotationPitch = ctx->rotationPitch;
 	slotCtx.zoom = ctx->zoom;
 	slotCtx.ownerPosition = sys->posPlayer;
 	
-	const fg_camera_t lastFrameFinalCamera = sys->finalCamera;
+	const FcCamera lastFrameFinalCamera = sys->finalCamera;
 	slotCtx.lastFrameFinalCamera = &lastFrameFinalCamera;
 	
 	fm_xform_identity(&sys->finalCamera.locator);
@@ -89,7 +89,7 @@ void fg_camera_system_update(fg_camera_system_t* sys, const fg_camera_system_upd
 	// update each camera on camera stack
 	for(u32 i=0; i<sys->numCameraStack; ++i)
 	{
-		fg_camera_slot_t* slot = &sys->cameraStack[i];
+		FcCameraSlot* slot = &sys->cameraStack[i];
 		
 		// begin camera if necessary
 		slotCtx.camera = &slot->camera;
@@ -119,7 +119,7 @@ void fg_camera_system_update(fg_camera_system_t* sys, const fg_camera_system_upd
 	// remove old cameras
 	for(i32 i=sys->numCameraStack-1; i>=1; --i)
 	{
-		fg_camera_slot_t* slot = &sys->cameraStack[i];
+		FcCameraSlot* slot = &sys->cameraStack[i];
 		
 		const f32 alpha = fm_curve_uniform_s(slot->fadeInSec > 0.0f ? fm_clamp(slot->fadeInTime / slot->fadeInSec, 0.0f, 1.0f) : 1.0f);
 		if(alpha >= 1.0f)
@@ -127,8 +127,8 @@ void fg_camera_system_update(fg_camera_system_t* sys, const fg_camera_system_upd
 			u32 idx = 0;
 			for(i32 j=i; j<sys->numCameraStack; ++j)
 			{
-				fg_camera_slot_t* srcSlot = &sys->cameraStack[j];
-				fg_camera_slot_t* dstSlot = &sys->cameraStack[idx];
+				FcCameraSlot* srcSlot = &sys->cameraStack[j];
+				FcCameraSlot* dstSlot = &sys->cameraStack[idx];
 				
 				// copy user data first, while the pointer is valid
 				memcpy(dstSlot->userData, srcSlot->userData, BYTES_PER_CAMERA_SLOT);
@@ -137,7 +137,7 @@ void fg_camera_system_update(fg_camera_system_t* sys, const fg_camera_system_upd
 				void* userDataPtr = dstSlot->userData;
 				
 				// copy slot data (and stomp pointer)
-				memcpy(dstSlot, srcSlot, sizeof(fg_camera_slot_t));
+				memcpy(dstSlot, srcSlot, sizeof(FcCameraSlot));
 				
 				// need to fix ptr after memcpy
 				dstSlot->userData = userDataPtr;
@@ -148,14 +148,14 @@ void fg_camera_system_update(fg_camera_system_t* sys, const fg_camera_system_upd
 	}
 }
 
-void fg_camera_adjust_by_player_movement(fg_camera_system_t* sys, fm_mat4* playerMatrix)
+void fcCameraSystemAdjustByPlayerMovement(FcCameraSystem* sys, fm_mat4* playerMatrix)
 {
 	sys->posPlayer = playerMatrix->w;
 }
 
-void fg_camera_get_directions(fg_camera_system_t* sys, fm_vec4* dirForward, fm_vec4* dirLeft)
+void fcCameraSystemGetDirections(FcCameraSystem* sys, fm_vec4* dirForward, fm_vec4* dirLeft)
 {
-	const fg_camera_t* camera = &sys->finalCamera;
+	const FcCamera* camera = &sys->finalCamera;
 	
 	fm_quat rot = camera->locator.rot;
 	fm_quat_conj(&rot);
@@ -171,9 +171,9 @@ void fg_camera_get_directions(fg_camera_system_t* sys, fm_vec4* dirForward, fm_v
 	fm_vec4_norm(dirLeft);
 }
 
-void fg_camera_view_matrix(fg_camera_system_t* sys, fm_mat4* matrix)
+void fcCameraSystemViewMatrix(FcCameraSystem* sys, fm_mat4* matrix)
 {
-	const fg_camera_t* camera = &sys->finalCamera;
+	const FcCamera* camera = &sys->finalCamera;
 	
 	//fm_mat4_lookat_lh(&camera->eye, &camera->at, &camera->up, matrix);
 	fm_xform locator = camera->locator;
@@ -184,15 +184,15 @@ void fg_camera_view_matrix(fg_camera_system_t* sys, fm_mat4* matrix)
 	fm_mat4_transpose(matrix);
 }
 
-void fg_camera_get_eye(fg_camera_system_t* sys, fm_vec4* eye)
+void fcCameraSystemGetEye(FcCameraSystem* sys, fm_vec4* eye)
 {
-	const fg_camera_t* camera = &sys->finalCamera;
+	const FcCamera* camera = &sys->finalCamera;
 	*eye = camera->locator.pos;
 }
 
-f32 fg_camera_get_fov(fg_camera_system_t* sys)
+f32 fcCameraSystemGetFOV(FcCameraSystem* sys)
 {
-	const fg_camera_t* camera = &sys->finalCamera;
+	const FcCamera* camera = &sys->finalCamera;
 	return camera->fov;
 }
 
@@ -210,9 +210,9 @@ typedef struct fg_camera_follow_t
 	
 } fg_camera_follow_t;
 
-void fg_camera_follow_begin(fg_camera_ctx_t* ctx, void* userData)
+void fcCameraFollowBegin(FcCameraCtx* ctx, void* userData)
 {
-	const fg_camera_t* lastCamera = ctx->lastFrameFinalCamera;
+	const FcCamera* lastCamera = ctx->lastFrameFinalCamera;
 
 	// try to find the params that makes this camera the most similar to last frame
 	fm_euler_angles angles = {0};
@@ -223,7 +223,7 @@ void fg_camera_follow_begin(fg_camera_ctx_t* ctx, void* userData)
 	data->pitch = -angles.pitch;
 }
 
-void fg_camera_follow_update(fg_camera_ctx_t* ctx, void* userData)
+void fcCameraFollowUpdate(FcCameraCtx* ctx, void* userData)
 {
 	fg_camera_follow_t* data = (fg_camera_follow_t*)userData;
 	
@@ -278,21 +278,21 @@ void fg_camera_follow_update(fg_camera_ctx_t* ctx, void* userData)
 	ctx->camera->fov = data->fov;
 }
 
-void fg_camera_system_enable_camera_follow(fg_camera_system_t* sys, const fg_camera_params_follow_t* params, f32 fadeInSec)
+void fcEnableCameraFollow(FcCameraSystem* sys, const FcCameraParamsFollow* params, f32 fadeInSec)
 {
 	FUR_ASSERT(sys->numCameraStack < 16);
 	
 	const u32 idx = sys->numCameraStack;
 	sys->numCameraStack++;
 	
-	fg_camera_slot_t* slot = &sys->cameraStack[idx];
+	FcCameraSlot* slot = &sys->cameraStack[idx];
 	
 	slot->fadeInTime = sys->numCameraStack == 1 ? fadeInSec : 0.0f;	// if it's the only camera, assume it's fully blended in
 	slot->fadeInSec = fadeInSec;
 	
 	slot->userData = (u8*)sys->stackUserMemory + 128 * idx;
-	slot->fnUpdate = fg_camera_follow_update;
-	slot->fnBegin = fg_camera_follow_begin;
+	slot->fnUpdate = fcCameraFollowUpdate;
+	slot->fnBegin = fcCameraFollowBegin;
 	slot->started = false;
 	
 	fg_camera_follow_t* data = (fg_camera_follow_t*)sys->cameraStack[idx].userData;

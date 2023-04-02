@@ -6,7 +6,7 @@
 #include "cmath/public.h"
 #include <string.h>
 
-CANIM_API void fa_pose_stack_init(fa_pose_stack_t* pStack, const fa_pose_stack_desc_t* desc, void* buffer, u32 bufferSize)
+CANIM_API void FcPoseStackInit(FcPoseStack* pStack, const FcPoseStackDesc* desc, void* buffer, u32 bufferSize)
 {
 	FUR_ASSERT(pStack);
 	FUR_ASSERT(pStack->buffer == NULL);
@@ -34,14 +34,14 @@ CANIM_API void fa_pose_stack_init(fa_pose_stack_t* pStack, const fa_pose_stack_d
 	pStack->offsetWeightTracks = sizeXforms + sizeTracks + sizeWeightXforms;
 }
 
-CANIM_API void fa_pose_stack_release(fa_pose_stack_t* pStack)
+CANIM_API void FcPoseStackRelease(FcPoseStack* pStack)
 {
 	FUR_ASSERT(pStack->buffer != NULL);
 	
-	memset(pStack, 0, sizeof(fa_pose_stack_t));
+	memset(pStack, 0, sizeof(FcPoseStack));
 }
 
-CANIM_API void fa_pose_stack_push(fa_pose_stack_t* pStack, u32 count)
+CANIM_API void FcPoseStackPush(FcPoseStack* pStack, u32 count)
 {
 	FUR_ASSERT(pStack->buffer != NULL);
 	FUR_ASSERT(pStack->numPoses + count <= pStack->numMaxPoses);
@@ -49,7 +49,7 @@ CANIM_API void fa_pose_stack_push(fa_pose_stack_t* pStack, u32 count)
 	pStack->numPoses += count;
 }
 
-CANIM_API void fa_pose_stack_pop(fa_pose_stack_t* pStack, u32 count)
+CANIM_API void FcPoseStackPop(FcPoseStack* pStack, u32 count)
 {
 	FUR_ASSERT(pStack->buffer != NULL);
 	FUR_ASSERT(pStack->numPoses >= count);
@@ -57,7 +57,7 @@ CANIM_API void fa_pose_stack_pop(fa_pose_stack_t* pStack, u32 count)
 	pStack->numPoses -= count;
 }
 
-CANIM_API void fa_pose_stack_get(const fa_pose_stack_t* pStack, fa_pose_t* pPose, u32 depth)
+CANIM_API void FcPoseStackGet(const FcPoseStack* pStack, FcPose* pPose, u32 depth)
 {
 	FUR_ASSERT(pStack->buffer != NULL);
 	FUR_ASSERT(pStack->numPoses > depth);

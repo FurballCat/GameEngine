@@ -10,14 +10,14 @@ extern "C"
 #include "api.h"
 #include "ccore/types.h"
 
-typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
+typedef struct FcAllocator FcAllocator;
 typedef struct fm_mat4 fm_mat4;
-typedef u32 fc_string_hash_t;
-typedef struct fc_depot_t fc_depot_t;
-typedef u64 fc_file_path_t;
+typedef u32 FcStringId;
+typedef struct FcDepot FcDepot;
+typedef u64 FcFilePath;
 
 // Render result code
-enum fr_result_t
+enum FcResult
 {
 	FR_RESULT_OK = 0,
 	FR_RESULT_ERROR,
@@ -27,96 +27,96 @@ enum fr_result_t
 };
 	
 // If render result code is not OK then this function returns additional info
-CREND_API const char* fr_get_last_error(void);
+CREND_API const char* fcGetLastError(void);
 
-typedef struct fr_app_t fr_app_t;
+typedef struct FcApplication FcApplication;
 
-typedef struct fr_app_desc_t
+typedef struct FcApplicationDesc
 {
 	u32 viewportWidth;
 	u32 viewportHeight;
 	const char* appTitle;
 
-	fc_depot_t* depot;
-	fc_file_path_t iconPath;
-} fr_app_desc_t;
+	FcDepot* depot;
+	FcFilePath iconPath;
+} FcApplicationDesc;
 	
-CREND_API enum fr_result_t fr_create_app(const fr_app_desc_t* pDesc,
-									fr_app_t** ppApp,
-									fc_alloc_callbacks_t* pAllocCallbacks);
+CREND_API enum FcResult fcApplicationCreate(const FcApplicationDesc* pDesc,
+									FcApplication** ppApp,
+									FcAllocator* pAllocCallbacks);
 	
-CREND_API enum fr_result_t fr_release_app(fr_app_t* pApp,
-									 fc_alloc_callbacks_t* pAllocCallbacks);
+CREND_API enum FcResult fcApplicationRelease(FcApplication* pApp,
+									 FcAllocator* pAllocCallbacks);
 
 // Returns 0 on exit
-CREND_API u32 fr_update_app(struct fr_app_t* pApp);
+CREND_API u32 fcApplicationUpdate(struct FcApplication* pApp);
 	
 // Renderer structure
-typedef struct fr_renderer_t fr_renderer_t;
+typedef struct FcRenderer FcRenderer;
 
 // Renderer creation description
-typedef struct fr_renderer_desc_t
+typedef struct FcRendererDesc
 {
-	struct fr_app_t* pApp;
-	fc_depot_t* depot;
-} fr_renderer_desc_t;
+	struct FcApplication* pApp;
+	FcDepot* depot;
+} FcRendererDesc;
 
-CREND_API enum fr_result_t fr_create_renderer(const fr_renderer_desc_t*	pDesc,
-					   fr_renderer_t**						ppRenderer,
-					   fc_alloc_callbacks_t*		pAllocCallbacks);
+CREND_API enum FcResult fcRendererCreate(const FcRendererDesc*	pDesc,
+					   FcRenderer**						ppRenderer,
+					   FcAllocator*		pAllocCallbacks);
 
-CREND_API enum fr_result_t fr_release_renderer(struct fr_renderer_t* 			pRenderer,
-						struct fc_alloc_callbacks_t*	pAllocCallbacks);
+CREND_API enum FcResult fcRendererRelease(struct FcRenderer* 			pRenderer,
+						struct FcAllocator*	pAllocCallbacks);
 
-CREND_API void fr_wait_for_device(struct fr_renderer_t* pRenderer);
+CREND_API void fcRendererWaitForDevice(struct FcRenderer* pRenderer);
 	
 struct fr_scene_t;
 	
 // render proxy - can be a mesh, a particle system, anything that can be rendered and has position
-typedef struct fr_proxy_t fr_proxy_t;
+typedef struct FcRenderProxy FcRenderProxy;
 
-typedef u64 fc_file_path_t;
+typedef u64 FcFilePath;
 
-typedef struct fr_load_mesh_ctx_t
+typedef struct FcRenderMeshLoadCtx
 {
-	fc_file_path_t path;
+	FcFilePath path;
 
 	const i32* textureIndices;
 	i32 numTextureIndices;
 	
-	fc_file_path_t* texturePaths;
+	FcFilePath* texturePaths;
 	u32 numTextures;
 	
 	bool isSkinned;
-	fc_string_hash_t* boneNames;
+	FcStringId* boneNames;
 	i32 numBones;	// rig num bones might be higher than mesh num bones
-} fr_load_mesh_ctx_t;
+} FcRenderMeshLoadCtx;
 
 // load mesh, the ownership is kept inside renderer, so no need to
-CREND_API fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, fc_depot_t* depot, const fr_load_mesh_ctx_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks);
+CREND_API FcRenderProxy* fcRendererLoadMesh(FcRenderer* pRenderer, FcDepot* depot, const FcRenderMeshLoadCtx* ctx, FcAllocator* pAllocCallbacks);
 
 // release proxy, might also release the associated data (meshes, textures, etc.)
-CREND_API void fr_release_proxy(fr_renderer_t* pRenderer, fr_proxy_t* proxy, fc_alloc_callbacks_t* pAllocCallbacks);
+CREND_API void fcRendererReleaseProxy(FcRenderer* pRenderer, FcRenderProxy* proxy, FcAllocator* pAllocCallbacks);
 
 // potentially visible set - defines render proxies that are visible this frame
-typedef struct fr_pvs_t fr_pvs_t;
+typedef struct FcRenderPVS FcRenderPVS;
 
 // at frame update, acquire PVS and relink proxies to it, keep it with frame data
-CREND_API fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera, f32 fov);
+CREND_API FcRenderPVS* fcRendererAcquireFreePVS(FcRenderer* pRenderer, const fm_mat4* camera, f32 fov);
 
 // add renderable thing to given potentially visible set
-CREND_API void fr_pvs_add(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator);
+CREND_API void fcRenderPVSAdd(FcRenderPVS* pvs, FcRenderProxy* proxy, const fm_mat4* locator);
 
 // add renderable thing to given potentially visible set and pass skinning matrices for it
-CREND_API void fr_pvs_add_and_skin(fr_pvs_t* pvs, fr_proxy_t* proxy, const fm_mat4* locator,
+CREND_API void fcRenderPVSAddAndSkin(FcRenderPVS* pvs, FcRenderProxy* proxy, const fm_mat4* locator,
 								   const fm_mat4* skinMatrices, i32 numSkinMatrices);
 
-typedef struct fr_draw_frame_context_t
+typedef struct FcRendererDrawFrameCtx
 {
-	fr_pvs_t* pvs;	// what's visible in this frame
-} fr_draw_frame_context_t;
+	FcRenderPVS* pvs;	// what's visible in this frame
+} FcRendererDrawFrameCtx;
 	
-CREND_API void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks);
+CREND_API void fcRendererDrawFrame(struct FcRenderer* pRenderer, const FcRendererDrawFrameCtx* ctx, FcAllocator* pAllocCallbacks);
 
 #ifdef __cplusplus
 }

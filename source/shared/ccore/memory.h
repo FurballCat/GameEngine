@@ -16,12 +16,12 @@ extern "C"
 // Pass allocation callbacks to every function that allocates anything
 
 // Memory interface
-typedef enum fc_memory_type_t
+typedef enum FcMemoryType
 {
 	FC_MEMORY_TYPE_DEFAULT = 0
-} fc_memory_type_t;
+} FcMemoryType;
 
-typedef enum fc_memory_scope_t
+typedef enum FcMemoryScope
 {
 	FC_MEMORY_SCOPE_SYSTEM = 0,
 	FC_MEMORY_SCOPE_GLOBAL,
@@ -38,61 +38,61 @@ typedef enum fc_memory_scope_t
 	FC_MEMORY_SCOPE_ARENA,
 	FC_MEMORY_SCOPE_CORE,
 	
-	// note: remember to add name to the fc_memory_get_scope_debug_name
+	// note: remember to add name to the fcMemoryGetScopeDebugName
 	
 	FC_MEMORY_SCOPE_COUNT
-} fc_memory_scope_t;
+} FcMemoryScope;
 
-typedef void* (*fc_mem_alloc_fn_t)(	void* 						pUserData,
+typedef void* (*FcMemAllocFn)(	void* 						pUserData,
 									u64						size,
 									u64						alignment,
-									enum fc_memory_scope_t		scope);
+									enum FcMemoryScope		scope);
 
-typedef void* (*fc_mem_realloc_fn_t)(void*						pUserData,
+typedef void* (*FcMemReallocFn)(void*						pUserData,
 									 void*						pOriginalMemory,
 									 u64						size,
 									 u64						alignment,
-									 enum fc_memory_scope_t		scope);
+									 enum FcMemoryScope		scope);
 
-typedef void (*fc_mem_free_fn_t)(void*	pUserData,
+typedef void (*FcMemFreeFn)(void*	pUserData,
 								 void*	pMemory);
 
-typedef void (*fc_mem_internal_alloc_notify_fn_t)(void*						pUserData,
+typedef void (*FcMemInternalAllocNotifyFn)(void*						pUserData,
 												  u64					size,
-												  enum fc_memory_type_t		type,
-												  enum fc_memory_scope_t	scope);
+												  enum FcMemoryType		type,
+												  enum FcMemoryScope	scope);
 
-typedef void (*fc_mem_internal_free_notify_fn_t)(void*	pUserData,
+typedef void (*FcMemInternalFreeNotifyFn)(void*	pUserData,
 												 u64	size);
 
 // Pass this around in every function that allocates any memory
-typedef struct fc_alloc_callbacks_t
+typedef struct FcAllocator
 {
-	void* 								pUserData;
-	fc_mem_alloc_fn_t 					pfnAllocate;
-	fc_mem_realloc_fn_t					pfnReallocate;
-	fc_mem_free_fn_t					pfnFree;
-	fc_mem_internal_alloc_notify_fn_t 	pfnInternalAllocate;
-	fc_mem_internal_free_notify_fn_t 	pfnInternalFree;
-} fc_alloc_callbacks_t;
+	void* 						pUserData;
+	FcMemAllocFn 				pfnAllocate;
+	FcMemReallocFn				pfnReallocate;
+	FcMemFreeFn					pfnFree;
+	FcMemInternalAllocNotifyFn 	pfnInternalAllocate;
+	FcMemInternalFreeNotifyFn 	pfnInternalFree;
+} FcAllocator;
 
 #define S1(x) #x
 #define S2(x) S1(x)
 
 #if FUR_MEMORY_DEBUG == 0
 	#define FUR_ALLOC(_size, _alignment, _scope, _pAllocCallbacks)	\
-		fc_alloc(_pAllocCallbacks, _size, _alignment, _scope, "")
+		fcAlloc(_pAllocCallbacks, _size, _alignment, _scope, "")
 	#define FUR_ALLOC_AND_ZERO(_size, _alignment, _scope, _pAllocCallbacks)	\
-		fc_alloc_and_zero(_pAllocCallbacks, _size, _alignment, _scope, "")
+		fcAllocAndZero(_pAllocCallbacks, _size, _alignment, _scope, "")
 	#define FUR_FREE(_pMemory, _pAllocCallbacks)	\
-		fc_dealloc(_pAllocCallbacks, _pMemory, "")
+		fcFree(_pAllocCallbacks, _pMemory, "")
 #else
 	#define FUR_ALLOC(_size, _alignment, _scope, _pAllocCallbacks)	\
-		fc_alloc(_pAllocCallbacks, _size, _alignment, _scope, __FILE__ ":" S2(__LINE__))
+		fcAlloc(_pAllocCallbacks, _size, _alignment, _scope, __FILE__ ":" S2(__LINE__))
 	#define FUR_ALLOC_AND_ZERO(_size, _alignment, _scope, _pAllocCallbacks)	\
-		fc_alloc_and_zero(_pAllocCallbacks, _size, _alignment, _scope, __FILE__ ":" S2(__LINE__))
+		fcAllocAndZero(_pAllocCallbacks, _size, _alignment, _scope, __FILE__ ":" S2(__LINE__))
 	#define FUR_FREE(_pMemory, _pAllocCallbacks)	\
-		fc_dealloc(_pAllocCallbacks, _pMemory, __FILE__ ":" S2(__LINE__))
+		fcFree(_pAllocCallbacks, _pMemory, __FILE__ ":" S2(__LINE__))
 #endif
 	
 #define FUR_ALLOC_ARRAY(_type, _count, _alignment, _scope, _pAllocCallbacks)	\
@@ -100,76 +100,76 @@ typedef struct fc_alloc_callbacks_t
 #define FUR_ALLOC_ARRAY_AND_ZERO(_type, _count, _alignment, _scope, _pAllocCallbacks)	\
 	(_type*)FUR_ALLOC_AND_ZERO(sizeof(_type) * _count, _alignment, _scope, _pAllocCallbacks)
 
-CCORE_API void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, u64 size, u64 alignment,
-							 enum fc_memory_scope_t scope, const char* info);
+CCORE_API void* fcAlloc(struct FcAllocator* pAllocCallbacks, u64 size, u64 alignment,
+							 enum FcMemoryScope scope, const char* info);
 	
-CCORE_API void* fc_alloc_and_zero(struct fc_alloc_callbacks_t* pAllocCallbacks, u64 size, u64 alignment,
-							 enum fc_memory_scope_t scope, const char* info);
+CCORE_API void* fcAllocAndZero(struct FcAllocator* pAllocCallbacks, u64 size, u64 alignment,
+							 enum FcMemoryScope scope, const char* info);
 
-CCORE_API void fc_dealloc(struct fc_alloc_callbacks_t* pAllocCallbacks, void* pMemory, const char* info);
+CCORE_API void fcFree(struct FcAllocator* pAllocCallbacks, void* pMemory, const char* info);
 	
-CCORE_API bool fc_validate_memory(void);
+CCORE_API bool fcValidateMemory(void);
 
-typedef struct fc_mem_stats_t
+typedef struct FcMemStats
 {
 	u32 numAllocs;
 	u64 numBytesUsed;
 	u64 numBytesCapacity;
-} fc_mem_stats_t;
+} FcMemStats;
 
-CCORE_API fc_mem_stats_t fc_memory_stats(void);
-CCORE_API const char* fc_memory_get_scope_debug_name(enum fc_memory_scope_t scope);
-CCORE_API fc_mem_stats_t fc_memory_stats_for_scope(enum fc_memory_scope_t scope);
+CCORE_API FcMemStats fcMemoryStats(void);
+CCORE_API const char* fcMemoryGetScopeDebugName(enum FcMemoryScope scope);
+CCORE_API FcMemStats fcMemoryStatsForScope(enum FcMemoryScope scope);
 
 // arena allocator - acts like stack allocator with limited memory, size is reset once at the end of the scope
 // it's an alloc and forget type of memory
-typedef struct fc_mem_arena_alloc_t
+typedef struct FcMemArenaAllocator
 {
 	void* buffer;
 	u32 capacity;
 	u32 size;
-} fc_mem_arena_alloc_t;
+} FcMemArenaAllocator;
 
 // makes arena allocator out of buffer with given capacity, size will be 0
-CCORE_API fc_mem_arena_alloc_t fc_mem_arena_make(void* buffer, u32 capacity);
+CCORE_API FcMemArenaAllocator fcMemArenaMake(void* buffer, u32 capacity);
 
 // makes sub arena allocator out of buffer = alloc.buffer + alloc.size, capacity = alloc.capacity - alloc.size, size = 0
-CCORE_API fc_mem_arena_alloc_t fc_mem_arena_sub(fc_mem_arena_alloc_t alloc);
+CCORE_API FcMemArenaAllocator fcMemArenaSub(FcMemArenaAllocator alloc);
 
 // call alloc to allocate memory on arena allocator (not real allocation, just stack allocation on preallocated memory)
-CCORE_API void* fc_mem_arena_alloc(fc_mem_arena_alloc_t* pAlloc, u32 size, u32 alignment);
-CCORE_API void* fc_mem_arena_alloc_and_zero(fc_mem_arena_alloc_t* pAlloc, u32 size, u32 alignment);
+CCORE_API void* fcMemArenaAlloc(FcMemArenaAllocator* pAlloc, u32 size, u32 alignment);
+CCORE_API void* fcMemArenaAllocAndZero(FcMemArenaAllocator* pAlloc, u32 size, u32 alignment);
 
 // relocatable heap allocator - used for level allocations (including game objects)
 // it basically acts like a stack allocator, but when released in the middle, can relocate memory
-typedef struct fc_mem_rel_heap_alloc_t
+typedef struct FcMemRelHeapPool
 {
 	void* buffer;
 	void* freePtr;
 	u32 capacity;
 	u32 size;
-} fc_mem_rel_heap_alloc_t;
+} FcMemRelHeapPool;
 
-CCORE_API fc_alloc_callbacks_t fc_mem_rel_heap_get_callbacks(fc_mem_rel_heap_alloc_t* pAlloc);
+CCORE_API FcAllocator fcMemRelHeapGetAllocator(FcMemRelHeapPool* pAlloc);
 
-CCORE_API void fc_relocate_pointer(void** ptr, i32 delta, void* lowerBound, void* upperBound);
+CCORE_API void fcRelocatePointer(void** ptr, i32 delta, void* lowerBound, void* upperBound);
 
 #define FUR_ARRAY_SIZE(_arr) sizeof(_arr) / sizeof(_arr[0])
 
 // static array generic type, to define one use FUR_DEFINE_ARRAY_TYPE( your_array_type_name, element_type );
-typedef struct fc_array_t
+typedef struct FcArray
 {
 	void* data;
 	u32 capacity;
 	u32 num;
 	u32 stride;
-} fc_array_t;
+} FcArray;
 
-CCORE_API void* fc_array_add(fc_array_t* arr);
-CCORE_API void* fc_array_at(fc_array_t* arr, u32 idx);
-CCORE_API void fc_array_remove_swap(fc_array_t* arr, u32 idx);
+CCORE_API void* fcArrayAdd(FcArray* arr);
+CCORE_API void* fcArrayAt(FcArray* arr, u32 idx);
+CCORE_API void fcArrayRemoveSwap(FcArray* arr, u32 idx);
 
-#define fc_array_alloc(_arrayPtr, _type, _capacity, _alignment, _scope, _pAllocCallbacks)	\
+#define fcArrayAlloc(_arrayPtr, _type, _capacity, _alignment, _scope, _pAllocCallbacks)	\
 	do { \
 		FUR_ASSERT(!(_arrayPtr)->data);	\
 		(_arrayPtr)->data = FUR_ALLOC(sizeof(_type) * _capacity, _alignment, _scope, _pAllocCallbacks);	\
@@ -178,7 +178,7 @@ CCORE_API void fc_array_remove_swap(fc_array_t* arr, u32 idx);
 		(_arrayPtr)->stride = sizeof(_type);	\
 	} while(false)
 
-#define fc_array_alloc_and_zero(_arrayPtr, _type, _capacity, _alignment, _scope, _pAllocCallbacks)	\
+#define fcArrayAllocAndZero(_arrayPtr, _type, _capacity, _alignment, _scope, _pAllocCallbacks)	\
 	do { \
 		FUR_ASSERT(!(_arrayPtr)->data);	\
 		(_arrayPtr)->data = FUR_ALLOC_AND_ZERO(sizeof(_type) * _capacity, _alignment, _scope, _pAllocCallbacks); \
@@ -187,7 +187,7 @@ CCORE_API void fc_array_remove_swap(fc_array_t* arr, u32 idx);
 		(_arrayPtr)->stride = sizeof(_type);	\
 	} while(false)
 
-#define fc_array_free(_arrayPtr, _pAllocCallbacks)	\
+#define fcArrayFree(_arrayPtr, _pAllocCallbacks)	\
 	do { \
 		FUR_FREE((_arrayPtr)->data, _pAllocCallbacks); \
 		(_arrayPtr)->data = NULL;	\
@@ -197,7 +197,7 @@ CCORE_API void fc_array_remove_swap(fc_array_t* arr, u32 idx);
 	} while(false)
 
 // static map generic type, to define one use FUR_DEFINE_MAP_TYPE( your_array_type_name, element_type );
-typedef struct fc_map_t
+typedef struct FcMap
 {
 	void* keys;
 	void* elems;
@@ -205,13 +205,13 @@ typedef struct fc_map_t
 	u32 num;
 	u16 keyStride;
 	u16 elemStride;
-} fc_map_t;
+} FcMap;
 
-CCORE_API void fc_map_insert(fc_map_t* map, const void* key, void* elem);
-CCORE_API void* fc_map_find(fc_map_t* map, const void* key);
-CCORE_API bool fc_map_remove_swap(fc_map_t* map, const void* key);
+CCORE_API void fcMapInsert(FcMap* map, const void* key, void* elem);
+CCORE_API void* fcMapFind(FcMap* map, const void* key);
+CCORE_API bool fcMapRemoveSwap(FcMap* map, const void* key);
 
-#define fc_map_alloc(_mapPtr, _keyType, _elemType, _capacity, _alignment, _scope, _pAllocCallbacks)	\
+#define fcMapAlloc(_mapPtr, _keyType, _elemType, _capacity, _alignment, _scope, _pAllocCallbacks)	\
 	do { \
 		FUR_ASSERT(!(_mapPtr)->keys && !(_mapPtr)->elems);	\
 		(_mapPtr)->keys = FUR_ALLOC(sizeof(_keyType) * _capacity, _alignment, _scope, _pAllocCallbacks);	\
@@ -222,7 +222,7 @@ CCORE_API bool fc_map_remove_swap(fc_map_t* map, const void* key);
 		(_mapPtr)->elemStride = sizeof(_elemType);	\
 	} while(false)
 
-#define fc_map_alloc_and_zero(_mapPtr, _keyType, _elemType, _capacity, _alignment, _scope, _pAllocCallbacks)	\
+#define fcMapAllocAndZero(_mapPtr, _keyType, _elemType, _capacity, _alignment, _scope, _pAllocCallbacks)	\
 	do { \
 		FUR_ASSERT(!(_mapPtr)->keys && !(_mapPtr)->elems);	\
 		(_mapPtr)->keys = FUR_ALLOC_AND_ZERO(sizeof(_keyType) * _capacity, _alignment, _scope, _pAllocCallbacks);	\
@@ -233,7 +233,7 @@ CCORE_API bool fc_map_remove_swap(fc_map_t* map, const void* key);
 		(_mapPtr)->elemStride = sizeof(_elemType);	\
 	} while(false)
 
-#define fc_map_free(_mapPtr, _pAllocCallbacks)	\
+#define fcMapFree(_mapPtr, _pAllocCallbacks)	\
 	do { \
 		FUR_FREE((_mapPtr)->keys, _pAllocCallbacks); \
 		FUR_FREE((_mapPtr)->elems, _pAllocCallbacks); \

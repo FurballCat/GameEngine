@@ -52,12 +52,12 @@
 #define FC_ERROR_MESSAGE_MAX_LENGTH 512
 char g_lastError[FC_ERROR_MESSAGE_MAX_LENGTH] = {0};
 
-const char* fr_get_last_error(void)
+const char* fcGetLastError(void)
 {
 	return g_lastError;
 }
 
-void fur_set_last_error(const char* error)
+void fcSetLastError(const char* error)
 {
 	uint64_t length = strlen(error);
 	FUR_ASSERT(length < FC_ERROR_MESSAGE_MAX_LENGTH);
@@ -110,7 +110,7 @@ const char* frInterpretVulkanResult(VkResult result)
 
 /*************************************************************/
 
-struct fr_app_t
+struct FcApplication
 {
 	const char* title;
 	u32 viewportWidth;
@@ -119,11 +119,11 @@ struct fr_app_t
 	GLFWwindow* pWindow;
 };
 
-enum fr_result_t fr_create_app(const struct fr_app_desc_t* pDesc,
-									struct fr_app_t** ppApp,
-									struct fc_alloc_callbacks_t* pAllocCallbacks)
+enum FcResult fcApplicationCreate(const struct FcApplicationDesc* pDesc,
+									struct FcApplication** ppApp,
+									struct FcAllocator* pAllocCallbacks)
 {
-	struct fr_app_t* pApp = FUR_ALLOC(sizeof(struct fr_app_t), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+	struct FcApplication* pApp = FUR_ALLOC(sizeof(struct FcApplication), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 	
 	pApp->title = pDesc->appTitle;
 	pApp->viewportWidth = pDesc->viewportWidth;
@@ -138,12 +138,12 @@ enum fr_result_t fr_create_app(const struct fr_app_desc_t* pDesc,
 	{
 		// Load the icon image file
 		GLFWimage icon;
-		fc_file_t* file = fc_file_open(pDesc->depot, pDesc->iconPath, "rb");
+		FcFile* file = fcFileOpen(pDesc->depot, pDesc->iconPath, "rb");
 		icon.pixels = stbi_load_from_file((FILE*)file, &icon.width, &icon.height, 0, 4); // 4 indicates RGBA format
-		fc_file_close(file);
+		fcFileClose(file);
 		if (!icon.pixels)
 		{
-			fur_set_last_error("Failed to load icon image.");
+			fcSetLastError("Failed to load icon image.");
 			return FR_RESULT_ERROR;
 		}
 
@@ -155,20 +155,20 @@ enum fr_result_t fr_create_app(const struct fr_app_desc_t* pDesc,
 	
 	if(pApp->pWindow == NULL)
 	{
-		fur_set_last_error("Can't create window.");
+		fcSetLastError("Can't create window.");
 		return FR_RESULT_ERROR;
 	}
 	
 	*ppApp = pApp;
 	
 	// init debug fragments - since now you can use debug lines
-	fc_dbg_init(pAllocCallbacks);
+	fcDebugInit(pAllocCallbacks);
 	
 	return FR_RESULT_OK;
 }
 
-enum fr_result_t fr_release_app(struct fr_app_t* pApp,
-									 struct fc_alloc_callbacks_t* pAllocCallbacks)
+enum FcResult fcApplicationRelease(struct FcApplication* pApp,
+									 struct FcAllocator* pAllocCallbacks)
 {
 	glfwDestroyWindow(pApp->pWindow);
 	glfwTerminate();
@@ -176,12 +176,12 @@ enum fr_result_t fr_release_app(struct fr_app_t* pApp,
 	FUR_FREE(pApp, pAllocCallbacks);
 	
 	// release debug fragments - since now you cannot use debug lines
-	fc_dbg_release(pAllocCallbacks);
+	fcDebugRelease(pAllocCallbacks);
 	
 	return FR_RESULT_OK;
 }
 
-u32 fr_update_app(struct fr_app_t* pApp)
+u32 fcApplicationUpdate(struct FcApplication* pApp)
 {
 	if(!glfwWindowShouldClose(pApp->pWindow))
 	{
@@ -196,37 +196,37 @@ u32 fr_update_app(struct fr_app_t* pApp)
 
 #define FR_FONT_FLOATS_PER_GLYPH_VERTEX 7
 
-typedef struct fr_font_glyph_t
+typedef struct FcFontGlyph
 {
 	char character;
 	f32 uvMin[2];
 	f32 uvMax[2];
 	u32 size[2];	// width and height in pixels
-} fr_font_glyph_t;
+} FcFontGlyph;
 
-typedef struct fr_font_t
+typedef struct FcFont
 {
-	fr_font_glyph_t* glyphs;	// sorted by character in ASCII, use character as index
+	FcFontGlyph* glyphs;	// sorted by character in ASCII, use character as index
 	u32 numGlyphs;
 	u32 offsetGlyphs;
 	
-	fr_image_t atlas;
+	FcImage atlas;
 	u32 atlasWidth;
 	u32 atlasHeight;
 	
 	void* pixelsData;	// used for staging buffer
-} fr_font_t;
+} FcFont;
 
-typedef struct fr_font_desc_t
+typedef struct FcFontDesc
 {
-	fc_depot_t* depot;
-	fc_file_path_t atlasPath;		// image with all glyphs
-	fc_file_path_t glyphsInfoPath;	// UV and sizes of each glyph and character mapping
-} fr_font_desc_t;
+	FcDepot* depot;
+	FcFilePath atlasPath;		// image with all glyphs
+	FcFilePath glyphsInfoPath;	// UV and sizes of each glyph and character mapping
+} FcFontDesc;
 
-void fr_font_release(VkDevice device, fr_font_t* font, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcFontRelease(VkDevice device, FcFont* font, FcAllocator* pAllocCallbacks)
 {
-	fr_image_release(device, &font->atlas, pAllocCallbacks);
+	fcImageRelease(device, &font->atlas, pAllocCallbacks);
 	
 	if(font->pixelsData)	// this is optional, can be released earlier during staging buffer phase
 	{
@@ -235,12 +235,12 @@ void fr_font_release(VkDevice device, fr_font_t* font, fc_alloc_callbacks_t* pAl
 	
 	FUR_FREE(font->glyphs, pAllocCallbacks);
 	
-	memset(font, 0, sizeof(fr_font_t));
+	memset(font, 0, sizeof(FcFont));
 }
 
-enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice, const fr_font_desc_t* desc, fr_font_t* font, fc_alloc_callbacks_t* pAllocCallbacks)
+enum FcResult fcFontCreate(VkDevice device, VkPhysicalDevice physicalDevice, const FcFontDesc* desc, FcFont* font, FcAllocator* pAllocCallbacks)
 {
-	enum fr_result_t res = FR_RESULT_OK;
+	enum FcResult res = FR_RESULT_OK;
 	
 	// load glyph atlas
 	{
@@ -251,9 +251,9 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 		// load texture
 		{
 			int texChannels;
-			fc_file_t* file = fc_file_open(desc->depot, desc->atlasPath, "rb");
+			FcFile* file = fcFileOpen(desc->depot, desc->atlasPath, "rb");
 			font->pixelsData = (void*)stbi_load_from_file((FILE*)file, &width, &height, &texChannels, STBI_rgb_alpha);
-			fc_file_close(file);
+			fcFileClose(file);
 			font->atlasWidth = width;
 			font->atlasHeight = height;
 			
@@ -262,8 +262,8 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 			if(!font->pixelsData)
 			{
 				char txt[256];
-				sprintf(txt, "Can't load font atlas \'%s\'", fc_file_path_debug_str(desc->depot, desc->atlasPath));
-				fur_set_last_error(txt);
+				sprintf(txt, "Can't load font atlas \'%s\'", fcFilePathAsDebugCstr(desc->depot, desc->atlasPath));
+				fcSetLastError(txt);
 				res = FR_RESULT_ERROR;
 			}
 		}
@@ -271,7 +271,7 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 		// create texture image
 		if(res == FR_RESULT_OK)
 		{
-			fr_image_desc_t desc = {0};
+			FcImageDesc desc = {0};
 			desc.size = imageSize;
 			desc.width = font->atlasWidth;
 			desc.height = font->atlasHeight;
@@ -279,19 +279,19 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 			desc.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 			desc.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 			
-			fr_image_create(device, physicalDevice, &desc, &font->atlas, pAllocCallbacks);
+			fcImageCreate(device, physicalDevice, &desc, &font->atlas, pAllocCallbacks);
 		}
 	}
 	
 	// read glyph infos
 	if(res == FR_RESULT_OK)
 	{
-		fc_text_buffer_t textBuffer = {0};
-		if(!fc_load_text_file_into_text_buffer(desc->depot, desc->glyphsInfoPath, &textBuffer, pAllocCallbacks))
+		FcTextBuffer textBuffer = {0};
+		if(!fcTextBufferLoad(desc->depot, desc->glyphsInfoPath, &textBuffer, pAllocCallbacks))
 		{
 			char txt[256];
-			sprintf(txt, "Can't load file %s", fc_file_path_debug_str(desc->depot, desc->glyphsInfoPath));
-			fur_set_last_error(txt);
+			sprintf(txt, "Can't load file %s", fcFilePathAsDebugCstr(desc->depot, desc->glyphsInfoPath));
+			fcSetLastError(txt);
 			return FR_RESULT_ERROR;
 		}
 
@@ -302,10 +302,10 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 		u32 numGlyphs = 0;
 		
 		{
-			fc_text_stream_ro_t stream = {streamBegin, streamEnd};
-			while(!fc_text_stream_is_eof(&stream, 0))
+			FcTextStreamRO stream = {streamBegin, streamEnd};
+			while(!fcTextStreamIsEOF(&stream, 0))
 			{
-				if(!fc_text_parse_skip_line(&stream))
+				if(!fcTextParseSkipLine(&stream))
 					break;
 				
 				++numGlyphs;
@@ -313,18 +313,18 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 		}
 		
 		FUR_ASSERT(numGlyphs > 0);
-		font->glyphs = FUR_ALLOC_ARRAY_AND_ZERO(fr_font_glyph_t, numGlyphs, 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+		font->glyphs = FUR_ALLOC_ARRAY_AND_ZERO(FcFontGlyph, numGlyphs, 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 		font->numGlyphs = numGlyphs;
 		
 		// parse content
 		{
 			i32 parsingErrorGlyphIndex = -1;
 			
-			fc_text_stream_ro_t stream = {streamBegin, streamEnd};
+			FcTextStreamRO stream = {streamBegin, streamEnd};
 			for(u32 i=0; i<numGlyphs; ++i)
 			{
 				i32 asciiNumber = 0;
-				if(!fc_text_parse_int32(&stream, &asciiNumber))
+				if(!fcTextParseInt32(&stream, &asciiNumber))
 				{
 					parsingErrorGlyphIndex = i;
 					break;
@@ -332,13 +332,13 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 				
 				char asciiChar = '\0';
 				
-				if(!fc_text_parse_character(&stream, &asciiChar))	// skip first char
+				if(!fcTextParseCharacter(&stream, &asciiChar))	// skip first char
 				{
 					parsingErrorGlyphIndex = i;
 					break;
 				}
 				
-				if(!fc_text_parse_character(&stream, &asciiChar))
+				if(!fcTextParseCharacter(&stream, &asciiChar))
 				{
 					parsingErrorGlyphIndex = i;
 					break;
@@ -346,20 +346,20 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 				
 				f32 uv[2] = {0};
 				
-				if(!fc_text_parse_float(&stream, &uv[0]))
+				if(!fcTextParseFloat(&stream, &uv[0]))
 				{
 					parsingErrorGlyphIndex = i;
 					break;
 				}
 				
-				if(!fc_text_parse_float(&stream, &uv[1]))
+				if(!fcTextParseFloat(&stream, &uv[1]))
 				{
 					parsingErrorGlyphIndex = i;
 					break;
 				}
 				
 				i32 pixelWidth = 0;
-				if(!fc_text_parse_int32(&stream, &pixelWidth))
+				if(!fcTextParseInt32(&stream, &pixelWidth))
 				{
 					parsingErrorGlyphIndex = i;
 					break;
@@ -378,13 +378,13 @@ enum fr_result_t fr_font_create(VkDevice device, VkPhysicalDevice physicalDevice
 			font->offsetGlyphs = font->glyphs[0].character;	// keep the offset in ASCII to first character for later get_glyph
 		}
 		
-		fc_release_text_buffer(&textBuffer, pAllocCallbacks);
+		fcTextBufferRelease(&textBuffer, pAllocCallbacks);
 	}
 	
 	return res;
 }
 
-const fr_font_glyph_t* fr_font_get_glyph(const fr_font_t* font, char chr)
+const FcFontGlyph* fcFontGetGlyph(const FcFont* font, char chr)
 {
 	const u32 offsetGlyphs = font->offsetGlyphs;
 	if(chr < offsetGlyphs)
@@ -397,7 +397,7 @@ const fr_font_glyph_t* fr_font_get_glyph(const fr_font_t* font, char chr)
 	return &font->glyphs[idxGlyph];
 }
 
-u32 fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, const f32 textPos[2], const f32 textColor[3], f32* vertices, u32 numMaxVertices, f32 scale)
+u32 fcFontFillVertexBuffer(const FcFont* font, const char* text, const f32 textPos[2], const f32 textColor[3], f32* vertices, u32 numMaxVertices, f32 scale)
 {
 	FUR_ASSERT(FR_FONT_FLOATS_PER_GLYPH_VERTEX == 7);
 	
@@ -414,7 +414,7 @@ u32 fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, const f3
 	f32 cursor[2] = {textPos[0], textPos[1]};
 	for(u32 i=0; i<length; ++i)
 	{
-		const fr_font_glyph_t* glyph = fr_font_get_glyph(font, text[i]);
+		const FcFontGlyph* glyph = fcFontGetGlyph(font, text[i]);
 		
 		if(glyph->size[0] == 0)
 		{
@@ -575,12 +575,12 @@ u32 fr_font_fill_vertex_buffer(const fr_font_t* font, const char* text, const f3
 
 /*************************************************************/
 
-enum fr_result_t fr_create_shader_module(VkDevice device, fc_depot_t* depot, fc_file_path_t path, VkShaderModule* pShader, struct fc_alloc_callbacks_t* pAllocCallbacks)
+enum FcResult fcRenderCreateShaderModule(VkDevice device, FcDepot* depot, FcFilePath path, VkShaderModule* pShader, struct FcAllocator* pAllocCallbacks)
 {
-	struct fc_binary_buffer_t buffer;
-	memset(&buffer, 0, sizeof(struct fc_binary_buffer_t));
+	struct FcBinaryBuffer buffer;
+	memset(&buffer, 0, sizeof(struct FcBinaryBuffer));
 	
-	if(fc_load_binary_file_into_binary_buffer(depot, path, &buffer, pAllocCallbacks))
+	if(fcBinaryBufferLoad(depot, path, &buffer, pAllocCallbacks))
 	{
 		VkShaderModuleCreateInfo createInfo = {0};
 		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -588,11 +588,11 @@ enum fr_result_t fr_create_shader_module(VkDevice device, fc_depot_t* depot, fc_
 		createInfo.pCode = buffer.pData;
 		
 		VkResult res = vkCreateShaderModule(device, &createInfo, NULL, pShader);
-		fc_release_binary_buffer(&buffer, pAllocCallbacks);
+		fcBinaryBufferRelease(&buffer, pAllocCallbacks);
 		
 		if (res != VK_SUCCESS)
 		{
-			fur_set_last_error("Can't create shader: %s", fc_file_path_debug_str(depot, path));
+			fcSetLastError("Can't create shader: %s", fcFilePathAsDebugCstr(depot, path));
 			return FR_RESULT_ERROR_SHADER_MODULE_CREATION;
 		}
 		
@@ -601,8 +601,8 @@ enum fr_result_t fr_create_shader_module(VkDevice device, fc_depot_t* depot, fc_
 	else
 	{
 		char txt[256];
-		sprintf(txt, "Can't load file %s", fc_file_path_debug_str(depot, path));
-		fur_set_last_error(txt);
+		sprintf(txt, "Can't load file %s", fcFilePathAsDebugCstr(depot, path));
+		fcSetLastError(txt);
 		return FR_RESULT_ERROR;
 	}
 }
@@ -649,18 +649,18 @@ typedef enum fr_mesh_chunk_buffer_offset_t
 
 typedef struct fr_mesh_chunk_t
 {
-	fr_buffer_t data;
+	FcRenderBuffer data;
 	VkDeviceSize offsets[FR_MESH_CHUNK_BUFFER_OFFSET_COUNT];
 	u32 numIndices;
 	i32 textureIndex;
 	
 } fr_mesh_chunk_t;
 
-typedef struct fr_mesh_t
+typedef struct FcRenderMesh
 {
 	fr_mesh_chunk_t* chunks;
 	u32 numChunks;
-} fr_mesh_t;
+} FcRenderMesh;
 
 #define NUM_TEXTURES_IN_ARRAY 3
 #define NUM_MAX_MESH_UNIFORM_BUFFERS 40
@@ -676,13 +676,13 @@ typedef struct fr_skinning_mapping_t
 	u32 count;
 } fr_skinning_mapping_t;
 
-typedef struct fr_renderer_t
+typedef struct FcRenderer
 {
 	VkInstance vkInstance;
 	VkPhysicalDevice physicalDevice;
 	VkDevice device;
 	
-	fc_depot_t* depot;
+	FcDepot* depot;
 
 	u32 idxQueueGraphics;
 	u32 idxQueuePresent;
@@ -690,7 +690,7 @@ typedef struct fr_renderer_t
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
 	
-	struct fr_app_t* pApp;
+	struct FcApplication* pApp;
 	VkSurfaceKHR surface;
 	VkSwapchainKHR swapChain;
 	VkFormat swapChainSurfaceFormat;
@@ -699,7 +699,7 @@ typedef struct fr_renderer_t
 	VkImage aSwapChainImages[NUM_SWAP_CHAIN_IMAGES];
 	VkImageView aSwapChainImagesViews[NUM_SWAP_CHAIN_IMAGES];
 	
-	fr_image_t depthImage;
+	FcImage depthImage;
 	
 	VkShaderModule vertexShaderModule;
 	VkShaderModule vertexShaderNoSkinModule;
@@ -741,8 +741,8 @@ typedef struct fr_renderer_t
 	VkVertexInputAttributeDescription debugTextVertexAttributes[3];
 	
 	// debug 3D lines and triangles
-	fr_buffer_t debugLinesVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
-	fr_buffer_t debugTrianglesVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
+	FcRenderBuffer debugLinesVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
+	FcRenderBuffer debugTrianglesVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
 	
 	// debug 2D rects
 	VkDescriptorSetLayout rectDescriptorSetLayout;	// for uniform buffer
@@ -752,15 +752,15 @@ typedef struct fr_renderer_t
 	VkPipelineLayout rectsPipelineLayout;
 	VkShaderModule rectVertexShaderModule;
 	VkShaderModule rectFragmentShaderModule;
-	fr_buffer_t aRectsVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
-	fr_buffer_t aRectsUniformBuffer[NUM_SWAP_CHAIN_IMAGES];
+	FcRenderBuffer aRectsVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
+	FcRenderBuffer aRectsUniformBuffer[NUM_SWAP_CHAIN_IMAGES];
 	
 	// debug 2D text
-	fr_buffer_t textVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
-	fr_font_t textFont;
+	FcRenderBuffer textVertexBuffer[NUM_SWAP_CHAIN_IMAGES];
+	FcFont textFont;
 	VkDescriptorSetLayout textDescriptorSetLayout;	// for uniform buffer
 	VkDescriptorSet aTextDescriptorSets[NUM_SWAP_CHAIN_IMAGES];
-	fr_buffer_t aTextUniformBuffer[NUM_SWAP_CHAIN_IMAGES];
+	FcRenderBuffer aTextUniformBuffer[NUM_SWAP_CHAIN_IMAGES];
 	
 	// test geometry
 	VkVertexInputBindingDescription bindingDescription[2];
@@ -773,17 +773,17 @@ typedef struct fr_renderer_t
 	VkSampler textureSampler;
 	VkSampler textTextureSampler;
 	
-	fr_buffer_t stagingBuffer;
+	FcRenderBuffer stagingBuffer;
 	
 	VkDescriptorPool descriptorPool;
 	
 	VkDescriptorPool pvsDescriptorPool;
-	fr_pvs_t pvs[NUM_SWAP_CHAIN_IMAGES];
+	FcRenderPVS pvs[NUM_SWAP_CHAIN_IMAGES];
 	
 	// all proxies
-	fr_proxy_t proxies[NUM_MAX_PROXIES_ALLOCATED];
+	FcRenderProxy proxies[NUM_MAX_PROXIES_ALLOCATED];
 	u32 numProxies;
-} fr_renderer_t;
+} FcRenderer;
 
 void fr_pixels_free_func(void* pData, u64 size, void* pUserData)
 {
@@ -793,25 +793,25 @@ void fr_pixels_free_func(void* pData, u64 size, void* pUserData)
 
 void fr_generic_buffer_free_func(void* pData, u64 size, void* pUserData)
 {
-	struct fc_alloc_callbacks_t* pAllocCallbacks = (struct fc_alloc_callbacks_t*)pUserData;
+	struct FcAllocator* pAllocCallbacks = (struct FcAllocator*)pUserData;
 	
 	FUR_FREE(pData, pAllocCallbacks);
 }
 
-enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
-					   struct fr_renderer_t** ppRenderer,
-					   struct fc_alloc_callbacks_t*	pAllocCallbacks)
+enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
+					   struct FcRenderer** ppRenderer,
+					   struct FcAllocator*	pAllocCallbacks)
 {
-	struct fr_renderer_t* pRenderer = FUR_ALLOC(sizeof(struct fr_renderer_t), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+	struct FcRenderer* pRenderer = FUR_ALLOC(sizeof(struct FcRenderer), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 	if(!pRenderer)
 	{
-		fur_set_last_error("Can't allocate renderer.");
+		fcSetLastError("Can't allocate renderer.");
 		return FR_RESULT_ERROR;
 	}
 	
-	memset(pRenderer, 0, sizeof(struct fr_renderer_t));
+	memset(pRenderer, 0, sizeof(struct FcRenderer));
 	
-	enum fr_result_t res = FR_RESULT_OK;
+	enum FcResult res = FR_RESULT_OK;
 	
 	pRenderer->depot = pDesc->depot;
 
@@ -846,7 +846,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if(result != VK_SUCCESS)
 		{
-			fur_set_last_error(frInterpretVulkanResult(result));
+			fcSetLastError(frInterpretVulkanResult(result));
 			res = FR_RESULT_ERROR;
 		}
 	}
@@ -896,7 +896,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if(!physicalDevice)
 		{
-			fur_set_last_error("Cannot find suitable GPU device.");
+			fcSetLastError("Cannot find suitable GPU device.");
 			res = FR_RESULT_ERROR;
 		}
 		
@@ -910,7 +910,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if(result != VK_SUCCESS)
 		{
-			fur_set_last_error(frInterpretVulkanResult(result));
+			fcSetLastError(frInterpretVulkanResult(result));
 			res = FR_RESULT_ERROR;
 		}
 	}
@@ -943,7 +943,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if(!extensionsFound)
 		{
-			fur_set_last_error("Cannot find required extensions");
+			fcSetLastError("Cannot find required extensions");
 			res = FR_RESULT_ERROR;
 		}
 	}
@@ -970,7 +970,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if(idxQueueGraphics == -1)
 		{
-			fur_set_last_error("Cannot find graphics device with suitable queue family.");
+			fcSetLastError("Cannot find graphics device with suitable queue family.");
 			res = FR_RESULT_ERROR;
 		}
 		
@@ -993,7 +993,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if(idxQueuePresent == -1)
 		{
-			fur_set_last_error("Can't find present queue for surface");
+			fcSetLastError("Can't find present queue for surface");
 			res = FR_RESULT_ERROR;
 		}
 		
@@ -1041,7 +1041,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkCreateDevice(physicalDevice, &createInfo, NULL, &pRenderer->device) != VK_SUCCESS)
 		{
-			fur_set_last_error("Cannot create logical device");
+			fcSetLastError("Cannot create logical device");
 			res = FR_RESULT_ERROR;
 		}
 		
@@ -1062,11 +1062,11 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		extent.height = MAX(surfaceCapabilities.minImageExtent.height,
 							MIN(surfaceCapabilities.maxImageExtent.height, pRenderer->pApp->viewportHeight));
 		
-		fc_dbg_screen_info_t dbgScreenInfo = { 0 };
+		FcDebugScreenInfo dbgScreenInfo = { 0 };
 		dbgScreenInfo.width = (f32)extent.width;
 		dbgScreenInfo.height = (f32)extent.height;
 
-		fc_dbg_set_screen_info(&dbgScreenInfo);
+		fcDebugSetScreenInfo(&dbgScreenInfo);
 
 		const VkFormat surfaceFormat = VK_FORMAT_B8G8R8A8_UNORM;
 		
@@ -1105,7 +1105,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if(vkCreateSwapchainKHR(pRenderer->device, &createInfo, NULL, &pRenderer->swapChain) != VK_SUCCESS)
 		{
-			fur_set_last_error("Cannot create swap chain");
+			fcSetLastError("Cannot create swap chain");
 			res = FR_RESULT_ERROR;
 		}
 		
@@ -1144,7 +1144,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			
 			if (vkCreateImageView(pRenderer->device, &createInfo, NULL, &pRenderer->aSwapChainImagesViews[i]) != VK_SUCCESS)
 			{
-				fur_set_last_error("Cannot create swap chain image views");
+				fcSetLastError("Cannot create swap chain image views");
 				res = FR_RESULT_ERROR;
 			}
 		}
@@ -1153,59 +1153,59 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create shader libraries
 	
 	// todo: remove that, paths should be passed or something
-	const fc_file_path_t basicVertexShaderPath = fc_file_path_create(pRenderer->depot, "shaders/compiled/basic_vs.spv");
-	const fc_file_path_t basicVertexShaderNoSkinPath = fc_file_path_create(pRenderer->depot, "shaders/compiled/basic_vs_no_skin.spv");
-	const fc_file_path_t basicFragmentShaderPath = fc_file_path_create(pRenderer->depot, "shaders/compiled/basic_fs.spv");
-	const fc_file_path_t debugVertexShaderPath = fc_file_path_create(pRenderer->depot, "shaders/compiled/debug_vs.spv");
-	const fc_file_path_t debugFragmentShaderPath = fc_file_path_create(pRenderer->depot, "shaders/compiled/debug_fs.spv");
-	const fc_file_path_t textVertexShaderPath = fc_file_path_create(pRenderer->depot, "shaders/compiled/text_vs.spv");
-	const fc_file_path_t textFragmentShaderPath = fc_file_path_create(pRenderer->depot, "shaders/compiled/text_fs.spv");
-	const fc_file_path_t rectVertexShaderPath = fc_file_path_create(pRenderer->depot, "shaders/compiled/rect_vs.spv");
-	const fc_file_path_t rectFragmentShaderPath = fc_file_path_create(pRenderer->depot, "shaders/compiled/rect_fs.spv");
+	const FcFilePath basicVertexShaderPath = fcFilePathCreate(pRenderer->depot, "shaders/compiled/basic_vs.spv");
+	const FcFilePath basicVertexShaderNoSkinPath = fcFilePathCreate(pRenderer->depot, "shaders/compiled/basic_vs_no_skin.spv");
+	const FcFilePath basicFragmentShaderPath = fcFilePathCreate(pRenderer->depot, "shaders/compiled/basic_fs.spv");
+	const FcFilePath debugVertexShaderPath = fcFilePathCreate(pRenderer->depot, "shaders/compiled/debug_vs.spv");
+	const FcFilePath debugFragmentShaderPath = fcFilePathCreate(pRenderer->depot, "shaders/compiled/debug_fs.spv");
+	const FcFilePath textVertexShaderPath = fcFilePathCreate(pRenderer->depot, "shaders/compiled/text_vs.spv");
+	const FcFilePath textFragmentShaderPath = fcFilePathCreate(pRenderer->depot, "shaders/compiled/text_fs.spv");
+	const FcFilePath rectVertexShaderPath = fcFilePathCreate(pRenderer->depot, "shaders/compiled/rect_vs.spv");
+	const FcFilePath rectFragmentShaderPath = fcFilePathCreate(pRenderer->depot, "shaders/compiled/rect_fs.spv");
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = fr_create_shader_module(pRenderer->device, pRenderer->depot, basicVertexShaderPath, &pRenderer->vertexShaderModule, pAllocCallbacks);
+		res = fcRenderCreateShaderModule(pRenderer->device, pRenderer->depot, basicVertexShaderPath, &pRenderer->vertexShaderModule, pAllocCallbacks);
 	}
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = fr_create_shader_module(pRenderer->device, pRenderer->depot, basicVertexShaderNoSkinPath, &pRenderer->vertexShaderNoSkinModule, pAllocCallbacks);
+		res = fcRenderCreateShaderModule(pRenderer->device, pRenderer->depot, basicVertexShaderNoSkinPath, &pRenderer->vertexShaderNoSkinModule, pAllocCallbacks);
 	}
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = fr_create_shader_module(pRenderer->device, pRenderer->depot, basicFragmentShaderPath, &pRenderer->fragmentShaderModule, pAllocCallbacks);
+		res = fcRenderCreateShaderModule(pRenderer->device, pRenderer->depot, basicFragmentShaderPath, &pRenderer->fragmentShaderModule, pAllocCallbacks);
 	}
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = fr_create_shader_module(pRenderer->device, pRenderer->depot, debugVertexShaderPath, &pRenderer->debugVertexShaderModule, pAllocCallbacks);
+		res = fcRenderCreateShaderModule(pRenderer->device, pRenderer->depot, debugVertexShaderPath, &pRenderer->debugVertexShaderModule, pAllocCallbacks);
 	}
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = fr_create_shader_module(pRenderer->device, pRenderer->depot, debugFragmentShaderPath, &pRenderer->debugFragmentShaderModule, pAllocCallbacks);
+		res = fcRenderCreateShaderModule(pRenderer->device, pRenderer->depot, debugFragmentShaderPath, &pRenderer->debugFragmentShaderModule, pAllocCallbacks);
 	}
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = fr_create_shader_module(pRenderer->device, pRenderer->depot, textVertexShaderPath, &pRenderer->textVertexShaderModule, pAllocCallbacks);
+		res = fcRenderCreateShaderModule(pRenderer->device, pRenderer->depot, textVertexShaderPath, &pRenderer->textVertexShaderModule, pAllocCallbacks);
 	}
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = fr_create_shader_module(pRenderer->device, pRenderer->depot, textFragmentShaderPath, &pRenderer->textFragmentShaderModule, pAllocCallbacks);
+		res = fcRenderCreateShaderModule(pRenderer->device, pRenderer->depot, textFragmentShaderPath, &pRenderer->textFragmentShaderModule, pAllocCallbacks);
 	}
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = fr_create_shader_module(pRenderer->device, pRenderer->depot, rectVertexShaderPath, &pRenderer->rectVertexShaderModule, pAllocCallbacks);
+		res = fcRenderCreateShaderModule(pRenderer->device, pRenderer->depot, rectVertexShaderPath, &pRenderer->rectVertexShaderModule, pAllocCallbacks);
 	}
 	
 	if(res == FR_RESULT_OK)
 	{
-		res = fr_create_shader_module(pRenderer->device, pRenderer->depot, rectFragmentShaderPath, &pRenderer->rectFragmentShaderModule, pAllocCallbacks);
+		res = fcRenderCreateShaderModule(pRenderer->device, pRenderer->depot, rectFragmentShaderPath, &pRenderer->rectFragmentShaderModule, pAllocCallbacks);
 	}
 	
 	// debug draw bindings
@@ -1230,7 +1230,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		pRenderer->debugRectVertexBindingDescription.binding = 0;
-		pRenderer->debugRectVertexBindingDescription.stride = fc_dbg_rect_num_floats_per_vertex() * sizeof(f32);
+		pRenderer->debugRectVertexBindingDescription.stride = fcDebugRectsNumFloatsPerVertex() * sizeof(f32);
 		pRenderer->debugRectVertexBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 		
 		pRenderer->debugRectVertexAttributes[0].binding = 0;
@@ -1290,18 +1290,18 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		pRenderer->vertexAttributes[2].offset = offsetof(fr_vertex_t, texCoord);
 		
 		pRenderer->bindingDescription[1].binding = 1;
-		pRenderer->bindingDescription[1].stride = sizeof(fr_resource_mesh_chunk_skin_t);
+		pRenderer->bindingDescription[1].stride = sizeof(FcMeshResourceChunkSkin);
 		pRenderer->bindingDescription[1].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 		
 		pRenderer->vertexAttributes[3].binding = 1;
 		pRenderer->vertexAttributes[3].location = 3;
 		pRenderer->vertexAttributes[3].format = VK_FORMAT_R16G16B16A16_SINT;
-		pRenderer->vertexAttributes[3].offset = offsetof(fr_resource_mesh_chunk_skin_t, indices);
+		pRenderer->vertexAttributes[3].offset = offsetof(FcMeshResourceChunkSkin, indices);
 		
 		pRenderer->vertexAttributes[4].binding = 1;
 		pRenderer->vertexAttributes[4].location = 4;
 		pRenderer->vertexAttributes[4].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		pRenderer->vertexAttributes[4].offset = offsetof(fr_resource_mesh_chunk_skin_t, weights);
+		pRenderer->vertexAttributes[4].offset = offsetof(FcMeshResourceChunkSkin, weights);
 	}
 	
 	// create descriptor set layout
@@ -1341,7 +1341,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkCreateDescriptorSetLayout(pRenderer->device, &layoutInfo, NULL, &pRenderer->descriptorSetLayout) != VK_SUCCESS)
 		{
-			fur_set_last_error("Can't create uniform buffer descriptor layout");
+			fcSetLastError("Can't create uniform buffer descriptor layout");
 			res = FR_RESULT_ERROR_GPU;
 		}
 	}
@@ -1367,7 +1367,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkCreateDescriptorSetLayout(pRenderer->device, &layoutInfo, NULL, &pRenderer->rectDescriptorSetLayout) != VK_SUCCESS)
 		{
-			fur_set_last_error("Can't create descriptor layout for 2D rect drawing");
+			fcSetLastError("Can't create descriptor layout for 2D rect drawing");
 			res = FR_RESULT_ERROR_GPU;
 		}
 	}
@@ -1401,7 +1401,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkCreateDescriptorSetLayout(pRenderer->device, &layoutInfo, NULL, &pRenderer->textDescriptorSetLayout) != VK_SUCCESS)
 		{
-			fur_set_last_error("Can't create descriptor layout for text drawing");
+			fcSetLastError("Can't create descriptor layout for text drawing");
 			res = FR_RESULT_ERROR_GPU;
 		}
 	}
@@ -1409,28 +1409,28 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// create 2D rects uniform buffer
 	if(res == FR_RESULT_OK)
 	{
-		fr_buffer_desc_t desc;
+		FcRenderBufferDesc desc;
 		desc.size = sizeof(fr_uniform_buffer_t);
 		desc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 		desc.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 		
 		for(u32 i=0; i<3; ++i)
 		{
-			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->aRectsUniformBuffer[i], pAllocCallbacks);
+			fcRenderBufferCreate(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->aRectsUniformBuffer[i], pAllocCallbacks);
 		}
 	}
 	
 	// create text uniform buffer
 	if(res == FR_RESULT_OK)
 	{
-		fr_buffer_desc_t desc;
+		FcRenderBufferDesc desc;
 		desc.size = sizeof(fr_uniform_buffer_t);
 		desc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 		desc.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 		
 		for(u32 i=0; i<3; ++i)
 		{
-			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->aTextUniformBuffer[i], pAllocCallbacks);
+			fcRenderBufferCreate(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->aTextUniformBuffer[i], pAllocCallbacks);
 		}
 	}
 	
@@ -1440,26 +1440,26 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	if(res == FR_RESULT_OK)
 	{
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {0};
-		fr_pso_init_layout(&pRenderer->descriptorSetLayout, &pipelineLayoutInfo);
+		fcRenderPSOInitLayout(&pRenderer->descriptorSetLayout, &pipelineLayoutInfo);
 		
 		if (vkCreatePipelineLayout(pRenderer->device, &pipelineLayoutInfo, NULL, &pRenderer->pipelineLayout) != VK_SUCCESS)
 		{
-			fur_set_last_error("Can't create pipeline layout");
+			fcSetLastError("Can't create pipeline layout");
 			res = FR_RESULT_ERROR_GPU;
 		}
 		
 		// create render pass
-		if (fr_render_pass_create_color_depth(pRenderer->device, pRenderer->swapChainSurfaceFormat,
+		if (fcRenderPassCreateColorDepth(pRenderer->device, pRenderer->swapChainSurfaceFormat,
 											  depthFormat, &pRenderer->renderPass, pAllocCallbacks) != VK_SUCCESS)
 		{
-			fur_set_last_error("Can't create render pass");
+			fcSetLastError("Can't create render pass");
 			res = FR_RESULT_ERROR_GPU;
 		}
 		
 		// create pipeline state object (PSO)
 		VkPipelineShaderStageCreateInfo shaderStages[2] = {0};
 		
-		fr_pso_init_shader_stages_simple(pRenderer->vertexShaderModule, "main",
+		fcRenderPSOInitShaderStagesSimple(pRenderer->vertexShaderModule, "main",
 										 pRenderer->fragmentShaderModule, "main",
 										 shaderStages);
 		
@@ -1472,39 +1472,39 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		// create rasterizer state
 		VkPipelineRasterizationStateCreateInfo rasterizer = {0};
-		fr_pso_init_rasterization_state_polygon_fill(&rasterizer);
+		fcRenderPSOInitRasterizationStatePolygonFill(&rasterizer);
 		
 		// create input assembly state
 		VkPipelineInputAssemblyStateCreateInfo inputAssembly = {0};
-		fr_pso_init_input_assembly_state_triangle_list(&inputAssembly);
+		fcRenderPSOInitInputAssemblyStateTriangleList(&inputAssembly);
 		
 		// create viewport
 		VkViewport viewport = {0};
-		fr_pso_init_viewport((f32)pRenderer->swapChainExtent.width,
+		fcRenderPSOInitViewport((f32)pRenderer->swapChainExtent.width,
 							 (f32)pRenderer->swapChainExtent.height,
 							 &viewport);
 		
 		VkRect2D scissor = {0};
-		fr_pso_init_scissor(pRenderer->swapChainExtent, &scissor);
+		fcRenderPSOInitScissor(pRenderer->swapChainExtent, &scissor);
 		
 		VkPipelineViewportStateCreateInfo viewportState = {0};
-		fr_pso_init_viewport_state(&viewport, &scissor, &viewportState);
+		fcRenderPSOInitViewportState(&viewport, &scissor, &viewportState);
 		
 		// create multi sampling state
 		VkPipelineMultisampleStateCreateInfo multisampling = {0};
-		fr_pso_init_multisampling_state(&multisampling);
+		fcRenderPSOInitMultisamplingState(&multisampling);
 		
 		// depth and stencil state
 		VkPipelineColorBlendAttachmentState colorBlendAttachment = {0};
-		fr_pso_init_color_blend_attachment_state(&colorBlendAttachment);
+		fcRenderPSOInitColorBlendAttachmentState(&colorBlendAttachment);
 		
-		// for blending use fr_pso_init_color_blend_attachment_state_blending
+		// for blending use fcRenderPSOInitColorBlendAttachmentStateBlending
 		
 		VkPipelineColorBlendStateCreateInfo colorBlending = {0};
-		fr_pso_init_color_blend_state(&colorBlendAttachment, &colorBlending);
+		fcRenderPSOInitColorBlendState(&colorBlendAttachment, &colorBlending);
 		
 		VkPipelineDepthStencilStateCreateInfo depthStencil = {0};
-		fr_pso_init_depth_stencil_state(&depthStencil);
+		fcRenderPSOInitDepthStencilState(&depthStencil);
 		
 		// create graphics pipeline
 		VkGraphicsPipelineCreateInfo pipelineInfo = {0};
@@ -1543,18 +1543,18 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->graphicsPipeline) != VK_SUCCESS)
 		{
-			fur_set_last_error("Can't create graphics pipeline");
+			fcSetLastError("Can't create graphics pipeline");
 			res = FR_RESULT_ERROR_GPU;
 		}
 		
 		// create no skin pipeline
-		fr_pso_init_shader_stages_simple(pRenderer->vertexShaderNoSkinModule, "main",
+		fcRenderPSOInitShaderStagesSimple(pRenderer->vertexShaderNoSkinModule, "main",
 										 pRenderer->fragmentShaderModule, "main",
 										 shaderStages);
 		
 		if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->graphicsPipelineNoSkin) != VK_SUCCESS)
 		{
-			fur_set_last_error("Can't create graphics pipeline 'no skin'");
+			fcSetLastError("Can't create graphics pipeline 'no skin'");
 			res = FR_RESULT_ERROR_GPU;
 		}
 	}
@@ -1565,7 +1565,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		// create pipeline state object (PSO)
 		VkPipelineShaderStageCreateInfo shaderStages[2] = {0};
 		
-		fr_pso_init_shader_stages_simple(pRenderer->debugVertexShaderModule, "main",
+		fcRenderPSOInitShaderStagesSimple(pRenderer->debugVertexShaderModule, "main",
 										 pRenderer->debugFragmentShaderModule, "main",
 										 shaderStages);
 		
@@ -1578,40 +1578,40 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		// create rasterizer state
 		VkPipelineRasterizationStateCreateInfo rasterizer = {0};
-		fr_pso_init_rasterization_state_wireframe_no_cull(&rasterizer);
+		fcRenderPSOInitRasterizationStateWireframeNoCull(&rasterizer);
 		
 		// create input assembly state
 		VkPipelineInputAssemblyStateCreateInfo inputAssembly = {0};
-		fr_pso_init_input_assembly_state_line_list(&inputAssembly);
+		fcRenderPSOInitInputAssemblyStateLineList(&inputAssembly);
 		
 		// create viewport
 		VkViewport viewport = {0};
-		fr_pso_init_viewport((f32)pRenderer->swapChainExtent.width,
+		fcRenderPSOInitViewport((f32)pRenderer->swapChainExtent.width,
 							 (f32)pRenderer->swapChainExtent.height,
 							 &viewport);
 		
 		VkRect2D scissor = {0};
-		fr_pso_init_scissor(pRenderer->swapChainExtent, &scissor);
+		fcRenderPSOInitScissor(pRenderer->swapChainExtent, &scissor);
 		
 		VkPipelineViewportStateCreateInfo viewportState = {0};
-		fr_pso_init_viewport_state(&viewport, &scissor, &viewportState);
+		fcRenderPSOInitViewportState(&viewport, &scissor, &viewportState);
 		
 		// create multi sampling state
 		VkPipelineMultisampleStateCreateInfo multisampling = {0};
-		fr_pso_init_multisampling_state(&multisampling);
+		fcRenderPSOInitMultisamplingState(&multisampling);
 		
-		// depth and stencil state - for blending use fr_pso_init_color_blend_attachment_state_blending
+		// depth and stencil state - for blending use fcRenderPSOInitColorBlendAttachmentStateBlending
 		VkPipelineColorBlendAttachmentState colorBlendAttachment = {0};
-		fr_pso_init_color_blend_attachment_state(&colorBlendAttachment);
+		fcRenderPSOInitColorBlendAttachmentState(&colorBlendAttachment);
 		
 		VkPipelineColorBlendStateCreateInfo colorBlending = {0};
-		fr_pso_init_color_blend_state(&colorBlendAttachment, &colorBlending);
+		fcRenderPSOInitColorBlendState(&colorBlendAttachment, &colorBlending);
 		
 		VkPipelineDepthStencilStateCreateInfo depthStencil = {0};
-		fr_pso_init_depth_stencil_state(&depthStencil);
+		fcRenderPSOInitDepthStencilState(&depthStencil);
 		
 		VkPipelineDepthStencilStateCreateInfo depthStencilNoDepth = {0};
-		fr_pso_init_depth_stencil_state_no_depth_test(&depthStencilNoDepth);
+		fcRenderPSOInitDepthStencilStateNoDepthTest(&depthStencilNoDepth);
 		
 		// create graphics pipeline
 		VkGraphicsPipelineCreateInfo pipelineInfo = {0};
@@ -1651,25 +1651,25 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		// create 3D lines debug PSO
 		if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->debugLinesPSO) != VK_SUCCESS)
 		{
-			fur_set_last_error("Can't create debug lines PSO");
+			fcSetLastError("Can't create debug lines PSO");
 			res = FR_RESULT_ERROR_GPU;
 		}
 		
 		// create 3D triangles debug PSO
-		fr_pso_init_rasterization_state_polygon_fill(&rasterizer);
-		fr_pso_init_input_assembly_state_triangle_list(&inputAssembly);
+		fcRenderPSOInitRasterizationStatePolygonFill(&rasterizer);
+		fcRenderPSOInitInputAssemblyStateTriangleList(&inputAssembly);
 		if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->debugTrianglesPSO) != VK_SUCCESS)
 		{
-			fur_set_last_error("Can't create debug triangles PSO");
+			fcSetLastError("Can't create debug triangles PSO");
 			res = FR_RESULT_ERROR_GPU;
 		}
 		
-		// depth and stencil state - for blending use fr_pso_init_color_blend_attachment_state_blending
+		// depth and stencil state - for blending use fcRenderPSOInitColorBlendAttachmentStateBlending
 		VkPipelineColorBlendAttachmentState colorBlendAttachmentBlending = {0};
-		fr_pso_init_color_blend_attachment_state_blending(&colorBlendAttachmentBlending);
+		fcRenderPSOInitColorBlendAttachmentStateBlending(&colorBlendAttachmentBlending);
 		
 		VkPipelineColorBlendStateCreateInfo colorBlendingDoBlending = {0};
-		fr_pso_init_color_blend_state(&colorBlendAttachmentBlending, &colorBlendingDoBlending);
+		fcRenderPSOInitColorBlendState(&colorBlendAttachmentBlending, &colorBlendingDoBlending);
 		
 		pipelineInfo.pColorBlendState = &colorBlendingDoBlending;
 		
@@ -1679,20 +1679,20 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		// create 2D rects debug PSO
 		{
 			VkPipelineLayoutCreateInfo pipelineLayoutInfo = {0};
-			fr_pso_init_layout(&pRenderer->rectDescriptorSetLayout, &pipelineLayoutInfo);
+			fcRenderPSOInitLayout(&pRenderer->rectDescriptorSetLayout, &pipelineLayoutInfo);
 			
 			if (vkCreatePipelineLayout(pRenderer->device, &pipelineLayoutInfo, NULL, &pRenderer->rectsPipelineLayout) != VK_SUCCESS)
 			{
-				fur_set_last_error("Can't create rects pipeline layout");
+				fcSetLastError("Can't create rects pipeline layout");
 				res = FR_RESULT_ERROR_GPU;
 			}
 			
 			pipelineInfo.layout = pRenderer->rectsPipelineLayout;
 			
-			fr_pso_init_rasterization_state_polygon_fill(&rasterizer);
-			fr_pso_init_input_assembly_state_triangle_list(&inputAssembly);
+			fcRenderPSOInitRasterizationStatePolygonFill(&rasterizer);
+			fcRenderPSOInitInputAssemblyStateTriangleList(&inputAssembly);
 			
-			fr_pso_init_shader_stages_simple(pRenderer->rectVertexShaderModule, "main",
+			fcRenderPSOInitShaderStagesSimple(pRenderer->rectVertexShaderModule, "main",
 											 pRenderer->rectFragmentShaderModule, "main",
 											 shaderStages);
 			
@@ -1707,7 +1707,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			
 			if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->debugRectsPSO) != VK_SUCCESS)
 			{
-				fur_set_last_error("Can't create debug rects PSO");
+				fcSetLastError("Can't create debug rects PSO");
 				res = FR_RESULT_ERROR_GPU;
 			}
 		}
@@ -1715,23 +1715,23 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		// create 2D text debug PSO
 		{
 			VkPipelineLayoutCreateInfo pipelineLayoutInfo = {0};
-			fr_pso_init_layout(&pRenderer->textDescriptorSetLayout, &pipelineLayoutInfo);
+			fcRenderPSOInitLayout(&pRenderer->textDescriptorSetLayout, &pipelineLayoutInfo);
 			
 			if (vkCreatePipelineLayout(pRenderer->device, &pipelineLayoutInfo, NULL, &pRenderer->textPipelineLayout) != VK_SUCCESS)
 			{
-				fur_set_last_error("Can't create text pipeline layout");
+				fcSetLastError("Can't create text pipeline layout");
 				res = FR_RESULT_ERROR_GPU;
 			}
 			
 			VkPipelineDepthStencilStateCreateInfo depthStencil = {0};
-			fr_pso_init_depth_stencil_state_no_depth_test(&depthStencil);
+			fcRenderPSOInitDepthStencilStateNoDepthTest(&depthStencil);
 			
 			pipelineInfo.layout = pRenderer->textPipelineLayout;
 			
-			fr_pso_init_rasterization_state_polygon_fill(&rasterizer);
-			fr_pso_init_input_assembly_state_triangle_list(&inputAssembly);
+			fcRenderPSOInitRasterizationStatePolygonFill(&rasterizer);
+			fcRenderPSOInitInputAssemblyStateTriangleList(&inputAssembly);
 			
-			fr_pso_init_shader_stages_simple(pRenderer->textVertexShaderModule, "main",
+			fcRenderPSOInitShaderStagesSimple(pRenderer->textVertexShaderModule, "main",
 											 pRenderer->textFragmentShaderModule, "main",
 											 shaderStages);
 			
@@ -1746,7 +1746,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			
 			if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->debugTextPSO) != VK_SUCCESS)
 			{
-				fur_set_last_error("Can't create debug text PSO");
+				fcSetLastError("Can't create debug text PSO");
 				res = FR_RESULT_ERROR_GPU;
 			}
 		}
@@ -1755,12 +1755,12 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	// load debug font
 	if(res == FR_RESULT_OK)
 	{
-		fr_font_desc_t desc = {0};
-		desc.atlasPath = fc_file_path_create(pRenderer->depot, "data/font/debug-font-2.png");
-		desc.glyphsInfoPath = fc_file_path_create(pRenderer->depot, "data/font/debug-font-data-2.txt");
+		FcFontDesc desc = {0};
+		desc.atlasPath = fcFilePathCreate(pRenderer->depot, "data/font/debug-font-2.png");
+		desc.glyphsInfoPath = fcFilePathCreate(pRenderer->depot, "data/font/debug-font-data-2.txt");
 		desc.depot = pRenderer->depot;
 		
-		res = fr_font_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->textFont, pAllocCallbacks);
+		res = fcFontCreate(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->textFont, pAllocCallbacks);
 	}
 	
 	// create depth buffer
@@ -1768,7 +1768,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	{
 		const VkDeviceSize depthImageSize = 4 * pRenderer->swapChainExtent.width * pRenderer->swapChainExtent.height;
 		
-		fr_image_desc_t desc = {0};
+		FcImageDesc desc = {0};
 		desc.size = depthImageSize;
 		desc.width = pRenderer->swapChainExtent.width;
 		desc.height = pRenderer->swapChainExtent.height;
@@ -1776,62 +1776,62 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		desc.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 		desc.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		
-		fr_image_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->depthImage, pAllocCallbacks);
+		fcImageCreate(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->depthImage, pAllocCallbacks);
 	}
 	
 	// create debug lines vertex buffer
 	if(res == FR_RESULT_OK)
 	{
-		fr_buffer_desc_t desc = {0};
-		desc.size = fc_dbg_line_buffer_size();
+		FcRenderBufferDesc desc = {0};
+		desc.size = fcDebugLineBufferSize();
 		desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
 		desc.properties = FR_STAGING_BUFFER_MEMORY_FLAGS;	// use vertex buffer usage, but staging buffer properties
 		
 		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->debugLinesVertexBuffer[i], pAllocCallbacks);
+			fcRenderBufferCreate(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->debugLinesVertexBuffer[i], pAllocCallbacks);
 		}
 	}
 	
 	// create debug triangles vertex buffer
 	if(res == FR_RESULT_OK)
 	{
-		fr_buffer_desc_t desc = {0};
-		desc.size = fc_dbg_triangle_buffer_size();
+		FcRenderBufferDesc desc = {0};
+		desc.size = fcDebugTriangleBufferSize();
 		desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
 		desc.properties = FR_STAGING_BUFFER_MEMORY_FLAGS;	// use vertex buffer usage, but staging buffer properties
 		
 		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->debugTrianglesVertexBuffer[i], pAllocCallbacks);
+			fcRenderBufferCreate(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->debugTrianglesVertexBuffer[i], pAllocCallbacks);
 		}
 	}
 	
 	// create debug 2D rects vertex buffer
 	if(res == FR_RESULT_OK)
 	{
-		fr_buffer_desc_t desc = {0};
-		desc.size = fc_dbg_rects_buffer_size();
+		FcRenderBufferDesc desc = {0};
+		desc.size = fcDebugRectsBufferSize();
 		desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
 		desc.properties = FR_STAGING_BUFFER_MEMORY_FLAGS;	// use vertex buffer usage, but staging buffer properties
 		
 		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->aRectsVertexBuffer[i], pAllocCallbacks);
+			fcRenderBufferCreate(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->aRectsVertexBuffer[i], pAllocCallbacks);
 		}
 	}
 	
 	// create debug text vertex buffer
 	if(res == FR_RESULT_OK)
 	{
-		fr_buffer_desc_t desc = {0};
-		desc.size = fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6 * sizeof(f32);
+		FcRenderBufferDesc desc = {0};
+		desc.size = fcDebugTextCharactersCapacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6 * sizeof(f32);
 		desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS;
 		desc.properties = FR_STAGING_BUFFER_MEMORY_FLAGS;	// use vertex buffer usage, but staging buffer properties
 		
 		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->textVertexBuffer[i], pAllocCallbacks);
+			fcRenderBufferCreate(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->textVertexBuffer[i], pAllocCallbacks);
 		}
 	}
 	
@@ -1859,7 +1859,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			
 			if (vkCreateFramebuffer(pRenderer->device, &framebufferInfo, NULL, &pRenderer->aSwapChainFrameBuffers[i]) != VK_SUCCESS)
 			{
-				fur_set_last_error("Can't create frame buffers");
+				fcSetLastError("Can't create frame buffers");
 				res = FR_RESULT_ERROR_GPU;
 			}
 		}
@@ -1885,14 +1885,14 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkCreateDescriptorPool(pRenderer->device, &poolInfo, NULL, &pRenderer->descriptorPool) != VK_SUCCESS)
 		{
-			fur_set_last_error("Can't create descriptor pool for uniform buffers");
+			fcSetLastError("Can't create descriptor pool for uniform buffers");
 			res = FR_RESULT_ERROR_GPU;
 		}
 	}
 	
 	// prepare staging buffer builder
-	fr_staging_buffer_builder_t stagingBuilder;
-	fr_staging_init(&stagingBuilder);
+	FcRenderStagingBufferBuilder stagingBuilder;
+	fcRenderStagingInit(&stagingBuilder);
 	
 	u32 numTexturesInStagingBuffer = 0;
 	
@@ -1907,7 +1907,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	{
 		if(!pRenderer->textFont.pixelsData)
 		{
-			fur_set_last_error("Can't load font atlas");
+			fcSetLastError("Can't load font atlas");
 			res = FR_RESULT_ERROR_GPU;
 		}
 		else
@@ -1919,7 +1919,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			void* pixels = pRenderer->textFont.pixelsData;
 			u32 imageSize = texFontAtlasWidth * texFontAtlasHeight * 4;
 			
-			fr_staging_add(&stagingBuilder, pixels, imageSize, NULL, fr_pixels_free_func);
+			fcRenderStagingAdd(&stagingBuilder, pixels, imageSize, NULL, fr_pixels_free_func);
 			numTexturesInStagingBuffer++;
 			pRenderer->textFont.pixelsData = NULL;	// the ownership has been passed to staging builder
 		}
@@ -1948,7 +1948,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkCreateSampler(pRenderer->device, &samplerInfo, NULL, &pRenderer->textureSampler) != VK_SUCCESS)
 		{
-			fur_set_last_error("Can't create texture sampler");
+			fcSetLastError("Can't create texture sampler");
 			res = FR_RESULT_ERROR_GPU;
 		}
 	}
@@ -1976,7 +1976,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkCreateSampler(pRenderer->device, &samplerInfo, NULL, &pRenderer->textTextureSampler) != VK_SUCCESS)
 		{
-			fur_set_last_error("Can't create texture sampler");
+			fcSetLastError("Can't create texture sampler");
 			res = FR_RESULT_ERROR_GPU;
 		}
 	}
@@ -1995,7 +1995,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkAllocateDescriptorSets(pRenderer->device, &allocInfo, pRenderer->aRectDescriptorSets) != VK_SUCCESS)
 		{
-			fur_set_last_error("Can't allocate descriptor sets for 2D rect drawing uniform buffers");
+			fcSetLastError("Can't allocate descriptor sets for 2D rect drawing uniform buffers");
 			res = FR_RESULT_ERROR_GPU;
 		}
 		
@@ -2037,7 +2037,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkAllocateDescriptorSets(pRenderer->device, &allocInfo, pRenderer->aTextDescriptorSets) != VK_SUCCESS)
 		{
-			fur_set_last_error("Can't allocate descriptor sets for uniform buffers");
+			fcSetLastError("Can't allocate descriptor sets for uniform buffers");
 			res = FR_RESULT_ERROR_GPU;
 		}
 		
@@ -2107,13 +2107,13 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	{
 		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			fr_pvs_t* pvs = &pRenderer->pvs[i];
+			FcRenderPVS* pvs = &pRenderer->pvs[i];
 			pvs->pvsIndex = i;
 			pvs->device = pRenderer->device;
 			pvs->defaultTextureSampler = pRenderer->textureSampler;
 			pvs->numMaxDescriptorSets = NUM_MAX_MESH_UNIFORM_BUFFERS;
 			pvs->descriptorSets = FUR_ALLOC_ARRAY_AND_ZERO(VkDescriptorSet, NUM_MAX_MESH_UNIFORM_BUFFERS, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
-			pvs->proxies = FUR_ALLOC_ARRAY_AND_ZERO(const fr_proxy_t*, NUM_MAX_MESH_UNIFORM_BUFFERS, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+			pvs->proxies = FUR_ALLOC_ARRAY_AND_ZERO(const FcRenderProxy*, NUM_MAX_MESH_UNIFORM_BUFFERS, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 			pvs->proxiesFlags = FUR_ALLOC_ARRAY_AND_ZERO(u32, NUM_MAX_MESH_UNIFORM_BUFFERS, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 			pvs->skinningMatrices = FUR_ALLOC_ARRAY_AND_ZERO(fm_mat4, FUR_MAX_SKIN_MATRICES_IN_BUFFER, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 			
@@ -2138,28 +2138,28 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 			// create uniform buffer for PVS
 			if(res == FR_RESULT_OK)
 			{
-				fr_buffer_desc_t desc;
+				FcRenderBufferDesc desc;
 				desc.size = sizeof(fr_uniform_buffer_t) * NUM_MAX_MESH_UNIFORM_BUFFERS;
 				desc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 				desc.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 				
 				for(u32 i=0; i<3; ++i)
 				{
-					fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pvs->worldViewProj, pAllocCallbacks);
+					fcRenderBufferCreate(pRenderer->device, pRenderer->physicalDevice, &desc, &pvs->worldViewProj, pAllocCallbacks);
 				}
 			}
 			
 			// create skinning buffer for PVS
 			if(res == FR_RESULT_OK)
 			{
-				fr_buffer_desc_t desc;
+				FcRenderBufferDesc desc;
 				desc.size = FUR_MAX_SKIN_MATRICES_IN_BUFFER * sizeof(fm_mat4);
 				desc.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 				desc.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 				
 				for(u32 i=0; i<3; ++i)
 				{
-					fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &pvs->skinningBuffer, pAllocCallbacks);
+					fcRenderBufferCreate(pRenderer->device, pRenderer->physicalDevice, &desc, &pvs->skinningBuffer, pAllocCallbacks);
 				}
 			}
 		}
@@ -2175,7 +2175,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		if (vkCreateCommandPool(pRenderer->device, &poolInfo, NULL, &pRenderer->commandPool) != VK_SUCCESS)
 		{
-			fur_set_last_error("Can't create graphics command pool");
+			fcSetLastError("Can't create graphics command pool");
 			res = FR_RESULT_ERROR_GPU;
 		}
 	}
@@ -2186,8 +2186,8 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		// create staging buffer & release memory of source data
 		{
 			pRenderer->stagingBuffer.size = stagingBuilder.totalSize;
-			fr_staging_build(&stagingBuilder, pRenderer->device, pRenderer->physicalDevice, &pRenderer->stagingBuffer.buffer, &pRenderer->stagingBuffer.memory, pAllocCallbacks);
-			fr_staging_release_builder(&stagingBuilder);
+			fcRenderStagingBuild(&stagingBuilder, pRenderer->device, pRenderer->physicalDevice, &pRenderer->stagingBuffer.buffer, &pRenderer->stagingBuffer.memory, pAllocCallbacks);
+			fcRenderStagingBufferBuilderRelease(&stagingBuilder);
 		}
 		
 		// create staging command pool
@@ -2205,22 +2205,22 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		
 		// depth layout transitions
 		{
-			fr_transition_image_layout(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, depthFormat,
+			fcRenderTransitionImageLayout(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, depthFormat,
 									   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, pRenderer->depthImage.image, pAllocCallbacks);
 		}
 		
 		// image layout transitions
 		{
 			// font atlas
-			fr_transition_image_layout(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, textureImageFormat,
+			fcRenderTransitionImageLayout(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, textureImageFormat,
 									   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, pRenderer->textFont.atlas.image, pAllocCallbacks);
-			fr_copy_buffer_to_image(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, pRenderer->stagingBuffer.buffer,
+			fcRenderCopyBufferToImage(pRenderer->device, pRenderer->graphicsQueue, pRenderer->stagingCommandPool, pRenderer->stagingBuffer.buffer,
 									imageOffsetInBufferFontAtlas, pRenderer->textFont.atlas.image, texFontAtlasWidth, texFontAtlasHeight, pAllocCallbacks);
 		}
 		
 		// release staging buffer
 		{
-			fr_buffer_release(pRenderer->device, &pRenderer->stagingBuffer, pAllocCallbacks);
+			fcRenderBufferRelease(pRenderer->device, &pRenderer->stagingBuffer, pAllocCallbacks);
 		}
 	}
 	
@@ -2234,7 +2234,7 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 		if (vkCreateSemaphore(pRenderer->device, &semaphoreInfo, NULL, &pRenderer->imageAvailableSemaphore) != VK_SUCCESS ||
 			vkCreateSemaphore(pRenderer->device, &semaphoreInfo, NULL, &pRenderer->renderFinishedSemaphore) != VK_SUCCESS)
 		{
-			fur_set_last_error("Can't create render semaphores");
+			fcSetLastError("Can't create render semaphores");
 			res = FR_RESULT_ERROR_GPU;
 		}
 	}
@@ -2244,22 +2244,22 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	{
 		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[i].memory, 0, fc_dbg_line_buffer_size());
+			fcRenderClearDataInBuffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[i].memory, 0, fcDebugLineBufferSize());
 		}
 		
 		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[i].memory, 0, fc_dbg_triangle_buffer_size());
+			fcRenderClearDataInBuffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[i].memory, 0, fcDebugTriangleBufferSize());
 		}
 		
 		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->textVertexBuffer[i].memory, 0, fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6 * sizeof(f32));
+			fcRenderClearDataInBuffer(pRenderer->device, pRenderer->textVertexBuffer[i].memory, 0, fcDebugTextCharactersCapacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6 * sizeof(f32));
 		}
 		
 		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->aRectsVertexBuffer[i].memory, 0, fc_dbg_rects_buffer_size());
+			fcRenderClearDataInBuffer(pRenderer->device, pRenderer->aRectsVertexBuffer[i].memory, 0, fcDebugRectsBufferSize());
 		}
 	}
 	
@@ -2281,16 +2281,16 @@ enum fr_result_t fr_create_renderer(const struct fr_renderer_desc_t* pDesc,
 	return res;
 }
 
-enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
-					   struct fc_alloc_callbacks_t*	pAllocCallbacks)
+enum FcResult fcRendererRelease(struct FcRenderer* pRenderer,
+					   struct FcAllocator*	pAllocCallbacks)
 {
 	// release PVS
 	{
 		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			fr_pvs_t* pvs = &pRenderer->pvs[i];
-			fr_buffer_release(pRenderer->device, &pvs->worldViewProj, pAllocCallbacks);
-			fr_buffer_release(pRenderer->device, &pvs->skinningBuffer, pAllocCallbacks);
+			FcRenderPVS* pvs = &pRenderer->pvs[i];
+			fcRenderBufferRelease(pRenderer->device, &pvs->worldViewProj, pAllocCallbacks);
+			fcRenderBufferRelease(pRenderer->device, &pvs->skinningBuffer, pAllocCallbacks);
 			
 			FUR_FREE(pvs->descriptorSets, pAllocCallbacks);
 			FUR_FREE(pvs->proxies, pAllocCallbacks);
@@ -2311,15 +2311,15 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 		// destroy uniform buffer
 		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
-			fr_buffer_release(pRenderer->device, &pRenderer->aTextUniformBuffer[i], pAllocCallbacks);
-			fr_buffer_release(pRenderer->device, &pRenderer->aRectsUniformBuffer[i], pAllocCallbacks);
+			fcRenderBufferRelease(pRenderer->device, &pRenderer->aTextUniformBuffer[i], pAllocCallbacks);
+			fcRenderBufferRelease(pRenderer->device, &pRenderer->aRectsUniformBuffer[i], pAllocCallbacks);
 		}
 		
 		vkDestroyDescriptorPool(pRenderer->device, pRenderer->descriptorPool, NULL);
 	}
 	
 	// destroy depth image
-	fr_image_release(pRenderer->device, &pRenderer->depthImage, pAllocCallbacks);
+	fcImageRelease(pRenderer->device, &pRenderer->depthImage, pAllocCallbacks);
 	
 	// destroy image
 	vkDestroySampler(pRenderer->device, pRenderer->textureSampler, NULL);
@@ -2328,13 +2328,13 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	// destroy debug fragments vertex buffer
 	for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 	{
-		fr_buffer_release(pRenderer->device, &pRenderer->debugLinesVertexBuffer[i], pAllocCallbacks);
-		fr_buffer_release(pRenderer->device, &pRenderer->debugTrianglesVertexBuffer[i], pAllocCallbacks);
-		fr_buffer_release(pRenderer->device, &pRenderer->textVertexBuffer[i], pAllocCallbacks);
-		fr_buffer_release(pRenderer->device, &pRenderer->aRectsVertexBuffer[i], pAllocCallbacks);
+		fcRenderBufferRelease(pRenderer->device, &pRenderer->debugLinesVertexBuffer[i], pAllocCallbacks);
+		fcRenderBufferRelease(pRenderer->device, &pRenderer->debugTrianglesVertexBuffer[i], pAllocCallbacks);
+		fcRenderBufferRelease(pRenderer->device, &pRenderer->textVertexBuffer[i], pAllocCallbacks);
+		fcRenderBufferRelease(pRenderer->device, &pRenderer->aRectsVertexBuffer[i], pAllocCallbacks);
 	}
 	
-	fr_font_release(pRenderer->device, &pRenderer->textFont, pAllocCallbacks);
+	fcFontRelease(pRenderer->device, &pRenderer->textFont, pAllocCallbacks);
 	
 	// destroy descriptor set layout
 	vkDestroyDescriptorSetLayout(pRenderer->device, pRenderer->descriptorSetLayout, NULL);
@@ -2401,7 +2401,7 @@ enum fr_result_t fr_release_renderer(struct fr_renderer_t* pRenderer,
 	return FR_RESULT_OK;
 }
 
-void fr_wait_for_device(struct fr_renderer_t* pRenderer)
+void fcRendererWaitForDevice(struct FcRenderer* pRenderer)
 {
 	vkDeviceWaitIdle(pRenderer->device);
 }
@@ -2418,19 +2418,19 @@ void fr_dbg_draw_mat4(const fm_mat4* m)
 	const f32 green[4] = FUR_COLOR_GREEN;
 	const f32 blue[4] = FUR_COLOR_BLUE;
 	
-	fc_dbg_line(pos, axisX, red);
-	fc_dbg_line(pos, axisY, green);
-	fc_dbg_line(pos, axisZ, blue);
+	fcDebugLine(pos, axisX, red);
+	fcDebugLine(pos, axisY, green);
+	fcDebugLine(pos, axisZ, blue);
 }
 
-fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera, f32 fov)
+FcRenderPVS* fcRendererAcquireFreePVS(FcRenderer* pRenderer, const fm_mat4* camera, f32 fov)
 {
 	u32 imageIndex;
 	vkAcquireNextImageKHR(pRenderer->device, pRenderer->swapChain, (uint64_t)-1,
 						  pRenderer->imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 	
-	fr_pvs_t* pvs = &pRenderer->pvs[imageIndex];
-	fr_pvs_clear(pvs);
+	FcRenderPVS* pvs = &pRenderer->pvs[imageIndex];
+	fcRenderPVSClear(pvs);
 	pvs->camera = *camera;
 	
 	const f32 aspectRatio = pRenderer->swapChainExtent.width / (f32)pRenderer->swapChainExtent.height;
@@ -2451,11 +2451,11 @@ fr_pvs_t* fr_acquire_free_pvs(fr_renderer_t* pRenderer, const fm_mat4* camera, f
 	return pvs;
 }
 
-void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcRendererDrawFrame(struct FcRenderer* pRenderer, const FcRendererDrawFrameCtx* ctx, FcAllocator* pAllocCallbacks)
 {
 	u32 imageIndex = 0;
 	
-	fr_pvs_t* pvs = ctx->pvs;
+	FcRenderPVS* pvs = ctx->pvs;
 	FUR_ASSERT(pvs);
 	imageIndex = pvs->pvsIndex;
 
@@ -2466,7 +2466,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		if(pvs->numSkinningMatrices > 0)
 		{	
 			// pass skinning matrices to skin buffer
-			fr_copy_data_to_buffer(pRenderer->device, pvs->skinningBuffer.memory, pvs->skinningMatrices, 0,
+			fcRenderCopyDataToBuffer(pRenderer->device, pvs->skinningBuffer.memory, pvs->skinningMatrices, 0,
 								   (u32)pvs->numSkinningMatrices * sizeof(fm_mat4));
 		}
 	}
@@ -2487,54 +2487,54 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		fm_mat4_identity(&ubo.view);
 		fm_mat4_transpose(&ubo.proj);
 		
-		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aTextUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(fr_uniform_buffer_t));
-		fr_copy_data_to_buffer(pRenderer->device, pRenderer->aRectsUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(fr_uniform_buffer_t));
+		fcRenderCopyDataToBuffer(pRenderer->device, pRenderer->aTextUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(fr_uniform_buffer_t));
+		fcRenderCopyDataToBuffer(pRenderer->device, pRenderer->aRectsUniformBuffer[imageIndex].memory, &ubo, 0, sizeof(fr_uniform_buffer_t));
 	}
 	
 	// update debug lines buffer
 	FUR_PROFILE("rend-update-debug")
 	{
-		fc_dbg_buffers_lock();	// lock so no-one adds lines while retriving the buffer
+		fcDebugBuffersLock();	// lock so no-one adds lines while retriving the buffer
 		
 		// copy debug lines buffer into vertex buffer
-		fc_dbg_buffer_desc_t desc;
-		fc_dbg_get_buffers(&desc);
+		FcDebugBuffersDesc desc;
+		fcDebugBuffersGet(&desc);
 		
 		if(desc.linesDataSize > 0)
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[imageIndex].memory, 0, desc.linesDataSize);
-			fr_copy_data_to_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[imageIndex].memory, desc.linesData, 0, desc.linesDataSize);
+			fcRenderClearDataInBuffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[imageIndex].memory, 0, desc.linesDataSize);
+			fcRenderCopyDataToBuffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[imageIndex].memory, desc.linesData, 0, desc.linesDataSize);
 		}
 		else
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[imageIndex].memory, 0, (u32)pRenderer->debugLinesVertexBuffer[imageIndex].size);
+			fcRenderClearDataInBuffer(pRenderer->device, pRenderer->debugLinesVertexBuffer[imageIndex].memory, 0, (u32)pRenderer->debugLinesVertexBuffer[imageIndex].size);
 		}
 		
 		if(desc.trianglesDataSize > 0)
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[imageIndex].memory, 0, desc.trianglesDataSize);
-			fr_copy_data_to_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[imageIndex].memory, desc.trianglesData, 0, desc.trianglesDataSize);
+			fcRenderClearDataInBuffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[imageIndex].memory, 0, desc.trianglesDataSize);
+			fcRenderCopyDataToBuffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[imageIndex].memory, desc.trianglesData, 0, desc.trianglesDataSize);
 		}
 		else
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[imageIndex].memory, 0, (u32)pRenderer->debugTrianglesVertexBuffer[imageIndex].size);
+			fcRenderClearDataInBuffer(pRenderer->device, pRenderer->debugTrianglesVertexBuffer[imageIndex].memory, 0, (u32)pRenderer->debugTrianglesVertexBuffer[imageIndex].size);
 		}
 		
 		if(desc.rectsDataSize > 0)
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->aRectsVertexBuffer[imageIndex].memory, 0, fc_dbg_rects_buffer_size());
-			fr_copy_data_to_buffer(pRenderer->device, pRenderer->aRectsVertexBuffer[imageIndex].memory, desc.rectsData, 0, desc.rectsDataSize);
+			fcRenderClearDataInBuffer(pRenderer->device, pRenderer->aRectsVertexBuffer[imageIndex].memory, 0, fcDebugRectsBufferSize());
+			fcRenderCopyDataToBuffer(pRenderer->device, pRenderer->aRectsVertexBuffer[imageIndex].memory, desc.rectsData, 0, desc.rectsDataSize);
 		}
 		else
 		{
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->aRectsVertexBuffer[imageIndex].memory, 0, fc_dbg_rects_buffer_size());
+			fcRenderClearDataInBuffer(pRenderer->device, pRenderer->aRectsVertexBuffer[imageIndex].memory, 0, fcDebugRectsBufferSize());
 		}
 		
 		if(desc.textLinesCount > 0)
 		{
-			const u32 numFloatsCapacity = fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6;
+			const u32 numFloatsCapacity = fcDebugTextCharactersCapacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6;
 			const u32 dataSize = numFloatsCapacity * sizeof(f32);
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->textVertexBuffer[imageIndex].memory, 0, dataSize);
+			fcRenderClearDataInBuffer(pRenderer->device, pRenderer->textVertexBuffer[imageIndex].memory, 0, dataSize);
 			
 			VkDeviceMemory dst = pRenderer->textVertexBuffer[imageIndex].memory;
 			const u32 offset = 0;
@@ -2561,7 +2561,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 				
 				const f32 scale = desc.textScaleData[itl];
 
-				const u32 numFloatsWritten = fr_font_fill_vertex_buffer(&pRenderer->textFont, text, pos, color, verticesFloats, dataSizeLeft, scale);
+				const u32 numFloatsWritten = fcFontFillVertexBuffer(&pRenderer->textFont, text, pos, color, verticesFloats, dataSizeLeft, scale);
 				verticesFloats += numFloatsWritten;
 				dataSizeLeft -= numFloatsWritten;
 			}
@@ -2570,19 +2570,19 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		}
 		else
 		{
-			const u32 numFloatsCapacity = fc_dbg_text_characters_capacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6;
+			const u32 numFloatsCapacity = fcDebugTextCharactersCapacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6;
 			const u32 dataSize = numFloatsCapacity * sizeof(f32);
-			fr_clear_data_in_buffer(pRenderer->device, pRenderer->textVertexBuffer[imageIndex].memory, 0, dataSize);
+			fcRenderClearDataInBuffer(pRenderer->device, pRenderer->textVertexBuffer[imageIndex].memory, 0, dataSize);
 		}
 		
-		fc_dbg_buffers_clear();	// clear the buffer for next frame
+		fcDebugBuffersClear();	// clear the buffer for next frame
 		
-		fc_dbg_buffers_unlock();	// release lock, so now on everyone can use debug fragments again
+		fcDebugBuffersUnlock();	// release lock, so now on everyone can use debug fragments again
 	}
 	
 	// draw
 	// begin primary command buffer
-	VkCommandBuffer primaryCommandBuffer = fr_begin_primary_disposable_command_buffer(pRenderer->device, pRenderer->commandPool, pAllocCallbacks);
+	VkCommandBuffer primaryCommandBuffer = fcRenderBeginPrimaryDisposableCommandBuffer(pRenderer->device, pRenderer->commandPool, pAllocCallbacks);
 	
 	// record PVS commands for each proxy
 	FUR_PROFILE("pvs-rec-cmds")
@@ -2625,8 +2625,8 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 			vkCmdBindDescriptorSets(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
 									pRenderer->pipelineLayout, 0, 1, &pvs->descriptorSets[idxProxy], 0, NULL);
 			
-			const fr_proxy_t* proxy = pvs->proxies[idxProxy];
-			fr_mesh_t* mesh = proxy->mesh;
+			const FcRenderProxy* proxy = pvs->proxies[idxProxy];
+			FcRenderMesh* mesh = proxy->mesh;
 			for(u32 idxChunk=0; idxChunk<mesh->numChunks; ++idxChunk)
 			{
 				const fr_mesh_chunk_t* meshChunk = &mesh->chunks[idxChunk];
@@ -2661,8 +2661,8 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 			vkCmdBindDescriptorSets(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
 									pRenderer->pipelineLayout, 0, 1, &pvs->descriptorSets[idxProxy], 0, NULL);
 			
-			const fr_proxy_t* proxy = pvs->proxies[idxProxy];
-			fr_mesh_t* mesh = proxy->mesh;
+			const FcRenderProxy* proxy = pvs->proxies[idxProxy];
+			FcRenderMesh* mesh = proxy->mesh;
 			for(u32 idxChunk=0; idxChunk<mesh->numChunks; ++idxChunk)
 			{
 				const fr_mesh_chunk_t* meshChunk = &mesh->chunks[idxChunk];
@@ -2690,12 +2690,12 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 		// debug draw 3D lines
 		vkCmdBindPipeline(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugLinesPSO);
 		vkCmdBindVertexBuffers(primaryCommandBuffer, 0, 1, &pRenderer->debugLinesVertexBuffer[imageIndex].buffer, offsets);
-		vkCmdDraw(primaryCommandBuffer, fc_dbg_line_num_total_vertices(), 1, 0, 0);
+		vkCmdDraw(primaryCommandBuffer, fcDebugLineNumTotalVertices(), 1, 0, 0);
 		
 		// debug draw 3D triangles
 		vkCmdBindPipeline(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugTrianglesPSO);
 		vkCmdBindVertexBuffers(primaryCommandBuffer, 0, 1, &pRenderer->debugTrianglesVertexBuffer[imageIndex].buffer, offsets);
-		vkCmdDraw(primaryCommandBuffer, fc_dbg_triangles_num_total_vertices(), 1, 0, 0);
+		vkCmdDraw(primaryCommandBuffer, fcDebugTrianglesNumTotalVertices(), 1, 0, 0);
 		
 		// debug draw 2D rects
 		vkCmdBindPipeline(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugRectsPSO);
@@ -2704,7 +2704,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 								pRenderer->rectsPipelineLayout, 0, 1, &pRenderer->aRectDescriptorSets[imageIndex], 0, NULL);
 		
 		vkCmdBindVertexBuffers(primaryCommandBuffer, 0, 1, &pRenderer->aRectsVertexBuffer[imageIndex].buffer, offsets);
-		vkCmdDraw(primaryCommandBuffer, fc_dbg_rects_num_total_vertices(), 1, 0, 0);
+		vkCmdDraw(primaryCommandBuffer, fcDebugRectsNumTotalVertices(), 1, 0, 0);
 		
 		// debug draw text
 		vkCmdBindPipeline(primaryCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pRenderer->debugTextPSO);
@@ -2713,7 +2713,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 								pRenderer->textPipelineLayout, 0, 1, &pRenderer->aTextDescriptorSets[imageIndex], 0, NULL);
 		
 		vkCmdBindVertexBuffers(primaryCommandBuffer, 0, 1, &pRenderer->textVertexBuffer[imageIndex].buffer, offsets);
-		vkCmdDraw(primaryCommandBuffer, fc_dbg_text_num_total_characters() * 6, 1, 0, 0);	// 6 - number of vertices per glyph
+		vkCmdDraw(primaryCommandBuffer, fcDebugTextNumTotalCharacter() * 6, 1, 0, 0);	// 6 - number of vertices per glyph
 		
 		vkCmdEndRenderPass(primaryCommandBuffer);
 	}
@@ -2721,7 +2721,7 @@ void fr_draw_frame(struct fr_renderer_t* pRenderer, const fr_draw_frame_context_
 	// end and submit primary command buffer, not waiting for GPU
 	FUR_PROFILE("rend-submit-cmd")
 	{
-		fr_end_primary_disposable_command_buffer(pRenderer->device, pRenderer->graphicsQueue, primaryCommandBuffer, pRenderer->commandPool, pRenderer->imageAvailableSemaphore, pRenderer->renderFinishedSemaphore, pAllocCallbacks);
+		fcRenderEndPrimaryDisposableCommandBuffer(pRenderer->device, pRenderer->graphicsQueue, primaryCommandBuffer, pRenderer->commandPool, pRenderer->imageAvailableSemaphore, pRenderer->renderFinishedSemaphore, pAllocCallbacks);
 	}
 	
 	// present
@@ -2844,24 +2844,24 @@ void frSerialize_example(fr_serializer_t* ser, fr_example_struct_t* data)
 	FR_ADD_FIELD(FR_VER_INITIAL, fieldA);
 }
 
-fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fc_depot_t* depot, const fr_load_mesh_ctx_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks)
+FcRenderProxy* fcRendererLoadMesh(FcRenderer* pRenderer, const FcDepot* depot, const FcRenderMeshLoadCtx* ctx, FcAllocator* pAllocCallbacks)
 {
-	fr_resource_mesh_t* meshResource = NULL;
+	FcMeshResource* meshResource = NULL;
 	
 	{
-		fc_file_t* file = fc_file_open(depot, ctx->path, "rb");
+		FcFile* file = fcFileOpen(depot, ctx->path, "rb");
 
-		fc_serializer_t ser = { 0 };
+		FcSerializer ser = { 0 };
 		ser.file = file;
 
-		meshResource = FUR_ALLOC_AND_ZERO(sizeof(fr_resource_mesh_t), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+		meshResource = FUR_ALLOC_AND_ZERO(sizeof(FcMeshResource), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 
-		fr_resource_mesh_serialize(&ser, meshResource, pAllocCallbacks);
+		fcMeshResourceSerialize(&ser, meshResource, pAllocCallbacks);
 
-		fc_file_close(file);
+		fcFileClose(file);
 	}
 	
-	fr_mesh_t* mesh = FUR_ALLOC_AND_ZERO(sizeof(fr_mesh_t), 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+	FcRenderMesh* mesh = FUR_ALLOC_AND_ZERO(sizeof(FcRenderMesh), 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 	
 #define TEMP_MAX_TEXTURES_NUM 40
 
@@ -2871,11 +2871,11 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fc_depot_t* depot, cons
 
 	i32 imageWidth[TEMP_MAX_TEXTURES_NUM] = {0};
 	i32 imageHeight[TEMP_MAX_TEXTURES_NUM] = {0};
-	fr_image_t* textures = FUR_ALLOC_ARRAY_AND_ZERO(fr_image_t, ctx->numTextures, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+	FcImage* textures = FUR_ALLOC_ARRAY_AND_ZERO(FcImage, ctx->numTextures, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 	
 	// prepare staging buffer builder
-	fr_staging_buffer_builder_t stagingBuilder;
-	fr_staging_init(&stagingBuilder);
+	FcRenderStagingBufferBuilder stagingBuilder;
+	fcRenderStagingInit(&stagingBuilder);
 	
 	const VkFormat textureImageFormat = VK_FORMAT_R8G8B8A8_UNORM;
 	u32 numTexturesInStagingBuffer = 0;
@@ -2889,24 +2889,24 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fc_depot_t* depot, cons
 		
 		// load texture
 		{
-			fc_file_t* file = fc_file_open(depot, ctx->texturePaths[i], "rb");
+			FcFile* file = fcFileOpen(depot, ctx->texturePaths[i], "rb");
 
 			int texChannels;
 			stbi_uc* pixels = stbi_load_from_file((FILE*)file, &imageWidth[i], &imageHeight[i], &texChannels, STBI_rgb_alpha);
 			imageSize = imageWidth[i] * imageHeight[i] * 4;
 			
-			fc_file_close(file);
+			fcFileClose(file);
 
 			FUR_ASSERT(pixels);
 			
 			imageStagingOffset[i] = stagingBuilder.totalSize;
-			fr_staging_add(&stagingBuilder, pixels, (u32)imageSize, NULL, fr_pixels_free_func);
+			fcRenderStagingAdd(&stagingBuilder, pixels, (u32)imageSize, NULL, fr_pixels_free_func);
 			numTexturesInStagingBuffer++;
 			currentStagingIndex++;
 		}
 		
 		{
-			fr_image_desc_t desc = {0};
+			FcImageDesc desc = {0};
 			desc.size = imageSize;
 			desc.width = imageWidth[i];
 			desc.height = imageHeight[i];
@@ -2914,7 +2914,7 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fc_depot_t* depot, cons
 			desc.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 			desc.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 			
-			fr_image_create(pRenderer->device, pRenderer->physicalDevice, &desc, &textures[i], pAllocCallbacks);
+			fcImageCreate(pRenderer->device, pRenderer->physicalDevice, &desc, &textures[i], pAllocCallbacks);
 		}
 	}
 	
@@ -2930,11 +2930,11 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fc_depot_t* depot, cons
 		
 		for(u32 i=0; i<numChunks; ++i)
 		{
-			const fr_resource_mesh_chunk_t* meshChunkResource = &meshResource->chunks[i];
+			const FcMeshResourceChunk* meshChunkResource = &meshResource->chunks[i];
 			const u32 numVertices = meshChunkResource->numVertices;
 			const VkDeviceSize sizeIndices = numVertices * sizeof(u32);
 			const VkDeviceSize sizeVertices = numVertices * sizeof(fr_vertex_t);
-			const VkDeviceSize sizeSkin = numVertices * sizeof(fr_resource_mesh_chunk_skin_t);	// optional
+			const VkDeviceSize sizeSkin = numVertices * sizeof(FcMeshResourceChunkSkin);	// optional
 			
 			fr_mesh_chunk_t* meshChunk = &mesh->chunks[i];
 			meshChunk->numIndices = numVertices;
@@ -2942,7 +2942,7 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fc_depot_t* depot, cons
 			
 			// data buffer
 			{
-				fr_buffer_desc_t desc = {0};
+				FcRenderBufferDesc desc = {0};
 				desc.size = sizeIndices + sizeVertices;
 				
 				// skinning data
@@ -2952,7 +2952,7 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fc_depot_t* depot, cons
 				desc.usage = FR_VERTEX_BUFFER_USAGE_FLAGS | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 				desc.properties = FR_VERTEX_BUFFER_MEMORY_FLAGS;
 				
-				fr_buffer_create(pRenderer->device, pRenderer->physicalDevice, &desc, &meshChunk->data, pAllocCallbacks);
+				fcRenderBufferCreate(pRenderer->device, pRenderer->physicalDevice, &desc, &meshChunk->data, pAllocCallbacks);
 				
 				meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES] = 0;
 				meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES] = sizeIndices;
@@ -2968,12 +2968,12 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fc_depot_t* depot, cons
 	const u32 proxyIndex = pRenderer->numProxies;
 	pRenderer->numProxies += 1;
 	
-	fr_proxy_t* proxy = &pRenderer->proxies[proxyIndex];
+	FcRenderProxy* proxy = &pRenderer->proxies[proxyIndex];
 	proxy->numTextures = ctx->numTextures;
 	proxy->mesh = mesh;
 	proxy->textures = textures;
 	
-	const fr_resource_mesh_chunk_t* masterSkinnedMeshChunk = &meshResource->chunks[0]; // todo: fix that, it's just an assumption chunk[0] works
+	const FcMeshResourceChunk* masterSkinnedMeshChunk = &meshResource->chunks[0]; // todo: fix that, it's just an assumption chunk[0] works
 	const u32 meshNumBones = masterSkinnedMeshChunk->numBones;
 	
 	if(meshNumBones > 0)
@@ -3002,26 +3002,26 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fc_depot_t* depot, cons
 	
 	// load data onto GPU
 	{
-		fr_buffer_t stagingBuffer = {0};
+		FcRenderBuffer stagingBuffer = {0};
 		
 		// add vertices & indices data to staging buffer for mesh
 		for(u32 i=0; i<meshResource->numChunks; ++i)
 		{
-			fr_resource_mesh_chunk_t* meshChunk = &meshResource->chunks[i];
+			FcMeshResourceChunk* meshChunk = &meshResource->chunks[i];
 			
-			fr_staging_add(&stagingBuilder, (void*)meshChunk->dataIndices, sizeof(u32) * meshChunk->numIndices, NULL, NULL);
-			fr_staging_add(&stagingBuilder, (void*)meshChunk->dataVertices, sizeof(fr_vertex_t) * meshChunk->numVertices, NULL, NULL);
+			fcRenderStagingAdd(&stagingBuilder, (void*)meshChunk->dataIndices, sizeof(u32) * meshChunk->numIndices, NULL, NULL);
+			fcRenderStagingAdd(&stagingBuilder, (void*)meshChunk->dataVertices, sizeof(fr_vertex_t) * meshChunk->numVertices, NULL, NULL);
 			
 			// if skinned mesh
 			if(meshChunk->dataSkinning != NULL && ctx->isSkinned)
-				fr_staging_add(&stagingBuilder, (void*)meshChunk->dataSkinning, sizeof(fr_resource_mesh_chunk_skin_t) * meshChunk->numVertices, NULL, NULL);
+				fcRenderStagingAdd(&stagingBuilder, (void*)meshChunk->dataSkinning, sizeof(FcMeshResourceChunkSkin) * meshChunk->numVertices, NULL, NULL);
 		}
 		
 		// create staging buffer & release memory of source data
 		{
 			stagingBuffer.size = stagingBuilder.totalSize;
-			fr_staging_build(&stagingBuilder, pRenderer->device, pRenderer->physicalDevice, &stagingBuffer.buffer, &stagingBuffer.memory, pAllocCallbacks);
-			fr_staging_release_builder(&stagingBuilder);
+			fcRenderStagingBuild(&stagingBuilder, pRenderer->device, pRenderer->physicalDevice, &stagingBuffer.buffer, &stagingBuffer.memory, pAllocCallbacks);
+			fcRenderStagingBufferBuilderRelease(&stagingBuilder);
 		}
 		
 		// create staging command pool
@@ -3041,21 +3041,21 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fc_depot_t* depot, cons
 		
 		// record and execute staging command buffer
 		{
-			VkCommandBuffer commandBuffer = fr_begin_simple_commands(pRenderer->device, stagingCommandPool, pAllocCallbacks);
+			VkCommandBuffer commandBuffer = fcRenderBeginSimpleCommands(pRenderer->device, stagingCommandPool, pAllocCallbacks);
 			
 			// copy vertex buffer region
 			for(u32 i=0; i<mesh->numChunks; ++i)
 			{
 				fr_mesh_chunk_t* meshChunk = &mesh->chunks[i];
 	
-				fr_resource_mesh_chunk_t* sourceMeshChunk = &meshResource->chunks[i];
+				FcMeshResourceChunk* sourceMeshChunk = &meshResource->chunks[i];
 				if(sourceMeshChunk->dataSkinning && ctx->isSkinned)	// todo: dataSkinning is probably always there, need to check
 				{
 					u32 srcStagingIndices[3] = {currentStagingIndex, currentStagingIndex+1, currentStagingIndex+2};
 					VkBuffer dstBuffers[3] = {meshChunk->data.buffer, meshChunk->data.buffer, meshChunk->data.buffer};
 					VkDeviceSize dstOffsets[3] = {meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_SKIN]};
 					
-					fr_staging_record_copy_commands(&stagingBuilder, commandBuffer, stagingBuffer.buffer, srcStagingIndices, dstBuffers, dstOffsets, 3);
+					fcRenderStagingRecordCompyCommands(&stagingBuilder, commandBuffer, stagingBuffer.buffer, srcStagingIndices, dstBuffers, dstOffsets, 3);
 					
 					currentStagingIndex += 3;
 				}
@@ -3065,35 +3065,35 @@ fr_proxy_t* fr_load_mesh(fr_renderer_t* pRenderer, const fc_depot_t* depot, cons
 					VkBuffer dstBuffers[2] = {meshChunk->data.buffer, meshChunk->data.buffer};
 					VkDeviceSize dstOffsets[2] = {meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_INDICES], meshChunk->offsets[FR_MESH_CHUNK_BUFFER_OFFSET_VERTICES]};
 					
-					fr_staging_record_copy_commands(&stagingBuilder, commandBuffer, stagingBuffer.buffer, srcStagingIndices, dstBuffers, dstOffsets, 2);
+					fcRenderStagingRecordCompyCommands(&stagingBuilder, commandBuffer, stagingBuffer.buffer, srcStagingIndices, dstBuffers, dstOffsets, 2);
 					
 					currentStagingIndex += 2;
 				}
 			}
 			
-			fr_end_simple_commands(pRenderer->device, pRenderer->graphicsQueue, commandBuffer, stagingCommandPool, pAllocCallbacks);
+			fcRenderEndSimpleCommands(pRenderer->device, pRenderer->graphicsQueue, commandBuffer, stagingCommandPool, pAllocCallbacks);
 			
 			// textures
 			for(u32 i=0; i<ctx->numTextures; ++i)
 			{
-				fr_transition_image_layout(pRenderer->device, pRenderer->graphicsQueue, stagingCommandPool, textureImageFormat,
+				fcRenderTransitionImageLayout(pRenderer->device, pRenderer->graphicsQueue, stagingCommandPool, textureImageFormat,
 										   VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, textures[i].image, pAllocCallbacks);
-				fr_copy_buffer_to_image(pRenderer->device, pRenderer->graphicsQueue, stagingCommandPool, stagingBuffer.buffer,
+				fcRenderCopyBufferToImage(pRenderer->device, pRenderer->graphicsQueue, stagingCommandPool, stagingBuffer.buffer,
 										imageStagingOffset[i], textures[i].image, imageWidth[i], imageHeight[i], pAllocCallbacks);
 			}
 		}
 		
-		fr_buffer_release(pRenderer->device, &stagingBuffer, pAllocCallbacks);
+		fcRenderBufferRelease(pRenderer->device, &stagingBuffer, pAllocCallbacks);
 		
 		vkDestroyCommandPool(pRenderer->device, stagingCommandPool, NULL);
 	}
 	
-	fr_mesh_release(meshResource, pAllocCallbacks);
+	fcMeshResourceRelease(meshResource, pAllocCallbacks);
 	
 	return proxy;
 }
 
-void fr_release_proxy(fr_renderer_t* pRenderer, fr_proxy_t* proxy, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcRendererReleaseProxy(FcRenderer* pRenderer, FcRenderProxy* proxy, FcAllocator* pAllocCallbacks)
 {
 	// release mesh
 	for(u32 i=0; i<proxy->mesh->numChunks; ++i)
@@ -3101,13 +3101,13 @@ void fr_release_proxy(fr_renderer_t* pRenderer, fr_proxy_t* proxy, fc_alloc_call
 		fr_mesh_chunk_t* meshChunk = &proxy->mesh->chunks[i];
 		
 		// destroy vertex buffer
-		fr_buffer_release(pRenderer->device, &meshChunk->data, pAllocCallbacks);
+		fcRenderBufferRelease(pRenderer->device, &meshChunk->data, pAllocCallbacks);
 	}
 	
 	// release textures
 	for(u32 i=0; i<proxy->numTextures; ++i)
 	{
-		fr_image_release(pRenderer->device, &proxy->textures[i], pAllocCallbacks);
+		fcImageRelease(pRenderer->device, &proxy->textures[i], pAllocCallbacks);
 	}
 	
 	FUR_FREE(proxy->mesh->chunks, pAllocCallbacks);

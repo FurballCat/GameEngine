@@ -5,7 +5,7 @@
 #include "cmath/public.h"
 #include <string.h>
 
-void fa_dangle_simulate_single_step(fa_dangle* dangle, f32 dt)
+void FcPBDDangleSimulateSingleStep(FcPBDDangle* dangle, f32 dt)
 {
 	const u32 count = dangle->numParaticles;
 	
@@ -77,7 +77,7 @@ void fa_dangle_simulate_single_step(fa_dangle* dangle, f32 dt)
 	}
 }
 
-void fa_dangle_create(const fa_dangle_desc* desc, fa_dangle* dangle, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcPBDDangleCreate(const FcPBDDangleDesc* desc, FcPBDDangle* dangle, FcAllocator* pAllocCallbacks)
 {
 	FUR_ASSERT(!dangle->x0 && !dangle->p && !dangle->v && !dangle->d);
 	
@@ -92,7 +92,7 @@ void fa_dangle_create(const fa_dangle_desc* desc, fa_dangle* dangle, fc_alloc_ca
 	dangle->damping = desc->dampingCoef;
 }
 
-void fa_dangle_release(fa_dangle* dangle, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcPBDDangleRelease(FcPBDDangle* dangle, FcAllocator* pAllocCallbacks)
 {
 	FUR_ASSERT(dangle->x0 && dangle->p && dangle->v && dangle->d);
 	
@@ -107,7 +107,7 @@ void fa_dangle_release(fa_dangle* dangle, fc_alloc_callbacks_t* pAllocCallbacks)
 	dangle->d = NULL;
 }
 
-void fa_dangle_simulate(const fa_dangle_sim_ctx* ctx, fa_dangle* dangle)
+void fcPBDDangleSimulate(const FcPBDDangleCtx* ctx, FcPBDDangle* dangle)
 {
 	dangle->tAcc += ctx->dt;
 	const f32 timeStep = 1.0f / dangle->freq;
@@ -115,11 +115,11 @@ void fa_dangle_simulate(const fa_dangle_sim_ctx* ctx, fa_dangle* dangle)
 	while(dangle->tAcc >= timeStep)
 	{
 		dangle->tAcc -= timeStep;
-		fa_dangle_simulate_single_step(dangle, timeStep);
+		FcPBDDangleSimulateSingleStep(dangle, timeStep);
 	}
 }
 
-void fa_dangle_to_matrices_z_up(const fa_dangle* dangle, const fm_mat4* attachmentMatrix, fm_mat4* matrices)
+void fcPBDDangleToMatricesZUp(const FcPBDDangle* dangle, const fm_mat4* attachmentMatrix, fm_mat4* matrices)
 {
 	const u32 count = dangle->numParaticles - 1;
 	const fm_vec4* p = dangle->p;
@@ -158,7 +158,7 @@ void fa_dangle_to_matrices_z_up(const fa_dangle* dangle, const fm_mat4* attachme
 	matrices[count].w.w = 1.0f;
 }
 
-void fa_dangle_to_matrices_y_down(const fa_dangle* dangle, const fm_mat4* attachmentMatrix, fm_mat4* matrices)
+void fcPBDDangleToMatricesYDown(const FcPBDDangle* dangle, const fm_mat4* attachmentMatrix, fm_mat4* matrices)
 {
 	const u32 count = dangle->numParaticles - 1;
 	const fm_vec4* p = dangle->p;

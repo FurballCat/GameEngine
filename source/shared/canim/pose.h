@@ -12,12 +12,12 @@ extern "C"
 
 typedef struct fm_xform fm_xform;
 
-typedef enum fa_pose_flags_t
+typedef enum FcPoseFlags
 {
 	PF_ADDITIVE = 0x1,
-} fa_pose_flags_t;
+} FcPoseFlags;
 	
-typedef struct fa_pose_t
+typedef struct FcPose
 {
 	fm_xform* xforms;
 	f32* tracks;
@@ -28,22 +28,22 @@ typedef struct fa_pose_t
 	u16 numTracks;
 	
 	u32 flags;
-} fa_pose_t;
+} FcPose;
 	
 // -----
 
-typedef struct fa_rig_t fa_rig_t;
+typedef struct FcRig FcRig;
 
-CANIM_API void fa_pose_set_identity(fa_pose_t* pose, const u8* mask /* optional */);
-CANIM_API void fa_pose_set_reference(const fa_rig_t* rig, fa_pose_t* pose, const u8* mask /* optional */);
+CANIM_API void FcPoseSetIdentity(FcPose* pose, const u8* mask /* optional */);
+CANIM_API void FcPoseSetReference(const FcRig* rig, FcPose* pose, const u8* mask /* optional */);
 	
 // -----
 
-CANIM_API void fa_pose_copy(fa_pose_t* dest, const fa_pose_t* src);
-CANIM_API void fa_pose_local_to_model(fa_pose_t* modelPose, const fa_pose_t* localPose, const int16_t* parentIndices);
+CANIM_API void FcPoseCopy(FcPose* dest, const FcPose* src);
+CANIM_API void FcPoseLocalToModel(FcPose* modelPose, const FcPose* localPose, const int16_t* parentIndices);
 	
-CANIM_API void fa_pose_blend_linear(fa_pose_t* out, const fa_pose_t* a, const fa_pose_t* b, f32 alpha);
-CANIM_API void fa_pose_apply_additive(fa_pose_t* out, const fa_pose_t* base, const fa_pose_t* add, f32 weight);
+CANIM_API void FcPoseBlendLinear(FcPose* out, const FcPose* a, const FcPose* b, f32 alpha);
+CANIM_API void FcPoseApplyAdditive(FcPose* out, const FcPose* base, const FcPose* add, f32 weight);
 
 // -----
 

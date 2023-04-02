@@ -209,8 +209,8 @@ void fi_import_sort_bones(std::map<std::string, FBXBoneInfo*>& bones, std::vecto
 	}
 }
 
-fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ctx,
-									  fa_rig_t** ppRig, fc_alloc_callbacks_t* pAllocCallbacks)
+FcImportResult fcImportRig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ctx,
+									  FcRig** ppRig, FcAllocator* pAllocCallbacks)
 {
 	FBXRig rig;
 	
@@ -338,14 +338,14 @@ fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ct
 			
 			// copy to output rig
 			{
-				fa_rig_t* pRig = (fa_rig_t*)FUR_ALLOC_AND_ZERO(sizeof(fa_rig_t), 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+				FcRig* pRig = (FcRig*)FUR_ALLOC_AND_ZERO(sizeof(FcRig), 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 				
 				*ppRig = pRig;
 				
 				pRig->refPose = (fm_xform*)FUR_ALLOC(sizeof(fm_xform) * rig.m_referencePose.size(), 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 				pRig->parents = (int16_t*)FUR_ALLOC(sizeof(int16_t) * rig.m_referencePose.size(), 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 				pRig->numBones = (u32)rig.m_referencePose.size();
-				pRig->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(fc_string_hash_t, numBones, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+				pRig->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(FcStringId, numBones, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 				
 				for(u32 i=0; i<pRig->numBones; ++i)
 				{
@@ -429,7 +429,7 @@ const f32 Km  = 4.0*(0.4142135679721832275390625); // 4(sqrt(2)-1)
 const f32 Khf = 2.414213657379150390625;           // sqrt(2)+1 = 1/(sqrt(2)-1)
 const f32 Khi = 0.17157287895679473876953125;      // 3-2sqrt(2)
 
-f32 fa_decompress_float_minus_one_plus_one(u16 value)
+f32 fcAnimDecompressFloatMinusOnePlusOne(u16 value)
 {
 	return (((f32)value) / 65535.0f) * 2.0f - 1.0f;
 }
@@ -448,9 +448,9 @@ void fm_vec3_to_16bit(const fm_vec3* v, u16* b)
 
 void fm_16bit_to_vec3(const u16* b, fm_vec3* v)
 {
-	v->x = fa_decompress_float_minus_one_plus_one(b[0]);
-	v->y = fa_decompress_float_minus_one_plus_one(b[1]);
-	v->z = fa_decompress_float_minus_one_plus_one(b[2]);
+	v->x = fcAnimDecompressFloatMinusOnePlusOne(b[0]);
+	v->y = fcAnimDecompressFloatMinusOnePlusOne(b[1]);
+	v->z = fcAnimDecompressFloatMinusOnePlusOne(b[2]);
 }
 
 void quat_fhm(fm_quat q, fm_vec3* v)
@@ -516,7 +516,7 @@ fm_vec4 vec4_decom_16bit(const u16* v)
 	return res;
 }
 
-f32 fa_decompress_key_time(const u16 time)
+f32 fcAnimDecompressKeyTime(const u16 time)
 {
 	return ((f32)time) / 24.0f;
 }
@@ -530,7 +530,7 @@ bool fi_is_same_key(const fi_temp_anim_curve_key_t* a, const fi_temp_anim_curve_
 	&& a->keyValues[2] == b->keyValues[2];
 }
 
-fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_clip_ctx_t* ctx, fa_anim_clip_t** ppAnimClip, fc_alloc_callbacks_t* pAllocCallbacks)
+FcImportResult fcImportAnimClip(const fi_depot_t* depot, const FcImportAnimClipCtx* ctx, FcAnimClip** ppAnimClip, FcAllocator* pAllocCallbacks)
 {
 	std::string absolutePath = depot->path;
 	absolutePath += ctx->path;
@@ -601,7 +601,7 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 				}
 				
 				// todo: finding bone is linear search, so perhaps can be optimised
-				const int16_t boneIdx = fa_rig_find_bone_idx(ctx->rig, SID(bone->m_name.c_str()));
+				const int16_t boneIdx = fcRigFindBoneIdx(ctx->rig, SID(bone->m_name.c_str()));
 				FUR_ASSERT(boneIdx != -1);
 				
 				const u32 numKeys = (u32)uniqueTimesSorted.size();
@@ -716,21 +716,21 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 				numAllKeys += tempCurve.posKeys.size();
 			}
 			
-			fa_anim_clip_t* animClip = (fa_anim_clip_t*)FUR_ALLOC_AND_ZERO(sizeof(fa_anim_clip_t), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
-			animClip->curves = (fa_anim_curve_t*)FUR_ALLOC_AND_ZERO(sizeof(fa_anim_curve_t) * tempClip.curves.size(), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
-			animClip->dataKeys = (fa_anim_curve_key_t*)FUR_ALLOC(sizeof(fa_anim_curve_key_t) * numAllKeys, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+			FcAnimClip* animClip = (FcAnimClip*)FUR_ALLOC_AND_ZERO(sizeof(FcAnimClip), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+			animClip->curves = (FcAnimCurve*)FUR_ALLOC_AND_ZERO(sizeof(FcAnimCurve) * tempClip.curves.size(), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+			animClip->dataKeys = (FcAnimCurveKey*)FUR_ALLOC(sizeof(FcAnimCurveKey) * numAllKeys, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 			
 			animClip->numDataKeys = numAllKeys;
 			animClip->numCurves = (u16)tempClip.curves.size();
 			animClip->duration = duration;
 			animClip->name = SID_REG(animName.c_str());
 			
-			fa_anim_curve_key_t* curKey = animClip->dataKeys;
+			FcAnimCurveKey* curKey = animClip->dataKeys;
 			
 			for(u32 i_c=0; i_c<tempClip.curves.size(); ++i_c)
 			{
 				const fi_temp_anim_curve_t& tempCurve = tempClip.curves[i_c];
-				fa_anim_curve_t* curve = &animClip->curves[i_c];
+				FcAnimCurve* curve = &animClip->curves[i_c];
 				
 				curve->index = tempCurve.index;
 				curve->numRotKeys = tempCurve.keys.size();
@@ -777,14 +777,14 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 	
 	if(ctx->extractRootMotion)
 	{
-		fa_anim_clip_t* animClip = *ppAnimClip;
+		FcAnimClip* animClip = *ppAnimClip;
 		FUR_ASSERT(animClip);	// can't extract root motion on null anim
 		
 		const int16_t idxHips = 1;
 		const int16_t idxLocoJoint = ctx->rig->idxLocoJoint;
 		
-		fa_anim_curve_t* curveHips = &animClip->curves[idxHips];
-		const fa_anim_curve_t* curveLoco = &animClip->curves[idxLocoJoint];
+		FcAnimCurve* curveHips = &animClip->curves[idxHips];
+		const FcAnimCurve* curveLoco = &animClip->curves[idxLocoJoint];
 		
 		const u32 numPosKeys = curveHips->numPosKeys;
 		const u32 numRotKeys = curveHips->numRotKeys;
@@ -818,10 +818,10 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 		{
 			// zero out horizontal movement, leave only vertical movement
 			fm_vec4 pos = vec4_decom_16bit(curveHips->posKeys[k].keyData);
-			const f32 keyTime = fa_decompress_key_time(curveHips->posKeys[k].keyTime);
+			const f32 keyTime = fcAnimDecompressKeyTime(curveHips->posKeys[k].keyTime);
 			
 			fm_xform locoXform = {};
-			fa_anim_curve_sample(curveLoco, keyTime, false, &locoXform);
+			fcAnimCurveSample(curveLoco, keyTime, false, &locoXform);
 			fm_vec4_sub(&pos, &locoXform.pos, &pos);
 			
 			vec4_com_16bit(pos, curveHips->posKeys[k].keyData);
@@ -831,10 +831,10 @@ fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_cl
 		{
 			// zero out movement along vertical axis
 			fm_quat rot = quat_ihm_16bit(curveHips->rotKeys[k].keyData);
-			const f32 keyTime = fa_decompress_key_time(curveHips->posKeys[k].keyTime);
+			const f32 keyTime = fcAnimDecompressKeyTime(curveHips->posKeys[k].keyTime);
 			
 			fm_xform locoXform = {};
-			fa_anim_curve_sample(curveLoco, keyTime, false, &locoXform);
+			fcAnimCurveSample(curveLoco, keyTime, false, &locoXform);
 			
 			fm_quat_conj(&locoXform.rot);
 			fm_quat_mul(&rot, &locoXform.rot, &rot);
@@ -869,7 +869,7 @@ void fi_ofbx_matrix_to_fm_mat4(const ofbx::Matrix& src, fm_mat4& dst)
 	dst.w.w = src.m[15];
 }
 
-fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* ctx, fr_resource_mesh_t** ppMesh, fc_alloc_callbacks_t* pAllocCallbacks)
+FcImportResult fcImportMeshResource(const fi_depot_t* depot, const FcImportMeshCtx* ctx, FcMeshResource** ppMesh, FcAllocator* pAllocCallbacks)
 {
 	std::string absolutePath = depot->path;
 	absolutePath += ctx->path;
@@ -884,13 +884,13 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 		
 		const i32 numMeshes = scene->getMeshCount();
 		
-		fr_resource_mesh_t* mesh = (fr_resource_mesh_t*)FUR_ALLOC_AND_ZERO(sizeof(fr_resource_mesh_t), 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
-		mesh->chunks = (fr_resource_mesh_chunk_t*)FUR_ALLOC_AND_ZERO(sizeof(fr_resource_mesh_chunk_t) * numMeshes, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+		FcMeshResource* mesh = (FcMeshResource*)FUR_ALLOC_AND_ZERO(sizeof(FcMeshResource), 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+		mesh->chunks = (FcMeshResourceChunk*)FUR_ALLOC_AND_ZERO(sizeof(FcMeshResourceChunk) * numMeshes, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 		mesh->numChunks = numMeshes;
 		
 		for(i32 i=0; i<numMeshes; ++i)
 		{
-			fr_resource_mesh_chunk_t* chunk = &mesh->chunks[i];
+			FcMeshResourceChunk* chunk = &mesh->chunks[i];
 			
 			const ofbx::Mesh* mesh = scene->getMesh(i);
 			const ofbx::Geometry* geometry = mesh->getGeometry();
@@ -959,8 +959,8 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 			{
 				chunk->numBones = skin->getClusterCount();
 				chunk->bindPose = FUR_ALLOC_ARRAY_AND_ZERO(fm_mat4, chunk->numBones, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
-				chunk->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(fc_string_hash_t, chunk->numBones, 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
-				chunk->dataSkinning = FUR_ALLOC_ARRAY_AND_ZERO(fr_resource_mesh_chunk_skin_t, numVertices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+				chunk->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(FcStringId, chunk->numBones, 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+				chunk->dataSkinning = FUR_ALLOC_ARRAY_AND_ZERO(FcMeshResourceChunkSkin, numVertices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
 				
 				// init all skin indices to -1
 				for(u32 iv=0; iv<chunk->numVertices; ++iv)
@@ -985,7 +985,7 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 					fm_mat4 bindMat4;
 					fi_ofbx_matrix_to_fm_mat4(bindMatrix, bindMat4);
 					const ofbx::Object* link = cluster->getLink();
-					fc_string_hash_t boneName = fc_make_string_hash(link->name);
+					FcStringId boneName = fcMakeStringId(link->name);
 					chunk->boneNameHashes[ic] = boneName;
 					chunk->bindPose[ic] = bindMat4;
 					
@@ -999,7 +999,7 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 						const i32 idxVertex = vertexIndices[iv];
 						const f32 skinWeight = skinWeights[iv];
 						
-						fr_resource_mesh_chunk_skin_t* skin = &chunk->dataSkinning[idxVertex];
+						FcMeshResourceChunkSkin* skin = &chunk->dataSkinning[idxVertex];
 						
 						u32 slotSkinIndices = 0;
 						
@@ -1019,7 +1019,7 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 				// normalize weights (sum of weights should be 1.0f)
 				for(u32 is=0; is<chunk->numVertices; ++is)
 				{
-					fr_resource_mesh_chunk_skin_t* skin = &chunk->dataSkinning[is];
+					FcMeshResourceChunkSkin* skin = &chunk->dataSkinning[is];
 					const f32 totalWeight = skin->weights[0] + skin->weights[1] + skin->weights[2] + skin->weights[3];
 					if(totalWeight > 0.0f)
 					{
@@ -1046,9 +1046,9 @@ fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* 
 	return FI_RESULT_UNKNOWN_FILE_FORMAT_IMPORT_ERROR;
 }
 
-void fr_mesh_release(fr_resource_mesh_t* pMesh, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcMeshResourceRelease(FcMeshResource* pMesh, FcAllocator* pAllocCallbacks)
 {
-	fr_resource_mesh_chunk_t* chunks = pMesh->chunks;
+	FcMeshResourceChunk* chunks = pMesh->chunks;
 	u32 numChunks = pMesh->numChunks;
 	
 	for(u32 i=0; i<numChunks; ++i)

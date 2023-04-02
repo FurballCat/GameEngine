@@ -12,12 +12,12 @@
 
 #define MIN(x, y) x < y ? x : y
 
-void fa_action_reset(fa_action_t* action)
+void fcAnimActionReset(FcAnimAction* action)
 {
-	memset(action, 0, sizeof(fa_action_t));
+	memset(action, 0, sizeof(FcAnimAction));
 }
 
-void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup, fa_pose_t* poseLS, fa_pose_t* poseMS, const fm_vec4* targetArg, f32 weightIK)
+void fcAnimCharacterLegIK(FcAnimCharacter* character, const FcAnimIKSetup* ikSetup, FcPose* poseLS, FcPose* poseMS, const fm_vec4* targetArg, f32 weightIK)
 {
 	fm_vec4 targetFixed = *targetArg;
 	targetFixed.z += 0.1f;
@@ -151,7 +151,7 @@ void fa_character_leg_ik(fa_character_t* character, const fa_ik_setup_t* ikSetup
 	poseLS->xforms[ikSetup->idxEnd] = chainLS[3];
 }
 
-f32 fa_action_get_local_time(const fa_action_t* action, const fa_character_t* character)
+f32 fcAnimActionGetLocalTime(const FcAnimAction* action, const FcAnimCharacter* character)
 {
 	f32 localTime = -1.0f;
 	
@@ -164,15 +164,15 @@ f32 fa_action_get_local_time(const fa_action_t* action, const fa_character_t* ch
 	return localTime;
 }
 
-f32 fa_action_get_alpha(fa_character_t* character, const fa_action_t* action)
+f32 fcAnimActionGetAlpha(FcAnimCharacter* character, const FcAnimAction* action)
 {
 	if(!action->isUsed)
 		return 0.0f;
 	
 	f32 alpha = 1.0f;
 	
-	const fa_action_args_t* args = &action->args;
-	const f32 localTime = fa_action_get_local_time(action, character);
+	const FcAnimActionArgs* args = &action->args;
+	const f32 localTime = fcAnimActionGetLocalTime(action, character);
 	
 	if(args->fadeInSec > 0.0f)
 	{
@@ -188,12 +188,12 @@ f32 fa_action_get_alpha(fa_character_t* character, const fa_action_t* action)
 
 typedef struct fa_cross_layer_context_t
 {
-	fa_pose_stack_t* poseStack;
+	FcPoseStack* poseStack;
 	
 	void* scratchMemory;
 	u32 scratchMemorySize;
 	
-	fa_cmd_context_debug_t* debug;
+	FcCommandBufferContextDebug* debug;
 	
 	f32 dt;
 	
@@ -207,37 +207,37 @@ typedef struct fa_cross_layer_context_t
 	f32 lookAtWeight;
 } fa_cross_layer_context_t;
 
-void fa_character_layer_cache_pose(fa_layer_t* layer, fa_cross_layer_context_t* ctx, f32 alpha)
+void fcAnimCharacterLayerCachePose(FcAnimLayer* layer, fa_cross_layer_context_t* ctx, f32 alpha)
 {
-	fa_pose_t outPose;
-	fa_pose_stack_get(ctx->poseStack, &outPose, 0);
+	FcPose outPose;
+	FcPoseStackGet(ctx->poseStack, &outPose, 0);
 	
-	fa_pose_copy(&layer->poseCache.tempPose, &outPose);
+	FcPoseCopy(&layer->poseCache.tempPose, &outPose);
 	layer->transitionPoseCached = true;
 	layer->poseCache.alpha = alpha;
 	
 	if(ctx->debug)
 	{
 		const f32 color[4] = FUR_COLOR_RED;
-		fc_dbg_text(-450.0f, 1.0f, "caching_pose", color, 0.5f);
+		fcDebugText(-450.0f, 1.0f, "caching_pose", color, 0.5f);
 	}
 }
 
-void fa_character_action_animate(fa_character_t* character, fa_layer_t* layer, fa_action_t* action, fa_cross_layer_context_t* ctx)
+void fcAnimCharacterActionAnimate(FcAnimCharacter* character, FcAnimLayer* layer, FcAnimAction* action, fa_cross_layer_context_t* ctx)
 {
 	FUR_ASSERT(action->fnUpdate != NULL);
 	
-	fa_cmd_buffer_t animCmdBuffer = { ctx->scratchMemory, ctx->scratchMemorySize };
-	fa_cmd_buffer_recorder_t recorder = {0};
-	fa_cmd_buffer_recorder_init(&recorder, animCmdBuffer.data, animCmdBuffer.size);
+	FcAnimCommandBuffer animCmdBuffer = { ctx->scratchMemory, ctx->scratchMemorySize };
+	FcCommandBufferRecorder recorder = {0};
+	fcAnimCmdBufferRecorderInit(&recorder, animCmdBuffer.data, animCmdBuffer.size);
 	
 	// record commands
 	FUR_ASSERT(action->fnUpdate != NULL);
 	FUR_ASSERT(action->fnGetAnims != NULL);
 	
-	const f32 localTime = fa_action_get_local_time(action, character);
+	const f32 localTime = fcAnimActionGetLocalTime(action, character);
 	
-	fa_action_ctx_t actionCtx = {0};
+	FcAnimActionCtx actionCtx = {0};
 	actionCtx.dt = ctx->dt;
 	actionCtx.cmdRecorder = &recorder;
 	actionCtx.animInfo = &character->animInfo;
@@ -246,28 +246,28 @@ void fa_character_action_animate(fa_character_t* character, fa_layer_t* layer, f
 	
 	// record commands
 	{
-		fa_cmd_begin(&recorder, ctx->poseStack->numPoses);
+		fcAnimCmdBegin(&recorder, ctx->poseStack->numPoses);
 		action->fnUpdate(&actionCtx, action->userData);
-		fa_cmd_end(&recorder);
+		fcAnimCmdEnd(&recorder);
 	}
 	
 	// evaluate commands
-	fa_cmd_context_t animCtx = {0};
+	FcAnimCommandCtx animCtx = {0};
 	animCtx.animClips = action->fnGetAnims(action->userData, &animCtx.numAnimClips);
 	animCtx.rig = character->rig;
 	animCtx.poseStack = ctx->poseStack;
 	animCtx.poseCache = &layer->poseCache;
 	animCtx.debug = ctx->debug;
-	animCtx.mask = fa_rig_get_mask(character->rig, layer->maskID);
+	animCtx.mask = fcRigGetMask(character->rig, layer->maskID);
 	
-	fa_cmd_buffer_evaluate(&animCmdBuffer, &animCtx);
+	fcAnimCmdBufferEvaluate(&animCmdBuffer, &animCtx);
 	
 	ctx->rootMotionDeltaX = actionCtx.rootMotionDeltaX;
 	ctx->rootMotionDeltaY = actionCtx.rootMotionDeltaY;
 	ctx->rootMotionDeltaYaw = actionCtx.rootMotionDeltaYaw;
 }
 
-void fa_action_safely_cancel(fa_action_t* action)
+void fcAnimActionSafelyCancel(FcAnimAction* action)
 {
 	if(action->isUsed && action->fnCancel)
 	{
@@ -275,7 +275,7 @@ void fa_action_safely_cancel(fa_action_t* action)
 	}
 }
 
-fa_action_t* fa_action_queue_get_current(fa_action_queue_t* queue)
+FcAnimAction* fcAnimActionQueueGetCurrent(FcAnimActionQueue* queue)
 {
 	if(queue->actions[0].isUsed)
 	{
@@ -285,7 +285,7 @@ fa_action_t* fa_action_queue_get_current(fa_action_queue_t* queue)
 	return NULL;
 }
 
-fa_action_t* fa_action_queue_get_next(fa_action_queue_t* queue)
+FcAnimAction* fcAnimActionQueueGetNext(FcAnimActionQueue* queue)
 {
 	if(queue->actions[1].isUsed)
 	{
@@ -295,7 +295,7 @@ fa_action_t* fa_action_queue_get_next(fa_action_queue_t* queue)
 	return NULL;
 }
 
-fa_action_t* fa_action_queue_get_free_slot(fa_action_queue_t* queue)
+FcAnimAction* fcAnimActionQueueGetFreeSlot(FcAnimActionQueue* queue)
 {
 	// find free slot
 	for(u32 i=0; i<4; ++i)
@@ -307,14 +307,14 @@ fa_action_t* fa_action_queue_get_free_slot(fa_action_queue_t* queue)
 	}
 	
 	// if not found, make some slot free
-	fa_action_safely_cancel(&queue->actions[2]); // cancel action [2]
+	fcAnimActionSafelyCancel(&queue->actions[2]); // cancel action [2]
 	queue->actions[2] = queue->actions[3];	// move action [3] to [2]
-	fa_action_reset(&queue->actions[3]);	// clear unused slot
+	fcAnimActionReset(&queue->actions[3]);	// clear unused slot
 	
 	return &queue->actions[3];	// return free, unused slot
 }
 
-void fa_action_safely_begin(fa_action_begin_end_ctx_t* ctx, fa_action_t* action)
+void fcAnimActionSafelyBegin(FcAnimActionBeginEndCtx* ctx, FcAnimAction* action)
 {
 	if(action->isUsed && action->fnBegin && !action->hasBegun)
 	{
@@ -323,7 +323,7 @@ void fa_action_safely_begin(fa_action_begin_end_ctx_t* ctx, fa_action_t* action)
 	}
 }
 
-void fa_action_safely_end(fa_action_begin_end_ctx_t* ctx, fa_action_t* action)
+void fcAnimActionSafelyEnd(FcAnimActionBeginEndCtx* ctx, FcAnimAction* action)
 {
 	if(action->isUsed && action->fnEnd && action->hasBegun)
 	{
@@ -332,7 +332,7 @@ void fa_action_safely_end(fa_action_begin_end_ctx_t* ctx, fa_action_t* action)
 	}
 }
 
-void fa_character_init(fa_character_t* character, const fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcAnimCharacterInit(FcAnimCharacter* character, const FcRig* rig, FcAllocator* pAllocCallbacks)
 {
 	character->rig = rig;
 	
@@ -359,7 +359,7 @@ void fa_character_init(fa_character_t* character, const fa_rig_t* rig, fc_alloc_
 	character->layerHands.maskID = FA_MASK_HANDS;
 }
 
-void fa_character_release(fa_character_t* character, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcAnimCharacterRelease(FcAnimCharacter* character, FcAllocator* pAllocCallbacks)
 {
 	FUR_FREE(character->poseMS, pAllocCallbacks);
 	
@@ -376,42 +376,42 @@ void fa_character_release(fa_character_t* character, fc_alloc_callbacks_t* pAllo
 	FUR_FREE(character->layerHands.poseCache.tempPose.weightsXforms, pAllocCallbacks);
 }
 
-void fa_action_queue_resolve_pre_animate(fa_character_t* character, fa_action_queue_t* queue)
+void fcAnimActionQueueResolvePreAnimate(FcAnimCharacter* character, FcAnimActionQueue* queue)
 {
-	fa_action_begin_end_ctx_t ctx = {0};
+	FcAnimActionBeginEndCtx ctx = {0};
 	ctx.animInfo = &character->animInfo;
 	
 	// check if any of the pending actions should be instantly activated
-	if(fa_action_get_alpha(character, &queue->actions[3]) >= 1.0)
+	if(fcAnimActionGetAlpha(character, &queue->actions[3]) >= 1.0)
 	{
 		// end old actions
-		fa_action_safely_end(&ctx, &queue->actions[0]);
-		fa_action_safely_end(&ctx, &queue->actions[1]);
+		fcAnimActionSafelyEnd(&ctx, &queue->actions[0]);
+		fcAnimActionSafelyEnd(&ctx, &queue->actions[1]);
 		
 		// rare case when we need to cancel action [2], as it's eaten up by action [3]
-		fa_action_safely_cancel(&queue->actions[2]);
+		fcAnimActionSafelyCancel(&queue->actions[2]);
 		
 		// move pending actions
 		queue->actions[0] = queue->actions[3];
 		
 		// clear unused slots
-		fa_action_reset(&queue->actions[1]);
-		fa_action_reset(&queue->actions[2]);
-		fa_action_reset(&queue->actions[3]);
+		fcAnimActionReset(&queue->actions[1]);
+		fcAnimActionReset(&queue->actions[2]);
+		fcAnimActionReset(&queue->actions[3]);
 	}
-	else if(fa_action_get_alpha(character, &queue->actions[2]) >= 1.0)
+	else if(fcAnimActionGetAlpha(character, &queue->actions[2]) >= 1.0)
 	{
 		// end old actions
-		fa_action_safely_end(&ctx, &queue->actions[0]);
-		fa_action_safely_end(&ctx, &queue->actions[1]);
+		fcAnimActionSafelyEnd(&ctx, &queue->actions[0]);
+		fcAnimActionSafelyEnd(&ctx, &queue->actions[1]);
 		
 		// move pending actions
 		queue->actions[0] = queue->actions[2];
 		queue->actions[1] = queue->actions[3];
 		
 		// clear unused slots
-		fa_action_reset(&queue->actions[2]);
-		fa_action_reset(&queue->actions[3]);
+		fcAnimActionReset(&queue->actions[2]);
+		fcAnimActionReset(&queue->actions[3]);
 	}
 	else if(queue->actions[2].isUsed && queue->actions[3].isUsed)
 	{
@@ -423,46 +423,46 @@ void fa_action_queue_resolve_pre_animate(fa_character_t* character, fa_action_qu
 	}
 }
 
-void fa_action_queue_resolve_post_animate(fa_character_t* character, fa_action_queue_t* queue)
+void fcAnimActionQueueResolvePostAnimate(FcAnimCharacter* character, FcAnimActionQueue* queue)
 {
-	fa_action_begin_end_ctx_t ctx = {0};
+	FcAnimActionBeginEndCtx ctx = {0};
 	ctx.animInfo = &character->animInfo;
 	
 	if(queue->cachePoseAfterNextAction) // case of cache for 2 actions
 	{
 		// end old actions
-		fa_action_safely_end(&ctx, &queue->actions[0]);
-		fa_action_safely_end(&ctx, &queue->actions[1]);
+		fcAnimActionSafelyEnd(&ctx, &queue->actions[0]);
+		fcAnimActionSafelyEnd(&ctx, &queue->actions[1]);
 		
 		// move pending actions
 		queue->actions[0] = queue->actions[2];
 		queue->actions[1] = queue->actions[3];
 		
 		// clear unused slots
-		fa_action_reset(&queue->actions[2]);
-		fa_action_reset(&queue->actions[3]);
+		fcAnimActionReset(&queue->actions[2]);
+		fcAnimActionReset(&queue->actions[3]);
 		
 		queue->cachePoseAfterNextAction = false;
 	}
 	else if(queue->cachePoseAfterCurrAction)	// case of cache for 1 action
 	{
 		// end old actions
-		fa_action_safely_end(&ctx, &queue->actions[0]);
+		fcAnimActionSafelyEnd(&ctx, &queue->actions[0]);
 		
 		// move pending actions
 		queue->actions[0] = queue->actions[1];
 		queue->actions[1] = queue->actions[2];
 		
 		// clear unused slots
-		fa_action_reset(&queue->actions[2]);
-		fa_action_reset(&queue->actions[3]);
+		fcAnimActionReset(&queue->actions[2]);
+		fcAnimActionReset(&queue->actions[3]);
 		
 		queue->cachePoseAfterCurrAction = false;
 	}
-	else if(fa_action_get_alpha(character, &queue->actions[1]) >= 1.0)	// normal case, just next action
+	else if(fcAnimActionGetAlpha(character, &queue->actions[1]) >= 1.0)	// normal case, just next action
 	{
 		// end old actions
-		fa_action_safely_end(&ctx, &queue->actions[0]);
+		fcAnimActionSafelyEnd(&ctx, &queue->actions[0]);
 		
 		// move actions
 		queue->actions[0] = queue->actions[1];
@@ -470,30 +470,30 @@ void fa_action_queue_resolve_post_animate(fa_character_t* character, fa_action_q
 		queue->actions[2] = queue->actions[3];
 		
 		// clear unused slots
-		fa_action_reset(&queue->actions[1]);
-		fa_action_reset(&queue->actions[2]);
-		fa_action_reset(&queue->actions[3]);
+		fcAnimActionReset(&queue->actions[1]);
+		fcAnimActionReset(&queue->actions[2]);
+		fcAnimActionReset(&queue->actions[3]);
 	}
 }
 
-void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_context_t* ctx, fa_layer_t* layer)
+void fcAnimCharacterUpdateLayer(FcAnimCharacter* character, fa_cross_layer_context_t* ctx, FcAnimLayer* layer)
 {
 	// resolve scheduled actions
-	fa_action_queue_resolve_pre_animate(character, &layer->actionQueue);
+	fcAnimActionQueueResolvePreAnimate(character, &layer->actionQueue);
 	
-	fa_action_t* currAction = &layer->actionQueue.actions[0];
-	fa_action_t* nextAction = &layer->actionQueue.actions[1];
+	FcAnimAction* currAction = &layer->actionQueue.actions[0];
+	FcAnimAction* nextAction = &layer->actionQueue.actions[1];
 	
-	const f32 nextAlpha = fa_action_get_alpha(character, nextAction);
-	const f32 currAlpha = fa_action_get_alpha(character, currAction) * (1.0f - nextAlpha);
+	const f32 nextAlpha = fcAnimActionGetAlpha(character, nextAction);
+	const f32 currAlpha = fcAnimActionGetAlpha(character, currAction) * (1.0f - nextAlpha);
 	const f32 cachedPoseAlpha = layer->poseCache.alpha * (1.0f - currAlpha);
 	
 	// copy cached pose if required
 	if(layer->transitionPoseCached && cachedPoseAlpha > 0.0f)
 	{
-		fa_pose_t outPose;
-		fa_pose_stack_get(ctx->poseStack, &outPose, 0);
-		fa_pose_blend_linear(&outPose, &layer->poseCache.tempPose, &outPose, cachedPoseAlpha);		// blend to include pose weights/mask
+		FcPose outPose;
+		FcPoseStackGet(ctx->poseStack, &outPose, 0);
+		FcPoseBlendLinear(&outPose, &layer->poseCache.tempPose, &outPose, cachedPoseAlpha);		// blend to include pose weights/mask
 	}
 	else
 	{
@@ -501,52 +501,52 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 	}
 	
 	// todo: refactor that
-	fa_action_begin_end_ctx_t beginEndCtx = {0};
+	FcAnimActionBeginEndCtx beginEndCtx = {0};
 	beginEndCtx.animInfo = &character->animInfo;
-	fa_action_safely_begin(&beginEndCtx, currAction);
-	fa_action_safely_begin(&beginEndCtx, nextAction);
+	fcAnimActionSafelyBegin(&beginEndCtx, currAction);
+	fcAnimActionSafelyBegin(&beginEndCtx, nextAction);
 	
 	// animate current action
 	if(currAction->fnUpdate != NULL)
 	{
-		fa_action_t* action = currAction;
-		fa_character_action_animate(character, layer, action, ctx);
+		FcAnimAction* action = currAction;
+		fcAnimCharacterActionAnimate(character, layer, action, ctx);
 		
 		if(layer->actionQueue.cachePoseAfterCurrAction)
 		{
-			fa_character_layer_cache_pose(layer, ctx, currAlpha);
+			fcAnimCharacterLayerCachePose(layer, ctx, currAlpha);
 		}
 		
 		// blend in result
 		{
-			fa_pose_t actionPose;
-			fa_pose_t outPose;
-			fa_pose_stack_get(ctx->poseStack, &actionPose, 0);
-			fa_pose_stack_get(ctx->poseStack, &outPose, 1);
-			fa_pose_blend_linear(&outPose, &actionPose, &outPose, currAlpha);
-			fa_pose_stack_pop(ctx->poseStack, 1);
+			FcPose actionPose;
+			FcPose outPose;
+			FcPoseStackGet(ctx->poseStack, &actionPose, 0);
+			FcPoseStackGet(ctx->poseStack, &outPose, 1);
+			FcPoseBlendLinear(&outPose, &actionPose, &outPose, currAlpha);
+			FcPoseStackPop(ctx->poseStack, 1);
 		}
 	}
 	
 	// animate next action
 	if(nextAction->fnUpdate != NULL)
 	{
-		fa_action_t* action = nextAction;
-		fa_character_action_animate(character, layer, action, ctx);
+		FcAnimAction* action = nextAction;
+		fcAnimCharacterActionAnimate(character, layer, action, ctx);
 		
 		if(layer->actionQueue.cachePoseAfterNextAction)
 		{
-			fa_character_layer_cache_pose(layer, ctx, nextAlpha);
+			fcAnimCharacterLayerCachePose(layer, ctx, nextAlpha);
 		}
 		
 		// blend in result
 		{
-			fa_pose_t actionPose;
-			fa_pose_t outPose;
-			fa_pose_stack_get(ctx->poseStack, &actionPose, 0);
-			fa_pose_stack_get(ctx->poseStack, &outPose, 1);
-			fa_pose_blend_linear(&outPose, &actionPose, &outPose, nextAlpha);
-			fa_pose_stack_pop(ctx->poseStack, 1);
+			FcPose actionPose;
+			FcPose outPose;
+			FcPoseStackGet(ctx->poseStack, &actionPose, 0);
+			FcPoseStackGet(ctx->poseStack, &outPose, 1);
+			FcPoseBlendLinear(&outPose, &actionPose, &outPose, nextAlpha);
+			FcPoseStackPop(ctx->poseStack, 1);
 		}
 	}
 	
@@ -559,10 +559,10 @@ void fa_character_layer_animate(fa_character_t* character, fa_cross_layer_contex
 		ctx->outWeightLegsIK = weightIK;
 	}
 	
-	fa_action_queue_resolve_post_animate(character, &layer->actionQueue);
+	fcAnimActionQueueResolvePostAnimate(character, &layer->actionQueue);
 }
 
-void fa_character_ik(fa_character_t* character, fa_cross_layer_context_t* layerCtx)
+void fcAnimCharacterIK(FcAnimCharacter* character, fa_cross_layer_context_t* layerCtx)
 {
 	// inverse kinematics
 	{
@@ -570,14 +570,14 @@ void fa_character_ik(fa_character_t* character, fa_cross_layer_context_t* layerC
 		
 		if(weightIK > 0.0f)
 		{
-			fa_pose_stack_push(layerCtx->poseStack, 1);
+			FcPoseStackPush(layerCtx->poseStack, 1);
 			
-			fa_pose_t poseMS;
-			fa_pose_stack_get(layerCtx->poseStack, &poseMS, 0);
-			fa_pose_t poseLS;
-			fa_pose_stack_get(layerCtx->poseStack, &poseLS, 1);
+			FcPose poseMS;
+			FcPoseStackGet(layerCtx->poseStack, &poseMS, 0);
+			FcPose poseLS;
+			FcPoseStackGet(layerCtx->poseStack, &poseLS, 1);
 			
-			fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
+			FcPoseLocalToModel(&poseMS, &poseLS, character->rig->parents);
 			
 			fm_vec4 leftTarget = poseMS.xforms[character->rig->ikLeftLeg.idxEnd].pos;
 			leftTarget.z = -0.2f;
@@ -612,18 +612,18 @@ void fa_character_ik(fa_character_t* character, fa_cross_layer_context_t* layerC
 					pelvisCorrectionHeight = rightDistance - rightLegLength;
 				
 				poseLS.xforms[character->rig->ikLeftLeg.idxBeginParent].pos.y -= pelvisCorrectionHeight * weightIK;
-				fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
+				FcPoseLocalToModel(&poseMS, &poseLS, character->rig->parents);
 			}
 			
-			fa_character_leg_ik(character, &character->rig->ikLeftLeg, &poseLS, &poseMS, &leftTarget, weightIK);
-			fa_character_leg_ik(character, &character->rig->ikRightLeg, &poseLS, &poseMS, &rightTarget, weightIK);
+			fcAnimCharacterLegIK(character, &character->rig->ikLeftLeg, &poseLS, &poseMS, &leftTarget, weightIK);
+			fcAnimCharacterLegIK(character, &character->rig->ikRightLeg, &poseLS, &poseMS, &rightTarget, weightIK);
 			
-			fa_pose_stack_pop(layerCtx->poseStack, 1);
+			FcPoseStackPop(layerCtx->poseStack, 1);
 		}
 	}
 }
 
-void fa_character_look_at(fa_character_t* character, fa_pose_t* poseLS, fa_pose_t* poseMS,
+void fcAnimCharacterLookAt(FcAnimCharacter* character, FcPose* poseLS, FcPose* poseMS,
 						  f32 weight, fm_vec4* lookAtPointMS)
 {
 	// no need to apply look-at if the weight is 0.0
@@ -631,7 +631,7 @@ void fa_character_look_at(fa_character_t* character, fa_pose_t* poseLS, fa_pose_
 		return;
 	
 	// get look at setup and look at point in model space
-	const fa_look_at_setup_t* setup = &character->rig->headLookAt;
+	const FcAnimLookAtSetup* setup = &character->rig->headLookAt;
 	fm_vec4 lookAtMS = *lookAtPointMS;
 	
 	// transform look at from model space to head space
@@ -696,13 +696,13 @@ void fa_character_look_at(fa_character_t* character, fa_pose_t* poseLS, fa_pose_
 	fm_quat_mul(&headCorrection, &poseLS->xforms[setup->idxHead].rot, &poseLS->xforms[setup->idxHead].rot);
 }
 
-void fa_character_animate(fa_character_t* character, const fa_character_animate_ctx_t* ctx)
+void fcAnimCharacterUpdate(FcAnimCharacter* character, const FcAnimCharacterUpdateCtx* ctx)
 {
 	// pre-process inputs in anim info
 	fm_vec4 lookAtMS = {0};
 	
 	{
-		fa_character_anim_info_t* info = &character->animInfo;
+		FcAnimInfo* info = &character->animInfo;
 		
 		// get world locator of the character
 		const fm_vec4 posWS = {info->worldPos.x, info->worldPos.y, info->worldPos.z, 1.0f};
@@ -720,25 +720,25 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	
 	// allocate pose stack and command buffer memory
 	const u32 poseStackSize = 128 * 1024;
-	void* animPoseStackMemory = fc_mem_arena_alloc(ctx->arenaAlloc, poseStackSize, 8);
+	void* animPoseStackMemory = fcMemArenaAlloc(ctx->arenaAlloc, poseStackSize, 8);
 	
 	const u32 animCmdBufferSize = 32 * 1024;
-	void* animCmdBufferMemory = fc_mem_arena_alloc(ctx->arenaAlloc, animCmdBufferSize, 0);
+	void* animCmdBufferMemory = fcMemArenaAlloc(ctx->arenaAlloc, animCmdBufferSize, 0);
 	
 	// init pose stack - pose stack is shared across multiple command buffers
-	fa_pose_stack_t poseStack = {0};
+	FcPoseStack poseStack = {0};
 	
 	{
-		fa_pose_stack_desc_t desc = {0};
+		FcPoseStackDesc desc = {0};
 		
 		desc.numBonesPerPose = character->rig->numBones;
 		desc.numTracksPerPose = 0;
 		desc.numMaxPoses = 4;
 		
-		fa_pose_stack_init(&poseStack, &desc, animPoseStackMemory, poseStackSize);
+		FcPoseStackInit(&poseStack, &desc, animPoseStackMemory, poseStackSize);
 	}
 	
-	fa_cmd_context_debug_t debug = {0};
+	FcCommandBufferContextDebug debug = {0};
 	
 	// update layers
 	fa_cross_layer_context_t layerCtx = {0};
@@ -748,11 +748,11 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	layerCtx.scratchMemorySize = animCmdBufferSize;
 	layerCtx.debug = ctx->showDebug ? &debug : NULL;
 	
-	fa_pose_t poseLS;
+	FcPose poseLS;
 	
 	// reset pose to ref pose
-	fa_pose_stack_push(&poseStack, 1);
-	fa_pose_stack_get(&poseStack, &poseLS, 0);
+	FcPoseStackPush(&poseStack, 1);
+	FcPoseStackGet(&poseStack, &poseLS, 0);
 	{
 		FUR_ASSERT(poseLS.numXforms == character->rig->numBones);
 		
@@ -775,7 +775,7 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	// body
 	FUR_PROFILE("body-layer")
 	{
-		fa_character_layer_animate(character, &layerCtx, &character->layerFullBody);
+		fcAnimCharacterUpdateLayer(character, &layerCtx, &character->layerFullBody);
 	}
 	
 	// store weight IK
@@ -784,26 +784,26 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	// partial layer, can be applied anywhere, but does not interrupt full body
 	FUR_PROFILE("partial-layer")
 	{
-		fa_character_layer_animate(character, &layerCtx, &character->layerPartial);
+		fcAnimCharacterUpdateLayer(character, &layerCtx, &character->layerPartial);
 	}
 	
 	// hands
 	FUR_PROFILE("hands-layer")
 	{
-		fa_character_layer_animate(character, &layerCtx, &character->layerHands);
+		fcAnimCharacterUpdateLayer(character, &layerCtx, &character->layerHands);
 	}
 	
 	// face
 	FUR_PROFILE("face-layer")
 	{
-		fa_character_layer_animate(character, &layerCtx, &character->layerFace);
+		fcAnimCharacterUpdateLayer(character, &layerCtx, &character->layerFace);
 	}
 	
 	// inverse kinematics
 	FUR_PROFILE("ik")
 	{
 		layerCtx.outWeightLegsIK = weightLegsIK;
-		fa_character_ik(character, &layerCtx);
+		fcAnimCharacterIK(character, &layerCtx);
 	}
 	
 	// look-at
@@ -831,17 +831,17 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 		}
 		
 		// calculate and push temporary MS pose
-		fa_pose_stack_push(&poseStack, 1);
-		fa_pose_t poseMS;
-		fa_pose_stack_get(&poseStack, &poseMS, 0);
-		fa_pose_t poseLS;
-		fa_pose_stack_get(&poseStack, &poseLS, 1);
-		fa_pose_local_to_model(&poseMS, &poseLS, character->rig->parents);
+		FcPoseStackPush(&poseStack, 1);
+		FcPose poseMS;
+		FcPoseStackGet(&poseStack, &poseMS, 0);
+		FcPose poseLS;
+		FcPoseStackGet(&poseStack, &poseLS, 1);
+		FcPoseLocalToModel(&poseMS, &poseLS, character->rig->parents);
 		
-		fa_character_look_at(character, &poseLS, &poseMS, layerCtx.lookAtWeight, &layerCtx.lookAtMS);
+		fcAnimCharacterLookAt(character, &poseLS, &poseMS, layerCtx.lookAtWeight, &layerCtx.lookAtMS);
 		
 		// pop temporary MS pose
-		fa_pose_stack_pop(&poseStack, 1);
+		FcPoseStackPop(&poseStack, 1);
 	}
 	
 	// ragdoll
@@ -850,15 +850,15 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	FUR_PROFILE("ls-to-ms")
 	{
 		const int16_t* parentIndices = character->rig->parents;
-		fa_pose_t poseMS = {0};
+		FcPose poseMS = {0};
 		poseMS.xforms = character->poseMS;
 		poseMS.numXforms = character->rig->numBones;
-		fa_pose_local_to_model(&poseMS, &poseLS, parentIndices);
+		FcPoseLocalToModel(&poseMS, &poseLS, parentIndices);
 	}
 	
 	// apply root motion
 	{
-		fa_pose_t poseMS = {0};
+		FcPose poseMS = {0};
 		poseMS.xforms = character->poseMS;
 		poseMS.numXforms = character->rig->numBones;
 		
@@ -920,9 +920,9 @@ void fa_character_animate(fa_character_t* character, const fa_character_animate_
 	}
 }
 
-void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData)
+void fcAnimActionAnimateFnUpdate(const FcAnimActionCtx* ctx, void* userData)
 {
-	fa_action_animate_t* data = (fa_action_animate_t*)userData;
+	FcAnimActionAnimate* data = (FcAnimActionAnimate*)userData;
 	
 	const f32 animDuration = data->animation->duration;
 	const f32 time = fmodf(ctx->localTime, animDuration);
@@ -934,11 +934,11 @@ void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData)
 	
 	if(data->useLoco)
 	{
-		fa_cmd_anim_sample_with_locomotion(ctx->cmdRecorder, time, 0, data->resetLoco, loopsThisFrame, data->prevLocoPos, data->prevLocoRot);
+		fcAnimCmdSampleWithLocomotion(ctx->cmdRecorder, time, 0, data->resetLoco, loopsThisFrame, data->prevLocoPos, data->prevLocoRot);
 	}
 	else
 	{
-		fa_cmd_anim_sample(ctx->cmdRecorder, time, 0);
+		fcAnimCmdSample(ctx->cmdRecorder, time, 0);
 	}
 	
 	if(data->resetLoco)
@@ -950,16 +950,16 @@ void fa_action_animate_func(const fa_action_ctx_t* ctx, void* userData)
 	data->progress = time / animDuration;
 }
 
-const fa_anim_clip_t** fa_action_animate_get_anims_func(const void* userData, u32* numAnims)
+const FcAnimClip** fcAnimActionAnimateFnGetAnims(const void* userData, u32* numAnims)
 {
-	const fa_action_animate_t* data = (const fa_action_animate_t*)userData;
+	const FcAnimActionAnimate* data = (const FcAnimActionAnimate*)userData;
 	*numAnims = 1;
-	return (const fa_anim_clip_t**)&data->animation;	// todo: check it, is this return correct?
+	return (const FcAnimClip**)&data->animation;	// todo: check it, is this return correct?
 }
 
-void fa_action_animate_begin_func(const fa_action_begin_end_ctx_t* ctx, void* userData)
+void fcAnimActionAnimateFnBegin(const FcAnimActionBeginEndCtx* ctx, void* userData)
 {
-	fa_action_animate_t* data = (fa_action_animate_t*)userData;
+	FcAnimActionAnimate* data = (FcAnimActionAnimate*)userData;
 	
 	// at the beginning, we want to reset locomotion data
 	data->resetLoco = true;
@@ -967,19 +967,19 @@ void fa_action_animate_begin_func(const fa_action_begin_end_ctx_t* ctx, void* us
 	data->progress = 0.0f;
 }
 
-void fa_action_animate_end_func(const fa_action_begin_end_ctx_t* ctx, void* userData)
+void fcAnimActionAnimateFnEnd(const FcAnimActionBeginEndCtx* ctx, void* userData)
 {
-	fa_action_animate_t* data = (fa_action_animate_t*)userData;
+	FcAnimActionAnimate* data = (FcAnimActionAnimate*)userData;
 	data->reserved = false;
 }
 
-void fa_action_animate_cancel_func(void* userData)
+void fcAnimActionAnimateFnCancel(void* userData)
 {
-	fa_action_animate_t* data = (fa_action_animate_t*)userData;
+	FcAnimActionAnimate* data = (FcAnimActionAnimate*)userData;
 	data->reserved = false;
 }
 
-fa_layer_t* fa_character_layer_select(fa_character_t* character, const fa_action_args_t* args)
+FcAnimLayer* fcAnimCharacterLayerSelect(FcAnimCharacter* character, const FcAnimActionArgs* args)
 {
 	if(args->layerName == 0)
 	{
@@ -1006,29 +1006,29 @@ fa_layer_t* fa_character_layer_select(fa_character_t* character, const fa_action
 	return NULL;
 }
 
-void fa_character_schedule_action_simple(fa_character_t* character, fa_action_animate_t* action, const fa_action_args_t* args)
+void fcAnimCharacterScheduleActionAnimate(FcAnimCharacter* character, FcAnimActionAnimate* action, const FcAnimActionArgs* args)
 {
-	fa_layer_t* layer = fa_character_layer_select(character, args);
+	FcAnimLayer* layer = fcAnimCharacterLayerSelect(character, args);
 	FUR_ASSERT(layer);
 	
-	fa_action_t* actionSlot = fa_action_queue_get_free_slot(&layer->actionQueue);
+	FcAnimAction* actionSlot = fcAnimActionQueueGetFreeSlot(&layer->actionQueue);
 	actionSlot->userData = action;
-	actionSlot->fnUpdate = fa_action_animate_func;
-	actionSlot->fnGetAnims = fa_action_animate_get_anims_func;
-	actionSlot->fnBegin = fa_action_animate_begin_func;
-	actionSlot->fnEnd = fa_action_animate_end_func;
-	actionSlot->fnCancel = fa_action_animate_cancel_func;
+	actionSlot->fnUpdate = fcAnimActionAnimateFnUpdate;
+	actionSlot->fnGetAnims = fcAnimActionAnimateFnGetAnims;
+	actionSlot->fnBegin = fcAnimActionAnimateFnBegin;
+	actionSlot->fnEnd = fcAnimActionAnimateFnEnd;
+	actionSlot->fnCancel = fcAnimActionAnimateFnCancel;
 	actionSlot->globalStartTime = character->globalTime;
 	actionSlot->isUsed = true;
 	actionSlot->args = *args;
 }
 
-CANIM_API void fa_character_schedule_none_action(fa_character_t* character, const fa_action_args_t* args)
+CANIM_API void fcAnimCharacterScheduleActionNone(FcAnimCharacter* character, const FcAnimActionArgs* args)
 {
-	fa_layer_t* layer = fa_character_layer_select(character, args);
+	FcAnimLayer* layer = fcAnimCharacterLayerSelect(character, args);
 	FUR_ASSERT(layer);
 	
-	fa_action_t* actionSlot = fa_action_queue_get_free_slot(&layer->actionQueue);
+	FcAnimAction* actionSlot = fcAnimActionQueueGetFreeSlot(&layer->actionQueue);
 	actionSlot->userData = NULL;
 	actionSlot->fnUpdate = NULL;
 	actionSlot->fnGetAnims = NULL;
@@ -1037,12 +1037,12 @@ CANIM_API void fa_character_schedule_none_action(fa_character_t* character, cons
 	actionSlot->args = *args;
 }
 
-CANIM_API void fa_character_schedule_action(fa_character_t* character, fa_action_schedule_data_t* data, const fa_action_args_t* args)
+CANIM_API void fcAnimCharacterScheduleAction(FcAnimCharacter* character, FcAnimActionScheduleData* data, const FcAnimActionArgs* args)
 {
-	fa_layer_t* layer = fa_character_layer_select(character, args);
+	FcAnimLayer* layer = fcAnimCharacterLayerSelect(character, args);
 	FUR_ASSERT(layer);
 	
-	fa_action_t* actionSlot = fa_action_queue_get_free_slot(&layer->actionQueue);
+	FcAnimAction* actionSlot = fcAnimActionQueueGetFreeSlot(&layer->actionQueue);
 	actionSlot->userData = data->userData;
 	actionSlot->fnUpdate = data->fnUpdate;
 	actionSlot->fnBegin = data->fnBegin;
@@ -1051,196 +1051,4 @@ CANIM_API void fa_character_schedule_action(fa_character_t* character, fa_action
 	actionSlot->globalStartTime = character->globalTime;
 	actionSlot->isUsed = true;
 	actionSlot->args = *args;
-}
-
-// -----
-
-void fa_action_animate_test_func(const fa_action_ctx_t* ctx, void* userData)
-{
-	fa_action_animate_test_t* data = (fa_action_animate_test_t*)userData;
-	
-	const f32 d_0 = data->anims[0]->duration;
-	const f32 t_0 = fmodf(ctx->localTime, d_0);
-	
-	const f32 d_1 = data->anims[1]->duration;
-	const f32 t_1 = fmodf(ctx->localTime, d_1);
-	
-#if 0
-	fa_cmd_anim_sample(ctx->cmdRecorder, t_0, 0);
-	fa_cmd_anim_sample(ctx->cmdRecorder, t_1, 1);
-	fa_cmd_apply_mask(ctx->cmdRecorder, FA_MASK_UPPER_BODY);
-	fa_cmd_blend2(ctx->cmdRecorder, 1.0f);
-#elif 1
-	const f32 alpha = fm_clamp(ctx->localTime - data->timeToNextAnim, 0.0f, 0.5f) * 2.0f;
-	fa_cmd_anim_sample(ctx->cmdRecorder, t_0, 0);
-	fa_cmd_anim_sample(ctx->cmdRecorder, t_1, 1);
-	fa_cmd_apply_mask(ctx->cmdRecorder, FA_MASK_UPPER_BODY);
-	fa_cmd_blend2(ctx->cmdRecorder, alpha);
-	
-	if(alpha >= 0.1f)
-	{
-		data->equipWeapon = true;
-	}
-#elif 0
-	if(ctx->localTime < 2.0f)
-	{
-		fa_cmd_identity(ctx->cmdRecorder);
-	}
-	else
-	{
-		const f32 alpha = fm_clamp(ctx->localTime - 2.0f, 0.0f, 1.0f);
-		fa_cmd_identity(ctx->cmdRecorder);
-		fa_cmd_anim_sample(ctx->cmdRecorder, 0.0f, 0);
-		fa_cmd_blend2(ctx->cmdRecorder, alpha);
-	}
-#else
-	fa_cmd_anim_sample(ctx->cmdRecorder, t_0, 0);
-	fa_cmd_anim_sample_additive(ctx->cmdRecorder, t_1, 1);
-	fa_cmd_apply_additive(ctx->cmdRecorder, 1.0f);
-#endif
-}
-
-const fa_anim_clip_t** fa_action_animate_test_get_anims_func(const void* userData, u32* numAnims)
-{
-	const fa_action_animate_test_t* data = (const fa_action_animate_test_t*)userData;
-	*numAnims = 2;
-	return (const fa_anim_clip_t**)&data->anims;	// todo: check it, is this return correct?
-}
-
-void fa_character_schedule_action_test_simple(fa_character_t* character, fa_action_animate_test_t* action, const fa_action_args_t* args)
-{
-	fa_layer_t* layer = fa_character_layer_select(character, args);
-	FUR_ASSERT(layer);
-	
-	fa_action_t* actionSlot = fa_action_queue_get_free_slot(&layer->actionQueue);
-	actionSlot->userData = action;
-	actionSlot->fnUpdate = fa_action_animate_test_func;
-	actionSlot->fnGetAnims = fa_action_animate_test_get_anims_func;
-	actionSlot->globalStartTime = character->globalTime;
-	actionSlot->args = *args;
-}
-
-// -----
-
-void fa_action_player_loco_begin_func(const fa_action_begin_end_ctx_t* ctx, void* userData)
-{
-	fa_action_player_loco_t* data = (fa_action_player_loco_t*)userData;
-	
-	data->resetLoco = true;
-}
-
-void fa_action_player_loco_end_func(const fa_action_begin_end_ctx_t* ctx, void* userData)
-{
-	
-}
-
-void fa_action_player_loco_update(const fa_action_ctx_t* ctx, void* userData)
-{
-	fa_action_player_loco_t* data = (fa_action_player_loco_t*)userData;
-	
-	// loops for motion
-	const f32 animDuration = data->anims[FA_ACTION_PLAYER_LOCO_ANIM_RUN]->duration;
-	const f32 animTime = fmodf(ctx->localTime, animDuration);
-	const i32 loopsSinceBeginning = (i32)(ctx->localTime / animDuration);
-	const i32 loopsThisFrame = loopsSinceBeginning - data->loopsSoFar;
-	data->loopsSoFar = loopsSinceBeginning;
-	
-	fa_cmd_anim_sample_with_locomotion(ctx->cmdRecorder, animTime, FA_ACTION_PLAYER_LOCO_ANIM_RUN, data->resetLoco, loopsThisFrame, data->locoPos, data->locoRot);
-	
-	if(data->resetLoco)
-	{
-		data->resetLoco = false;
-		data->loopsSoFar = 0;
-	}
-}
-
-const fa_anim_clip_t** fa_action_player_loco_get_anims_func(const void* userData, u32* numAnims)
-{
-	const fa_action_player_loco_t* data = (const fa_action_player_loco_t*)userData;
-	*numAnims = FA_ACTION_PLAYER_LOCO_ANIM_COUNT;
-	return (const fa_anim_clip_t**)&data->anims;	// todo: check it, is this return correct?
-}
-
-// -----
-
-void fa_action_player_jump_update(const fa_action_ctx_t* ctx, void* userData)
-{
-	fa_action_player_jump_t* data = (fa_action_player_jump_t*)userData;
-	
-	// update player motion
-	fa_character_anim_info_t* animInfo = ctx->animInfo;
-	
-	const f32 t = ctx->localTime;
-	const bool doMove = fabs(animInfo->desiredMove.x) > 0.05f || fabs(animInfo->desiredMove.x) > 0.05f;
-	
-	if(data->jumpType == 0)
-	{
-		data->jumpType = doMove ? 2 : 1;
-	}
-	
-	if(data->jumpType == 1) // jump in place
-	{
-		const f32 d = data->anims[0]->duration;
-		const f32 t_anim = fm_clamp(t, 0.0f, d);
-		
-		data->progress = t / d;
-		
-		fa_cmd_anim_sample(ctx->cmdRecorder, t_anim, 0);
-	}
-	else // jump in run
-	{
-		const f32 d = data->anims[1]->duration;
-		const f32 t_anim = fm_clamp(t, 0.0f, d);
-		
-		data->progress = t / d;
-		
-		fa_cmd_anim_sample(ctx->cmdRecorder, t_anim, 1);
-	}
-}
-
-const fa_anim_clip_t** fa_action_player_jump_get_anims_func(const void* userData, u32* numAnims)
-{
-	const fa_action_player_jump_t* data = (const fa_action_player_jump_t*)userData;
-	*numAnims = 2;
-	return (const fa_anim_clip_t**)&data->anims;	// todo: check it, is this return correct?
-}
-
-// -----
-
-
-void fa_action_player_loco_start_begin_func(const fa_action_begin_end_ctx_t* ctx, void* userData)
-{
-	fa_action_player_loco_start_t* data = (fa_action_player_loco_start_t*)userData;
-	data->resetLoco = true;
-}
-
-void fa_action_player_loco_start_end_func(const fa_action_begin_end_ctx_t* ctx, void* userData)
-{
-	
-}
-
-void fa_action_player_loco_start_update(const fa_action_ctx_t* ctx, void* userData)
-{
-	fa_action_player_loco_start_t* data = (fa_action_player_loco_start_t*)userData;
-	const f32 t = ctx->localTime;
-	const f32 d = data->anims[0]->duration;
-	
-	// animate start
-	const f32 t_anim = fm_clamp(t, 0.0f, d);
-	
-	data->isFinished = t > (d - data->finishFromEnd);
-	
-	fa_cmd_anim_sample_with_locomotion(ctx->cmdRecorder, t_anim, 0, data->resetLoco, 0, data->prevLocoPos, data->prevLocoRot);
-	
-	if(data->resetLoco)
-	{
-		data->resetLoco = false;
-	}
-}
-
-const fa_anim_clip_t** fa_action_player_loco_start_get_anims_func(const void* userData, u32* numAnims)
-{
-	const fa_action_player_loco_start_t* data = (const fa_action_player_loco_start_t*)userData;
-	*numAnims = 1;
-	return (const fa_anim_clip_t**)&data->anims;	// todo: check it, is this return correct?
 }

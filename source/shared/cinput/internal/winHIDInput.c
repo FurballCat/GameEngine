@@ -5,12 +5,12 @@
 
 #if PLATFORM_WINDOWS
 
-void fi_hid_input_init(fi_hid_input_t* pInput)
+void fcInputHIDInit(FcInputHID* pInput)
 {
 	pInput->m_numPendingEvents = 0;
 }
 
-void fi_hid_input_update(fi_hid_input_t* pInput, f64 currentTime)
+void fcInputHIDUpdate(FcInputHID* pInput, f64 currentTime)
 {
 	const i32 maxControllers = MAX_CONTROLLERS > GLFW_JOYSTICK_LAST ? GLFW_JOYSTICK_LAST : MAX_CONTROLLERS;
 
@@ -70,7 +70,7 @@ void fi_hid_input_update(fi_hid_input_t* pInput, f64 currentTime)
 	}
 }
 
-u32 fi_hid_input_get_events(const fi_hid_input_t* pInput, fi_input_event_t* pEvents, u32 capacity, u32 startIndex)
+u32 fcInputHIDGetEvents(const FcInputHID* pInput, FcInputEvent* pEvents, u32 capacity, u32 startIndex)
 {
 	i32 count = 0;
 

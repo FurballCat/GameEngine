@@ -13,13 +13,13 @@ extern "C"
 
 typedef struct fm_xform fm_xform;
 typedef struct fm_vec4 fm_vec4;
-typedef u32 fc_string_hash_t;
-typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
-typedef struct fc_serializer_t fc_serializer_t;
+typedef u32 FcStringId;
+typedef struct FcAllocator FcAllocator;
+typedef struct FcSerializer FcSerializer;
 
 void fm_axis_to_vec4(fm_axis_t axis, fm_vec4* v);
 
-typedef struct fa_ik_setup_t
+typedef struct FcAnimIKSetup
 {
 	u16 idxBeginParent;
 	u16 idxBegin;
@@ -28,9 +28,9 @@ typedef struct fa_ik_setup_t
 	fm_axis_t hingeAxisMid;
 	f32 minAngle;
 	f32 maxAngle;
-} fa_ik_setup_t;
+} FcAnimIKSetup;
 
-typedef struct fa_look_at_setup_t
+typedef struct FcAnimLookAtSetup
 {
 	u16 idxHead;
 	u16 idxNeck;
@@ -40,35 +40,35 @@ typedef struct fa_look_at_setup_t
 	f32 limitYaw;
 	f32 limitPitchDown;
 	f32 limitPitchUp;
-} fa_look_at_setup_t;
+} FcAnimLookAtSetup;
 
-typedef struct fa_rig_t
+typedef struct FcRig
 {
-	fc_string_hash_t* boneNameHashes;
+	FcStringId* boneNameHashes;
 	int16_t* parents;
 	fm_xform* refPose;
-	u32 numBones;
+	i32 numBones;
 	
 	// locomotion
 	int16_t idxLocoJoint;	// root motion joint index
 	
 	// inverse kinematics
-	fa_ik_setup_t ikLeftLeg;
-	fa_ik_setup_t ikRightLeg;
+	FcAnimIKSetup ikLeftLeg;
+	FcAnimIKSetup ikRightLeg;
 	
 	// look-at
-	fa_look_at_setup_t headLookAt;
+	FcAnimLookAtSetup headLookAt;
 	
 	// masks
 	u8* maskUpperBody;
 	u8* maskFace;
 	u8* maskHands;
-} fa_rig_t;
+} FcRig;
 
-CANIM_API void fa_rig_release(fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks);
-CANIM_API int16_t fa_rig_find_bone_idx(const fa_rig_t* rig, fc_string_hash_t name);
-CANIM_API const u8* fa_rig_get_mask(const fa_rig_t* rig, fa_mask_t mask);
-CANIM_API void fa_rig_serialize(fc_serializer_t* pSerializer, fa_rig_t* rig, fc_alloc_callbacks_t* pAllocCallbacks);
+CANIM_API void fcRigRelease(FcRig* rig, FcAllocator* pAllocCallbacks);
+CANIM_API int16_t fcRigFindBoneIdx(const FcRig* rig, FcStringId name);
+CANIM_API const u8* fcRigGetMask(const FcRig* rig, FcAnimMask mask);
+CANIM_API void fcRigSerialize(FcSerializer* pSerializer, FcRig* rig, FcAllocator* pAllocCallbacks);
 
 #ifdef __cplusplus
 }

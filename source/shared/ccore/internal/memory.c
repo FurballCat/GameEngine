@@ -6,16 +6,16 @@
 #include <stdio.h>
 #include <string.h>
 
-typedef struct fc_memory_map_entry_t
+typedef struct FcMemoryMapEntry
 {
-	fc_memory_scope_t name;
-	fc_memory_scope_t parent;
+	FcMemoryScope name;
+	FcMemoryScope parent;
 	u64 capacity;
-} fc_memory_map_entry_t;
+} FcMemoryMapEntry;
 
 #define FUR_SIZE_MB(x) x * 1024 * 1024
 
-fc_memory_map_entry_t g_memoryMap[] = {
+FcMemoryMapEntry g_memoryMap[] = {
 	{FC_MEMORY_SCOPE_SYSTEM, FC_MEMORY_SCOPE_SYSTEM, FUR_SIZE_MB(1024)},
 		{FC_MEMORY_SCOPE_GLOBAL, FC_MEMORY_SCOPE_SYSTEM, FUR_SIZE_MB(256)},
 			{FC_MEMORY_SCOPE_ARENA, FC_MEMORY_SCOPE_GLOBAL, FUR_SIZE_MB(2)},
@@ -35,10 +35,10 @@ fc_memory_map_entry_t g_memoryMap[] = {
 
 bool g_mapSorted = false;
 
-int fc_mem_entry_compare( const void* a, const void* b)
+int fcMemDebugInfo( const void* a, const void* b)
 {
-	const fc_memory_map_entry_t* entryA = (const fc_memory_map_entry_t*)a;
-	const fc_memory_map_entry_t* entryB = (const fc_memory_map_entry_t*)b;
+	const FcMemoryMapEntry* entryA = (const FcMemoryMapEntry*)a;
+	const FcMemoryMapEntry* entryB = (const FcMemoryMapEntry*)b;
 	
 	if(entryA->name == entryB->name)
 		return 0;
@@ -48,47 +48,47 @@ int fc_mem_entry_compare( const void* a, const void* b)
 		return 1;
 }
 
-fc_memory_map_entry_t fc_mem_map_find(fc_memory_scope_t scope)
+FcMemoryMapEntry fcMemoryMapFind(FcMemoryScope scope)
 {
 	// todo: rethink, not the best way to init
 	if(!g_mapSorted)
 	{
 		g_mapSorted = true;
-		qsort(g_memoryMap, FUR_ARRAY_SIZE(g_memoryMap), sizeof(fc_memory_map_entry_t), fc_mem_entry_compare);
+		qsort(g_memoryMap, FUR_ARRAY_SIZE(g_memoryMap), sizeof(FcMemoryMapEntry), fcMemDebugInfo);
 	}
 	
 	return g_memoryMap[scope];
 }
 
-bool fc_mem_map_belongs_to(fc_memory_scope_t scope, fc_memory_scope_t ancestor)
+bool fcMemoryMapBelongsTo(FcMemoryScope scope, FcMemoryScope ancestor)
 {
-	fc_memory_scope_t parent = scope;
+	FcMemoryScope parent = scope;
 	
 	while(parent != ancestor && parent != FC_MEMORY_SCOPE_SYSTEM)
 	{
-		parent = fc_mem_map_find(parent).parent;
+		parent = fcMemoryMapFind(parent).parent;
 	}
 	
 	return parent == ancestor;
 }
 
-typedef struct fc_mem_debug_info_t
+typedef struct FcMemDebugInfo
 {
 	//u32 markerBegin;
-	struct fc_mem_debug_info_t* next;
-	struct fc_mem_debug_info_t* prev;
+	struct FcMemDebugInfo* next;
+	struct FcMemDebugInfo* prev;
 	const char* line;
 	u64 size;
-	enum fc_memory_scope_t scope;
+	enum FcMemoryScope scope;
 	u16 offsetToOriginalPtr;
 	//u32 markerEnd;
 	
-} fc_mem_debug_info_t;
+} FcMemDebugInfo;
 
-fc_mem_debug_info_t g_rootDebugMemInfo;
+FcMemDebugInfo g_rootDebugMemInfo;
 
-void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, u64 size, u64 alignment,
-							  enum fc_memory_scope_t scope, const char* info)
+void* fcAlloc(struct FcAllocator* pAllocCallbacks, u64 size, u64 alignment,
+							  enum FcMemoryScope scope, const char* info)
 {
 	if(size == 0)
 		return NULL;
@@ -98,7 +98,7 @@ void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, u64 size, u64 align
 	
 #if FUR_MEMORY_DEBUG == 1
 	u64 originalSize = size;
-	size += sizeof(fc_mem_debug_info_t);
+	size += sizeof(FcMemDebugInfo);
 	size += alignment-1;
 #endif
 	
@@ -109,16 +109,16 @@ void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, u64 size, u64 align
 	u16 offset_forward = 0;
 	if(alignment != 0)
 	{
-		void* ptr_candidate = ((u8*)ptr) + (sizeof(fc_mem_debug_info_t) + alignment-1);
+		void* ptr_candidate = ((u8*)ptr) + (sizeof(FcMemDebugInfo) + alignment-1);
 		offset_forward = (u64)ptr_candidate % alignment;
 	}
 	
 	void* debug_ptr = ((u8*)ptr) + offset_forward;
-	void* alignedPtr = ((u8*)ptr) + (sizeof(fc_mem_debug_info_t) + offset_forward);
+	void* alignedPtr = ((u8*)ptr) + (sizeof(FcMemDebugInfo) + offset_forward);
 	
 #if FUR_MEMORY_DEBUG == 1
 	// put info in front of allocated memory
-	fc_mem_debug_info_t* debugPtr = (fc_mem_debug_info_t*)debug_ptr;
+	FcMemDebugInfo* debugPtr = (FcMemDebugInfo*)debug_ptr;
 	//debugPtr->markerBegin = 'memb';
 	//debugPtr->markerEnd = 'meme';
 	debugPtr->next = g_rootDebugMemInfo.next;
@@ -138,18 +138,18 @@ void* fc_alloc(struct fc_alloc_callbacks_t* pAllocCallbacks, u64 size, u64 align
 	return alignedPtr;
 }
 
-void* fc_alloc_and_zero(struct fc_alloc_callbacks_t* pAllocCallbacks, u64 size, u64 alignment,
-								  enum fc_memory_scope_t scope, const char* info)
+void* fcAllocAndZero(struct FcAllocator* pAllocCallbacks, u64 size, u64 alignment,
+								  enum FcMemoryScope scope, const char* info)
 {
 	if(size == 0)
 		return NULL;
 	
-	void* ptr = fc_alloc(pAllocCallbacks, size, alignment, scope, info);
+	void* ptr = fcAlloc(pAllocCallbacks, size, alignment, scope, info);
 	memset(ptr, 0, size);
 	return ptr;
 }
 
-void fc_dealloc(struct fc_alloc_callbacks_t* pAllocCallbacks, void* pMemory, const char* info)
+void fcFree(struct FcAllocator* pAllocCallbacks, void* pMemory, const char* info)
 {
 	if(pMemory == NULL)
 		return;
@@ -162,7 +162,7 @@ void fc_dealloc(struct fc_alloc_callbacks_t* pAllocCallbacks, void* pMemory, con
 	
 #if FUR_MEMORY_DEBUG == 1
 	// move ptr back, to include info part
-	fc_mem_debug_info_t* debugPtr = (fc_mem_debug_info_t*)(((u8*)pMemory) - sizeof(fc_mem_debug_info_t));
+	FcMemDebugInfo* debugPtr = (FcMemDebugInfo*)(((u8*)pMemory) - sizeof(FcMemDebugInfo));
 	void* originalPtr = ((u8*)debugPtr) - debugPtr->offsetToOriginalPtr;
 	
 	FUR_ASSERT((uint64_t)debugPtr->next != 0xfefefefefefefefe);	// either f64-free or memory stomp (someone else freed this memory before you)
@@ -171,7 +171,7 @@ void fc_dealloc(struct fc_alloc_callbacks_t* pAllocCallbacks, void* pMemory, con
 		debugPtr->next->prev = debugPtr->prev;
 	debugPtr->prev->next = debugPtr->next;
 	
-	u64 fullSize = debugPtr->size + sizeof(fc_mem_debug_info_t);
+	u64 fullSize = debugPtr->size + sizeof(FcMemDebugInfo);
 	
 	// debug pattern for dealloc
 	memset(originalPtr, 0xFE, fullSize);
@@ -181,11 +181,11 @@ void fc_dealloc(struct fc_alloc_callbacks_t* pAllocCallbacks, void* pMemory, con
 	free(originalPtr);
 }
 
-bool fc_validate_memory(void)
+bool fcValidateMemory(void)
 {
 	if(g_rootDebugMemInfo.next != NULL)
 	{
-		fc_mem_debug_info_t* debugInfo = g_rootDebugMemInfo.next;
+		FcMemDebugInfo* debugInfo = g_rootDebugMemInfo.next;
 		
 		while(debugInfo != NULL)
 		{
@@ -201,15 +201,15 @@ bool fc_validate_memory(void)
 	return true;
 }
 
-fc_mem_stats_t fc_memory_stats(void)
+FcMemStats fcMemoryStats(void)
 {
-	fc_mem_stats_t stats = {0};
-	stats.numBytesCapacity = fc_mem_map_find(FC_MEMORY_SCOPE_SYSTEM).capacity;
+	FcMemStats stats = {0};
+	stats.numBytesCapacity = fcMemoryMapFind(FC_MEMORY_SCOPE_SYSTEM).capacity;
 	
-	fc_mem_debug_info_t* ptr = &g_rootDebugMemInfo;
+	FcMemDebugInfo* ptr = &g_rootDebugMemInfo;
 	while(ptr != NULL)
 	{
-		if(fc_mem_map_belongs_to(ptr->scope, FC_MEMORY_SCOPE_SYSTEM))
+		if(fcMemoryMapBelongsTo(ptr->scope, FC_MEMORY_SCOPE_SYSTEM))
 		{
 			stats.numBytesUsed += ptr->size;
 			stats.numAllocs += 1;
@@ -221,7 +221,7 @@ fc_mem_stats_t fc_memory_stats(void)
 	return stats;
 }
 
-const char* fc_memory_get_scope_debug_name(enum fc_memory_scope_t scope)
+const char* fcMemoryGetScopeDebugName(enum FcMemoryScope scope)
 {
 	switch(scope)
 	{
@@ -258,15 +258,15 @@ const char* fc_memory_get_scope_debug_name(enum fc_memory_scope_t scope)
 	return "unknown";
 }
 
-fc_mem_stats_t fc_memory_stats_for_scope(enum fc_memory_scope_t scope)
+FcMemStats fcMemoryStatsForScope(enum FcMemoryScope scope)
 {
-	fc_mem_stats_t stats = {0};
-	stats.numBytesCapacity = fc_mem_map_find(scope).capacity;
+	FcMemStats stats = {0};
+	stats.numBytesCapacity = fcMemoryMapFind(scope).capacity;
 	
-	fc_mem_debug_info_t* ptr = &g_rootDebugMemInfo;
+	FcMemDebugInfo* ptr = &g_rootDebugMemInfo;
 	while(ptr != NULL)
 	{
-		if(fc_mem_map_belongs_to(ptr->scope, scope))
+		if(fcMemoryMapBelongsTo(ptr->scope, scope))
 		{
 			stats.numBytesUsed += ptr->size;
 			stats.numAllocs += 1;
@@ -278,25 +278,25 @@ fc_mem_stats_t fc_memory_stats_for_scope(enum fc_memory_scope_t scope)
 	return stats;
 }
 
-fc_mem_arena_alloc_t fc_mem_arena_make(void* buffer, u32 capacity)
+FcMemArenaAllocator fcMemArenaMake(void* buffer, u32 capacity)
 {
-	fc_mem_arena_alloc_t res = {0};
+	FcMemArenaAllocator res = {0};
 	res.size = 0;
 	res.capacity = capacity;
 	res.buffer = buffer;
 	return res;
 }
 
-fc_mem_arena_alloc_t fc_mem_arena_sub(fc_mem_arena_alloc_t alloc)
+FcMemArenaAllocator fcMemArenaSub(FcMemArenaAllocator alloc)
 {
-	fc_mem_arena_alloc_t res = {0};
+	FcMemArenaAllocator res = {0};
 	res.size = 0;
 	res.capacity = alloc.capacity - alloc.size;
 	res.buffer = (u8*)alloc.buffer + alloc.size;
 	return res;
 }
 
-void* fc_mem_arena_alloc(fc_mem_arena_alloc_t* pAlloc, u32 size, u32 alignment)
+void* fcMemArenaAlloc(FcMemArenaAllocator* pAlloc, u32 size, u32 alignment)
 {
 	FUR_ASSERT(pAlloc->size + size <= pAlloc->capacity);
 	
@@ -306,17 +306,17 @@ void* fc_mem_arena_alloc(fc_mem_arena_alloc_t* pAlloc, u32 size, u32 alignment)
 	return (u8*)pAlloc->buffer + offset;
 }
 
-void* fc_mem_arena_alloc_and_zero(fc_mem_arena_alloc_t* pAlloc, u32 size, u32 alignment)
+void* fcMemArenaAllocAndZero(FcMemArenaAllocator* pAlloc, u32 size, u32 alignment)
 {
-	void* mem = fc_mem_arena_alloc(pAlloc, size, alignment);
+	void* mem = fcMemArenaAlloc(pAlloc, size, alignment);
 	memset(mem, 0, size);
 	return mem;
 }
 
 // relocatable heap alloc functions
-void* fc_mem_rel_heap_fn_alloc(void* pUserData, u64 size, u64 alignment, enum fc_memory_scope_t scope)
+void* fcMemRelHeapFnAlloc(void* pUserData, u64 size, u64 alignment, enum FcMemoryScope scope)
 {
-	fc_mem_rel_heap_alloc_t* alloc = pUserData;
+	FcMemRelHeapPool* alloc = pUserData;
 	
 	// todo: implement alignment
 	FUR_ASSERT(alloc->size + size < alloc->capacity);
@@ -329,42 +329,42 @@ void* fc_mem_rel_heap_fn_alloc(void* pUserData, u64 size, u64 alignment, enum fc
 	return ptr;
 }
 
-void* fc_mem_rel_heap_fn_realloc(void* pUserData, void* pOriginalMemory, u64 size, u64 alignment, enum fc_memory_scope_t scope)
+void* fcMemRelHeapFnRealloc(void* pUserData, void* pOriginalMemory, u64 size, u64 alignment, enum FcMemoryScope scope)
 {
 	FUR_ASSERT(false);	// not implemented
 	return NULL;
 }
 
-void fc_mem_rel_heap_fn_free(void* pUserData, void* pMemory)
+void fcMemRelHeapFnFree(void* pUserData, void* pMemory)
 {
 	// empty
 }
 
-void fc_mem_rel_heap_fn_internal_alloc_notify(void* pUserData, u64 size, enum fc_memory_type_t type, enum fc_memory_scope_t scope)
+void fcMemRelHeapFnInternalAllocNotify(void* pUserData, u64 size, enum FcMemoryType type, enum FcMemoryScope scope)
 {
 	// empty
 }
 
-void fc_mem_rel_heap_fn_internal_free_notify(void* pUserData, u64 size)
+void fcMemRelHeapFnInternalFreeNotify(void* pUserData, u64 size)
 {
 	// empty
 }
 
-fc_alloc_callbacks_t fc_mem_rel_heap_get_callbacks(fc_mem_rel_heap_alloc_t* pAlloc)
+FcAllocator fcMemRelHeapGetAllocator(FcMemRelHeapPool* pAlloc)
 {
-	fc_alloc_callbacks_t res = {0};
+	FcAllocator res = {0};
 	
 	res.pUserData = pAlloc;
-	res.pfnAllocate = fc_mem_rel_heap_fn_alloc;
-	res.pfnReallocate = fc_mem_rel_heap_fn_realloc;
-	res.pfnFree = fc_mem_rel_heap_fn_free;
-	res.pfnInternalAllocate = fc_mem_rel_heap_fn_internal_alloc_notify;
-	res.pfnInternalFree = fc_mem_rel_heap_fn_internal_free_notify;
+	res.pfnAllocate = fcMemRelHeapFnAlloc;
+	res.pfnReallocate = fcMemRelHeapFnRealloc;
+	res.pfnFree = fcMemRelHeapFnFree;
+	res.pfnInternalAllocate = fcMemRelHeapFnInternalAllocNotify;
+	res.pfnInternalFree = fcMemRelHeapFnInternalFreeNotify;
 	
 	return res;
 }
 
-void fc_relocate_pointer(void** ptr, i32 delta, void* lowerBound, void* upperBound)
+void fcRelocatePointer(void** ptr, i32 delta, void* lowerBound, void* upperBound)
 {
 	if(lowerBound <= *ptr && *ptr < upperBound)
 	{
@@ -372,7 +372,7 @@ void fc_relocate_pointer(void** ptr, i32 delta, void* lowerBound, void* upperBou
 	}
 }
 
-void* fc_array_add(fc_array_t* arr)
+void* fcArrayAdd(FcArray* arr)
 {
 	FUR_ASSERT(arr);
 	FUR_ASSERT(arr->data);
@@ -384,22 +384,22 @@ void* fc_array_add(fc_array_t* arr)
 	return ((u8*)arr->data + idx * arr->stride);
 }
 
-static inline void* fc_array_at_unsafe(fc_array_t* arr, u32 idx)
+static inline void* fcArrayAtUnsafe(FcArray* arr, u32 idx)
 {
 	return ((u8*)arr->data + idx * arr->stride);
 }
 
-void* fc_array_at(fc_array_t* arr, u32 idx)
+void* fcArrayAt(FcArray* arr, u32 idx)
 {
 	FUR_ASSERT(arr);
 	FUR_ASSERT(arr->data);
 	FUR_ASSERT(arr->num > 0);
 	FUR_ASSERT(idx < arr->num);
 
-	return fc_array_at_unsafe(arr, idx);
+	return fcArrayAtUnsafe(arr, idx);
 }
 
-void fc_array_remove_swap(fc_array_t* arr, u32 idx)
+void fcArrayRemoveSwap(FcArray* arr, u32 idx)
 {
 	FUR_ASSERT(arr);
 	FUR_ASSERT(arr->data);
@@ -408,8 +408,8 @@ void fc_array_remove_swap(fc_array_t* arr, u32 idx)
 
 	if (arr->num > 1)
 	{
-		void* lastElem = fc_array_at_unsafe(arr, arr->num - 1);
-		void* removedElem = fc_array_at_unsafe(arr, idx);
+		void* lastElem = fcArrayAtUnsafe(arr, arr->num - 1);
+		void* removedElem = fcArrayAtUnsafe(arr, idx);
 
 		memcpy(removedElem, lastElem, arr->stride);
 	}
@@ -417,22 +417,22 @@ void fc_array_remove_swap(fc_array_t* arr, u32 idx)
 	arr->num--;
 }
 
-static inline void* fc_map_key_at_unsafe(fc_map_t* map, u32 idx)
+static inline void* fcMapKeyAtUnsafe(FcMap* map, u32 idx)
 {
 	return ((u8*)map->keys + (idx * map->keyStride));
 }
 
-static inline void* fc_map_elem_storage_ptr_at_unsafe(fc_map_t* map, u32 idx)
+static inline void* fcMapElemStoragePtrAtUnsafe(FcMap* map, u32 idx)
 {
 	return ((u8*)map->elems + (idx * map->elemStride));
 }
 
-void fc_map_insert(fc_map_t* map, const void* key, void* elem)
+void fcMapInsert(FcMap* map, const void* key, void* elem)
 {
 	FUR_ASSERT(map);
 	FUR_ASSERT(map->keys && map->elems);
 
-	void* elemFound = fc_map_find(map, key);
+	void* elemFound = fcMapFind(map, key);
 	if (elemFound)
 	{
 		memcpy(elemFound, elem, map->elemStride);
@@ -442,17 +442,17 @@ void fc_map_insert(fc_map_t* map, const void* key, void* elem)
 		FUR_ASSERT(map->num < map->capacity);
 		const u32 idx = map->num;
 		
-		void* keyStorage = fc_map_key_at_unsafe(map, idx);
+		void* keyStorage = fcMapKeyAtUnsafe(map, idx);
 		memcpy(keyStorage, key, map->keyStride);
 
-		void* elemStorage = fc_map_elem_storage_ptr_at_unsafe(map, idx);
+		void* elemStorage = fcMapElemStoragePtrAtUnsafe(map, idx);
 		memcpy(elemStorage, elem, map->elemStride);
 
 		map->num++;
 	}
 }
 
-void* fc_map_find(fc_map_t* map, const void* key)
+void* fcMapFind(FcMap* map, const void* key)
 {
 	FUR_ASSERT(map);
 	FUR_ASSERT(map->keys);
@@ -461,9 +461,9 @@ void* fc_map_find(fc_map_t* map, const void* key)
 
 	for (u32 i = 0; i < map->num; ++i)
 	{
-		if (memcmp(key, fc_map_key_at_unsafe(map, i), map->keyStride) == 0)
+		if (memcmp(key, fcMapKeyAtUnsafe(map, i), map->keyStride) == 0)
 		{
-			result = *(void**)fc_map_elem_storage_ptr_at_unsafe(map, i);
+			result = *(void**)fcMapElemStoragePtrAtUnsafe(map, i);
 			break;
 		}
 	}
@@ -471,7 +471,7 @@ void* fc_map_find(fc_map_t* map, const void* key)
 	return result;
 }
 
-bool fc_map_remove_swap(fc_map_t* map, const void* key)
+bool fcMapRemoveSwap(FcMap* map, const void* key)
 {
 	FUR_ASSERT(map);
 	FUR_ASSERT(map->keys);
@@ -481,7 +481,7 @@ bool fc_map_remove_swap(fc_map_t* map, const void* key)
 
 	for (u32 i = 0; i < map->num; ++i)
 	{
-		if (memcmp(key, fc_map_key_at_unsafe(map, i), map->keyStride) == 0)
+		if (memcmp(key, fcMapKeyAtUnsafe(map, i), map->keyStride) == 0)
 		{
 			idx = i;
 			found = true;
@@ -493,12 +493,12 @@ bool fc_map_remove_swap(fc_map_t* map, const void* key)
 
 	if (map->num > 1)
 	{
-		void* foundKey = fc_map_key_at_unsafe(map, idx);
-		void* lastKey = fc_map_key_at_unsafe(map, map->num - 1);
+		void* foundKey = fcMapKeyAtUnsafe(map, idx);
+		void* lastKey = fcMapKeyAtUnsafe(map, map->num - 1);
 		memcpy(foundKey, lastKey, map->keyStride);
 
-		void* foundElem = fc_map_elem_storage_ptr_at_unsafe(map, idx);
-		void* lastElem = fc_map_elem_storage_ptr_at_unsafe(map, map->num - 1);
+		void* foundElem = fcMapElemStoragePtrAtUnsafe(map, idx);
+		void* lastElem = fcMapElemStoragePtrAtUnsafe(map, map->num - 1);
 		memcpy(foundElem, lastElem, map->elemStride);
 	}
 

@@ -10,9 +10,9 @@ extern "C"
 #include "api.h"
 #include "ccore/types.h"
 
-typedef struct fa_pose_t fa_pose_t;
+typedef struct FcPose FcPose;
 
-typedef struct fa_pose_stack_t
+typedef struct FcPoseStack
 {
 	void* buffer;
 	u32 bufferSize;
@@ -27,22 +27,22 @@ typedef struct fa_pose_stack_t
 	u32 offsetTracks;
 	u32 offsetWeightXforms;
 	u32 offsetWeightTracks;
-} fa_pose_stack_t;
+} FcPoseStack;
 
-typedef struct fa_pose_stack_desc_t
+typedef struct FcPoseStackDesc
 {
 	u32 numMaxPoses;
 
 	u32 numBonesPerPose;
 	u32 numTracksPerPose;
-} fa_pose_stack_desc_t;
+} FcPoseStackDesc;
 
-CANIM_API void fa_pose_stack_init(fa_pose_stack_t* pStack, const fa_pose_stack_desc_t* desc, void* buffer, u32 bufferSize);
-CANIM_API void fa_pose_stack_release(fa_pose_stack_t* pStack);
+CANIM_API void FcPoseStackInit(FcPoseStack* pStack, const FcPoseStackDesc* desc, void* buffer, u32 bufferSize);
+CANIM_API void FcPoseStackRelease(FcPoseStack* pStack);
 
-CANIM_API void fa_pose_stack_push(fa_pose_stack_t* pStack, u32 count);
-CANIM_API void fa_pose_stack_pop(fa_pose_stack_t* pStack, u32 count);
-CANIM_API void fa_pose_stack_get(const fa_pose_stack_t* pStack, fa_pose_t* pPose, u32 depth);
+CANIM_API void FcPoseStackPush(FcPoseStack* pStack, u32 count);
+CANIM_API void FcPoseStackPop(FcPoseStack* pStack, u32 count);
+CANIM_API void FcPoseStackGet(const FcPoseStack* pStack, FcPose* pPose, u32 depth);
 
 #ifdef __cplusplus
 }

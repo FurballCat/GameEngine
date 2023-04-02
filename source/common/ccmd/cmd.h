@@ -10,51 +10,51 @@ extern "C"
 {
 #endif // __cplusplus
 
-typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
+typedef struct FcAllocator FcAllocator;
 
 // context of the command (depot, etc.)
-typedef struct fc_cmd_execute_ctx_t
+typedef struct FcCmdExecuteCtx
 {
 	// path to FBX and other assets (input)
 	const char* assetsPath;
 	
 	// path to generated engine files path (output)
 	const char* enginePath;
-} fc_cmd_execute_ctx_t;
+} FcCmdExecuteCtx;
 
-typedef int (*fc_cmd_execute_fn_t)(int argc, char* argv[], fc_cmd_execute_ctx_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks);
+typedef int (*FcCmdExecuteFn)(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* pAllocCallbacks);
 
 // command structure, include this as first property in every custom command structure (like derivative)
-typedef struct fc_cmd_t
+typedef struct FcCmd
 {
 	// unique command name (like import)
 	const char* name;
 	
 	// execute function implementation
-	fc_cmd_execute_fn_t execute;
+	FcCmdExecuteFn execute;
 	
-} fc_cmd_t;
+} FcCmd;
 
-const fc_cmd_t* fc_find_cmd(const char* name);
-void fc_cmd_print_help(void);
+const FcCmd* fcFindCmd(const char* name);
+void fcCmdPrintHelp(void);
 
-const char* fc_find_cmd_arg(int argc, char* argv[], const char* name);
-bool fc_find_cmd_flag(int argc, char* argv[], const char* name);
+const char* fcFindCmdArg(int argc, char* argv[], const char* name);
+bool fcFindCmdFlag(int argc, char* argv[], const char* name);
 
 // example: -f "path" returns "path" once -f is found
-#define CMD_ARG(_name) fc_find_cmd_arg(argc, argv, _name)
-#define CMD_FLAG(_name) fc_find_cmd_flag(argc, argv, _name)
+#define CMD_ARG(_name) fcFindCmdArg(argc, argv, _name)
+#define CMD_FLAG(_name) fcFindCmdFlag(argc, argv, _name)
 
-#define CMD_LOG_ERROR(...) fc_cmd_log_error(__VA_ARGS__)
-#define CMD_LOG_WARNING(...) fc_cmd_log_warning(__VA_ARGS__)
-#define CMD_LOG(...) fc_cmd_log(__VA_ARGS__)
+#define CMD_LOG_ERROR(...) fcCmdLogError(__VA_ARGS__)
+#define CMD_LOG_WARNING(...) fcCmdLogWarning(__VA_ARGS__)
+#define CMD_LOG(...) fcCmdLog(__VA_ARGS__)
 
-void fc_cmd_log_error(const char *fmt, ...);
-void fc_cmd_log_warning(const char *fmt, ...);
-void fc_cmd_log(const char *fmt, ...);
+void fcCmdLogError(const char *fmt, ...);
+void fcCmdLogWarning(const char *fmt, ...);
+void fcCmdLog(const char *fmt, ...);
 
 // all available commands
-int fc_cmd_import(int argc, char* argv[], fc_cmd_execute_ctx_t* ctx, fc_alloc_callbacks_t* pAllocCallbacks);
+int fcCmdImport(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* pAllocCallbacks);
 
 #ifdef __cplusplus
 }

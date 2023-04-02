@@ -11,47 +11,47 @@ extern "C"
 #include "ccore/types.h"
 
 typedef struct fm_xform fm_xform;
-typedef u32 fc_string_hash_t;
-typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
-typedef struct fc_serializer_t fc_serializer_t;
+typedef u32 FcStringId;
+typedef struct FcAllocator FcAllocator;
+typedef struct FcSerializer FcSerializer;
 
-typedef struct fa_anim_curve_key_t
+typedef struct FcAnimCurveKey
 {
 	u16 keyTime;
 	u16 keyData[3];
-} fa_anim_curve_key_t;
+} FcAnimCurveKey;
 
-typedef struct fa_anim_curve_t
+typedef struct FcAnimCurve
 {
 	u16 index;
 	u16 numRotKeys;
 	u16 numPosKeys;
-	fa_anim_curve_key_t* rotKeys;
-	fa_anim_curve_key_t* posKeys;
-} fa_anim_curve_t;
+	FcAnimCurveKey* rotKeys;
+	FcAnimCurveKey* posKeys;
+} FcAnimCurve;
 	
-typedef struct fa_anim_clip_t
+typedef struct FcAnimClip
 {
-	fc_string_hash_t name;
+	FcStringId name;
 	f32 duration;
 	u32 numCurves;
 	u32 numDataKeys;
-	fa_anim_curve_t* curves;
-	fa_anim_curve_key_t* dataKeys;	// all keys in the animation
+	FcAnimCurve* curves;
+	FcAnimCurveKey* dataKeys;	// all keys in the animation
 	
 	f32 motionDelta[8];	// single loop of motion for this anim clip (pos[4] xyzw, rot[4] ijkr)
-} fa_anim_clip_t;
+} FcAnimClip;
 
-CANIM_API void fa_anim_clip_release(fa_anim_clip_t* clip, fc_alloc_callbacks_t* pAllocCallbacks);
+CANIM_API void fcAnimClipRelease(FcAnimClip* clip, FcAllocator* pAllocCallbacks);
 
-CANIM_API void fa_anim_curve_sample(const fa_anim_curve_t* curve, f32 time, bool asAdditive, fm_xform* xform);
+CANIM_API void fcAnimCurveSample(const FcAnimCurve* curve, f32 time, bool asAdditive, fm_xform* xform);
 
-typedef struct fa_pose_t fa_pose_t;
+typedef struct FcPose FcPose;
 
-CANIM_API void fa_anim_clip_sample(const fa_anim_clip_t* clip, f32 time, bool asAdditive, fa_pose_t* pose, const u8* mask /* optional */);
-CANIM_API void fa_anim_clip_sample_motion(const fa_anim_clip_t* clip, f32 timeBegin, f32 timeEnd, fm_xform* motion);
+CANIM_API void fcAnimClipSample(const FcAnimClip* clip, f32 time, bool asAdditive, FcPose* pose, const u8* mask /* optional */);
+CANIM_API void fcAnimClipSampleMotion(const FcAnimClip* clip, f32 timeBegin, f32 timeEnd, fm_xform* motion);
 
-CANIM_API void fa_anim_clip_serialize(fc_serializer_t* pSerializer, fa_anim_clip_t* clip, fc_alloc_callbacks_t* pAllocCallbacks);
+CANIM_API void fcAnimClipSerialize(FcSerializer* pSerializer, FcAnimClip* clip, FcAllocator* pAllocCallbacks);
 
 #ifdef __cplusplus
 }

@@ -5,11 +5,11 @@
 #include <string.h>
 #include <stdio.h>
 
-fc_cmd_t g_commands[] = {
-	{"import", fc_cmd_import}
+FcCmd g_commands[] = {
+	{"import", fcCmdImport}
 };
 
-const fc_cmd_t* fc_find_cmd(const char* name)
+const FcCmd* fcFindCmd(const char* name)
 {
 	const i32 numCommands = FUR_ARRAY_SIZE(g_commands);
 	for(i32 i=0; i<numCommands; ++i)
@@ -21,7 +21,7 @@ const fc_cmd_t* fc_find_cmd(const char* name)
 	return NULL;
 }
 
-void fc_cmd_print_help(void)
+void fcCmdPrintHelp(void)
 {
 	CMD_LOG("Cat's Commands (ccmd) is a Furball Cat's commandline tool for pipelines.\n"
 			"Use it for importing, cooking, packaging, scanning, pretty much anything.\n"
@@ -37,7 +37,7 @@ void fc_cmd_print_help(void)
 	CMD_LOG("");
 }
 
-const char* fc_find_cmd_arg(int argc, char* argv[], const char* name)
+const char* fcFindCmdArg(int argc, char* argv[], const char* name)
 {
 	for(i32 i=0; i<argc-1; ++i)
 	{
@@ -48,7 +48,7 @@ const char* fc_find_cmd_arg(int argc, char* argv[], const char* name)
 	return NULL;
 }
 
-bool fc_find_cmd_flag(int argc, char* argv[], const char* name)
+bool fcFindCmdFlag(int argc, char* argv[], const char* name)
 {
 	for(i32 i=0; i<argc; ++i)
 	{
@@ -59,7 +59,7 @@ bool fc_find_cmd_flag(int argc, char* argv[], const char* name)
 	return false;
 }
 
-void fc_cmd_log_error(const char *fmt, ...)
+void fcCmdLogError(const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
@@ -70,7 +70,7 @@ void fc_cmd_log_error(const char *fmt, ...)
 	printf("error: %s\n", txt);
 }
 
-void fc_cmd_log_warning(const char *fmt, ...)
+void fcCmdLogWarning(const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
@@ -81,7 +81,7 @@ void fc_cmd_log_warning(const char *fmt, ...)
 	printf("warning: %s\n", txt);
 }
 
-void fc_cmd_log(const char *fmt, ...)
+void fcCmdLog(const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);

@@ -7,21 +7,21 @@
 
 #include "psoUtils.h"
 
-void fr_pso_init_input_assembly_state_triangle_list(VkPipelineInputAssemblyStateCreateInfo* info)
+void fcRenderPSOInitInputAssemblyStateTriangleList(VkPipelineInputAssemblyStateCreateInfo* info)
 {
 	info->sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	info->topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	info->primitiveRestartEnable = VK_FALSE;
 }
 
-void fr_pso_init_input_assembly_state_line_list(VkPipelineInputAssemblyStateCreateInfo* info)
+void fcRenderPSOInitInputAssemblyStateLineList(VkPipelineInputAssemblyStateCreateInfo* info)
 {
 	info->sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	info->topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
 	info->primitiveRestartEnable = VK_FALSE;
 }
 
-void fr_pso_init_viewport(f32 width, f32 height, VkViewport* viewport)
+void fcRenderPSOInitViewport(f32 width, f32 height, VkViewport* viewport)
 {
 	viewport->x = 0.0f;
 	viewport->y = 0.0f;
@@ -31,14 +31,14 @@ void fr_pso_init_viewport(f32 width, f32 height, VkViewport* viewport)
 	viewport->maxDepth = 1.0f;
 }
 
-void fr_pso_init_scissor(VkExtent2D swapChainExtent, VkRect2D* scissor)
+void fcRenderPSOInitScissor(VkExtent2D swapChainExtent, VkRect2D* scissor)
 {
 	scissor->offset.x = 0;
 	scissor->offset.y = 0;
 	scissor->extent = swapChainExtent;
 }
 
-void fr_pso_init_viewport_state(VkViewport* viewport, VkRect2D* scissor,
+void fcRenderPSOInitViewportState(VkViewport* viewport, VkRect2D* scissor,
 								VkPipelineViewportStateCreateInfo* viewportState)
 {
 	viewportState->sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -48,7 +48,7 @@ void fr_pso_init_viewport_state(VkViewport* viewport, VkRect2D* scissor,
 	viewportState->pScissors = scissor;
 }
 
-void fr_pso_init_rasterization_state_polygon_fill(VkPipelineRasterizationStateCreateInfo* rasterizer)
+void fcRenderPSOInitRasterizationStatePolygonFill(VkPipelineRasterizationStateCreateInfo* rasterizer)
 {
 	rasterizer->sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rasterizer->depthClampEnable = VK_FALSE;
@@ -63,7 +63,7 @@ void fr_pso_init_rasterization_state_polygon_fill(VkPipelineRasterizationStateCr
 	rasterizer->depthBiasSlopeFactor = 0.0f; // Optional
 }
 
-void fr_pso_init_rasterization_state_wireframe_no_cull(VkPipelineRasterizationStateCreateInfo* rasterizer)
+void fcRenderPSOInitRasterizationStateWireframeNoCull(VkPipelineRasterizationStateCreateInfo* rasterizer)
 {
 	rasterizer->sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rasterizer->depthClampEnable = VK_FALSE;
@@ -78,7 +78,7 @@ void fr_pso_init_rasterization_state_wireframe_no_cull(VkPipelineRasterizationSt
 	rasterizer->depthBiasSlopeFactor = 0.0f; // Optional
 }
 
-void fr_pso_init_multisampling_state(VkPipelineMultisampleStateCreateInfo* multisampling)
+void fcRenderPSOInitMultisamplingState(VkPipelineMultisampleStateCreateInfo* multisampling)
 {
 	multisampling->sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 	multisampling->sampleShadingEnable = VK_FALSE;
@@ -89,7 +89,7 @@ void fr_pso_init_multisampling_state(VkPipelineMultisampleStateCreateInfo* multi
 	multisampling->alphaToOneEnable = VK_FALSE; // Optional
 }
 
-void fr_pso_init_color_blend_attachment_state(VkPipelineColorBlendAttachmentState* colorBlendAttachment)
+void fcRenderPSOInitColorBlendAttachmentState(VkPipelineColorBlendAttachmentState* colorBlendAttachment)
 {
 	colorBlendAttachment->colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 	colorBlendAttachment->blendEnable = VK_FALSE;
@@ -101,7 +101,7 @@ void fr_pso_init_color_blend_attachment_state(VkPipelineColorBlendAttachmentStat
 	colorBlendAttachment->alphaBlendOp = VK_BLEND_OP_ADD; // Optional
 }
 
-void fr_pso_init_color_blend_attachment_state_blending(VkPipelineColorBlendAttachmentState* colorBlendAttachment)
+void fcRenderPSOInitColorBlendAttachmentStateBlending(VkPipelineColorBlendAttachmentState* colorBlendAttachment)
 {
 	colorBlendAttachment->colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 	colorBlendAttachment->blendEnable = VK_TRUE;
@@ -113,7 +113,7 @@ void fr_pso_init_color_blend_attachment_state_blending(VkPipelineColorBlendAttac
 	colorBlendAttachment->alphaBlendOp = VK_BLEND_OP_ADD;
 }
 
-void fr_pso_init_color_blend_state(VkPipelineColorBlendAttachmentState* colorBlendAttachment,
+void fcRenderPSOInitColorBlendState(VkPipelineColorBlendAttachmentState* colorBlendAttachment,
 							  VkPipelineColorBlendStateCreateInfo* colorBlending)
 {
 	colorBlending->sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -127,7 +127,7 @@ void fr_pso_init_color_blend_state(VkPipelineColorBlendAttachmentState* colorBle
 	colorBlending->blendConstants[3] = 0.0f; // Optional
 }
 
-void fr_pso_init_layout(VkDescriptorSetLayout* descriptorSetLayout, VkPipelineLayoutCreateInfo* pipelineLayoutInfo)
+void fcRenderPSOInitLayout(VkDescriptorSetLayout* descriptorSetLayout, VkPipelineLayoutCreateInfo* pipelineLayoutInfo)
 {
 	pipelineLayoutInfo->sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo->setLayoutCount = 1; // Optional, 1 because of uniform buffer
@@ -136,7 +136,7 @@ void fr_pso_init_layout(VkDescriptorSetLayout* descriptorSetLayout, VkPipelineLa
 	pipelineLayoutInfo->pPushConstantRanges = NULL; // Optional
 }
 
-void fr_pso_init_depth_stencil_state(VkPipelineDepthStencilStateCreateInfo* depthStencil)
+void fcRenderPSOInitDepthStencilState(VkPipelineDepthStencilStateCreateInfo* depthStencil)
 {
 	depthStencil->sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	depthStencil->depthTestEnable = VK_TRUE;
@@ -150,7 +150,7 @@ void fr_pso_init_depth_stencil_state(VkPipelineDepthStencilStateCreateInfo* dept
 	// depthStencil->back = {}; // Optional
 }
 
-void fr_pso_init_depth_stencil_state_no_depth_test(VkPipelineDepthStencilStateCreateInfo* depthStencil)
+void fcRenderPSOInitDepthStencilStateNoDepthTest(VkPipelineDepthStencilStateCreateInfo* depthStencil)
 {
 	depthStencil->sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	depthStencil->depthTestEnable = VK_FALSE;
@@ -164,7 +164,7 @@ void fr_pso_init_depth_stencil_state_no_depth_test(VkPipelineDepthStencilStateCr
 	// depthStencil->back = {}; // Optional
 }
 
-void fr_attachment_init_color(u32 attachmentIndex,
+void fcRenderAttachmentInitColor(u32 attachmentIndex,
 							  VkFormat colorFormat,
 							  VkAttachmentDescription* colorAttachment,
 							  VkAttachmentReference* colorAttachmentRef)
@@ -183,7 +183,7 @@ void fr_attachment_init_color(u32 attachmentIndex,
 	colorAttachmentRef->layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 }
 
-void fr_attachment_init_depth(u32 attachmentIndex,
+void fcRenderAttachmentInitDepth(u32 attachmentIndex,
 							  VkFormat depthFormat,
 							  VkAttachmentDescription* depthAttachment,
 							  VkAttachmentReference* depthAttachmentRef)
@@ -202,7 +202,7 @@ void fr_attachment_init_depth(u32 attachmentIndex,
 	depthAttachmentRef->layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 }
 
-void fr_subpass_init_color_depth(VkAttachmentReference* colorAttachmentRef, VkAttachmentReference* depthAttachmentRef,
+void fcRenderSubpassInitColorDepth(VkAttachmentReference* colorAttachmentRef, VkAttachmentReference* depthAttachmentRef,
 								 VkSubpassDescription* subpass, VkSubpassDependency* dependency)
 {
 	subpass->pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -218,22 +218,22 @@ void fr_subpass_init_color_depth(VkAttachmentReference* colorAttachmentRef, VkAt
 	dependency->dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 }
 
-VkResult fr_render_pass_create_color_depth(VkDevice device, VkFormat colorFormat, VkFormat depthFormat,
-										   VkRenderPass* renderPass, fc_alloc_callbacks_t* pAllocCallbacks)
+VkResult fcRenderPassCreateColorDepth(VkDevice device, VkFormat colorFormat, VkFormat depthFormat,
+										   VkRenderPass* renderPass, FcAllocator* pAllocCallbacks)
 {
 	// create render pass
 	VkAttachmentDescription colorAttachment = {0};
 	VkAttachmentReference colorAttachmentRef = {0};
-	fr_attachment_init_color(0, colorFormat, &colorAttachment, &colorAttachmentRef);
+	fcRenderAttachmentInitColor(0, colorFormat, &colorAttachment, &colorAttachmentRef);
 	
 	VkAttachmentDescription depthAttachment = {0};
 	VkAttachmentReference depthAttachmentRef = {0};
-	fr_attachment_init_depth(1, depthFormat, &depthAttachment, &depthAttachmentRef);
+	fcRenderAttachmentInitDepth(1, depthFormat, &depthAttachment, &depthAttachmentRef);
 	
 	// subpass and dependency
 	VkSubpassDescription subpass = {0};
 	VkSubpassDependency dependency = {0};
-	fr_subpass_init_color_depth(&colorAttachmentRef, &depthAttachmentRef, &subpass, &dependency);
+	fcRenderSubpassInitColorDepth(&colorAttachmentRef, &depthAttachmentRef, &subpass, &dependency);
 	
 	VkAttachmentDescription attachments[2] = {colorAttachment, depthAttachment};
 	const u32 numAttachments = 2;
@@ -252,7 +252,7 @@ VkResult fr_render_pass_create_color_depth(VkDevice device, VkFormat colorFormat
 	return vkCreateRenderPass(device, &renderPassInfo, NULL, renderPass);
 }
 
-void fr_pso_init_shader_stages_simple(VkShaderModule vertexShader, const char* vsFuncName,
+void fcRenderPSOInitShaderStagesSimple(VkShaderModule vertexShader, const char* vsFuncName,
 									  VkShaderModule fragmentShader, const char* fsFuncName,
 									  VkPipelineShaderStageCreateInfo outInfo[2])
 {

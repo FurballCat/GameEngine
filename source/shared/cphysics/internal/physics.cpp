@@ -10,18 +10,18 @@
 
 using namespace physx;
 
-void fc_sort(void* arrayData, u64 numElems, u64 size, void* context, int(*compar)(void*, const void*, const void*))
+void fcSort(void* arrayData, u64 numElems, u64 size, void* context, int(*compar)(void*, const void*, const void*))
 {
 #if PLATFORM_OSX
 	qsort_r(arrayData, numElems, size, context, compar);
 #elif PLATFORM_WINDOWS
 	qsort_s(arrayData, numElems, size, compar, context);
 #else
-	#error No implementation of fc_sort for this platform
+	#error No implementation of fcSort for this platform
 #endif
 }
 
-typedef struct fp_physics_t
+typedef struct FcPhysics
 {
 	PxScene* scene;
 	
@@ -33,13 +33,13 @@ typedef struct fp_physics_t
 	
 	PxControllerManager* controllerManager;
 	PxController* controller;
-} fp_physics_t;
+} FcPhysics;
 
 static PxDefaultAllocator g_defaultAllocator;
 static PxDefaultErrorCallback g_defaultErrorCallback;
 static PxDefaultCpuDispatcher* g_defaultCPUDispatcher;
 
-void fp_physics_init_scene(fp_physics_t* physics, fc_alloc_callbacks_t* pAllocCallbacks)
+void fp_physics_init_scene(FcPhysics* physics, FcAllocator* pAllocCallbacks)
 {
 	PxSceneDesc desc(physics->tolerancesScale);
 	desc.gravity = {0.0f, 0.0f, -9.81f};
@@ -114,9 +114,9 @@ void fp_physics_init_scene(fp_physics_t* physics, fc_alloc_callbacks_t* pAllocCa
 	}
 }
 
-fp_physics_t* fp_physics_create(fc_alloc_callbacks_t* pAllocCallbacks)
+FcPhysics* fcPhysicsCreate(FcAllocator* pAllocCallbacks)
 {
-	fp_physics_t* physics = (fp_physics_t*)FUR_ALLOC_AND_ZERO(sizeof(fp_physics_t), 0, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
+	FcPhysics* physics = (FcPhysics*)FUR_ALLOC_AND_ZERO(sizeof(FcPhysics), 0, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
 	
 	physics->tolerancesScale = PxTolerancesScale();
 	physics->foundation = PxCreateFoundation(PX_PHYSICS_VERSION, g_defaultAllocator, g_defaultErrorCallback);
@@ -129,7 +129,7 @@ fp_physics_t* fp_physics_create(fc_alloc_callbacks_t* pAllocCallbacks)
 	return physics;
 }
 
-void fp_physics_release(fp_physics_t* physics, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcPhysicsRelease(FcPhysics* physics, FcAllocator* pAllocCallbacks)
 {
 	if(physics->controller)
 		physics->controller->release();
@@ -146,8 +146,8 @@ void fp_physics_release(fp_physics_t* physics, fc_alloc_callbacks_t* pAllocCallb
 	FUR_FREE(physics, pAllocCallbacks);
 }
 
-void fp_physics_add_static_box(fp_physics_t* physics, const fm_xform* worldLocation,
-							   const fm_vec3* halfExtents, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcPhysicsAddStaticBox(FcPhysics* physics, const fm_xform* worldLocation,
+							   const fm_vec3* halfExtents, FcAllocator* pAllocCallbacks)
 {
 	PxScene* scene = physics->scene;
 	
@@ -161,7 +161,7 @@ void fp_physics_add_static_box(fp_physics_t* physics, const fm_xform* worldLocat
 	scene->addActor(*obj);
 }
 
-bool fp_physics_raycast(fp_physics_t* physics, const fm_vec4* start, const fm_vec4* dir, const f32 distance, fp_physics_raycast_hit_t* hit)
+bool fcPhysicsRaycast(FcPhysics* physics, const fm_vec4* start, const fm_vec4* dir, const f32 distance, FcRaycastHit* hit)
 {
 	PxScene* scene = physics->scene;
 	
@@ -183,7 +183,7 @@ bool fp_physics_raycast(fp_physics_t* physics, const fm_vec4* start, const fm_ve
 	return status;
 }
 
-void fp_physics_update(fp_physics_t* physics, const fp_physics_update_ctx_t* pCtx)
+void fcPhysicsUpdate(FcPhysics* physics, const FcPhysicsUpdateCtx* pCtx)
 {
 	// character controller update
 	{
@@ -216,9 +216,9 @@ void fp_physics_update(fp_physics_t* physics, const fp_physics_update_ctx_t* pCt
 		//const f32 end_z[3] = {t.p.x + z.x, t.p.y + z.y, t.p.z + z.z};
 		
 		/*
-		fc_dbg_line(start, end_x, red);
-		fc_dbg_line(start, end_y, green);
-		fc_dbg_line(start, end_z, blue);
+		fcDebugLine(start, end_x, red);
+		fcDebugLine(start, end_y, green);
+		fcDebugLine(start, end_z, blue);
 		 */
 	}
 	
@@ -243,7 +243,7 @@ void fp_physics_update(fp_physics_t* physics, const fp_physics_update_ctx_t* pCt
 					planeColor[3] = 0.4f;
 				}
 				
-				fc_dbg_plane(planeCenter, planeHalfLength, planeColor);
+				fcDebugPlane(planeCenter, planeHalfLength, planeColor);
 			}
 		}
 	}
@@ -265,15 +265,15 @@ void fp_physics_update(fp_physics_t* physics, const fp_physics_update_ctx_t* pCt
 		
 		const f32 yellow[4] = FUR_COLOR_YELLOW;
 		
-		fc_dbg_line(start, end_x, red);
-		fc_dbg_line(start, end_x, red);
-		fc_dbg_line(start, end_y, green);
-		fc_dbg_line(start, end_z, blue);
-		fc_dbg_line(start, footPosf, yellow);
+		fcDebugLine(start, end_x, red);
+		fcDebugLine(start, end_x, red);
+		fcDebugLine(start, end_y, green);
+		fcDebugLine(start, end_z, blue);
+		fcDebugLine(start, footPosf, yellow);
 	}*/
 }
 
-void fp_physics_get_player_info(fp_physics_t* physics, fp_physics_player_info_t* playerInfo)
+void fcPhysicsGetPlayerInfo(FcPhysics* physics, FcPhysicsPlayerInfo* playerInfo)
 {
 	const PxExtendedVec3 footPos = physics->controller->getFootPosition();
 	playerInfo->locator->pos.x = footPos.x;
@@ -289,14 +289,14 @@ void fp_physics_get_player_info(fp_physics_t* physics, fp_physics_player_info_t*
 }
 
 // ----- BOUNDING VOLUME HIERARCHY -----
-typedef struct fp_bvh_node_t
+typedef struct FcBoundingVolumeHierarchyNode
 {
 	fm_box bound;
 	u32 numChildren;	// if 0, then next property is an object ID
 	u32 idxFirstChildOrObjectID;
-} fp_bvh_node_t;
+} FcBoundingVolumeHierarchyNode;
 
-int fp_sort_comp_x(void* inAllBoxes, const void* inIdxA, const void* inIdxB)
+int fcBVHSortCompX(void* inAllBoxes, const void* inIdxA, const void* inIdxB)
 {
 	const fm_box* allBoxes = (const fm_box*)inAllBoxes;
 	const u32 idxA = *(const u32*)inIdxA;
@@ -305,7 +305,7 @@ int fp_sort_comp_x(void* inAllBoxes, const void* inIdxA, const void* inIdxB)
 	return allBoxes[idxA].center.x > allBoxes[idxB].center.x;
 }
 
-int fp_sort_comp_y(void* inAllBoxes, const void* inIdxA, const void* inIdxB)
+int fcBVHSortCompY(void* inAllBoxes, const void* inIdxA, const void* inIdxB)
 {
 	const fm_box* allBoxes = (const fm_box*)inAllBoxes;
 	const u32 idxA = *(const u32*)inIdxA;
@@ -314,7 +314,7 @@ int fp_sort_comp_y(void* inAllBoxes, const void* inIdxA, const void* inIdxB)
 	return allBoxes[idxA].center.y > allBoxes[idxB].center.y;
 }
 
-int fp_sort_comp_z(void* inAllBoxes, const void* inIdxA, const void* inIdxB)
+int fcBVHSortCompZ(void* inAllBoxes, const void* inIdxA, const void* inIdxB)
 {
 	const fm_box* allBoxes = (const fm_box*)inAllBoxes;
 	const u32 idxA = *(const u32*)inIdxA;
@@ -323,7 +323,7 @@ int fp_sort_comp_z(void* inAllBoxes, const void* inIdxA, const void* inIdxB)
 	return allBoxes[idxA].center.z > allBoxes[idxB].center.z;
 }
 
-void fp_bvh_box_recursive_build(fp_bvh_node_t* nodes, u32 maxNodes, u32 curNode, u32* nextFreeNodeIdx,
+void fcBoundingVolumeHiearchyRecursiveBuild(FcBoundingVolumeHierarchyNode* nodes, u32 maxNodes, u32 curNode, u32* nextFreeNodeIdx,
 								fm_box* allObjectBoxes, u32* objectIndices, u32 numObjects)
 {
 	// stop condition - single object in the BVH node
@@ -345,15 +345,15 @@ void fp_bvh_box_recursive_build(fp_bvh_node_t* nodes, u32 maxNodes, u32 curNode,
 	// check which axis of box is the longest and sort objects along this axis
 	if(box.extent.x > box.extent.y && box.extent.x > box.extent.z)	// x-axis
 	{
-		fc_sort(objectIndices, numObjects, sizeof(u32), allObjectBoxes, fp_sort_comp_x);
+		fcSort(objectIndices, numObjects, sizeof(u32), allObjectBoxes, fcBVHSortCompX);
 	}
 	else if(box.extent.y > box.extent.z)	// y-axis
 	{
-		fc_sort(objectIndices, numObjects, sizeof(u32), allObjectBoxes, fp_sort_comp_y);
+		fcSort(objectIndices, numObjects, sizeof(u32), allObjectBoxes, fcBVHSortCompY);
 	}
 	else	// z-axis
 	{
-		fc_sort(objectIndices, numObjects, sizeof(u32), allObjectBoxes, fp_sort_comp_z);
+		fcSort(objectIndices, numObjects, sizeof(u32), allObjectBoxes, fcBVHSortCompZ);
 	}
 	
 	// fill in this node
@@ -371,15 +371,15 @@ void fp_bvh_box_recursive_build(fp_bvh_node_t* nodes, u32 maxNodes, u32 curNode,
 	FUR_ASSERT(*nextFreeNodeIdx + 2 < maxNodes);
 	*nextFreeNodeIdx += 2;
 	
-	fp_bvh_box_recursive_build(nodes, maxNodes, childIdxA, nextFreeNodeIdx, allObjectBoxes, objectIndices, numObjectsA);
-	fp_bvh_box_recursive_build(nodes, maxNodes, childIdxB, nextFreeNodeIdx, allObjectBoxes, objectIndices + numObjectsA, numObjectsB);
+	fcBoundingVolumeHiearchyRecursiveBuild(nodes, maxNodes, childIdxA, nextFreeNodeIdx, allObjectBoxes, objectIndices, numObjectsA);
+	fcBoundingVolumeHiearchyRecursiveBuild(nodes, maxNodes, childIdxB, nextFreeNodeIdx, allObjectBoxes, objectIndices + numObjectsA, numObjectsB);
 }
 
-void fp_bvh_build(const fp_bvh_build_ctx_t* ctx, fp_bvh_t* bvh, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcBoundingVolumeHierarchyCreate(const FcBoundingVolumeHierarchyDesc* ctx, FcBoundingVolumeHierarchy* bvh, FcAllocator* pAllocCallbacks)
 {
 	// allocate array of indices on scratchpad
 	const u32 sizeMemIndices = ctx->numObjects * sizeof(u32);
-	u32* objectIndices = (u32*)fc_mem_arena_alloc(ctx->arenaAlloc, sizeMemIndices, 0);
+	u32* objectIndices = (u32*)fcMemArenaAlloc(ctx->arenaAlloc, sizeMemIndices, 0);
 	
 	for(u32 i=0; i<ctx->numObjects; ++i)
 	{
@@ -387,35 +387,35 @@ void fp_bvh_build(const fp_bvh_build_ctx_t* ctx, fp_bvh_t* bvh, fc_alloc_callbac
 	}
 	
 	// allocate array of temporary BVH nodes on scratchpad, later on they will be copied to proper memory
-	const u32 numMaxNodes = (ctx->arenaAlloc->capacity - ctx->arenaAlloc->size) / sizeof(fp_bvh_node_t);
+	const u32 numMaxNodes = (ctx->arenaAlloc->capacity - ctx->arenaAlloc->size) / sizeof(FcBoundingVolumeHierarchyNode);
 	FUR_ASSERT(numMaxNodes > 0);
 	
 	// init nodes by zero
-	fp_bvh_node_t* tmpNodes = (fp_bvh_node_t*)fc_mem_arena_alloc_and_zero(ctx->arenaAlloc, sizeof(fp_bvh_node_t) * numMaxNodes, 0);
+	FcBoundingVolumeHierarchyNode* tmpNodes = (FcBoundingVolumeHierarchyNode*)fcMemArenaAllocAndZero(ctx->arenaAlloc, sizeof(FcBoundingVolumeHierarchyNode) * numMaxNodes, 0);
 	
 	u32 nextFreeIndex = 1; // 1 because root is assumed to be already allocated
 	
 	// recursively iterate objects to build BVH
-	fp_bvh_box_recursive_build(tmpNodes, numMaxNodes, 0, &nextFreeIndex, ctx->objectBoxes, objectIndices, ctx->numObjects);
+	fcBoundingVolumeHiearchyRecursiveBuild(tmpNodes, numMaxNodes, 0, &nextFreeIndex, ctx->objectBoxes, objectIndices, ctx->numObjects);
 	
 	FUR_ASSERT(nextFreeIndex > 0);	// something got processed - yey!
 	
 	const u32 numFinalNodes = nextFreeIndex;
 	
-	bvh->nodes = FUR_ALLOC_ARRAY(fp_bvh_node_t, numFinalNodes, 0, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
+	bvh->nodes = FUR_ALLOC_ARRAY(FcBoundingVolumeHierarchyNode, numFinalNodes, 0, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
 	bvh->numNodes = numFinalNodes;
 	
-	memcpy(bvh->nodes, tmpNodes, sizeof(fp_bvh_node_t) * numFinalNodes);
+	memcpy(bvh->nodes, tmpNodes, sizeof(FcBoundingVolumeHierarchyNode) * numFinalNodes);
 }
 
-void fp_bvh_release(fp_bvh_t* bvh, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcBoundingVolumeHiearchyRelease(FcBoundingVolumeHierarchy* bvh, FcAllocator* pAllocCallbacks)
 {
 	FUR_FREE(bvh->nodes, pAllocCallbacks);
 	bvh->nodes = NULL;
 	bvh->numNodes = 0;
 }
 
-void fp_bvh_debug_draw(const fp_bvh_t* bvh)
+void fcBoundingVolumeHiearchyDebugDraw(const FcBoundingVolumeHierarchy* bvh)
 {
 	const u32 numNodes = bvh->numNodes;
 
@@ -424,6 +424,6 @@ void fp_bvh_debug_draw(const fp_bvh_t* bvh)
 	for(u32 i=0; i<numNodes; ++i)
 	{
 		const fm_box* box = &bvh->nodes[i].bound;
-		fc_dbg_box_wire((const f32*)&box->center, (const f32*)&box->extent, color);
+		fcDebugBoxWire((const f32*)&box->center, (const f32*)&box->extent, color);
 	}
 }

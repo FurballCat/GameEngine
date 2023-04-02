@@ -10,23 +10,23 @@
 #include <string.h>
 #include <stdio.h>
 
-void fa_cmd_buffer_evaluate(const fa_cmd_buffer_t* buffer, fa_cmd_context_t* ctx)
+void fcAnimCmdBufferEvaluate(const FcAnimCommandBuffer* buffer, FcAnimCommandCtx* ctx)
 {
-	fa_cmd_status_t status = FA_CMD_STATUS_OK;
+	FcAnimCommandStatus status = FA_CMD_STATUS_OK;
 	u32 dbgIndexCommand = 0;
 	const u8* cmdPointer = (const u8*)buffer->data;
 	while(status == FA_CMD_STATUS_OK)
 	{
-		const fa_cmd_func_t* func = (const fa_cmd_func_t*)cmdPointer;
-		const u32* dataSize = (const u32*)(cmdPointer + sizeof(fa_cmd_func_t));
+		const FcAnimCommandFn* func = (const FcAnimCommandFn*)cmdPointer;
+		const u32* dataSize = (const u32*)(cmdPointer + sizeof(FcAnimCommandFn));
 		const void* cmdData = NULL;
 		if(*dataSize > 0)
 		{
-			 cmdData = cmdPointer + sizeof(fa_cmd_func_t) + sizeof(u32);
+			 cmdData = cmdPointer + sizeof(FcAnimCommandFn) + sizeof(u32);
 		}
 		
 		status = (*func)(ctx, cmdData);
-		const u32 totalCommandSize = sizeof(fa_cmd_func_t) + sizeof(u32) + (*dataSize);
+		const u32 totalCommandSize = sizeof(FcAnimCommandFn) + sizeof(u32) + (*dataSize);
 		cmdPointer += totalCommandSize;
 		++dbgIndexCommand;
 		
@@ -38,25 +38,25 @@ void fa_cmd_buffer_evaluate(const fa_cmd_buffer_t* buffer, fa_cmd_context_t* ctx
 }
 
 // this is the cmd memory formatting function
-void fa_cmd_buffer_write(fa_cmd_buffer_recorder_t* recorder, fa_cmd_func_t func, const void* data, u32 dataSize)
+void fcAnimCmdBufferWrite(FcCommandBufferRecorder* recorder, FcAnimCommandFn func, const void* data, u32 dataSize)
 {
-	const u32 sizeRequired = sizeof(fa_cmd_func_t) + sizeof(u32) + dataSize;
+	const u32 sizeRequired = sizeof(FcAnimCommandFn) + sizeof(u32) + dataSize;
 	FUR_ASSERT(sizeRequired <= recorder->sizeLeft);
 
 	u8* const currPointer = (u8* const)recorder->currPointer;
 
 	// command function pointer
-	fa_cmd_func_t* funcPtr = (fa_cmd_func_t*)currPointer;
+	FcAnimCommandFn* funcPtr = (FcAnimCommandFn*)currPointer;
 	*funcPtr = func;
 	
 	// command data size (can be 0)
-	u32* dataSizePtr = (u32*)(currPointer + sizeof(fa_cmd_func_t));
+	u32* dataSizePtr = (u32*)(currPointer + sizeof(FcAnimCommandFn));
 	*dataSizePtr = dataSize;
 	
 	// command data
 	if(data)
 	{
-		void* dataPtr = currPointer + sizeof(fa_cmd_func_t) + sizeof(u32);
+		void* dataPtr = currPointer + sizeof(FcAnimCommandFn) + sizeof(u32);
 		memcpy(dataPtr, data, dataSize);
 	}
 	
@@ -65,7 +65,7 @@ void fa_cmd_buffer_write(fa_cmd_buffer_recorder_t* recorder, fa_cmd_func_t func,
 	recorder->sizeRecorded += sizeRequired;
 }
 
-void fa_cmd_buffer_recorder_init(fa_cmd_buffer_recorder_t* recorder, void* outData, u32 maxSize)
+void fcAnimCmdBufferRecorderInit(FcCommandBufferRecorder* recorder, void* outData, u32 maxSize)
 {
 	recorder->currPointer = outData;
 	recorder->sizeLeft = maxSize;
@@ -74,21 +74,21 @@ void fa_cmd_buffer_recorder_init(fa_cmd_buffer_recorder_t* recorder, void* outDa
 }
 
 // begin command
-void fa_cmd_begin(fa_cmd_buffer_recorder_t* recorder, u32 poseStackInitialSize)
+void fcAnimCmdBegin(FcCommandBufferRecorder* recorder, u32 poseStackInitialSize)
 {
 	recorder->poseStackSizeTracking = poseStackInitialSize;
 	recorder->poseStackInitialSize = poseStackInitialSize;
 }
 
 // end command
-fa_cmd_status_t fa_cmd_impl_end(fa_cmd_context_t* ctx, const void* cmdData)
+FcAnimCommandStatus fcAnimCmdImplEnd(FcAnimCommandCtx* ctx, const void* cmdData)
 {
 	return FA_CMD_STATUS_STOP;
 }
 
-void fa_cmd_end(fa_cmd_buffer_recorder_t* recorder)
+void fcAnimCmdEnd(FcCommandBufferRecorder* recorder)
 {
-	fa_cmd_buffer_write(recorder, fa_cmd_impl_end, NULL, 0); // writing a null cmd, similar to c-string having null character at the end
+	fcAnimCmdBufferWrite(recorder, fcAnimCmdImplEnd, NULL, 0); // writing a null cmd, similar to c-string having null character at the end
 	
 	FUR_ASSERT(recorder->poseStackSizeTracking >= 1);	// at the end of command buffer, we expect the post stack to have +1 pose
 }
@@ -98,87 +98,87 @@ void fa_cmd_end(fa_cmd_buffer_recorder_t* recorder)
 #define FA_DBG_COLOR FUR_COLOR_GREEN
 
 // set reference pose command
-fa_cmd_status_t fa_cmd_impl_ref_pose(fa_cmd_context_t* ctx, const void* cmdData)
+FcAnimCommandStatus fcAnimCmdImplRefPose(FcAnimCommandCtx* ctx, const void* cmdData)
 {
-	fa_pose_stack_push(ctx->poseStack, 1);
+	FcPoseStackPush(ctx->poseStack, 1);
 	
-	fa_pose_t pose;
-	fa_pose_stack_get(ctx->poseStack, &pose, 0);
+	FcPose pose;
+	FcPoseStackGet(ctx->poseStack, &pose, 0);
 	
-	fa_pose_set_reference(ctx->rig, &pose, ctx->mask);
+	FcPoseSetReference(ctx->rig, &pose, ctx->mask);
 	
 	if(ctx->debug)
 	{
 		const u32 pos = ctx->debug->cmdDrawCursorVerticalPos;
 		const f32 color[4] = FA_DBG_COLOR;
-		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), "ref_pose", color, 0.5f);
+		fcDebugText(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), "ref_pose", color, 0.5f);
 	}
 	
 	return FA_CMD_STATUS_OK;
 }
 
-void fa_cmd_ref_pose(fa_cmd_buffer_recorder_t* recorder)
+void fcAnimCmdRefPose(FcCommandBufferRecorder* recorder)
 {
-	fa_cmd_buffer_write(recorder, fa_cmd_impl_ref_pose, NULL, 0);
+	fcAnimCmdBufferWrite(recorder, fcAnimCmdImplRefPose, NULL, 0);
 	recorder->poseStackSizeTracking += 1;
 }
 
 // set identity pose command
-fa_cmd_status_t fa_cmd_impl_identity(fa_cmd_context_t* ctx, const void* cmdData)
+FcAnimCommandStatus fcAnimCmdImplIdentity(FcAnimCommandCtx* ctx, const void* cmdData)
 {
-	fa_pose_stack_push(ctx->poseStack, 1);
+	FcPoseStackPush(ctx->poseStack, 1);
 	
-	fa_pose_t pose;
-	fa_pose_stack_get(ctx->poseStack, &pose, 0);
+	FcPose pose;
+	FcPoseStackGet(ctx->poseStack, &pose, 0);
 	
-	fa_pose_set_identity(&pose, ctx->mask);
+	FcPoseSetIdentity(&pose, ctx->mask);
 	
 	if(ctx->debug)
 	{
 		const u32 pos = ctx->debug->cmdDrawCursorVerticalPos;
 		const f32 color[4] = FA_DBG_COLOR;
-		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), "identity", color, 0.5f);
+		fcDebugText(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), "identity", color, 0.5f);
 	}
 	
 	return FA_CMD_STATUS_OK;
 }
 
-void fa_cmd_identity(fa_cmd_buffer_recorder_t* recorder)
+void fcAnimCmdIdentity(FcCommandBufferRecorder* recorder)
 {
-	fa_cmd_buffer_write(recorder, fa_cmd_impl_identity, NULL, 0);
+	fcAnimCmdBufferWrite(recorder, fcAnimCmdImplIdentity, NULL, 0);
 	recorder->poseStackSizeTracking += 1;
 }
 
 // sample animation command
-typedef struct fa_cmd_anim_sample_data_t
+typedef struct FcAnimCmdAnimSampleData
 {
 	f32 time;
 	u16 animClipId;
 	bool asAdditive;
-} fa_cmd_anim_sample_data_t;
+} FcAnimCmdAnimSampleData;
 
-fa_cmd_status_t fa_cmd_impl_anim_sample(fa_cmd_context_t* ctx, const void* cmdData)
+FcAnimCommandStatus fcAnimCmdImpleAnimSample(FcAnimCommandCtx* ctx, const void* cmdData)
 {
-	const fa_cmd_anim_sample_data_t* data = (fa_cmd_anim_sample_data_t*)cmdData;
+	const FcAnimCmdAnimSampleData* data = (FcAnimCmdAnimSampleData*)cmdData;
 	FUR_ASSERT(data->animClipId < ctx->numAnimClips);
 	
-	const fa_anim_clip_t* clip = ctx->animClips[data->animClipId];
+	const FcAnimClip* clip = ctx->animClips[data->animClipId];
 	
-	fa_pose_stack_push(ctx->poseStack, 1);
-	fa_pose_t pose;
-	fa_pose_stack_get(ctx->poseStack, &pose, 0);
+	FcPoseStackPush(ctx->poseStack, 1);
+	FcPose pose;
+	FcPoseStackGet(ctx->poseStack, &pose, 0);
 	
 	FUR_ASSERT(pose.numXforms == ctx->rig->numBones);
 	
-	fa_anim_clip_sample(clip, data->time, data->asAdditive, &pose, ctx->mask);
+	fcAnimClipSample(clip, data->time, data->asAdditive, &pose, ctx->mask);
 	
 	if(ctx->debug)
 	{
 		const u32 pos = ctx->debug->cmdDrawCursorVerticalPos;
 		const f32 color[4] = FA_DBG_COLOR;
 		char txt[256];
-		sprintf(txt, "anim_sample %s t=%1.2f", fc_string_hash_as_cstr_debug(clip->name), data->time);
-		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color, 0.5f);
+		sprintf(txt, "anim_sample %s t=%1.2f", fcStringIdAsDebugCstr(clip->name), data->time);
+		fcDebugText(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color, 0.5f);
 	}
 	
 	// todo: check if required
@@ -194,22 +194,22 @@ fa_cmd_status_t fa_cmd_impl_anim_sample(fa_cmd_context_t* ctx, const void* cmdDa
 	return FA_CMD_STATUS_OK;
 }
 
-void fa_cmd_anim_sample(fa_cmd_buffer_recorder_t* recorder, f32 time, u16 animClipId)
+void fcAnimCmdSample(FcCommandBufferRecorder* recorder, f32 time, u16 animClipId)
 {
-	fa_cmd_anim_sample_data_t data = { time, animClipId, false };
-	fa_cmd_buffer_write(recorder, fa_cmd_impl_anim_sample, &data, sizeof(fa_cmd_anim_sample_data_t));
+	FcAnimCmdAnimSampleData data = { time, animClipId, false };
+	fcAnimCmdBufferWrite(recorder, fcAnimCmdImpleAnimSample, &data, sizeof(FcAnimCmdAnimSampleData));
 	recorder->poseStackSizeTracking += 1;
 }
 
-void fa_cmd_anim_sample_additive(fa_cmd_buffer_recorder_t* recorder, f32 time, u16 animClipId)
+void fcAnimCmdSampleAdditive(FcCommandBufferRecorder* recorder, f32 time, u16 animClipId)
 {
-	fa_cmd_anim_sample_data_t data = { time, animClipId, true };
-	fa_cmd_buffer_write(recorder, fa_cmd_impl_anim_sample, &data, sizeof(fa_cmd_anim_sample_data_t));
+	FcAnimCmdAnimSampleData data = { time, animClipId, true };
+	fcAnimCmdBufferWrite(recorder, fcAnimCmdImpleAnimSample, &data, sizeof(FcAnimCmdAnimSampleData));
 	recorder->poseStackSizeTracking += 1;
 }
 
 // sample animation with locomotion command
-typedef struct fa_cmd_anim_sample_with_locomotion_data_t
+typedef struct FcAnimCmdAnimSampleWithLocomotionData
 {
 	f32 time;
 	u16 animClipId;
@@ -218,25 +218,25 @@ typedef struct fa_cmd_anim_sample_with_locomotion_data_t
 	i32 loops;
 	f32* prevLocoPos;	// fm_vec4
 	f32* prevLocoRot;	// fm_vec4
-} fa_cmd_anim_sample_with_locomotion_data_t;
+} FcAnimCmdAnimSampleWithLocomotionData;
 
-fa_cmd_status_t fa_cmd_impl_anim_sample_with_locomotion(fa_cmd_context_t* ctx, const void* cmdData)
+FcAnimCommandStatus FcAnimCmdImplAnimSampleWithLocomotion(FcAnimCommandCtx* ctx, const void* cmdData)
 {
-	const fa_cmd_anim_sample_with_locomotion_data_t* data = (fa_cmd_anim_sample_with_locomotion_data_t*)cmdData;
+	const FcAnimCmdAnimSampleWithLocomotionData* data = (FcAnimCmdAnimSampleWithLocomotionData*)cmdData;
 	FUR_ASSERT(data->animClipId < ctx->numAnimClips);
 	
 	// get animation clip
-	const fa_anim_clip_t* clip = ctx->animClips[data->animClipId];
+	const FcAnimClip* clip = ctx->animClips[data->animClipId];
 	
 	// push new pose onto stack
-	fa_pose_stack_push(ctx->poseStack, 1);
-	fa_pose_t pose;
-	fa_pose_stack_get(ctx->poseStack, &pose, 0);
+	FcPoseStackPush(ctx->poseStack, 1);
+	FcPose pose;
+	FcPoseStackGet(ctx->poseStack, &pose, 0);
 	
 	FUR_ASSERT(pose.numXforms == ctx->rig->numBones);
 	
 	// sample the animation
-	fa_anim_clip_sample(clip, data->time, data->asAdditive, &pose, ctx->mask);
+	fcAnimClipSample(clip, data->time, data->asAdditive, &pose, ctx->mask);
 	
 	// optionally draw debug info
 	if(ctx->debug)
@@ -244,8 +244,8 @@ fa_cmd_status_t fa_cmd_impl_anim_sample_with_locomotion(fa_cmd_context_t* ctx, c
 		const u32 pos = ctx->debug->cmdDrawCursorVerticalPos;
 		const f32 color[4] = FA_DBG_COLOR;
 		char txt[256];
-		sprintf(txt, "anim_sample_with_locomotion %s t=%1.2f", fc_string_hash_as_cstr_debug(clip->name), data->time);
-		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color, 0.5f);
+		sprintf(txt, "anim_sample_with_locomotion %s t=%1.2f", fcStringIdAsDebugCstr(clip->name), data->time);
+		fcDebugText(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color, 0.5f);
 	}
 	
 	// process locomotion
@@ -365,32 +365,32 @@ fa_cmd_status_t fa_cmd_impl_anim_sample_with_locomotion(fa_cmd_context_t* ctx, c
 	return FA_CMD_STATUS_OK;
 }
 
-void fa_cmd_anim_sample_with_locomotion(fa_cmd_buffer_recorder_t* recorder, f32 time, u16 animClipId, bool resetLoco, i32 loops, f32* prevLocoPos, f32* prevLocoRot)
+void fcAnimCmdSampleWithLocomotion(FcCommandBufferRecorder* recorder, f32 time, u16 animClipId, bool resetLoco, i32 loops, f32* prevLocoPos, f32* prevLocoRot)
 {
-	fa_cmd_anim_sample_with_locomotion_data_t data = { time, animClipId, false, resetLoco, loops, prevLocoPos, prevLocoRot };
-	fa_cmd_buffer_write(recorder, fa_cmd_impl_anim_sample_with_locomotion, &data, sizeof(fa_cmd_anim_sample_with_locomotion_data_t));
+	FcAnimCmdAnimSampleWithLocomotionData data = { time, animClipId, false, resetLoco, loops, prevLocoPos, prevLocoRot };
+	fcAnimCmdBufferWrite(recorder, FcAnimCmdImplAnimSampleWithLocomotion, &data, sizeof(FcAnimCmdAnimSampleWithLocomotionData));
 	recorder->poseStackSizeTracking += 1;
 }
 
 // blend two poses command
-typedef struct fa_cmd_blend2_data_t
+typedef struct FcAnimCmdBlendData
 {
 	f32 alpha;
-} fa_cmd_blend2_data_t;
+} FcAnimCmdBlendData;
 
-fa_cmd_status_t fa_cmd_impl_blend2(fa_cmd_context_t* ctx, const void* cmdData)
+FcAnimCommandStatus fcAnimCmdImpleBlend(FcAnimCommandCtx* ctx, const void* cmdData)
 {
-	fa_cmd_blend2_data_t* data = (fa_cmd_blend2_data_t*)cmdData;
+	FcAnimCmdBlendData* data = (FcAnimCmdBlendData*)cmdData;
 	
-	fa_pose_t pose1;
-	fa_pose_stack_get(ctx->poseStack, &pose1, 0);
+	FcPose pose1;
+	FcPoseStackGet(ctx->poseStack, &pose1, 0);
 	
-	fa_pose_t pose2;
-	fa_pose_stack_get(ctx->poseStack, &pose2, 1);
+	FcPose pose2;
+	FcPoseStackGet(ctx->poseStack, &pose2, 1);
 	
-	fa_pose_blend_linear(&pose2, &pose1, &pose2, data->alpha);
+	FcPoseBlendLinear(&pose2, &pose1, &pose2, data->alpha);
 	
-	fa_pose_stack_pop(ctx->poseStack, 1);
+	FcPoseStackPop(ctx->poseStack, 1);
 	
 	if(ctx->debug)
 	{
@@ -398,38 +398,38 @@ fa_cmd_status_t fa_cmd_impl_blend2(fa_cmd_context_t* ctx, const void* cmdData)
 		const f32 color[4] = FA_DBG_COLOR;
 		char txt[128];
 		sprintf(txt, "blend2 a=%1.2f", data->alpha);
-		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color, 0.5f);
+		fcDebugText(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color, 0.5f);
 	}
 	
 	return FA_CMD_STATUS_OK;
 }
 
-void fa_cmd_blend2(fa_cmd_buffer_recorder_t* recorder, f32 alpha)
+void fcAnimCmdBlend(FcCommandBufferRecorder* recorder, f32 alpha)
 {
-	fa_cmd_blend2_data_t data = { alpha };
-	fa_cmd_buffer_write(recorder, fa_cmd_impl_blend2, &data, sizeof(fa_cmd_blend2_data_t));
+	FcAnimCmdBlendData data = { alpha };
+	fcAnimCmdBufferWrite(recorder, fcAnimCmdImpleBlend, &data, sizeof(FcAnimCmdBlendData));
 	recorder->poseStackSizeTracking -= 1;
 }
 
 // blend additive command, pose depth-0 is additive, pose depth-1 is base
-typedef struct fa_cmd_apply_additive_data_t
+typedef struct FcAnimCmdApplyAdditiveData
 {
 	f32 weight;
-} fa_cmd_apply_additive_data_t;
+} FcAnimCmdApplyAdditiveData;
 
-fa_cmd_status_t fa_cmd_impl_apply_additive(fa_cmd_context_t* ctx, const void* cmdData)
+FcAnimCommandStatus fcAnimCmdImplApplyAdditive(FcAnimCommandCtx* ctx, const void* cmdData)
 {
-	fa_cmd_apply_additive_data_t* data = (fa_cmd_apply_additive_data_t*)cmdData;
+	FcAnimCmdApplyAdditiveData* data = (FcAnimCmdApplyAdditiveData*)cmdData;
 	
-	fa_pose_t poseAdd;
-	fa_pose_stack_get(ctx->poseStack, &poseAdd, 0);
+	FcPose poseAdd;
+	FcPoseStackGet(ctx->poseStack, &poseAdd, 0);
 	
-	fa_pose_t poseBase;
-	fa_pose_stack_get(ctx->poseStack, &poseBase, 1);
+	FcPose poseBase;
+	FcPoseStackGet(ctx->poseStack, &poseBase, 1);
 	
-	fa_pose_apply_additive(&poseBase, &poseBase, &poseAdd, data->weight);
+	FcPoseApplyAdditive(&poseBase, &poseBase, &poseAdd, data->weight);
 	
-	fa_pose_stack_pop(ctx->poseStack, 1);
+	FcPoseStackPop(ctx->poseStack, 1);
 	
 	if(ctx->debug)
 	{
@@ -437,36 +437,36 @@ fa_cmd_status_t fa_cmd_impl_apply_additive(fa_cmd_context_t* ctx, const void* cm
 		const f32 color[4] = FA_DBG_COLOR;
 		char txt[128];
 		sprintf(txt, "apply additive w=%1.2f", data->weight);
-		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color, 0.5f);
+		fcDebugText(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color, 0.5f);
 	}
 	
 	return FA_CMD_STATUS_OK;
 }
 
-void fa_cmd_apply_additive(fa_cmd_buffer_recorder_t* recorder, f32 weight)
+void fcAnimCmdApplyAdditive(FcCommandBufferRecorder* recorder, f32 weight)
 {
-	fa_cmd_apply_additive_data_t data = { weight };
-	fa_cmd_buffer_write(recorder, fa_cmd_impl_apply_additive, &data, sizeof(fa_cmd_apply_additive_data_t));
+	FcAnimCmdApplyAdditiveData data = { weight };
+	fcAnimCmdBufferWrite(recorder, fcAnimCmdImplApplyAdditive, &data, sizeof(FcAnimCmdApplyAdditiveData));
 	recorder->poseStackSizeTracking -= 1;
 }
 
 // use cached pose command
-typedef struct fa_cmd_use_cached_pose_data_t
+typedef struct FcAnimCmdUseCachedPoseData
 {
 	u16 poseId;
-} fa_cmd_use_cached_pose_data_t;
+} FcAnimCmdUseCachedPoseData;
 
-fa_cmd_status_t fa_cmd_impl_use_cached_pose(fa_cmd_context_t* ctx, const void* cmdData)
+FcAnimCommandStatus fcAnimCmdImpleUseCachedPose(FcAnimCommandCtx* ctx, const void* cmdData)
 {
-	fa_cmd_use_cached_pose_data_t* data = (fa_cmd_use_cached_pose_data_t*)cmdData;
+	FcAnimCmdUseCachedPoseData* data = (FcAnimCmdUseCachedPoseData*)cmdData;
 	
 	FUR_ASSERT(data->poseId == 0);
 	
-	fa_pose_stack_push(ctx->poseStack, 1);
-	fa_pose_t pose;
-	fa_pose_stack_get(ctx->poseStack, &pose, 0);
+	FcPoseStackPush(ctx->poseStack, 1);
+	FcPose pose;
+	FcPoseStackGet(ctx->poseStack, &pose, 0);
 	
-	fa_pose_copy(&pose, &ctx->poseCache->tempPose);
+	FcPoseCopy(&pose, &ctx->poseCache->tempPose);
 	
 	if(ctx->debug)
 	{
@@ -474,43 +474,43 @@ fa_cmd_status_t fa_cmd_impl_use_cached_pose(fa_cmd_context_t* ctx, const void* c
 		const f32 color[4] = FA_DBG_COLOR;
 		char txt[128];
 		sprintf(txt, "use_cached_pose id=%i", data->poseId);
-		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color, 0.5f);
+		fcDebugText(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color, 0.5f);
 	}
 	
 	return FA_CMD_STATUS_OK;
 }
 
-void fa_cmd_use_cached_pose(fa_cmd_buffer_recorder_t* recorder, u16 poseId)
+void fcAnimCmdUseCachedPose(FcCommandBufferRecorder* recorder, u16 poseId)
 {
-	fa_cmd_use_cached_pose_data_t data = { poseId };
-	fa_cmd_buffer_write(recorder, fa_cmd_impl_use_cached_pose, &data, sizeof(fa_cmd_use_cached_pose_data_t));
+	FcAnimCmdUseCachedPoseData data = { poseId };
+	fcAnimCmdBufferWrite(recorder, fcAnimCmdImpleUseCachedPose, &data, sizeof(FcAnimCmdUseCachedPoseData));
 	recorder->poseStackSizeTracking += 1;
 }
 
 // apply mask command
-typedef struct fa_cmd_apply_mask_data_t
+typedef struct FcAnimCmdApplyMaskData
 {
 	u16 maskId;
-} fa_cmd_apply_mask_data_t;
+} FcAnimCmdApplyMaskData;
 
-fa_cmd_status_t fa_cmd_impl_apply_mask(fa_cmd_context_t* ctx, const void* cmdData)
+FcAnimCommandStatus fcAnimCmdImplApplyMask(FcAnimCommandCtx* ctx, const void* cmdData)
 {
-	fa_cmd_apply_mask_data_t* data = (fa_cmd_apply_mask_data_t*)cmdData;
-	const u8* mask = fa_rig_get_mask(ctx->rig, data->maskId);
+	FcAnimCmdApplyMaskData* data = (FcAnimCmdApplyMaskData*)cmdData;
+	const u8* mask = fcRigGetMask(ctx->rig, data->maskId);
 	if(!mask)
 	{
 		if(ctx->debug)
 		{
 			const u32 pos = ctx->debug->cmdDrawCursorVerticalPos;
 			const f32 color[4] = FUR_COLOR_RED;
-			fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), "apply_mask id=<INNVALID>", color, 0.5f);
+			fcDebugText(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), "apply_mask id=<INNVALID>", color, 0.5f);
 		}
 		
 		return FA_CMD_STATUS_OK;
 	}
 	
-	fa_pose_t pose;
-	fa_pose_stack_get(ctx->poseStack, &pose, 0);
+	FcPose pose;
+	FcPoseStackGet(ctx->poseStack, &pose, 0);
 	
 	for(u32 i=0; i<pose.numXforms; ++i)
 	{
@@ -524,14 +524,14 @@ fa_cmd_status_t fa_cmd_impl_apply_mask(fa_cmd_context_t* ctx, const void* cmdDat
 		const f32 color[4] = FA_DBG_COLOR;
 		char txt[128];
 		sprintf(txt, "apply_mask id=%i", data->maskId);
-		fc_dbg_text(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color, 0.5f);
+		fcDebugText(FA_DBG_TEXT_X, FA_DBG_TEXT_Y(pos), txt, color, 0.5f);
 	}
 	
 	return FA_CMD_STATUS_OK;
 }
 
-void fa_cmd_apply_mask(fa_cmd_buffer_recorder_t* recorder, u16 maskId)
+void fcAnimCmdApplyMask(FcCommandBufferRecorder* recorder, u16 maskId)
 {
-	fa_cmd_apply_mask_data_t data = { maskId };
-	fa_cmd_buffer_write(recorder, fa_cmd_impl_apply_mask, &data, sizeof(fa_cmd_apply_mask_data_t));
+	FcAnimCmdApplyMaskData data = { maskId };
+	fcAnimCmdBufferWrite(recorder, fcAnimCmdImplApplyMask, &data, sizeof(FcAnimCmdApplyMaskData));
 }

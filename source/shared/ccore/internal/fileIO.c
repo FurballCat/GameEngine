@@ -55,26 +55,26 @@ u64 murmur2(const void* key, int len)
 	return h;
 }
 
-typedef struct fc_depot_t
+typedef struct FcDepot
 {
 	const char* directory;
 
-	fc_file_path_t hashes[FUR_MAX_FILES];
+	FcFilePath hashes[FUR_MAX_FILES];
 	const char paths[FUR_MAX_FILES][FUR_MAX_PATH_LENGTH];
 	u32 numPaths;
 
-} fc_depot_t;
+} FcDepot;
 
-fc_depot_t* fc_depot_mount(const fc_depot_desc_t* desc, fc_alloc_callbacks_t* pAllocCallbacks)
+FcDepot* fcDepotMount(const FcDepotDesc* desc, FcAllocator* pAllocCallbacks)
 {
-	fc_depot_t* depot = FUR_ALLOC_AND_ZERO(sizeof(fc_depot_t), 8, FC_MEMORY_SCOPE_CORE, pAllocCallbacks);
+	FcDepot* depot = FUR_ALLOC_AND_ZERO(sizeof(FcDepot), 8, FC_MEMORY_SCOPE_CORE, pAllocCallbacks);
 
 	depot->directory = desc->path;
 
 	return depot;
 }
 
-i32 fc_depot_find_file_idx(fc_depot_t* depot, fc_file_path_t path)
+i32 fcDepotFindFileIdx(FcDepot* depot, FcFilePath path)
 {
 	for (u32 i = 0; i < depot->numPaths; ++i)
 	{
@@ -85,12 +85,12 @@ i32 fc_depot_find_file_idx(fc_depot_t* depot, fc_file_path_t path)
 	return -1;
 }
 
-void fc_depot_unmount(fc_depot_t* depot, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcDepotUnmount(FcDepot* depot, FcAllocator* pAllocCallbacks)
 {
 	FUR_FREE(depot, pAllocCallbacks);
 }
 
-fc_file_path_t fc_file_path_create(fc_depot_t* depot, const char* path)
+FcFilePath fcFilePathCreate(FcDepot* depot, const char* path)
 {
 	const u64 length = strlen(path);
 	FUR_ASSERT(length+1 < FUR_MAX_PATH_LENGTH);
@@ -107,9 +107,9 @@ fc_file_path_t fc_file_path_create(fc_depot_t* depot, const char* path)
 	return hash;
 }
 
-const char* fc_file_path_debug_str(const fc_depot_t* depot, fc_file_path_t path)
+const char* fcFilePathAsDebugCstr(const FcDepot* depot, FcFilePath path)
 {
-	i32 idx = fc_depot_find_file_idx(depot, path);
+	i32 idx = fcDepotFindFileIdx(depot, path);
 
 	if (idx == -1)
 		return NULL;
@@ -117,7 +117,7 @@ const char* fc_file_path_debug_str(const fc_depot_t* depot, fc_file_path_t path)
 	return depot->paths[idx];
 }
 
-void fc_path_concat(char* output, const char* folderAbsolute, const char* directoryRelative, const char* fileName, const char* fileExtension)
+void fcPathConcat(char* output, const char* folderAbsolute, const char* directoryRelative, const char* fileName, const char* fileExtension)
 {
 	const u64 folderLen = strlen(folderAbsolute);
 	const u64 dirLen = strlen(directoryRelative);
@@ -131,31 +131,31 @@ void fc_path_concat(char* output, const char* folderAbsolute, const char* direct
 	memcpy(output + folderLen + dirLen + nameLen + extLen, "\0", 1);
 }
 
-fc_file_t* fc_file_open(fc_depot_t* depot, fc_file_path_t path, const char* mode)
+FcFile* fcFileOpen(FcDepot* depot, FcFilePath path, const char* mode)
 {
-	i32 idx = fc_depot_find_file_idx(depot, path);
+	i32 idx = fcDepotFindFileIdx(depot, path);
 
 	if (idx == -1)
 		return NULL;
 	
 	const char fullPath[FUR_MAX_PATH_LENGTH] = { 0 };
-	fc_path_concat(fullPath, "", depot->directory, depot->paths[idx], "");
+	fcPathConcat(fullPath, "", depot->directory, depot->paths[idx], "");
 
 	return fopen(fullPath, mode);
 }
 
-void fc_file_close(fc_file_t* file)
+void fcFileClose(FcFile* file)
 {
 	fclose((FILE*)file);
 }
 
-void fc_file_seek(fc_file_t* file, i64 offset, i32 origin)
+void fcFileSeek(FcFile* file, i64 offset, i32 origin)
 {
 	FILE* pFile = (FILE*)file;
 	fseek(pFile, offset, origin);
 }
 
-u64 fc_file_size(fc_file_t* file)
+u64 fcFileSize(FcFile* file)
 {
 	FILE* pFile = (FILE*)file;
 	
@@ -167,12 +167,12 @@ u64 fc_file_size(fc_file_t* file)
 	return size;
 }
 
-void fc_file_read(void* output, u64 size, u64 count, fc_file_t* file)
+void fcFileRead(void* output, u64 size, u64 count, FcFile* file)
 {
 	fread(output, size, count, (FILE*)file);
 }
 
-CCORE_API void fc_file_write(const void* input, u64 size, u64 count, fc_file_t* file)
+CCORE_API void fcFileWrite(const void* input, u64 size, u64 count, FcFile* file)
 {
 	fwrite(input, size, count, (FILE*)file);
 }

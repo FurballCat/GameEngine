@@ -5,25 +5,25 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-bool fc_text_stream_is_eof(fc_text_stream_ro_t* stream, u32 offset)
+bool fcTextStreamIsEOF(FcTextStreamRO* stream, u32 offset)
 {
 	return stream->ptr + offset >= stream->end;
 }
 
-bool fc_text_parse_is_numeric(char chr)
+bool fcTextParseIsNumeric(char chr)
 {
 	return isdigit(chr) != 0;
 }
 
-bool fc_text_parse_is_whitespace(char chr)
+bool fcTextParseIsWhitespace(char chr)
 {
 	return chr == ' ' || chr == '\r' || chr == '\t' || chr == '\n';
 }
 
-bool fc_text_parse_whitespaces(fc_text_stream_ro_t* stream)
+bool fcTextParseWhitespaces(FcTextStreamRO* stream)
 {
 	u32 i = 0;
-	while(!fc_text_stream_is_eof(stream, i) && fc_text_parse_is_whitespace(stream->ptr[i]))
+	while(!fcTextStreamIsEOF(stream, i) && fcTextParseIsWhitespace(stream->ptr[i]))
 	{
 		++i;
 	}
@@ -33,11 +33,11 @@ bool fc_text_parse_whitespaces(fc_text_stream_ro_t* stream)
 	return i;
 }
 
-bool fc_text_parse_character(fc_text_stream_ro_t* stream, char* outChar)
+bool fcTextParseCharacter(FcTextStreamRO* stream, char* outChar)
 {
 	// note: do not skip whitespaces here
 	
-	if(fc_text_stream_is_eof(stream, 0))
+	if(fcTextStreamIsEOF(stream, 0))
 		return false;
 	
 	*outChar = stream->ptr[0];
@@ -46,14 +46,14 @@ bool fc_text_parse_character(fc_text_stream_ro_t* stream, char* outChar)
 	return true;
 }
 
-bool fc_text_parse_keyword(fc_text_stream_ro_t* stream, const char* keyword)
+bool fcTextParseKeyword(FcTextStreamRO* stream, const char* keyword)
 {
-	fc_text_parse_whitespaces(stream);
+	fcTextParseWhitespaces(stream);
 	
 	const u32 length = (u32)strlen(keyword);
 	for(u32 i=0; i<length; ++i)
 	{
-		if(fc_text_stream_is_eof(stream, i))
+		if(fcTextStreamIsEOF(stream, i))
 		{
 			return false;
 		}
@@ -69,14 +69,14 @@ bool fc_text_parse_keyword(fc_text_stream_ro_t* stream, const char* keyword)
 	return true;
 }
 
-bool fc_text_parse_int32(fc_text_stream_ro_t* stream, i32* out)
+bool fcTextParseInt32(FcTextStreamRO* stream, i32* out)
 {
-	fc_text_parse_whitespaces(stream);
+	fcTextParseWhitespaces(stream);
 	
 	char buf[64] = {0};
 	
 	u32 i = 0;
-	while(!fc_text_stream_is_eof(stream, i) && fc_text_parse_is_numeric(stream->ptr[i]) && i < 63)
+	while(!fcTextStreamIsEOF(stream, i) && fcTextParseIsNumeric(stream->ptr[i]) && i < 63)
 	{
 		buf[i] = stream->ptr[i];
 		++i;
@@ -94,14 +94,14 @@ bool fc_text_parse_int32(fc_text_stream_ro_t* stream, i32* out)
 	return true;
 }
 
-bool fc_text_parse_uint32(fc_text_stream_ro_t* stream, u32* out)
+bool fcTextParseUint32(FcTextStreamRO* stream, u32* out)
 {
-	fc_text_parse_whitespaces(stream);
+	fcTextParseWhitespaces(stream);
 	
 	char buf[64] = {0};
 	
 	u32 i = 0;
-	while(!fc_text_stream_is_eof(stream, i) && fc_text_parse_is_numeric(stream->ptr[i]) && i < 63)
+	while(!fcTextStreamIsEOF(stream, i) && fcTextParseIsNumeric(stream->ptr[i]) && i < 63)
 	{
 		buf[i] = stream->ptr[i];
 		++i;
@@ -119,14 +119,14 @@ bool fc_text_parse_uint32(fc_text_stream_ro_t* stream, u32* out)
 	return true;
 }
 
-bool fc_text_parse_float(fc_text_stream_ro_t* stream, f32* out)
+bool fcTextParseFloat(FcTextStreamRO* stream, f32* out)
 {
-	fc_text_parse_whitespaces(stream);
+	fcTextParseWhitespaces(stream);
 	
 	char buf[64] = {0};
 	
 	u32 i = 0;
-	while(!fc_text_stream_is_eof(stream, i) && (fc_text_parse_is_numeric(stream->ptr[i]) || stream->ptr[i] == '.') && i < 63)
+	while(!fcTextStreamIsEOF(stream, i) && (fcTextParseIsNumeric(stream->ptr[i]) || stream->ptr[i] == '.') && i < 63)
 	{
 		buf[i] = stream->ptr[i];
 		++i;
@@ -144,15 +144,15 @@ bool fc_text_parse_float(fc_text_stream_ro_t* stream, f32* out)
 	return true;
 }
 
-bool fc_text_parse_skip_line(fc_text_stream_ro_t* stream)
+bool fcTextParseSkipLine(FcTextStreamRO* stream)
 {
 	u32 i = 0;
-	while(!fc_text_stream_is_eof(stream, i) && stream->ptr[i] != '\n')
+	while(!fcTextStreamIsEOF(stream, i) && stream->ptr[i] != '\n')
 	{
 		++i;
 	}
 	
-	if(!fc_text_stream_is_eof(stream, i) && stream->ptr[i] == '\n')
+	if(!fcTextStreamIsEOF(stream, i) && stream->ptr[i] == '\n')
 	{
 		++i;
 	}

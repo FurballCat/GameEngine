@@ -9,8 +9,8 @@
 
 #define FUR_ASSERT(x) assert(x)
 
-void fr_image_create(VkDevice device, VkPhysicalDevice physicalDevice, const fr_image_desc_t* pDesc,
-					 fr_image_t* pImage, struct fc_alloc_callbacks_t* pAllocCallbacks)
+void fcImageCreate(VkDevice device, VkPhysicalDevice physicalDevice, const FcImageDesc* pDesc,
+					 FcImage* pImage, struct FcAllocator* pAllocCallbacks)
 {
 	VkImageCreateInfo imageInfo = {0};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -40,7 +40,7 @@ void fr_image_create(VkDevice device, VkPhysicalDevice physicalDevice, const fr_
 	VkMemoryAllocateInfo allocInfo = {0};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = fr_find_memory_type(physicalDevice, memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	allocInfo.memoryTypeIndex = fcRenderFindMemoryType(physicalDevice, memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	
 	if (vkAllocateMemory(device, &allocInfo, NULL, &pImage->memory) != VK_SUCCESS)
 	{
@@ -66,7 +66,7 @@ void fr_image_create(VkDevice device, VkPhysicalDevice physicalDevice, const fr_
 	}
 }
 
-void fr_image_release(VkDevice device, fr_image_t* pImage, struct fc_alloc_callbacks_t* pAllocCallbacks)
+void fcImageRelease(VkDevice device, FcImage* pImage, struct FcAllocator* pAllocCallbacks)
 {
 	vkDestroyImageView(device, pImage->view, NULL);
 	vkDestroyImage(device, pImage->image, NULL);

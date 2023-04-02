@@ -11,19 +11,19 @@
 
 #define FUR_ASSERT(x) assert(x)
 
-void fr_staging_init(fr_staging_buffer_builder_t* builder)
+void fcRenderStagingInit(FcRenderStagingBufferBuilder* builder)
 {
-	memset(builder, 0, sizeof(fr_staging_buffer_builder_t));
+	memset(builder, 0, sizeof(FcRenderStagingBufferBuilder));
 }
 
-void fr_staging_add(fr_staging_buffer_builder_t* builder, void* pData, u32 size,
-					void* pUserData, fr_staging_free_data_func_t fnFree)
+void fcRenderStagingAdd(FcRenderStagingBufferBuilder* builder, void* pData, u32 size,
+					void* pUserData, FcRenderStagingFreeDataFn fnFree)
 {
 	FUR_ASSERT(builder);
 	FUR_ASSERT(pData);
 	FUR_ASSERT(builder->count < FR_STAGIN_BUFFER_MAX_COUNT);
 	
-	fr_staging_buffer_entry_t* entry = &builder->entries[builder->count];
+	FcRenderStagingBufferEntry* entry = &builder->entries[builder->count];
 	
 	// buffer info & data
 	entry->pData = pData;
@@ -39,12 +39,12 @@ void fr_staging_add(fr_staging_buffer_builder_t* builder, void* pData, u32 size,
 	builder->count += 1;
 }
 
-void fr_staging_build(fr_staging_buffer_builder_t* builder,
+void fcRenderStagingBuild(FcRenderStagingBufferBuilder* builder,
 					  VkDevice device, VkPhysicalDevice physicalDevice,
 					  VkBuffer* buffer, VkDeviceMemory* bufferMemory,
-					  struct fc_alloc_callbacks_t* pAllocCallbacks)
+					  struct FcAllocator* pAllocCallbacks)
 {
-	fr_create_buffer(device, physicalDevice, builder->totalSize,
+	fcRenderCreateBuffer(device, physicalDevice, builder->totalSize,
 					 FR_STAGING_BUFFER_USAGE_FLAGS, FR_STAGING_BUFFER_MEMORY_FLAGS,
 					 buffer, bufferMemory, pAllocCallbacks);
 	
@@ -52,10 +52,10 @@ void fr_staging_build(fr_staging_buffer_builder_t* builder,
 	
 	for(u32 i=0; i<builder->count; ++i)
 	{
-		fr_staging_buffer_entry_t* entry = &builder->entries[i];
+		FcRenderStagingBufferEntry* entry = &builder->entries[i];
 		
 		FUR_ASSERT(entry->pData);
-		fr_copy_data_to_buffer(device, *bufferMemory, entry->pData, currentSize, entry->size);
+		fcRenderCopyDataToBuffer(device, *bufferMemory, entry->pData, currentSize, entry->size);
 		
 		currentSize += entry->size;
 	}
@@ -63,11 +63,11 @@ void fr_staging_build(fr_staging_buffer_builder_t* builder,
 	FUR_ASSERT(currentSize == builder->totalSize);
 }
 
-void fr_staging_release_builder(fr_staging_buffer_builder_t* builder)
+void fcRenderStagingBufferBuilderRelease(FcRenderStagingBufferBuilder* builder)
 {
 	for(u32 i=0; i<builder->count; ++i)
 	{
-		fr_staging_buffer_entry_t* entry = &builder->entries[i];
+		FcRenderStagingBufferEntry* entry = &builder->entries[i];
 		
 		if(entry->fnFree)
 		{
@@ -77,7 +77,7 @@ void fr_staging_release_builder(fr_staging_buffer_builder_t* builder)
 	}
 }
 
-void fr_staging_record_copy_commands(fr_staging_buffer_builder_t* builder, VkCommandBuffer commandBuffer, VkBuffer stagingBuffer,
+void fcRenderStagingRecordCompyCommands(FcRenderStagingBufferBuilder* builder, VkCommandBuffer commandBuffer, VkBuffer stagingBuffer,
 									 u32* aSrcRegionIndex, VkBuffer* aDstBuffer, const VkDeviceSize* aDstOffsets, u32 numBuffers)
 {
 	for(u32 i=0; i<numBuffers; ++i)
@@ -85,7 +85,7 @@ void fr_staging_record_copy_commands(fr_staging_buffer_builder_t* builder, VkCom
 		const u32 srcIndex = aSrcRegionIndex[i];
 		FUR_ASSERT(srcIndex < builder->count);
 		
-		const fr_staging_buffer_entry_t* entry = &builder->entries[srcIndex];
+		const FcRenderStagingBufferEntry* entry = &builder->entries[srcIndex];
 		
 		VkBufferCopy copyRegion = {0};
 		copyRegion.srcOffset = entry->offset; // Optional
@@ -96,7 +96,7 @@ void fr_staging_record_copy_commands(fr_staging_buffer_builder_t* builder, VkCom
 	}
 }
 
-void fr_alloc_descriptor_sets_mesh(VkDevice device, fr_alloc_descriptor_sets_mesh_ctx_t* ctx)
+void fcRenderAllocDescriptorSetsMesh(VkDevice device, FcRenderAllocDescriptorSetsMeshCtx* ctx)
 {
 	// allocate descriptor sets - remember that the descriptorPool needs space for them
 	VkDescriptorSetLayout layouts[20] = {0};	// max layouts
@@ -172,7 +172,7 @@ void fr_alloc_descriptor_sets_mesh(VkDevice device, fr_alloc_descriptor_sets_mes
 	}
 }
 
-void fr_write_descriptor_set(VkDevice device, fr_write_descriptor_set_ctx_t* ctx, VkDescriptorSet descriptor)
+void fcRenderWriteDescriptorSets(VkDevice device, FcRenderWriteDescriptorSetsCtx* ctx, VkDescriptorSet descriptor)
 {
 	// textures
 	VkDescriptorImageInfo imageInfo[20] = {0};
@@ -242,7 +242,7 @@ void fr_write_descriptor_set(VkDevice device, fr_write_descriptor_set_ctx_t* ctx
 
 // --------------------
 
-VkCommandBuffer fr_begin_simple_commands(VkDevice device, VkCommandPool commandPool, struct fc_alloc_callbacks_t* pAllocCallbacks)
+VkCommandBuffer fcRenderBeginSimpleCommands(VkDevice device, VkCommandPool commandPool, struct FcAllocator* pAllocCallbacks)
 {
 	VkCommandBufferAllocateInfo allocInfo = {0};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -269,7 +269,7 @@ VkCommandBuffer fr_begin_simple_commands(VkDevice device, VkCommandPool commandP
 	return commandBuffer;
 }
 
-void fr_end_simple_commands(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool, struct fc_alloc_callbacks_t* pAllocCallbacks)
+void fcRenderEndSimpleCommands(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool, struct FcAllocator* pAllocCallbacks)
 {
 	if(vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
 	{
@@ -288,7 +288,7 @@ void fr_end_simple_commands(VkDevice device, VkQueue graphicsQueue, VkCommandBuf
 }
 
 // begin primary command buffer that will be disposed immediately after submission
-VkCommandBuffer fr_begin_primary_disposable_command_buffer(VkDevice device, VkCommandPool commandPool, struct fc_alloc_callbacks_t* pAllocCallbacks)
+VkCommandBuffer fcRenderBeginPrimaryDisposableCommandBuffer(VkDevice device, VkCommandPool commandPool, struct FcAllocator* pAllocCallbacks)
 {
 	VkCommandBufferAllocateInfo allocInfo = {0};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -316,8 +316,8 @@ VkCommandBuffer fr_begin_primary_disposable_command_buffer(VkDevice device, VkCo
 }
 
 // end primary command buffer and submit to GPU, dispose after
-void fr_end_primary_disposable_command_buffer(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool,
-											  VkSemaphore imageAvailableSemaphore, VkSemaphore renderFinishedSemaphore, struct fc_alloc_callbacks_t* pAllocCallbacks)
+void fcRenderEndPrimaryDisposableCommandBuffer(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool,
+											  VkSemaphore imageAvailableSemaphore, VkSemaphore renderFinishedSemaphore, struct FcAllocator* pAllocCallbacks)
 {
 	if(vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
 	{
@@ -362,9 +362,9 @@ bool fr_has_stencil_component(VkFormat format)
 	return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 
-void fr_transition_image_layout(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, struct fc_alloc_callbacks_t* pAllocCallbacks)
+void fcRenderTransitionImageLayout(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, struct FcAllocator* pAllocCallbacks)
 {
-	VkCommandBuffer commandBuffer = fr_begin_simple_commands(device, commandPool, pAllocCallbacks);
+	VkCommandBuffer commandBuffer = fcRenderBeginSimpleCommands(device, commandPool, pAllocCallbacks);
 	
 	VkImageMemoryBarrier barrier = {0};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -439,13 +439,13 @@ void fr_transition_image_layout(VkDevice device, VkQueue graphicsQueue, VkComman
 						 1, &barrier
 						 );
 	
-	fr_end_simple_commands(device, graphicsQueue, commandBuffer, commandPool, pAllocCallbacks);
+	fcRenderEndSimpleCommands(device, graphicsQueue, commandBuffer, commandPool, pAllocCallbacks);
 }
 
-void fr_copy_buffer_to_image(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkBuffer buffer,
-							 VkDeviceSize bufferOffset, VkImage image, u32 width, u32 height, struct fc_alloc_callbacks_t* pAllocCallbacks)
+void fcRenderCopyBufferToImage(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkBuffer buffer,
+							 VkDeviceSize bufferOffset, VkImage image, u32 width, u32 height, struct FcAllocator* pAllocCallbacks)
 {
-	VkCommandBuffer commandBuffer = fr_begin_simple_commands(device, commandPool, pAllocCallbacks);
+	VkCommandBuffer commandBuffer = fcRenderBeginSimpleCommands(device, commandPool, pAllocCallbacks);
 	
 	VkBufferImageCopy region = {0};
 	region.bufferOffset = bufferOffset;
@@ -466,10 +466,10 @@ void fr_copy_buffer_to_image(VkDevice device, VkQueue graphicsQueue, VkCommandPo
 	
 	vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 	
-	fr_end_simple_commands(device, graphicsQueue, commandBuffer, commandPool, pAllocCallbacks);
+	fcRenderEndSimpleCommands(device, graphicsQueue, commandBuffer, commandPool, pAllocCallbacks);
 }
 
-u32 fr_find_memory_type(const VkPhysicalDevice physicalDevice, u32 typeFilter, VkMemoryPropertyFlags propertyFlags)
+u32 fcRenderFindMemoryType(const VkPhysicalDevice physicalDevice, u32 typeFilter, VkMemoryPropertyFlags propertyFlags)
 {
 	VkPhysicalDeviceMemoryProperties memProperties;
 	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);

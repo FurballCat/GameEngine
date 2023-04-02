@@ -12,42 +12,42 @@ extern "C"
 #include <inttypes.h>
 #include <stdbool.h>
 
-typedef struct fa_pose_stack_t fa_pose_stack_t;
-typedef struct fa_pose_cache_t fa_pose_cache_t;
-typedef struct fa_rig_t fa_rig_t;
-typedef struct fa_anim_clip_t fa_anim_clip_t;
+typedef struct FcPoseStack FcPoseStack;
+typedef struct FcPoseCache FcPoseCache;
+typedef struct FcRig FcRig;
+typedef struct FcAnimClip FcAnimClip;
 
-typedef struct fa_pose_cache_t
+typedef struct FcPoseCache
 {
-	fa_pose_t tempPose;
+	FcPose tempPose;
 	f32 alpha;
-} fa_pose_cache_t;
+} FcPoseCache;
 
-typedef struct fa_cmd_context_debug_t
+typedef struct FcCommandBufferContextDebug
 {
 	u32 cmdDrawCursorVerticalPos;
-} fa_cmd_context_debug_t;
+} FcCommandBufferContextDebug;
 	
-typedef struct fa_cmd_context_t
+typedef struct FcAnimCommandCtx
 {
-	fa_pose_stack_t* poseStack;
-	const fa_pose_cache_t* poseCache;
-	const fa_rig_t* rig;
-	const fa_anim_clip_t** animClips;
+	FcPoseStack* poseStack;
+	const FcPoseCache* poseCache;
+	const FcRig* rig;
+	const FcAnimClip** animClips;
 	u32 numAnimClips;
 	
 	const u8* mask;	// optional, default is NULL
 	
-	fa_cmd_context_debug_t* debug;	// if NULL, don't use debug
-} fa_cmd_context_t;
+	FcCommandBufferContextDebug* debug;	// if NULL, don't use debug
+} FcAnimCommandCtx;
 
-typedef struct fa_cmd_buffer_t
+typedef struct FcAnimCommandBuffer
 {
 	void* data;
 	u32 size;
-} fa_cmd_buffer_t;
+} FcAnimCommandBuffer;
 	
-typedef struct fa_cmd_buffer_recorder_t
+typedef struct FcCommandBufferRecorder
 {
 	void* currPointer;
 	u32 sizeLeft;
@@ -55,32 +55,33 @@ typedef struct fa_cmd_buffer_recorder_t
 	
 	u32 poseStackInitialSize;
 	u32 poseStackSizeTracking;
-} fa_cmd_buffer_recorder_t;
+} FcCommandBufferRecorder;
 
-typedef enum fa_cmd_status_t
+typedef enum FcAnimCommandStatus
 {
 	FA_CMD_STATUS_OK = 0,
 	FA_CMD_STATUS_STOP = 1,
-} fa_cmd_status_t;
+} FcAnimCommandStatus;
 	
-typedef fa_cmd_status_t (*fa_cmd_func_t)(fa_cmd_context_t* ctx, const void* cmdData);
+typedef FcAnimCommandStatus (*FcAnimCommandFn)(FcAnimCommandCtx* ctx, const void* cmdData);
 
-CANIM_API void fa_cmd_buffer_evaluate(const fa_cmd_buffer_t* buffer, fa_cmd_context_t* ctx);
+CANIM_API void fcAnimCmdBufferEvaluate(const FcAnimCommandBuffer* buffer, FcAnimCommandCtx* ctx);
 	
-CANIM_API void fa_cmd_buffer_recorder_init(fa_cmd_buffer_recorder_t* recorder, void* outData, u32 maxSize);
-CANIM_API void fa_cmd_begin(fa_cmd_buffer_recorder_t* recorder, u32 poseStackInitialSize);	// poseStackInitialSize = 0 by default
-CANIM_API void fa_cmd_end(fa_cmd_buffer_recorder_t* recorder);
+CANIM_API void fcAnimCmdBufferRecorderInit(FcCommandBufferRecorder* recorder, void* outData, u32 maxSize);
+CANIM_API void fcAnimCmdBegin(FcCommandBufferRecorder* recorder, u32 poseStackInitialSize);	// poseStackInitialSize = 0 by default
+CANIM_API void fcAnimCmdEnd(FcCommandBufferRecorder* recorder);
 
-CANIM_API void fa_cmd_ref_pose(fa_cmd_buffer_recorder_t* recorder);
-CANIM_API void fa_cmd_identity(fa_cmd_buffer_recorder_t* recorder);
-CANIM_API void fa_cmd_anim_sample(fa_cmd_buffer_recorder_t* recorder, f32 time, u16 animClipId);
-CANIM_API void fa_cmd_anim_sample_additive(fa_cmd_buffer_recorder_t* recorder, f32 time, u16 animClipId);
-CANIM_API void fa_cmd_blend2(fa_cmd_buffer_recorder_t* recorder, f32 alpha);
-CANIM_API void fa_cmd_blend_override(fa_cmd_buffer_recorder_t* recorder, f32 alpha, u16 maskId);
-CANIM_API void fa_cmd_blend_additive(fa_cmd_buffer_recorder_t* recorder, f32 alpha);
-CANIM_API void fa_cmd_use_cached_pose(fa_cmd_buffer_recorder_t* recorder, u16 poseId);
-CANIM_API void fa_cmd_apply_mask(fa_cmd_buffer_recorder_t* recorder, u16 maskId);
-CANIM_API void fa_cmd_anim_sample_with_locomotion(fa_cmd_buffer_recorder_t* recorder, f32 time, u16 animClipId, bool resetLoco, i32 loops, f32* prevLocoPos, f32* prevLocoRot);
+CANIM_API void fcAnimCmdRefPose(FcCommandBufferRecorder* recorder);
+CANIM_API void fcAnimCmdIdentity(FcCommandBufferRecorder* recorder);
+CANIM_API void fcAnimCmdSample(FcCommandBufferRecorder* recorder, f32 time, u16 animClipId);
+CANIM_API void fcAnimCmdSampleAdditive(FcCommandBufferRecorder* recorder, f32 time, u16 animClipId);
+CANIM_API void fcAnimCmdApplyAdditive(FcCommandBufferRecorder* recorder, f32 weight);
+CANIM_API void fcAnimCmdBlend(FcCommandBufferRecorder* recorder, f32 alpha);
+CANIM_API void fcAnimCmdBlendMasked(FcCommandBufferRecorder* recorder, f32 alpha, u16 maskId);
+CANIM_API void fcAnimCmdBlendAdditive(FcCommandBufferRecorder* recorder, f32 alpha);
+CANIM_API void fcAnimCmdUseCachedPose(FcCommandBufferRecorder* recorder, u16 poseId);
+CANIM_API void fcAnimCmdApplyMask(FcCommandBufferRecorder* recorder, u16 maskId);
+CANIM_API void fcAnimCmdSampleWithLocomotion(FcCommandBufferRecorder* recorder, f32 time, u16 animClipId, bool resetLoco, i32 loops, f32* prevLocoPos, f32* prevLocoRot);
 
 #ifdef __cplusplus
 }

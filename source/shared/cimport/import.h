@@ -10,20 +10,20 @@ extern "C"
 #include "ccore/types.h"
 #include "api.h"
 	
-typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
+typedef struct FcAllocator FcAllocator;
 	
 typedef struct fm_xform fm_xform;
 typedef struct fm_mat4 fm_mat4;
 	
-typedef u32 fc_string_hash_t;
+typedef u32 FcStringId;
 	
-typedef enum fi_result_t
+typedef enum FcImportResult
 {
 	FI_RESULT_OK = 0,
 	FI_RESULT_CANT_FIND_FILE = 1,
 	FI_RESULT_UNKNOWN_IMPORT_ERROR,
 	FI_RESULT_UNKNOWN_FILE_FORMAT_IMPORT_ERROR,
-} fi_result_t;
+} FcImportResult;
 
 typedef struct fi_depot_t
 {
@@ -32,44 +32,44 @@ typedef struct fi_depot_t
 
 // -----
 	
-typedef struct fa_rig_t fa_rig_t;
+typedef struct FcRig FcRig;
 
 typedef struct fi_import_rig_ctx_t
 {
 	const char* path;
 } fi_import_rig_ctx_t;
 	
-CIMPORT_API fi_result_t fi_import_rig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ctx, fa_rig_t** ppRig, fc_alloc_callbacks_t* pAllocCallbacks);
+CIMPORT_API FcImportResult fcImportRig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ctx, FcRig** ppRig, FcAllocator* pAllocCallbacks);
 	
-typedef struct fa_anim_clip_t fa_anim_clip_t;
+typedef struct FcAnimClip FcAnimClip;
 	
-typedef struct fi_import_anim_clip_ctx_t
+typedef struct FcImportAnimClipCtx
 {
 	const char* path;
 	bool extractRootMotion;
 	
-	const fa_rig_t* rig;
-} fi_import_anim_clip_ctx_t;
+	const FcRig* rig;
+} FcImportAnimClipCtx;
 
-CIMPORT_API fi_result_t fi_import_anim_clip(const fi_depot_t* depot, const fi_import_anim_clip_ctx_t* ctx, fa_anim_clip_t** ppAnimClip, fc_alloc_callbacks_t* pAllocCallbacks);
+CIMPORT_API FcImportResult fcImportAnimClip(const fi_depot_t* depot, const FcImportAnimClipCtx* ctx, FcAnimClip** ppAnimClip, FcAllocator* pAllocCallbacks);
 	
 // -----
 	
-typedef struct fi_import_mesh_ctx_t
+typedef struct FcImportMeshCtx
 {
 	const char* path;
-} fi_import_mesh_ctx_t;
+} FcImportMeshCtx;
 
 // if you want to change it then shaders and vertex layout descriptors needs to be changed
 #define FUR_MAX_SKIN_INDICES_PER_VERTEX 4
 
-typedef struct fr_resource_mesh_chunk_skin_t
+typedef struct FcMeshResourceChunkSkin
 {
 	int16_t indices[FUR_MAX_SKIN_INDICES_PER_VERTEX];
 	f32 weights[FUR_MAX_SKIN_INDICES_PER_VERTEX];
-} fr_resource_mesh_chunk_skin_t;
+} FcMeshResourceChunkSkin;
 	
-typedef struct fr_resource_mesh_chunk_t
+typedef struct FcMeshResourceChunk
 {
 	f32* dataVertices;
 	u32 numVertices;
@@ -80,29 +80,29 @@ typedef struct fr_resource_mesh_chunk_t
 	u32 vertexStride;
 	
 	// skinning indices and weights, size of numVertices
-	fr_resource_mesh_chunk_skin_t* dataSkinning;
+	FcMeshResourceChunkSkin* dataSkinning;
 	
 	// bind pose
-	fc_string_hash_t* boneNameHashes;
+	FcStringId* boneNameHashes;
 	fm_mat4* bindPose;
 	u32 numBones;
 	
-} fr_resource_mesh_chunk_t;
+} FcMeshResourceChunk;
 	
-typedef struct fr_resource_mesh_t
+typedef struct FcMeshResource
 {
 	u8 version;
 	
-	fr_resource_mesh_chunk_t* chunks;
+	FcMeshResourceChunk* chunks;
 	u32 numChunks;
-} fr_resource_mesh_t;
+} FcMeshResource;
 	
-CIMPORT_API fi_result_t fi_import_mesh(const fi_depot_t* depot, const fi_import_mesh_ctx_t* ctx, fr_resource_mesh_t** ppMesh, fc_alloc_callbacks_t* pAllocCallbacks);
+CIMPORT_API FcImportResult fcImportMeshResource(const fi_depot_t* depot, const FcImportMeshCtx* ctx, FcMeshResource** ppMesh, FcAllocator* pAllocCallbacks);
 	
-CIMPORT_API void fr_mesh_release(fr_resource_mesh_t* ppMesh, fc_alloc_callbacks_t* pAllocCallbacks);
+CIMPORT_API void fcMeshResourceRelease(FcMeshResource* ppMesh, FcAllocator* pAllocCallbacks);
 
-typedef struct fc_serializer_t fc_serializer_t;
-CIMPORT_API void fr_resource_mesh_serialize(fc_serializer_t* pSerializer, fr_resource_mesh_t* mesh, fc_alloc_callbacks_t* pAllocCallbacks);
+typedef struct FcSerializer FcSerializer;
+CIMPORT_API void fcMeshResourceSerialize(FcSerializer* pSerializer, FcMeshResource* mesh, FcAllocator* pAllocCallbacks);
 
 #ifdef __cplusplus
 }

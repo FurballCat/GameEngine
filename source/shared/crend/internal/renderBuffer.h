@@ -4,45 +4,45 @@
 
 #include "ccore/types.h"
 
-struct fc_alloc_callbacks_t;
+struct FcAllocator;
 
 // desc for buffer creation
-typedef struct fr_buffer_desc_t
+typedef struct FcRenderBufferDesc
 {
 	VkDeviceSize size;
 	VkBufferUsageFlags usage;
 	VkMemoryPropertyFlags properties;
-} fr_buffer_desc_t;
+} FcRenderBufferDesc;
 
 // buffer compact handle and data
-typedef struct fr_buffer_t
+typedef struct FcRenderBuffer
 {
 	VkBuffer buffer;
 	VkDeviceMemory memory;
 	VkDeviceSize size;
-} fr_buffer_t;
+} FcRenderBuffer;
 
 // buffer creation, allocates memory
-void fr_buffer_create(VkDevice device, VkPhysicalDevice physicalDevice, const fr_buffer_desc_t* pDesc,
-					  fr_buffer_t* pBuffer, struct fc_alloc_callbacks_t* pAllocCallbacks);
+void fcRenderBufferCreate(VkDevice device, VkPhysicalDevice physicalDevice, const FcRenderBufferDesc* pDesc,
+					  FcRenderBuffer* pBuffer, struct FcAllocator* pAllocCallbacks);
 
 // buffer release, deallocates memory
-void fr_buffer_release(VkDevice device, fr_buffer_t* pBuffer, struct fc_alloc_callbacks_t* pAllocCallbacks);
+void fcRenderBufferRelease(VkDevice device, FcRenderBuffer* pBuffer, struct FcAllocator* pAllocCallbacks);
 
-void fr_create_buffer(VkDevice device, VkPhysicalDevice physicalDevice,
+void fcRenderCreateBuffer(VkDevice device, VkPhysicalDevice physicalDevice,
 					VkDeviceSize size, VkBufferUsageFlags usage,
 					VkMemoryPropertyFlags properties,
 					VkBuffer* buffer, VkDeviceMemory* bufferMemory,
-					struct fc_alloc_callbacks_t* pAllocCallbacks);
+					struct FcAllocator* pAllocCallbacks);
 
-void fr_create_image(VkDevice device, VkPhysicalDevice physicalDevice,
+void fcRenderCreateImage(VkDevice device, VkPhysicalDevice physicalDevice,
 					 VkDeviceSize size, VkFormat format, VkBufferUsageFlags usage,
 					 VkMemoryPropertyFlags properties, u32 width, u32 height,
 					 VkImage* textureImage, VkDeviceMemory* textureImageMemory,
-					 struct fc_alloc_callbacks_t* pAllocCallbacks);
+					 struct FcAllocator* pAllocCallbacks);
 
-void fr_copy_data_to_buffer(VkDevice device, VkDeviceMemory dst, const void* src, u32 offset, u32 size);
-void fr_clear_data_in_buffer(VkDevice device, VkDeviceMemory dst, u32 offset, u32 size);
+void fcRenderCopyDataToBuffer(VkDevice device, VkDeviceMemory dst, const void* src, u32 offset, u32 size);
+void fcRenderClearDataInBuffer(VkDevice device, VkDeviceMemory dst, u32 offset, u32 size);
 
 #define FR_STAGING_BUFFER_USAGE_FLAGS VK_BUFFER_USAGE_TRANSFER_SRC_BIT
 #define FR_STAGING_BUFFER_MEMORY_FLAGS VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT

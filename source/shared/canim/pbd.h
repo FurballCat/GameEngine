@@ -12,12 +12,12 @@ extern "C"
 
 typedef struct fm_vec4 fm_vec4;
 typedef struct fm_mat4 fm_mat4;
-typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
+typedef struct FcAllocator FcAllocator;
 
 // Position Based Dynamics
 
 // Dangles - single chain of particles with distance constraints, colliding against sphere
-typedef struct fa_dangle
+typedef struct FcPBDDangle
 {
 	fm_vec4* x0;
 	fm_vec4* p;
@@ -32,26 +32,26 @@ typedef struct fa_dangle
 	// collision
 	fm_vec4* spherePos;
 	f32 sphereRadius;
-} fa_dangle;
+} FcPBDDangle;
 
-typedef struct fa_dangle_sim_ctx
+typedef struct FcPBDDangleCtx
 {
 	f32 dt;
-} fa_dangle_sim_ctx;
+} FcPBDDangleCtx;
 
-typedef struct fa_dangle_desc
+typedef struct FcPBDDangleDesc
 {
 	u32 numParticles;
 	f32 frequency;
 	f32 dampingCoef;
-} fa_dangle_desc;
+} FcPBDDangleDesc;
 
-CANIM_API void fa_dangle_create(const fa_dangle_desc* desc, fa_dangle* dangle, fc_alloc_callbacks_t* pAllocCallbacks);
-CANIM_API void fa_dangle_release(fa_dangle* dangle, fc_alloc_callbacks_t* pAllocCallbacks);
+CANIM_API void fcPBDDangleCreate(const FcPBDDangleDesc* desc, FcPBDDangle* dangle, FcAllocator* pAllocCallbacks);
+CANIM_API void fcPBDDangleRelease(FcPBDDangle* dangle, FcAllocator* pAllocCallbacks);
 
-CANIM_API void fa_dangle_simulate(const fa_dangle_sim_ctx* ctx, fa_dangle* dangle);
-CANIM_API void fa_dangle_to_matrices_z_up(const fa_dangle* dangle, const fm_mat4* attachmentMatrix, fm_mat4* matrices);
-CANIM_API void fa_dangle_to_matrices_y_down(const fa_dangle* dangle, const fm_mat4* attachmentMatrix, fm_mat4* matrices);
+CANIM_API void fcPBDDangleSimulate(const FcPBDDangleCtx* ctx, FcPBDDangle* dangle);
+CANIM_API void fcPBDDangleToMatricesZUp(const FcPBDDangle* dangle, const fm_mat4* attachmentMatrix, fm_mat4* matrices);
+CANIM_API void fcPBDDangleToMatricesYDown(const FcPBDDangle* dangle, const fm_mat4* attachmentMatrix, fm_mat4* matrices);
 
 #ifdef __cplusplus
 }

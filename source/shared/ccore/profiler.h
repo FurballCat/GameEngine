@@ -17,53 +17,53 @@ extern "C"
 
 // put FUR_PROFILE("scope-name") before curly bracket '{' for automatic scope
 #if FUR_USE_PROFILER
-#define FUR_PROFILE(scopeName) for(fc_profiler_scope_t* __profiler_scope = fc_profiler_scope_begin(scopeName); __profiler_scope; fc_profiler_scope_end(__profiler_scope), __profiler_scope = NULL)
+#define FUR_PROFILE(scopeName) for(FcProfilerScope* __profiler_scope = fcProfilerScopeBegin(scopeName); __profiler_scope; fcProfilerScopeEnd(__profiler_scope), __profiler_scope = NULL)
 #else
 #define FUR_PROFILE(scopeName)
 #endif
 
-typedef struct fc_alloc_callbacks_t fc_alloc_callbacks_t;
+typedef struct FcAllocator FcAllocator;
 
-CCORE_API void fc_profiler_init(fc_alloc_callbacks_t* pAllocCallbacks);
-CCORE_API void fc_profiler_release(fc_alloc_callbacks_t* pAllocCallbacks);
+CCORE_API void fcProfilerInit(FcAllocator* pAllocCallbacks);
+CCORE_API void fcProfilerRelease(FcAllocator* pAllocCallbacks);
 
-typedef struct fc_profiler_scope_t
+typedef struct FcProfilerScope
 {
 	const char* name;
-	struct fc_profiler_scope_t* parent;	// kept only because of fibers
-	fc_timeval_t startTime;
-	fc_timeval_t stopTime;
+	struct FcProfilerScope* parent;	// kept only because of fibers
+	FcTimeval startTime;
+	FcTimeval stopTime;
 	u16 depth;	// depth in callstack
 	u16 threadID;	// the thread that closed the scope
-} fc_profiler_scope_t;
+} FcProfilerScope;
 
-CCORE_API fc_profiler_scope_t* fc_profiler_scope_begin(const char* name);
-CCORE_API void fc_profiler_scope_end(fc_profiler_scope_t* scope);
+CCORE_API FcProfilerScope* fcProfilerScopeBegin(const char* name);
+CCORE_API void fcProfilerScopeEnd(FcProfilerScope* scope);
 
-CCORE_API void fc_profiler_start_frame(void);
-CCORE_API void fc_profiler_end_frame(void);
-CCORE_API void fc_profiler_toggle_draw(void);
-CCORE_API void fc_profiler_toggle_pause(void);
-CCORE_API bool fc_profiler_is_draw_on(void);
-CCORE_API void fc_profiler_zoom_and_pan_delta(f32 zoomDelta, f32 panDelta);
+CCORE_API void fcProfilerStartFrame(void);
+CCORE_API void fcProfilerEndFrame(void);
+CCORE_API void fcProfilerToggleDraw(void);
+CCORE_API void fcProfilerTogglePause(void);
+CCORE_API bool fcProfilerIsDrawOn(void);
+CCORE_API void fcProfilerZoomAndPanDelta(f32 zoomDelta, f32 panDelta);
 
 // put FUR_LOG_PROFILE("scope-name") before curly bracket '{' for automatic scope, use log profiler for engine init or one time functions
 #if FUR_USE_LOG_PROFILER
-#define FUR_LOG_PROFILE(scopeName) for(uint64_t __start_time = fc_log_profiler_begin(); __start_time != 0; fc_log_profiler_end(scopeName, __start_time), __start_time = 0)
+#define FUR_LOG_PROFILE(scopeName) for(uint64_t __start_time = fcLogProfilerBegin(); __start_time != 0; fcLogProfilerEnd(scopeName, __start_time), __start_time = 0)
 #else
 #define FUR_LOG_PROFILE(scopeName)
 #endif
 
-CCORE_API uint64_t fc_log_profiler_begin(void);
-CCORE_API void fc_log_profiler_end(const char* scopeName, uint64_t startTime);
+CCORE_API uint64_t fcLogProfilerBegin(void);
+CCORE_API void fcLogProfilerEnd(const char* scopeName, uint64_t startTime);
 
 // for fibers, to not loose callstack when switching fiber
-i32 fc_profiler_store_scopestack(fc_profiler_scope_t* stack[32]);
-void fc_profiler_load_scopestack(fc_profiler_scope_t* stack[32], i32 numDepth);
+i32 fcProfilerStoreScopestack(FcProfilerScope* stack[32]);
+void fcProfilerLoadScopestack(FcProfilerScope* stack[32], i32 numDepth);
 
 // to detect locks and thread contention
-void fc_profiler_enter_contention(void);
-void fc_profiler_exit_contention(const char* name);
+void fcProfilerEnterContention(void);
+void fcProfilerExitContention(const char* name);
 
 #ifdef __cplusplus
 }

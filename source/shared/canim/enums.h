@@ -17,13 +17,13 @@ typedef enum fm_axis_t
 	FM_AXIS_NEG_Z,
 } fm_axis_t;
 
-typedef enum fa_mask_t
+typedef enum FcAnimMask
 {
 	FA_MASK_NONE = 0,
 	FA_MASK_UPPER_BODY,
 	FA_MASK_FACE,
 	FA_MASK_HANDS,
-} fa_mask_t;
+} FcAnimMask;
 
 #ifdef __cplusplus
 }

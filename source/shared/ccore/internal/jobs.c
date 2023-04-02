@@ -29,20 +29,20 @@ fcontext_t make_fcontext(void * sp, u64 size, void (* fn)(transfer_t) );
 transfer_t ontop_fcontext(fcontext_t const to, void * vp, transfer_t (*fn)(transfer_t));	// based on an idea of Giovanni Derreta
 
 // free list - locless implementation
-typedef struct fc_free_list_lockless
+typedef struct FcFreeList
 {
-	fc_rwlock_t lock;
+	FcLockRW lock;
 	i32 tail;
 	i32* indices;
 	i32 capcity;
-} fc_free_list_lockless;
+} FcFreeList;
 
-void fc_free_list_alloc(fc_free_list_lockless* list, i32 capacity, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcFreeListAlloc(FcFreeList* list, i32 capacity, FcAllocator* pAllocCallbacks)
 {
 	list->capcity = capacity;
 	list->tail = capacity-1;
 	list->indices = FUR_ALLOC_ARRAY(i32, capacity, 0, FC_MEMORY_SCOPE_JOBS, pAllocCallbacks);
-	fc_rwlock_init(&list->lock);
+	fcLockRWInit(&list->lock);
 	
 	for(i32 i=0; i<capacity; ++i)
 	{
@@ -50,12 +50,12 @@ void fc_free_list_alloc(fc_free_list_lockless* list, i32 capacity, fc_alloc_call
 	}
 }
 
-void fc_free_list_free(fc_free_list_lockless* list, fc_alloc_callbacks_t* pAllocCallbacks)
+void fcFreeListFree(FcFreeList* list, FcAllocator* pAllocCallbacks)
 {
 	FUR_FREE(list->indices, pAllocCallbacks);
 }
 
-i32 fc_free_list_acquire(fc_free_list_lockless* list)
+i32 fcFreeListAcquire(FcFreeList* list)
 {
 	i32 index = -1;
 	
@@ -70,7 +70,7 @@ i32 fc_free_list_acquire(fc_free_list_lockless* list)
 	return index;
 }
 
-void fc_free_list_release(fc_free_list_lockless* list, i32 index)
+void fcFreeListRelease(FcFreeList* list, i32 index)
 {
 	FUR_SCOPED_WRITE_LOCK(list->lock, "free-list")
 	{
@@ -82,53 +82,53 @@ void fc_free_list_release(fc_free_list_lockless* list, i32 index)
 	}
 }
 
-typedef struct fc_scheduled_job_t
+typedef struct FcScheduledJob
 {
 	// user data + function
-	fc_job_decl_t decl;
+	FcJobDecl decl;
 	
 	// counter that will be decremented after this job finishes
-	fc_job_counter_t* counter;
+	FcJobCounter* counter;
 	
 	// counter for which this job should wait to be 0 before launching
-	fc_job_counter_t* counterToWaitFor;
+	FcJobCounter* counterToWaitFor;
 	
 	// this is a special job, one to rule them all
 	bool isMainThreadJob;
-} fc_scheduled_job_t;
+} FcScheduledJob;
 
-typedef struct fc_job_result_t
+typedef struct FcJobResult
 {
-	fc_job_counter_t* counterToWaitFor;
+	FcJobCounter* counterToWaitFor;
 	bool isFinished;	// if false, then it means it's suspended
-} fc_job_result_t;
+} FcJobResult;
 
-typedef struct fc_job_system_t
+typedef struct FcJobSystem
 {
-	fc_thread_t mainThreadID;
-	fc_thread_t threadIDs[FUR_NUM_THREADS];
+	FcThread mainThreadID;
+	FcThread threadIDs[FUR_NUM_THREADS];
 	i32 threadIndices[FUR_NUM_THREADS];
 	
 	// counters active and non-active
-	fc_free_list_lockless countersFreeList;
-	fc_job_counter_t* counters;
+	FcFreeList countersFreeList;
+	FcJobCounter* counters;
 	
 	// jobs without fiber assigned
-	fc_free_list_lockless pendingJobsFreeList;
-	fc_scheduled_job_t* pendingJobs;
+	FcFreeList pendingJobsFreeList;
+	FcScheduledJob* pendingJobs;
 	
 	// this is locked between threads
-	fc_rwlock_t pendingJobsIndicesLock;
+	FcLockRW pendingJobsIndicesLock;
 	i32* pendingJobsIndices;
 	volatile i32 numPendingJobsIndices;
 	
 	// active and suspended fiber jobs
-	fc_free_list_lockless fibersFreeList;
+	FcFreeList fibersFreeList;
 	fcontext_t fibers[FUR_NUM_SMALL_FIBERS];
-	fc_scheduled_job_t fiberJobs[FUR_NUM_SMALL_FIBERS];
+	FcScheduledJob fiberJobs[FUR_NUM_SMALL_FIBERS];
 	
 	// suspended fibers wait list
-	fc_rwlock_t suspendedFiberIndicesLock;
+	FcLockRW suspendedFiberIndicesLock;
 	i32 suspendedFiberIndices[FUR_NUM_SMALL_FIBERS];
 	volatile i32 numSuspendedFiberIndices;
 	
@@ -137,52 +137,52 @@ typedef struct fc_job_system_t
 	
 	volatile bool isRunning;
 	
-} fc_job_system_t;
+} FcJobSystem;
 
-fc_job_counter_t* fc_job_system_make_counter(fc_job_system_t* sys, i32 value)
+FcJobCounter* fcJobSystemMakeCounter(FcJobSystem* sys, i32 value)
 {
-	const i32 index = fc_free_list_acquire(&sys->countersFreeList);
+	const i32 index = fcFreeListAcquire(&sys->countersFreeList);
 	
-	fc_job_counter_t* counter = &sys->counters[index];
+	FcJobCounter* counter = &sys->counters[index];
 	counter->index = index;
-	fc_atomic_store(&counter->value, value);
+	fcAtomicIntStore(&counter->value, value);
 	
 	return counter;
 }
 
-void fc_job_system_release_counter(fc_job_system_t* sys, fc_job_counter_t* counter)
+void fcJobSystemReleaseCounter(FcJobSystem* sys, FcJobCounter* counter)
 {
 	const i32 index = counter->index;
-	FUR_ASSERT(fc_atomic_load(&counter->value) == 0);
+	FUR_ASSERT(fcAtomicIntLoad(&counter->value) == 0);
 	
-	fc_free_list_release(&sys->countersFreeList, index);
+	fcFreeListRelease(&sys->countersFreeList, index);
 }
 
-fc_job_system_t g_jobSystem;
+FcJobSystem g_jobSystem;
 
 // a way to go back to worker thread, set only when inside specific job's fiber
 FUR_THREAD_LOCAL fcontext_t g_threadLocalGoToWorker;
 FUR_THREAD_LOCAL i32 g_threadID;
 
-void fc_fiber_func(transfer_t t)
+void fcFiberFunc(transfer_t t)
 {
 	g_threadLocalGoToWorker = t.fctx;
 	
 	// calling the main job function
-	fc_scheduled_job_t* job = (fc_scheduled_job_t*)t.data;
+	FcScheduledJob* job = (FcScheduledJob*)t.data;
 	job->decl.func(job->decl.userData);
 	
 	// fiber return value
-	fc_job_result_t result = {NULL, true};
+	FcJobResult result = {NULL, true};
 	
-	// note: fiber function has to always exit with jump to caller (in this case fc_worker_thread_evaluate)
+	// note: fiber function has to always exit with jump to caller (in this case fcWorkerThreadEvaluate)
 	// as beside return instruction we also have to change the context (stack pointer register) in CPU,
 	// otherwise we would return to some instruction, but with wrong stack.
 	// In case of no jump at the end of function, fcontext assembly code will call exit and halt the program execution.
 	jump_fcontext(g_threadLocalGoToWorker, &result);
 }
 
-void fc_worker_thread_evaluate(i32 threadIndex)
+void fcWorkerThreadEvaluate(i32 threadIndex)
 {
 	const bool isMainThread = (threadIndex == 0);
 	
@@ -200,7 +200,7 @@ void fc_worker_thread_evaluate(i32 threadIndex)
 				continue;
 			
 			// we know that once counter reaches 0, it will stay 0
-			if(fc_atomic_load(&g_jobSystem.fiberJobs[fiberIndex].counterToWaitFor->value) == 0)
+			if(fcAtomicIntLoad(&g_jobSystem.fiberJobs[fiberIndex].counterToWaitFor->value) == 0)
 			{
 				// replace remove this index from suspended list
 				if(i+1 < g_jobSystem.numSuspendedFiberIndices)
@@ -250,15 +250,15 @@ void fc_worker_thread_evaluate(i32 threadIndex)
 			i32 fiberIndex = -1;
 			
 			// reserve fiber
-			fiberIndex = fc_free_list_acquire(&g_jobSystem.fibersFreeList);
+			fiberIndex = fcFreeListAcquire(&g_jobSystem.fibersFreeList);
 			
 			// copy job info and release the slot
 			g_jobSystem.fiberJobs[fiberIndex] = g_jobSystem.pendingJobs[jobIndexToInit];
-			fc_free_list_release(&g_jobSystem.pendingJobsFreeList, jobIndexToInit);
+			fcFreeListRelease(&g_jobSystem.pendingJobsFreeList, jobIndexToInit);
 			
 			// initialise fiber (memory is fiberIndex+1 because stack starts from the other end)
 			void* memStack = (u8*)(g_jobSystem.fiberStackMemory) + (fiberIndex+1) * FUR_SMALL_FIBER_STACK_MEMORY;
-			g_jobSystem.fibers[fiberIndex] = make_fcontext(memStack, FUR_SMALL_FIBER_STACK_MEMORY, fc_fiber_func);
+			g_jobSystem.fibers[fiberIndex] = make_fcontext(memStack, FUR_SMALL_FIBER_STACK_MEMORY, fcFiberFunc);
 			
 			fiberIndexToRun = fiberIndex;
 		}
@@ -271,7 +271,7 @@ void fc_worker_thread_evaluate(i32 threadIndex)
 		
 		// jump to fiber (either beginning or in the middle)
 		transfer_t fiberTransfer = jump_fcontext(fiber, &g_jobSystem.fiberJobs[fiberIndexToRun]);
-		fc_job_result_t* result = (fc_job_result_t*)fiberTransfer.data;
+		FcJobResult* result = (FcJobResult*)fiberTransfer.data;
 		
 		// sanity check, outside fiber this variable should be NULL
 		//FUR_ASSERT(g_threadLocalGoToWorker == NULL);
@@ -299,10 +299,10 @@ void fc_worker_thread_evaluate(i32 threadIndex)
 			FUR_ASSERT(g_jobSystem.fiberJobs[fiberIndexToRun].counter);
 			
 			// decrement counter
-			fc_atomic_fetch_sub(&g_jobSystem.fiberJobs[fiberIndexToRun].counter->value, 1);
+			fcAtomicIntFetchSub(&g_jobSystem.fiberJobs[fiberIndexToRun].counter->value, 1);
 			
 			// release fiber
-			fc_free_list_release(&g_jobSystem.fibersFreeList, fiberIndexToRun);
+			fcFreeListRelease(&g_jobSystem.fibersFreeList, fiberIndexToRun);
 		}
 	}
 	
@@ -314,42 +314,42 @@ void fc_worker_thread_evaluate(i32 threadIndex)
 	}
 }
 
-void* fc_thread_func(void* vargp)
+void* fcThreadFunc(void* vargp)
 {
 	g_threadID = *((const i32*)vargp);
 	
 	while(g_jobSystem.isRunning)
 	{
-		fc_worker_thread_evaluate(g_threadID);
+		fcWorkerThreadEvaluate(g_threadID);
 	}
 	
 	return NULL;
 }
 
-i32 fc_job_system_get_this_thread_index(void)
+i32 fcJobSystemGetThisThreadIndex(void)
 {
 	return g_threadID;
 }
 
-bool fc_job_system_is_main_thread(void)
+bool fcJobSystemIsMainThread(void)
 {
-	return fc_job_system_get_this_thread_index() == 0;
+	return fcJobSystemGetThisThreadIndex() == 0;
 }
 
-i32 fc_job_system_num_max_threads(void)
+i32 fcJobSystemNumMaxThreads(void)
 {
 	return FUR_NUM_THREADS + 1;
 }
 
-void fc_job_system_init(fc_alloc_callbacks_t* pAllocCallbacks)
+void fcJobSystemInit(FcAllocator* pAllocCallbacks)
 {
 	// allocate memory for job system
-	g_jobSystem.counters = FUR_ALLOC_ARRAY_AND_ZERO(fc_job_counter_t, FUR_MAX_JOB_COUNTERS, 0, FC_MEMORY_SCOPE_JOBS, pAllocCallbacks);
-	g_jobSystem.pendingJobs = FUR_ALLOC_ARRAY_AND_ZERO(fc_scheduled_job_t, FUR_MAX_JOBS, 0, FC_MEMORY_SCOPE_JOBS, pAllocCallbacks);
+	g_jobSystem.counters = FUR_ALLOC_ARRAY_AND_ZERO(FcJobCounter, FUR_MAX_JOB_COUNTERS, 0, FC_MEMORY_SCOPE_JOBS, pAllocCallbacks);
+	g_jobSystem.pendingJobs = FUR_ALLOC_ARRAY_AND_ZERO(FcScheduledJob, FUR_MAX_JOBS, 0, FC_MEMORY_SCOPE_JOBS, pAllocCallbacks);
 	
-	fc_free_list_alloc(&g_jobSystem.countersFreeList, FUR_MAX_JOB_COUNTERS, pAllocCallbacks);
-	fc_free_list_alloc(&g_jobSystem.pendingJobsFreeList, FUR_MAX_JOBS, pAllocCallbacks);
-	fc_free_list_alloc(&g_jobSystem.fibersFreeList, FUR_NUM_SMALL_FIBERS, pAllocCallbacks);
+	fcFreeListAlloc(&g_jobSystem.countersFreeList, FUR_MAX_JOB_COUNTERS, pAllocCallbacks);
+	fcFreeListAlloc(&g_jobSystem.pendingJobsFreeList, FUR_MAX_JOBS, pAllocCallbacks);
+	fcFreeListAlloc(&g_jobSystem.fibersFreeList, FUR_NUM_SMALL_FIBERS, pAllocCallbacks);
 	
 	g_jobSystem.pendingJobsIndices = FUR_ALLOC_ARRAY_AND_ZERO(i32, FUR_MAX_JOBS, 0, FC_MEMORY_SCOPE_JOBS, pAllocCallbacks);
 	
@@ -358,53 +358,53 @@ void fc_job_system_init(fc_alloc_callbacks_t* pAllocCallbacks)
 	// when this flag will become false, all worker threads will exit as soon as possible
 	g_jobSystem.isRunning = true;
 	
-	fc_rwlock_init(&g_jobSystem.pendingJobsIndicesLock);
-	fc_rwlock_init(&g_jobSystem.suspendedFiberIndicesLock);
+	fcLockRWInit(&g_jobSystem.pendingJobsIndicesLock);
+	fcLockRWInit(&g_jobSystem.suspendedFiberIndicesLock);
 	
 	// mac note: I'm not sure mac is actually taking my affinity requests into account
 	
 	// set main thread affinity
 	{
-		g_jobSystem.mainThreadID = fc_thread_self();
-		fc_thread_set_affinity(g_jobSystem.mainThreadID, 0);
+		g_jobSystem.mainThreadID = fcThreadSelf();
+		fcThreadSetAffinity(g_jobSystem.mainThreadID, 0);
 	}
 	
 	// start worker threads
 	for(i32 i=0; i<FUR_NUM_THREADS; ++i)
 	{
 		g_jobSystem.threadIndices[i] = i+1;
-		i32 res = fc_thread_create_suspended(&g_jobSystem.threadIDs[i], fc_thread_func, &g_jobSystem.threadIndices[i]);
+		i32 res = fcThreadCreateSuspended(&g_jobSystem.threadIDs[i], fcThreadFunc, &g_jobSystem.threadIndices[i]);
 		FUR_ASSERT(res == 0);
 		
-		fc_thread_set_affinity(g_jobSystem.threadIDs[i], i+1);
-		fc_thread_resume(g_jobSystem.threadIDs[i]);
+		fcThreadSetAffinity(g_jobSystem.threadIDs[i], i+1);
+		fcThreadResume(g_jobSystem.threadIDs[i]);
 	}
 }
 
-void fc_job_system_release(fc_alloc_callbacks_t* pAllocCallbacks)
+void fcJobSystemRelease(FcAllocator* pAllocCallbacks)
 {
 	g_jobSystem.isRunning = false;
 	
 	for(i32 i=0; i<FUR_NUM_THREADS; ++i)
 	{
-		fc_thread_join(g_jobSystem.threadIDs[i]);
+		fcThreadJoin(g_jobSystem.threadIDs[i]);
 	}
 	
 	FUR_FREE(g_jobSystem.fiberStackMemory, pAllocCallbacks);
 	
 	FUR_FREE(g_jobSystem.pendingJobsIndices, pAllocCallbacks);
 	
-	fc_free_list_free(&g_jobSystem.countersFreeList, pAllocCallbacks);
-	fc_free_list_free(&g_jobSystem.pendingJobsFreeList, pAllocCallbacks);
-	fc_free_list_free(&g_jobSystem.fibersFreeList, pAllocCallbacks);
+	fcFreeListFree(&g_jobSystem.countersFreeList, pAllocCallbacks);
+	fcFreeListFree(&g_jobSystem.pendingJobsFreeList, pAllocCallbacks);
+	fcFreeListFree(&g_jobSystem.fibersFreeList, pAllocCallbacks);
 	
 	FUR_FREE(g_jobSystem.pendingJobs, pAllocCallbacks);
 	FUR_FREE(g_jobSystem.counters, pAllocCallbacks);
 }
 
-void fc_run_jobs_internal(const fc_job_decl_t* jobs, i32 numJobs, fc_job_counter_t** outCounter, bool isMainThread)
+void fcRunJobsInternal(const FcJobDecl* jobs, i32 numJobs, FcJobCounter** outCounter, bool isMainThread)
 {
-	fc_job_counter_t* counter = fc_job_system_make_counter(&g_jobSystem, numJobs);
+	FcJobCounter* counter = fcJobSystemMakeCounter(&g_jobSystem, numJobs);
 	*outCounter = counter;
 	
 	FUR_ASSERT(numJobs < 64);	// if you reach 64, then consider increasing the jobsBatchIndices size
@@ -412,8 +412,8 @@ void fc_run_jobs_internal(const fc_job_decl_t* jobs, i32 numJobs, fc_job_counter
 	
 	for(i32 i=0; i<numJobs; ++i)
 	{
-		const i32 jobIndex = fc_free_list_acquire(&g_jobSystem.pendingJobsFreeList);
-		fc_scheduled_job_t* scheduledJob = &g_jobSystem.pendingJobs[jobIndex];
+		const i32 jobIndex = fcFreeListAcquire(&g_jobSystem.pendingJobsFreeList);
+		FcScheduledJob* scheduledJob = &g_jobSystem.pendingJobs[jobIndex];
 		
 		scheduledJob->decl = jobs[i];
 		scheduledJob->counter = counter;
@@ -438,41 +438,41 @@ void fc_run_jobs_internal(const fc_job_decl_t* jobs, i32 numJobs, fc_job_counter
 	}
 }
 
-void fc_job_system_setup_main_thread_job(const fc_job_decl_t* job)
+void fcJobSystemSetupMainThreadJob(const FcJobDecl* job)
 {
-	fc_job_counter_t* counter = NULL;
-	fc_run_jobs_internal(job, 1, &counter, true);
+	FcJobCounter* counter = NULL;
+	fcRunJobsInternal(job, 1, &counter, true);
 }
 
-void fc_job_system_enter_worker_thread_mode(void)
+void fcJobSystemEnterWorkerThreadMode(void)
 {
 	i32 mainThreadIndex = 0;
-	fc_thread_func(&mainThreadIndex);
+	fcThreadFunc(&mainThreadIndex);
 }
 
-void fc_job_system_exit_all_jobs(void)
+void fcJobSystemExitAllJobs(void)
 {
 	g_jobSystem.isRunning = false;
 }
 
-void fc_run_jobs(const fc_job_decl_t* jobs, i32 numJobs, fc_job_counter_t** outCounter)
+void fcRunJobs(const FcJobDecl* jobs, i32 numJobs, FcJobCounter** outCounter)
 {
-	fc_run_jobs_internal(jobs, numJobs, outCounter, false);
+	fcRunJobsInternal(jobs, numJobs, outCounter, false);
 }
 
-void fc_wait_for_counter_and_free(fc_job_counter_t* counter)
+void fcWaitForCounterAndFree(FcJobCounter* counter)
 {
 	// if counnter is not 0, then suspend the fiber
-	if(fc_atomic_load(&counter->value) != 0)
+	if(fcAtomicIntLoad(&counter->value) != 0)
 	{
 #if FUR_USE_PROFILER
 		// store profiler state before jump
-		fc_profiler_scope_t* stack[32];
-		const i32 numStack = fc_profiler_store_scopestack(stack);
+		FcProfilerScope* stack[32];
+		const i32 numStack = fcProfilerStoreScopestack(stack);
 #endif
 		
 		// return from fiber into worker thread function
-		fc_job_result_t result = {0};
+		FcJobResult result = {0};
 		result.isFinished = false;
 		result.counterToWaitFor = counter;
 		
@@ -483,10 +483,10 @@ void fc_wait_for_counter_and_free(fc_job_counter_t* counter)
 		
 #if FUR_USE_PROFILER
 		// load profiler state after jump
-		fc_profiler_load_scopestack(stack, numStack);
+		fcProfilerLoadScopestack(stack, numStack);
 #endif
 	}
 	
 	// otherwise release the counter and continue
-	fc_job_system_release_counter(&g_jobSystem, counter);
+	fcJobSystemReleaseCounter(&g_jobSystem, counter);
 }

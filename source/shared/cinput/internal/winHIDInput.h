@@ -15,7 +15,7 @@ struct TimeInfo;
 #define MAX_PENDING_EVENTS 128
 #define MAX_DEVICE_ELEMENTS 64
 
-typedef struct fi_hid_input_t
+typedef struct FcInputHID
 {
 	GLFWgamepadstate m_controllers[MAX_CONTROLLERS];
 	
@@ -24,12 +24,12 @@ typedef struct fi_hid_input_t
 	f32 m_initialButtonRepeatDelay;
 	f32 m_buttonRepeatDelay;
 	
-	fi_input_event_t m_pendingEvents[MAX_PENDING_EVENTS];
+	FcInputEvent m_pendingEvents[MAX_PENDING_EVENTS];
 	u32 m_numPendingEvents;
-} fi_hid_input_t;
+} FcInputHID;
 
-void fi_hid_input_init(fi_hid_input_t* pInput);
-void fi_hid_input_update(fi_hid_input_t* pInput, f64 currentTime);
-u32 fi_hid_input_get_events(const fi_hid_input_t* pInput, fi_input_event_t* pEvents, u32 capacity, u32 startIndex);
+void fcInputHIDInit(FcInputHID* pInput);
+void fcInputHIDUpdate(FcInputHID* pInput, f64 currentTime);
+u32 fcInputHIDGetEvents(const FcInputHID* pInput, FcInputEvent* pEvents, u32 capacity, u32 startIndex);
 
 #endif

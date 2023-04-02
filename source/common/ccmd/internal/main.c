@@ -6,7 +6,7 @@ int main(int argc, char* argv[])
 {
 	if(argc == 2 && CMD_FLAG("-help"))
 	{
-		fc_cmd_print_help();
+		fcCmdPrintHelp();
 		return 0;
 	}
 	
@@ -18,14 +18,14 @@ int main(int argc, char* argv[])
 	
 	const char* cmdName = argv[1];
 	
-	const fc_cmd_t* cmd = fc_find_cmd(cmdName);
+	const FcCmd* cmd = fcFindCmd(cmdName);
 	if(cmd == NULL)
 	{
 		CMD_LOG_ERROR("can't find command: %s", cmdName);
 		return 2;
 	}
 	
-	fc_cmd_execute_ctx_t ctx = {0};
+	FcCmdExecuteCtx ctx = {0};
 	ctx.assetsPath = "../../assets/";
 	ctx.enginePath = "../../data/";
 	
