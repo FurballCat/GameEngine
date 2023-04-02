@@ -9,21 +9,14 @@
 #define LEVEL_HEAP_MEMORY_CAPACITY 16 * 1024 * 1024
 #define MAX_TYPE_FACTORIES 128
 
-typedef struct fg_world_global_t
-{
-	i32 stuff;
-} fg_world_global_t;
-
-fg_world_global_t g_worldExtended;
-
-typedef struct fg_type_factory_register_t
+typedef struct FcGameObjectFactoryRegister
 {
 	FcStringId typeNames[MAX_TYPE_FACTORIES];
 	FcGameObjectFactory factories[MAX_TYPE_FACTORIES];
 	i32 numFactories;
-} fg_type_factory_register_t;
+} FcGameObjectFactoryRegister;
 
-fg_type_factory_register_t g_typeFactories;
+FcGameObjectFactoryRegister g_typeFactories;
 
 void fcGameObjectFactoryRegisterNew(FcStringId typeName, FcGameObjectFactory factory)
 {
@@ -35,7 +28,7 @@ void fcGameObjectFactoryRegisterNew(FcStringId typeName, FcGameObjectFactory fac
 	g_typeFactories.numFactories++;
 }
 
-const FcGameObjectFactory* fg_type_factory_find(FcStringId typeName)
+const FcGameObjectFactory* fcGameObjectFactoryFind(FcStringId typeName)
 {
 	for(i32 i=0; i<g_typeFactories.numFactories; ++i)
 	{
@@ -50,7 +43,7 @@ const FcGameObjectFactory* fg_type_factory_find(FcStringId typeName)
 	return NULL;
 }
 
-i32 fg_spawn_info_find_prop_index(const fg_spawn_info_properties_t* props, FcStringId name)
+i32 fcSpawnInfoFindPropIndex(const FcSpawnInfoProperties* props, FcStringId name)
 {
 	for(i32 i=0; i<props->num; ++i)
 	{
@@ -61,9 +54,9 @@ i32 fg_spawn_info_find_prop_index(const fg_spawn_info_properties_t* props, FcStr
 	return -1;
 }
 
-f32 fg_spawn_info_get_float(const FcSpawnInfo* info, FcStringId name, f32 defaultValue)
+f32 fcSpawnInfoGetFloat(const FcSpawnInfo* info, FcStringId name, f32 defaultValue)
 {
-	const i32 idx = fg_spawn_info_find_prop_index(&info->props, name);
+	const i32 idx = fcSpawnInfoFindPropIndex(&info->props, name);
 	
 	if(idx != -1)
 		return info->props.values[idx].asFloat;
@@ -71,9 +64,9 @@ f32 fg_spawn_info_get_float(const FcSpawnInfo* info, FcStringId name, f32 defaul
 	return defaultValue;
 }
 
-i32 fg_spawn_info_get_int(const FcSpawnInfo* info, FcStringId name, i32 defaultValue)
+i32 fcSpawnInfoGetInt(const FcSpawnInfo* info, FcStringId name, i32 defaultValue)
 {
-	const i32 idx = fg_spawn_info_find_prop_index(&info->props, name);
+	const i32 idx = fcSpawnInfoFindPropIndex(&info->props, name);
 	
 	if(idx != -1)
 		return info->props.values[idx].asInt32;
@@ -81,12 +74,12 @@ i32 fg_spawn_info_get_int(const FcSpawnInfo* info, FcStringId name, i32 defaultV
 	return defaultValue;
 }
 
-FcStringId fg_spawn_info_get_string_hash(const FcSpawnInfo* info, FcStringId name, FcStringId defaultValue)
+FcStringId fcSpawnInfoGetStringId(const FcSpawnInfo* info, FcStringId name, FcStringId defaultValue)
 {
-	const i32 idx = fg_spawn_info_find_prop_index(&info->props, name);
+	const i32 idx = fcSpawnInfoFindPropIndex(&info->props, name);
 	
 	if(idx != -1)
-		return info->props.values[idx].asStringHash;
+		return info->props.values[idx].asStringId;
 	
 	return defaultValue;
 }
@@ -148,7 +141,7 @@ void fcWorldRelease(FcWorld* world, FcAllocator* pAllocCallbacks)
 
 void fcWorldUpdate(FcWorld* world, FcWorldUpdateCtx* ctx, FcUpdateBucket bucket)
 {
-	FcGameObjectInfoStorage* info = &world->gameObjects;
+	FcGameObjectStorage* info = &world->gameObjects;
 	
 	// scheduled spawn game objects
 	{
@@ -157,7 +150,7 @@ void fcWorldUpdate(FcWorld* world, FcWorldUpdateCtx* ctx, FcUpdateBucket bucket)
 			FcGameObject* gameObject = info->ptr[i];
 			if(gameObject != NULL)
 			{
-				//const FcGameObjectFactory* factory = fg_type_factory_find(info->spawner[i]->typeName);
+				//const FcGameObjectFactory* factory = fcGameObjectFactoryFind(info->spawner[i]->typeName);
 				
 				// game object can allocate its memory on level heap, through this stack allocator
 				FcAllocator levelHeapAlloc = fcMemRelHeapGetAllocator(world->levelHeap);
@@ -200,7 +193,7 @@ void fcWorldUpdate(FcWorld* world, FcWorldUpdateCtx* ctx, FcUpdateBucket bucket)
 	}
 }
 
-void* fg_stack_alloc(fg_stack_allocator_t* allocator, i32 size)
+void* fcStackAlloc(FcStackAllocPool* allocator, i32 size)
 {
 	FUR_ASSERT(allocator->size + size <= allocator->capacity);
 	void* ptr = allocator->ptr;
@@ -260,7 +253,7 @@ void fcResourceRegisterAddMesh(FcResourceRegister* reg, FcStringId name, const F
 	fcMapInsert(&reg->meshes, &name, &res);
 }
 
-FcGameObjectHandle fg_game_object_storage_find_free_handle(FcGameObjectInfoStorage* storage)
+FcGameObjectHandle fcGameObjectStorageFindFreeHandle(FcGameObjectStorage* storage)
 {
 	FcGameObjectHandle handle = {0};
 	handle.index = -1;
@@ -280,19 +273,19 @@ FcGameObjectHandle fg_game_object_storage_find_free_handle(FcGameObjectInfoStora
 
 FcGameObjectHandle fcSpawn(const FcSpawner* spawner, FcWorld* world)
 {
-	const FcGameObjectFactory* factory = fg_type_factory_find(spawner->typeName);
+	const FcGameObjectFactory* factory = fcGameObjectFactoryFind(spawner->typeName);
 	
 	FcAllocator alloc = fcMemRelHeapGetAllocator(world->levelHeap);
 	FcGameObject* gameObject = FUR_ALLOC_AND_ZERO(factory->memoryMaxSize, 0, FC_MEMORY_SCOPE_GAME, &alloc);
 	gameObject->fn = &factory->fn;
 	gameObject->name = spawner->name;
 	
-	FcGameObjectHandle handle = fg_game_object_storage_find_free_handle(&world->gameObjects);
+	FcGameObjectHandle handle = fcGameObjectStorageFindFreeHandle(&world->gameObjects);
 	FUR_ASSERT(handle.index != -1);
 	
 	handle.name = spawner->name;
 	
-	FcGameObjectInfoStorage* info = &world->gameObjects;
+	FcGameObjectStorage* info = &world->gameObjects;
 	info->ptr[handle.index] = gameObject;
 	info->spawner[handle.index] = spawner;
 	

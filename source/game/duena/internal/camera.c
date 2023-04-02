@@ -196,7 +196,7 @@ f32 fcCameraSystemGetFOV(FcCameraSystem* sys)
 	return camera->fov;
 }
 
-typedef struct fg_camera_follow_t
+typedef struct FcCameraFollow
 {
 	// constants
 	f32 poleLength;
@@ -208,7 +208,7 @@ typedef struct fg_camera_follow_t
 	f32 pitch;
 	f32 zoom;
 	
-} fg_camera_follow_t;
+} FcCameraFollow;
 
 void fcCameraFollowBegin(FcCameraCtx* ctx, void* userData)
 {
@@ -218,14 +218,14 @@ void fcCameraFollowBegin(FcCameraCtx* ctx, void* userData)
 	fm_euler_angles angles = {0};
 	fm_quat_to_euler(&lastCamera->locator.rot, &angles);
 	
-	fg_camera_follow_t* data = (fg_camera_follow_t*)userData;
+	FcCameraFollow* data = (FcCameraFollow*)userData;
 	data->yaw = -angles.yaw;
 	data->pitch = -angles.pitch;
 }
 
 void fcCameraFollowUpdate(FcCameraCtx* ctx, void* userData)
 {
-	fg_camera_follow_t* data = (fg_camera_follow_t*)userData;
+	FcCameraFollow* data = (FcCameraFollow*)userData;
 	
 	const f32 poleLength = data->poleLength;
 	fm_vec4 camera_at = {0, 0, data->height, 0};
@@ -278,7 +278,7 @@ void fcCameraFollowUpdate(FcCameraCtx* ctx, void* userData)
 	ctx->camera->fov = data->fov;
 }
 
-void fcEnableCameraFollow(FcCameraSystem* sys, const FcCameraParamsFollow* params, f32 fadeInSec)
+void fcCameraEnableFollow(FcCameraSystem* sys, const FcCameraParamsFollow* params, f32 fadeInSec)
 {
 	FUR_ASSERT(sys->numCameraStack < 16);
 	
@@ -295,7 +295,7 @@ void fcEnableCameraFollow(FcCameraSystem* sys, const FcCameraParamsFollow* param
 	slot->fnBegin = fcCameraFollowBegin;
 	slot->started = false;
 	
-	fg_camera_follow_t* data = (fg_camera_follow_t*)sys->cameraStack[idx].userData;
+	FcCameraFollow* data = (FcCameraFollow*)sys->cameraStack[idx].userData;
 	data->height = params->height;
 	data->poleLength = params->poleLength;
 	data->zoom = params->zoom;

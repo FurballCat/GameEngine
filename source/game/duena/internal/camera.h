@@ -45,7 +45,7 @@ typedef struct FcCameraParamsFollow
 	f32 fov;
 } FcCameraParamsFollow;
 
-void fcEnableCameraFollow(FcCameraSystem* sys, const FcCameraParamsFollow* params, f32 fadeInSec);
+void fcCameraEnableFollow(FcCameraSystem* sys, const FcCameraParamsFollow* params, f32 fadeInSec);
 
 #ifdef __cplusplus
 }

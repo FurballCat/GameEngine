@@ -13,19 +13,19 @@ typedef u32 FcStringId;
 typedef struct FcAllocator FcAllocator;
 typedef struct FcMemRelHeapPool FcMemRelHeapPool;
 
-typedef union fg_spawn_info_prop_value_t
+typedef union FcSpawninfoPropValue
 {
 	i32 asInt32;
 	f32 asFloat;
-	FcStringId asStringHash;
-} fg_spawn_info_prop_value_t;
+	FcStringId asStringId;
+} FcSpawninfoPropValue;
 
-typedef struct fg_spawn_info_properties_t
+typedef struct FcSpawnInfoProperties
 {
 	i32 num;
 	FcStringId* names;
-	fg_spawn_info_prop_value_t* values;
-} fg_spawn_info_properties_t;
+	FcSpawninfoPropValue* values;
+} FcSpawnInfoProperties;
 
 // info for initialising game object
 typedef struct FcSpawnInfo
@@ -34,24 +34,24 @@ typedef struct FcSpawnInfo
 	FcStringId gameObjectName;
 	
 	// key-value list of properties (only different than default)
-	fg_spawn_info_properties_t props;
+	FcSpawnInfoProperties props;
 	
 } FcSpawnInfo;
 
 // get key-value properties through these functions
-f32 fg_spawn_info_get_float(const FcSpawnInfo* info, FcStringId name, f32 defaultValue);
-i32 fg_spawn_info_get_int(const FcSpawnInfo* info, FcStringId name, i32 defaultValue);
-FcStringId fg_spawn_info_get_string_hash(const FcSpawnInfo* info, FcStringId name, FcStringId defaultValue);
+f32 fcSpawnInfoGetFloat(const FcSpawnInfo* info, FcStringId name, f32 defaultValue);
+i32 fcSpawnInfoGetInt(const FcSpawnInfo* info, FcStringId name, i32 defaultValue);
+FcStringId fcSpawnInfoGetStringId(const FcSpawnInfo* info, FcStringId name, FcStringId defaultValue);
 
 // stack allocator for game object used on init
-typedef struct fg_stack_allocator_t
+typedef struct FcStackAllocPool
 {
 	void* ptr;
 	i32 size;
 	i32 capacity;
-} fg_stack_allocator_t;
+} FcStackAllocPool;
 
-void* fg_stack_alloc(fg_stack_allocator_t* allocator, i32 size);
+void* fcStackAlloc(FcStackAllocPool* allocator, i32 size);
 
 typedef enum FcUpdateBucket
 {
@@ -177,7 +177,7 @@ typedef struct FcSpawner
 
 #define MAX_GAME_OBJECTS_SPAWNED 2048
 
-typedef struct FcGameObjectInfoStorage
+typedef struct FcGameObjectStorage
 {
 	FcGameObject* ptr[MAX_GAME_OBJECTS_SPAWNED];
 	const FcSpawner* spawner[MAX_GAME_OBJECTS_SPAWNED];
@@ -187,12 +187,12 @@ typedef struct FcGameObjectInfoStorage
 	
 	// total number of game objects
 	i32 num;
-} FcGameObjectInfoStorage;
+} FcGameObjectStorage;
 
 typedef struct FcWorld
 {
 	// list of all game object info (use game object index to get data)
-	FcGameObjectInfoStorage gameObjects;
+	FcGameObjectStorage gameObjects;
 	
 	// list of all game objects
 	FcArrayGameObjects allGameObjects;

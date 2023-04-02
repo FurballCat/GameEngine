@@ -23,39 +23,39 @@
 
 /**************** FURBALL CAT GAME ENGINE ****************/
 
-typedef union fs_variant_t
+typedef union FcVariant
 {
 	FcStringId asStringHash;
 	i32 asInt32;
 	bool asBool;
 	f32 asFloat;
-} fs_variant_t;
+} FcVariant;
 
 // ***** scripts core ***** //
 
-typedef struct fg_game_object_t fg_game_object_t;
+typedef struct FcGameObjectLegacy FcGameObjectLegacy;
 
-typedef struct fg_game_object_register_t
+typedef struct FcGameObjectLegacyRegister
 {
-	fg_game_object_t** objects;
+	FcGameObjectLegacy** objects;
 	FcStringId* ids;
 	u32 numObjects;	// also numIds
 	u32 capacity;
 	
-	fg_game_object_t* pPlayer; // for quick access
-} fg_game_object_register_t;
+	FcGameObjectLegacy* pPlayer; // for quick access
+} FcGameObjectLegacyRegister;
 
-typedef enum fs_seg_id_t
+typedef enum FcScriptSegmentId
 {
 	FS_SEG_ID_UNKNOWN = 0,
-	FS_SEG_ID_C_FUNC_CALL = 1,	// indicates function call, read fs_script_op_header next
-	FS_SEG_ID_C_FUNC_ARG = 2,	// indicates function argument, read fs_variant_t next
-	FS_SEG_ID_LAMBDA = 3,	// indicates whole lambda (sequence of function calls), read fs_lambda_header_t next
+	FS_SEG_ID_C_FUNC_CALL = 1,	// indicates function call, read FcScriptOpHeader next
+	FS_SEG_ID_C_FUNC_ARG = 2,	// indicates function argument, read FcVariant next
+	FS_SEG_ID_LAMBDA = 3,	// indicates whole lambda (sequence of function calls), read FcScriptSegmentHeader next
 	FS_SEG_ID_STATE = 4,
 	FS_SEG_ID_STATE_ON_EVENT = 5,
 	FS_SEG_ID_STATE_TRACK = 6,
 	FS_SEG_ID_STATE_SCRIPT = 7,
-} fs_op_pre_flag_t;
+} FcScriptSegmentId;
 
 typedef struct FcScriptCtx
 {
@@ -63,12 +63,12 @@ typedef struct FcScriptCtx
 	FcStringId stateEventToCall;
 	
 	FcStringId nextState;
-	fs_variant_t lastResult;
+	FcVariant lastResult;
 	f32 waitSeconds;
 	u32 numSkipOps;
 	
-	fg_game_object_t* self;
-	fg_game_object_register_t* gameObjectRegister;
+	FcGameObjectLegacy* self;
+	FcGameObjectLegacyRegister* gameObjectRegister;
 	FcWorld* world;
 	
 	// systems
@@ -76,71 +76,71 @@ typedef struct FcScriptCtx
 } FcScriptCtx;
 
 // todo: move it somewhere else
-fs_variant_t fs_native_animate(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args);
-fs_variant_t fs_native_wait_animate(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args);
-fs_variant_t fs_native_equip_item(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args);
-fs_variant_t fs_native_wait_seconds(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args);
-fs_variant_t fs_native_get_variable(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args);
-fs_variant_t fs_native_go(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args);
-fs_variant_t fs_native_go_when(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args);
-fs_variant_t fs_native_cmp_gt(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args);
-fs_variant_t fs_native_cmp_eq(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args);
+FcVariant fcScriptNative_Animate(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
+FcVariant fcScriptNative_WaitAnimate(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
+FcVariant fcScriptNative_EquipItem(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
+FcVariant fcScriptNative_WaitSeconds(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
+FcVariant fcScriptNative_GetVariable(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
+FcVariant fcScriptNative_Go(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
+FcVariant fcScriptNative_GoWhen(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
+FcVariant fcScriptNative_CmpGt(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
+FcVariant fcScriptNative_CmpEq(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
 
 // camera script functions
-fs_variant_t fs_native_camera_enable(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args);
+FcVariant fcScriptNative_CameraEnable(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
 
-typedef fs_variant_t (*fs_script_navitve_func_t)(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args);
+typedef FcVariant (*FcScriptNativeFn)(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
 
-typedef struct fs_native_func_entry_t
+typedef struct FcScriptNativeFnEntry
 {
 	FcStringId name;
-	fs_script_navitve_func_t func;
+	FcScriptNativeFn func;
 	u32 numArgs;
-} fs_native_func_entry_t;
+} FcScriptNativeFnEntry;
 
 FcStringId g_scriptNullOpCode = SID("__null");
 
-fs_native_func_entry_t g_nativeFuncLookUp[] = {
-	{ SID("animate"), fs_native_animate, 2 },
-	{ SID("wait-animate"), fs_native_wait_animate, 2 },
-	{ SID("equip-item"), fs_native_equip_item, 2 },
-	{ SID("wait-seconds"), fs_native_wait_seconds, 1 },
-	{ SID("get-variable"), fs_native_get_variable, 2 },
-	{ SID("go"), fs_native_go, 1 },
-	{ SID("go-when"), fs_native_go_when, 2 },
-	{ SID("cmp-gt"), fs_native_cmp_gt, 2 },
-	{ SID("cmp-eq"), fs_native_cmp_eq, 2 },
-	{ SID("camera-enable"), fs_native_camera_enable, 3 },
+FcScriptNativeFnEntry g_nativeFuncLookUp[] = {
+	{ SID("animate"), fcScriptNative_Animate, 2 },
+	{ SID("wait-animate"), fcScriptNative_WaitAnimate, 2 },
+	{ SID("equip-item"), fcScriptNative_EquipItem, 2 },
+	{ SID("wait-seconds"), fcScriptNative_WaitSeconds, 1 },
+	{ SID("get-variable"), fcScriptNative_GetVariable, 2 },
+	{ SID("go"), fcScriptNative_Go, 1 },
+	{ SID("go-when"), fcScriptNative_GoWhen, 2 },
+	{ SID("cmp-gt"), fcScriptNative_CmpGt, 2 },
+	{ SID("cmp-eq"), fcScriptNative_CmpEq, 2 },
+	{ SID("camera-enable"), fcScriptNative_CameraEnable, 3 },
 	{ g_scriptNullOpCode, NULL, 0 }
 };
 
-typedef struct fs_script_op_t
+typedef struct FcScriptOp
 {
-	fs_script_navitve_func_t func;
-	fs_variant_t* args;	// not owning this memory, it's just a pointer
+	FcScriptNativeFn func;
+	FcVariant* args;	// not owning this memory, it's just a pointer
 	u32 numArgs;
-} fs_script_op_t;
+} FcScriptOp;
 
-typedef struct fs_script_data_t
+typedef struct FcScriptData
 {
-	fs_script_op_t* ops;	// sequence of operations
-	fs_variant_t* allArgs; // owning memory to all args for all calls
+	FcScriptOp* ops;	// sequence of operations
+	FcVariant* allArgs; // owning memory to all args for all calls
 	
 	u32 numOps;
 	u32 numAllArgs;
-} fs_script_data_t;
+} FcScriptData;
 
-typedef struct fs_script_state_t
+typedef struct FcScriptState
 {
 	u32 idxOp;
-} fs_script_state_t;
+} FcScriptState;
 
-typedef enum fs_script_parsing_stage_t
+typedef enum FcScriptParsingStage
 {
 	SPS_NONE = 0,
 	SPS_READING,
 	SPS_END,
-} fs_script_parsing_stage_t;
+} FcScriptParsingStage;
 
 /*
  
@@ -153,30 +153,30 @@ typedef enum fs_script_parsing_stage_t
  
  **/
 
-typedef struct fs_script_op_header
+typedef struct FcScriptOpHeader
 {
 	FcStringId opCode;
 	u32 flags;
 	u32 numArgs;
-} fs_script_op_header;
+} FcScriptOpHeader;
 
-typedef struct fs_segment_header_t
+typedef struct FcScriptSegmentHeader
 {
 	u8 segmentId;		// type of segment data (what to expect next)
 	u8 padding;
 	u16 dataSize; 		// segment size in bytes
 	FcStringId name;	// unique name in segment scope (to know what to look for)
-} fs_lambda_header_t;
+} FcScriptSegmentHeader;
 
-typedef struct fs_script_execution_ctx_t
+typedef struct FcScriptExecutionCtx
 {
 	FcBinaryBufferStream scriptBufferStream;
 	FcScriptCtx* scriptCtx;
 	u32 numOpsExecuted;
 	bool endOflambda;
-} fs_script_execution_ctx_t;
+} FcScriptExecutionCtx;
 
-fs_variant_t fs_execute_script_step(fs_script_execution_ctx_t* ctx)
+FcVariant fcScriptExecuteStep(FcScriptExecutionCtx* ctx)
 {
 	FcBinaryBufferStream* stream = &ctx->scriptBufferStream;
 	
@@ -184,7 +184,7 @@ fs_variant_t fs_execute_script_step(fs_script_execution_ctx_t* ctx)
 	u8 op_pre_flag = FS_SEG_ID_UNKNOWN;
 	fcBinaryBufferStreamPeek(stream, sizeof(u8), &op_pre_flag);
 	
-	fs_variant_t result = {};
+	FcVariant result = {};
 	
 	if(op_pre_flag == FS_SEG_ID_C_FUNC_CALL)
 	{
@@ -195,17 +195,17 @@ fs_variant_t fs_execute_script_step(fs_script_execution_ctx_t* ctx)
 		ctx->numOpsExecuted += 1;
 		
 		// read operation header
-		fs_script_op_header opHeader = {};
-		bytesRead = fcBinaryBufferStreamRead(stream, sizeof(fs_script_op_header), &opHeader);
+		FcScriptOpHeader opHeader = {};
+		bytesRead = fcBinaryBufferStreamRead(stream, sizeof(FcScriptOpHeader), &opHeader);
 		FUR_ASSERT(bytesRead);
 		
 		// read arguments
 		FUR_ASSERT(opHeader.numArgs < 20);
-		fs_variant_t args[20];
+		FcVariant args[20];
 		
 		for(u32 i=0; i<opHeader.numArgs; ++i)
 		{
-			args[i] = fs_execute_script_step(ctx);
+			args[i] = fcScriptExecuteStep(ctx);
 		}
 		
 		// execute operation
@@ -238,7 +238,7 @@ fs_variant_t fs_execute_script_step(fs_script_execution_ctx_t* ctx)
 		u32 bytesRead = fcBinaryBufferStreamRead(stream, sizeof(u8), &op_pre_flag);
 		FUR_ASSERT(bytesRead);
 		
-		bytesRead = fcBinaryBufferStreamRead(stream, sizeof(fs_variant_t), &result);
+		bytesRead = fcBinaryBufferStreamRead(stream, sizeof(FcVariant), &result);
 		FUR_ASSERT(bytesRead);
 	}
 	else
@@ -249,28 +249,28 @@ fs_variant_t fs_execute_script_step(fs_script_execution_ctx_t* ctx)
 	return result;
 }
 
-fs_seg_id_t fs_read_segment_header(fs_script_execution_ctx_t* ctx, fs_segment_header_t* header)
+FcScriptSegmentId fcScriptReadSegmentHeader(FcScriptExecutionCtx* ctx, FcScriptSegmentHeader* header)
 {
 	// read segment header to know what's in
-	u32 bytesRead = fcBinaryBufferStreamRead(&ctx->scriptBufferStream, sizeof(fs_segment_header_t), header);
+	u32 bytesRead = fcBinaryBufferStreamRead(&ctx->scriptBufferStream, sizeof(FcScriptSegmentHeader), header);
 	FUR_ASSERT(bytesRead);
 	
-	return (fs_seg_id_t)header->segmentId;
+	return (FcScriptSegmentId)header->segmentId;
 }
 
-FcStringId fs_skip_to_next_segment(fs_script_execution_ctx_t* ctx, fs_seg_id_t segmentType)
+FcStringId fcScriptSkipToNextSegment(FcScriptExecutionCtx* ctx, FcScriptSegmentId segmentType)
 {
-	fs_segment_header_t header = {};
+	FcScriptSegmentHeader header = {};
 	bool found = false;
 	
 	while(ctx->scriptBufferStream.pos <= ctx->scriptBufferStream.endPos)
 	{
 		// read segment header to know what's in
-		u32 bytesRead = fcBinaryBufferStreamRead(&ctx->scriptBufferStream, sizeof(fs_segment_header_t), &header);
+		u32 bytesRead = fcBinaryBufferStreamRead(&ctx->scriptBufferStream, sizeof(FcScriptSegmentHeader), &header);
 		FUR_ASSERT(bytesRead);
 		
 		// is it the segment we are looking for?
-		fs_seg_id_t thisSegmentType = (fs_seg_id_t)header.segmentId;
+		FcScriptSegmentId thisSegmentType = (FcScriptSegmentId)header.segmentId;
 		if(thisSegmentType == segmentType)
 		{
 			found = true;
@@ -285,13 +285,13 @@ FcStringId fs_skip_to_next_segment(fs_script_execution_ctx_t* ctx, fs_seg_id_t s
 	return 0;
 }
 
-bool fs_skip_until_segment(fs_script_execution_ctx_t* ctx, fs_seg_id_t segmentType, FcStringId segmentName)
+bool fcScriptSkipUntilSegment(FcScriptExecutionCtx* ctx, FcScriptSegmentId segmentType, FcStringId segmentName)
 {
 	FcStringId name = 0;
 	
 	do
 	{
-		name = fs_skip_to_next_segment(ctx, segmentType);
+		name = fcScriptSkipToNextSegment(ctx, segmentType);
 		if(name == segmentName)
 			return true;
 	}
@@ -300,11 +300,11 @@ bool fs_skip_until_segment(fs_script_execution_ctx_t* ctx, fs_seg_id_t segmentTy
 	return false;
 }
 
-void fs_execute_script_lamba(fs_script_execution_ctx_t* ctx)
+void fcScriptExecuteLambda(FcScriptExecutionCtx* ctx)
 {
 	do
 	{
-		fs_execute_script_step(ctx);
+		fcScriptExecuteStep(ctx);
 		
 		if(ctx->scriptCtx->waitSeconds > 0.0f)
 		{
@@ -321,43 +321,43 @@ void fs_execute_script_lamba(fs_script_execution_ctx_t* ctx)
 
 void fcScriptExecute(const FcBinaryBuffer* scriptBuffer, FcScriptCtx* scriptCtx)
 {
-	fs_script_execution_ctx_t ctx = {};
+	FcScriptExecutionCtx ctx = {};
 	ctx.scriptCtx = scriptCtx;
 	fcBinaryBufferStreamInit(scriptBuffer, &ctx.scriptBufferStream);
 	
-	FcStringId segName = fs_skip_to_next_segment(&ctx, FS_SEG_ID_STATE_SCRIPT);
+	FcStringId segName = fcScriptSkipToNextSegment(&ctx, FS_SEG_ID_STATE_SCRIPT);
 	FUR_ASSERT(segName);
 	
-	bool found = fs_skip_until_segment(&ctx, FS_SEG_ID_STATE, scriptCtx->state);
+	bool found = fcScriptSkipUntilSegment(&ctx, FS_SEG_ID_STATE, scriptCtx->state);
 	FUR_ASSERT(found);
 	
-	found = fs_skip_until_segment(&ctx, FS_SEG_ID_STATE_ON_EVENT, scriptCtx->stateEventToCall);
+	found = fcScriptSkipUntilSegment(&ctx, FS_SEG_ID_STATE_ON_EVENT, scriptCtx->stateEventToCall);
 	FUR_ASSERT(found);
 	
-	fs_segment_header_t segmentHeader = {};
-	fs_read_segment_header(&ctx, &segmentHeader);
+	FcScriptSegmentHeader segmentHeader = {};
+	fcScriptReadSegmentHeader(&ctx, &segmentHeader);
 	
 	if(segmentHeader.segmentId == FS_SEG_ID_STATE_TRACK)
 	{
 		// todo
-		fs_read_segment_header(&ctx, &segmentHeader);
+		fcScriptReadSegmentHeader(&ctx, &segmentHeader);
 		FUR_ASSERT(segmentHeader.segmentId == FS_SEG_ID_LAMBDA);
 	}
 	
 	// run lambda
-	fs_execute_script_lamba(&ctx);
+	fcScriptExecuteLambda(&ctx);
 }
 
-typedef struct fs_script_lambda_t
+typedef struct FcScriptLambda
 {
 	f32 waitSeconds;
 	u32 numSkipOps;
 	bool isActive;
 	FcStringId lambdaName;	// or state name
 	FcStringId eventName;
-	fg_game_object_t* selfGameObject;
+	FcGameObjectLegacy* selfGameObject;
 	const FcBinaryBuffer* scriptBlob;
-} fs_script_lambda_t;
+} FcScriptLambda;
 
 // ******************* //
 
@@ -387,12 +387,12 @@ const char* FurGetLastError()
 	return g_furLastDetailedError;
 }
 
-typedef struct fg_animate_action_slots_t
+typedef struct FcAnimateActionSlots
 {
 	FcAnimActionAnimate slot[32];
-} fg_animate_action_slots_t;
+} FcAnimateActionSlots;
 
-FcAnimActionAnimate* fg_animate_action_slots_get_free(fg_animate_action_slots_t* slots)
+FcAnimActionAnimate* fcAnimateActionSlitsGetFree(FcAnimateActionSlots* slots)
 {
 	for(u32 i=0; i<32; ++i)
 	{
@@ -405,11 +405,11 @@ FcAnimActionAnimate* fg_animate_action_slots_get_free(fg_animate_action_slots_t*
 	return NULL;
 }
 
-typedef struct fg_game_object_t
+typedef struct FcGameObjectLegacy
 {
 	fm_xform worldTransform;
 	FcStringId name;	// access in scripts example: 'zelda
-	fg_animate_action_slots_t animateActionSlots;
+	FcAnimateActionSlots animateActionSlots;
 	
 	FcAnimCharacter* animCharacter;
 	
@@ -424,9 +424,9 @@ typedef struct fg_game_object_t
 	bool isGrounded;
 	fm_vec4 velocity;
 	
-} fg_game_object_t;
+} FcGameObjectLegacy;
 
-const FcAnimClip* fg_load_anim(FcResourceRegister* reg, FcDepot* depot, const char* name,
+const FcAnimClip* fcResourceRegisterLoadAnim(FcResourceRegister* reg, FcDepot* depot, const char* name,
 								   const FcRig* rig, FcAllocator* pAllocCallbacks)
 {
 	FcAnimClip* animClip = NULL;
@@ -466,11 +466,11 @@ const FcAnimClip* fg_load_anim(FcResourceRegister* reg, FcDepot* depot, const ch
 }
 
 // game object types
-typedef struct fg_go_zelda_t
+typedef struct FcGameObject_Zelda
 {
 	FcGameObject info;	// this property must be the first one in every game object
 	
-	fs_script_lambda_t script;
+	FcScriptLambda script;
 	
 	FcAnimCharacter* animCharacter;
 	const FcRenderProxy* mesh;
@@ -482,15 +482,15 @@ typedef struct fg_go_zelda_t
 	bool playerWindProtecting;
 	bool equipItemNow;
 	bool showAnimStateDebug;
-} fg_game_object_zelda_t;
+} FcGameObject_Zelda;
 
-bool fg_go_zelda_init(FcGameObject* gameObject, FcGameObjectInitCtx* ctx)
+bool fcGameObject_ZeldaInit(FcGameObject* gameObject, FcGameObjectInitCtx* ctx)
 {
 	FUR_PROFILE("init-zelda")
 	{
-		fg_go_zelda_t* zelda = (fg_go_zelda_t*)gameObject;
+		FcGameObject_Zelda* zelda = (FcGameObject_Zelda*)gameObject;
 		
-		zelda->playerState = fg_spawn_info_get_string_hash(ctx->info, SID("state"), SID("idle"));
+		zelda->playerState = fcSpawnInfoGetStringId(ctx->info, SID("state"), SID("idle"));
 		
 		FcAnimCharacterDesc desc = {};
 		desc.globalTime = ctx->globalTime;
@@ -500,7 +500,7 @@ bool fg_go_zelda_init(FcGameObject* gameObject, FcGameObjectInitCtx* ctx)
 		
 		zelda->mesh = fcResourceRegisterFindMesh(ctx->resources, SID("zelda-mesh"));
 		
-		const FcStringId scriptName = fg_spawn_info_get_string_hash(ctx->info, SID("state-script"), SID("none"));
+		const FcStringId scriptName = fcSpawnInfoGetStringId(ctx->info, SID("state-script"), SID("none"));
 		zelda->script.scriptBlob = fcResourceRegisterFindScript(ctx->resources, scriptName);
 		zelda->script.lambdaName = zelda->playerState;
 		zelda->script.isActive = true;
@@ -510,7 +510,7 @@ bool fg_go_zelda_init(FcGameObject* gameObject, FcGameObjectInitCtx* ctx)
 	return true;
 }
 
-void fg_go_zelda_update(FcGameObject* gameObject, FcGameObjectUpdateCtx* ctx)
+void fcGameObject_ZeldaUpdate(FcGameObject* gameObject, FcGameObjectUpdateCtx* ctx)
 {
 	FUR_PROFILE("update-zelda")
 	{
@@ -518,15 +518,15 @@ void fg_go_zelda_update(FcGameObject* gameObject, FcGameObjectUpdateCtx* ctx)
 	}
 }
 
-void fg_register_type_factories()
+void fcRegisterGameObjectFactories()
 {
 	// zelda
 	{
 		FcGameObjectFactory factory = {};
 		factory.updateBucket = FG_UPDATE_BUCKET_CHARACTERS;
-		factory.fn.init = fg_go_zelda_init;
-		factory.fn.update = fg_go_zelda_update;
-		factory.memoryMaxSize = sizeof(fg_go_zelda_t);
+		factory.fn.init = fcGameObject_ZeldaInit;
+		factory.fn.update = fcGameObject_ZeldaUpdate;
+		factory.memoryMaxSize = sizeof(FcGameObject_Zelda);
 		
 		fcGameObjectFactoryRegisterNew(SID("zelda"), factory);
 	}
@@ -599,13 +599,13 @@ struct FcGameEngine
 	u32 scratchpadBufferSize;
 	
 	// game objects
-	fg_game_object_register_t gameObjectRegister;
+	FcGameObjectLegacyRegister gameObjectRegister;
 	
 	// scripts temp
 	FcBinaryBuffer zeldaStateScript;
-	fg_game_object_t zeldaGameObject;
+	FcGameObjectLegacy zeldaGameObject;
 	
-	fs_script_lambda_t scriptLambdas[128];
+	FcScriptLambda scriptLambdas[128];
 	
 	// test dangle
 	FcPBDDangle dangle;
@@ -744,7 +744,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		params.zoom = 1.0f;
 		params.poleLength = 3.0f;
 		params.fov = 45.0f;
-		fcEnableCameraFollow(pEngine->cameraSystem, &params, 0.0f);
+		fcCameraEnableFollow(pEngine->cameraSystem, &params, 0.0f);
 	}
 	
 	// init scratchpad buffer
@@ -752,7 +752,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 	pEngine->scratchpadBuffer = FUR_ALLOC_AND_ZERO(pEngine->scratchpadBufferSize, 16, FC_MEMORY_SCOPE_GLOBAL, pAllocCallbacks);
 	
 	// init type factories
-	fg_register_type_factories();
+	fcRegisterGameObjectFactories();
 	
 	// load resources
 	{
@@ -1056,26 +1056,26 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		}
 #endif
 
-		pEngine->pAnimClipWindProtect = fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-upper-wind-protect", pEngine->pRig, pAllocCallbacks);
-		pEngine->pAnimClipHoldSword = fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-upper-hold-sword", pEngine->pRig, pAllocCallbacks);
+		pEngine->pAnimClipWindProtect = fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-upper-wind-protect", pEngine->pRig, pAllocCallbacks);
+		pEngine->pAnimClipHoldSword = fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-upper-hold-sword", pEngine->pRig, pAllocCallbacks);
 		
-		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-idle-stand-relaxed", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-poses", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-pose-2", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-pose-3", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-pose-4", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-run-relaxed", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-run-to-idle-sharp", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-idle-to-run-0", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-jump-in-place", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-jump", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-additive", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-a-pose", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-face-idle", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-idle-stand-01", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-hands-idle", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-wind-01", pEngine->pRig, pAllocCallbacks);
-		fg_load_anim(&pEngine->pWorld->resources, pEngine->depot, "zelda-jump-loop", pEngine->pRig, pAllocCallbacks);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-idle-stand-relaxed", pEngine->pRig, pAllocCallbacks);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-poses", pEngine->pRig, pAllocCallbacks);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-pose-2", pEngine->pRig, pAllocCallbacks);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-pose-3", pEngine->pRig, pAllocCallbacks);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-pose-4", pEngine->pRig, pAllocCallbacks);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-run-relaxed", pEngine->pRig, pAllocCallbacks);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-run-to-idle-sharp", pEngine->pRig, pAllocCallbacks);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-idle-to-run-0", pEngine->pRig, pAllocCallbacks);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-jump-in-place", pEngine->pRig, pAllocCallbacks);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-jump", pEngine->pRig, pAllocCallbacks);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-additive", pEngine->pRig, pAllocCallbacks);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-a-pose", pEngine->pRig, pAllocCallbacks);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-face-idle", pEngine->pRig, pAllocCallbacks);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-idle-stand-01", pEngine->pRig, pAllocCallbacks);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-hands-idle", pEngine->pRig, pAllocCallbacks);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-wind-01", pEngine->pRig, pAllocCallbacks);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-jump-loop", pEngine->pRig, pAllocCallbacks);
 		
 		// load meshes
 		{
@@ -1179,7 +1179,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 	// init game
 	{
 		pEngine->gameObjectRegister.capacity = 128;
-		pEngine->gameObjectRegister.objects = FUR_ALLOC_ARRAY_AND_ZERO(fg_game_object_t*, pEngine->gameObjectRegister.capacity, 0, FC_MEMORY_SCOPE_SCRIPT, pAllocCallbacks);
+		pEngine->gameObjectRegister.objects = FUR_ALLOC_ARRAY_AND_ZERO(FcGameObjectLegacy*, pEngine->gameObjectRegister.capacity, 0, FC_MEMORY_SCOPE_SCRIPT, pAllocCallbacks);
 		pEngine->gameObjectRegister.ids = FUR_ALLOC_ARRAY_AND_ZERO(FcStringId, pEngine->gameObjectRegister.capacity, 0, FC_MEMORY_SCOPE_SCRIPT, pAllocCallbacks);
 		pEngine->gameObjectRegister.numObjects = 0;
 		
@@ -1378,8 +1378,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 	{
 		const i32 props_num = 1;
 		static FcStringId prop_names[props_num] = {SID("state-script")};
-		static fg_spawn_info_prop_value_t prop_values[props_num] = {};
-		prop_values[0].asStringHash = SID("ss-zelda");
+		static FcSpawninfoPropValue prop_values[props_num] = {};
+		prop_values[0].asStringId = SID("ss-zelda");
 		
 		static FcSpawner spawner = {};
 		spawner.name = SID("zelda");
@@ -1420,7 +1420,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 	return true;
 }
 
-fg_game_object_t* fs_look_up_game_object(FcScriptCtx* ctx, FcStringId name)
+FcGameObjectLegacy* fcScriptLookUpGameObject(FcScriptCtx* ctx, FcStringId name)
 {
 	if(name == SID("self"))
 	{
@@ -1444,7 +1444,7 @@ fg_game_object_t* fs_look_up_game_object(FcScriptCtx* ctx, FcStringId name)
 	return NULL;
 }
 
-typedef enum fs_animate_arg_t
+typedef enum FcScriptAnimateArg
 {
 	FS_ANIMATE_ARG_FADE_IN_CURVE = 0,
 	FS_ANIMATE_ARG_FADE_IN_SEC,
@@ -1453,19 +1453,19 @@ typedef enum fs_animate_arg_t
 	FS_ANIMATE_ARG_IK_MODE,
 	FS_ANIMATE_ARG_LAYER,
 	FS_ANIMATE_ARG_LAYER_NAME,
-} fs_animate_arg_t;
+} FcScriptAnimateArg;
 
-fs_variant_t fs_native_animate(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args)
+FcVariant fcScriptNative_Animate(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
 {
 	FUR_ASSERT(numArgs >= 2);
 	const FcStringId objectName = args[0].asStringHash;
 	const FcStringId animName = args[1].asStringHash;
 	
 	// find game object
-	fg_game_object_t* gameObj = fs_look_up_game_object(ctx, objectName);
+	FcGameObjectLegacy* gameObj = fcScriptLookUpGameObject(ctx, objectName);
 	FUR_ASSERT(gameObj);
 	
-	FcAnimActionAnimate* animateSlot = fg_animate_action_slots_get_free(&gameObj->animateActionSlots);
+	FcAnimActionAnimate* animateSlot = fcAnimateActionSlitsGetFree(&gameObj->animateActionSlots);
 	FUR_ASSERT(animateSlot);
 	
 	const FcAnimClip* animClip = fcResourceRegisterFindAnimClip(&ctx->world->resources, animName);
@@ -1480,7 +1480,7 @@ fs_variant_t fs_native_animate(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t
 	// get variadic arguments - iterate every 2 arguments, as we need (animate-arg ENUM) VALUE, this is two variadic arguments
 	for(u32 i=2; i+1<numArgs; i += 2)
 	{
-		const fs_animate_arg_t arg_enum = (fs_animate_arg_t)args[i].asInt32;
+		const FcScriptAnimateArg arg_enum = (FcScriptAnimateArg)args[i].asInt32;
 		switch(arg_enum)
 		{
 			case FS_ANIMATE_ARG_FADE_IN_SEC:
@@ -1522,11 +1522,11 @@ fs_variant_t fs_native_animate(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t
 	
 	ctx->waitSeconds = FM_MAX(ctx->waitSeconds - animArgs.fadeOutSec, 0.0f);
 	
-	fs_variant_t result = {};
+	FcVariant result = {};
 	return result;
 };
 
-fs_variant_t fs_native_wait_animate(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args)
+FcVariant fcScriptNative_WaitAnimate(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
 {
 	FUR_ASSERT(numArgs >= 2);
 	const FcStringId animName = args[1].asStringHash;
@@ -1536,47 +1536,47 @@ fs_variant_t fs_native_wait_animate(FcScriptCtx* ctx, u32 numArgs, const fs_vari
 	
 	ctx->waitSeconds = animClip->duration;
 	
-	return fs_native_animate(ctx, numArgs, args);
+	return fcScriptNative_Animate(ctx, numArgs, args);
 }
 
-fs_variant_t fs_native_equip_item(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args)
+FcVariant fcScriptNative_EquipItem(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
 {
 	FUR_ASSERT(numArgs >= 2);
 	const FcStringId objectName = args[0].asStringHash;
 	//const FcStringId itemName = args[1].asStringHash;
 	
 	// find game object
-	fg_game_object_t* gameObj = fs_look_up_game_object(ctx, objectName);
+	FcGameObjectLegacy* gameObj = fcScriptLookUpGameObject(ctx, objectName);
 	FUR_ASSERT(gameObj);
 	
 	gameObj->equipItemNow = true;
 	
-	fs_variant_t result = {};
+	FcVariant result = {};
 	return result;
 }
 
-fs_variant_t fs_native_wait_seconds(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args)
+FcVariant fcScriptNative_WaitSeconds(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
 {
 	FUR_ASSERT(numArgs == 1);
 	const f32 timeInSeconds = args[0].asFloat;
 	
 	ctx->waitSeconds = timeInSeconds;
 	
-	fs_variant_t result = {};
+	FcVariant result = {};
 	return result;
 }
 
-fs_variant_t fs_native_get_variable(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args)
+FcVariant fcScriptNative_GetVariable(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
 {
 	FUR_ASSERT(numArgs == 2);
 	const FcStringId objectName = args[0].asStringHash;
 	const FcStringId varName = args[1].asStringHash;
 	
 	// find game object
-	fg_game_object_t* gameObj = fs_look_up_game_object(ctx, objectName);
+	FcGameObjectLegacy* gameObj = fcScriptLookUpGameObject(ctx, objectName);
 	FUR_ASSERT(gameObj);
 	
-	fs_variant_t result = {};
+	FcVariant result = {};
 	
 	if(varName == SID("wind-protecting"))
 	{
@@ -1606,18 +1606,18 @@ fs_variant_t fs_native_get_variable(FcScriptCtx* ctx, u32 numArgs, const fs_vari
 	return result;
 }
 
-fs_variant_t fs_native_go(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args)
+FcVariant fcScriptNative_Go(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
 {
 	FUR_ASSERT(numArgs == 1);
 	const FcStringId goToState = args[0].asStringHash;
 	
 	ctx->nextState = goToState;
 	
-	fs_variant_t result = {};
+	FcVariant result = {};
 	return result;
 }
 
-fs_variant_t fs_native_go_when(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args)
+FcVariant fcScriptNative_GoWhen(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
 {
 	FUR_ASSERT(numArgs == 2);
 	const FcStringId goToState = args[0].asStringHash;
@@ -1631,36 +1631,36 @@ fs_variant_t fs_native_go_when(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t
 	return args[1];
 }
 
-fs_variant_t fs_native_cmp_gt(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args)
+FcVariant fcScriptNative_CmpGt(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
 {
 	FUR_ASSERT(numArgs == 2);
 	const i32 a = args[0].asInt32;
 	const i32 b = args[1].asInt32;
 	
-	fs_variant_t result;
+	FcVariant result;
 	result.asBool = a > b;
 	return result;
 }
 
-fs_variant_t fs_native_cmp_eq(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args)
+FcVariant fcScriptNative_CmpEq(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
 {
 	FUR_ASSERT(numArgs == 2);
 	const i32 a = args[0].asInt32;
 	const i32 b = args[1].asInt32;
 	
-	fs_variant_t result;
+	FcVariant result;
 	result.asBool = (a == b);
 	return result;
 }
 
-fs_variant_t fs_native_camera_enable(FcScriptCtx* ctx, u32 numArgs, const fs_variant_t* args)
+FcVariant fcScriptNative_CameraEnable(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
 {
 	FUR_ASSERT(numArgs == 3);
 	const FcStringId objectName = args[0].asStringHash;
 	const FcStringId cameraType = args[1].asStringHash;
 	const f32 fadeInSec = args[2].asFloat;
 	
-	fg_game_object_t* gameObj = fs_look_up_game_object(ctx, objectName);
+	FcGameObjectLegacy* gameObj = fcScriptLookUpGameObject(ctx, objectName);
 	FUR_ASSERT(gameObj);
 	
 	if(cameraType == SID("follow"))
@@ -1670,7 +1670,7 @@ fs_variant_t fs_native_camera_enable(FcScriptCtx* ctx, u32 numArgs, const fs_var
 		params.zoom = 1.5f;
 		params.poleLength = 1.5f;
 		params.fov = 70.0f;
-		fcEnableCameraFollow(ctx->sysCamera, &params, fadeInSec);
+		fcCameraEnableFollow(ctx->sysCamera, &params, fadeInSec);
 	}
 	else if(cameraType == SID("follow-vista"))
 	{
@@ -1679,10 +1679,10 @@ fs_variant_t fs_native_camera_enable(FcScriptCtx* ctx, u32 numArgs, const fs_var
 		params.zoom = 1.5f;
 		params.poleLength = 1.0f;
 		params.fov = 60.0f;
-		fcEnableCameraFollow(ctx->sysCamera, &params, fadeInSec);
+		fcCameraEnableFollow(ctx->sysCamera, &params, fadeInSec);
 	}
 	
-	fs_variant_t result = {};
+	FcVariant result = {};
 	return result;
 }
 
@@ -1695,7 +1695,7 @@ bool g_drawDevMenu = false;
 i32 g_devMenuOption = 0;
 bool g_devMenuOptionClick = false;
 
-void fg_input_actions_update(FcGameEngine* pEngine, f32 dt)
+void fcInputActionsUpdate(FcGameEngine* pEngine, f32 dt)
 {
 	bool actionPressed = false;
 	static bool actionWasPressed = false;
@@ -1972,7 +1972,7 @@ void fcGameplayUpdate(FcGameEngine* pEngine, f32 dt)
 			}
 		}
 		
-		fs_script_lambda_t* lambda = &pEngine->scriptLambdas[lambdaSlot];
+		FcScriptLambda* lambda = &pEngine->scriptLambdas[lambdaSlot];
 		lambda->isActive = true;
 		lambda->numSkipOps = 0;
 		lambda->waitSeconds = 0.0f;
@@ -1984,7 +1984,7 @@ void fcGameplayUpdate(FcGameEngine* pEngine, f32 dt)
 	
 	for(u32 i=0; i<128; ++i)
 	{
-		fs_script_lambda_t* lambda = &pEngine->scriptLambdas[i];
+		FcScriptLambda* lambda = &pEngine->scriptLambdas[i];
 		
 		if(lambda->isActive == false)
 			continue;
@@ -2322,7 +2322,7 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, FcAllocator* pAllocCa
 	FUR_PROFILE("actions-update")
 	{
 		fcInputManagerUpdate(pEngine->pInputManager, pEngine->globalTime);
-		fg_input_actions_update(pEngine, dt);
+		fcInputActionsUpdate(pEngine, dt);
 	}
 	
 	// debug/dev menu
