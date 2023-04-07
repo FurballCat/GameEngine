@@ -17,8 +17,8 @@ typedef struct FcRig FcRig;
 typedef struct FcMemArenaAllocator FcMemArenaAllocator;
 
 // call init and release once at the beginning and end of engine creation
-CANIM_API FcAnimSystem* fcAnimSystemInit(FcAllocator* pAllocCallbacks);
-CANIM_API void fcAnimSystemRelease(FcAnimSystem* sys, FcAllocator* pAllocCallbacks);
+CANIM_API FcAnimSystem* fcAnimSystemInit(FcAllocator* allocator);
+CANIM_API void fcAnimSystemRelease(FcAnimSystem* sys, FcAllocator* allocator);
 
 // create single character
 typedef struct FcAnimCharacterDesc
@@ -27,8 +27,8 @@ typedef struct FcAnimCharacterDesc
 	f64 globalTime;
 } FcAnimCharacterDesc;
 
-CANIM_API FcAnimCharacter* fcAnimCharacterCreate(const FcAnimCharacterDesc* desc, FcAllocator* pAllocCallbacks);
-CANIM_API void fcAnimSystemAnimCharacterRelease(FcAnimCharacter* character, FcAllocator* pAllocCallbacks);
+CANIM_API FcAnimCharacter* fcAnimCharacterCreate(const FcAnimCharacterDesc* desc, FcAllocator* allocator);
+CANIM_API void fcAnimSystemAnimCharacterRelease(FcAnimCharacter* character, FcAllocator* allocator);
 
 CANIM_API void fcAnimSystemAddCharacter(FcAnimSystem* sys, FcAnimCharacter* character);
 CANIM_API void fcAnimSystemRemoveCharacter(FcAnimSystem* sys, FcAnimCharacter* character);

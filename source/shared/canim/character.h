@@ -183,8 +183,8 @@ typedef struct FcAnimCharacter
 } FcAnimCharacter;
 
 // allocate and initialise necessary elements of character
-void fcAnimCharacterInit(FcAnimCharacter* character, const FcRig* rig, FcAllocator* pAllocCallbacks);
-void fcAnimCharacterRelease(FcAnimCharacter* character, FcAllocator* pAllocCallbacks);
+void fcAnimCharacterInit(FcAnimCharacter* character, const FcRig* rig, FcAllocator* allocator);
+void fcAnimCharacterRelease(FcAnimCharacter* character, FcAllocator* allocator);
 
 void fcAnimActionQueueResolvePreAnimate(FcAnimCharacter* character, FcAnimActionQueue* queue);
 void fcAnimActionQueueResolvePostAnimate(FcAnimCharacter* character, FcAnimActionQueue* queue);

@@ -56,43 +56,43 @@ typedef struct FcDebugFragments
 
 FcDebugFragments g_debugFragments;
 
-void fcDebugInit(FcAllocator* pAllocCallbacks)
+void fcDebugInit(FcAllocator* allocator)
 {
 	memset(&g_debugFragments, 0, sizeof(FcDebugFragments));
 	
 	// lines alloc
-	g_debugFragments.linesData = FUR_ALLOC(fcDebugLineBufferSize(), 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
+	g_debugFragments.linesData = FUR_ALLOC(fcDebugLineBufferSize(), 8, FC_MEMORY_SCOPE_DEBUG, allocator);
 	g_debugFragments.numLines = 0;
 	
 	// triangles alloc
-	g_debugFragments.trianglesData = FUR_ALLOC(fcDebugTriangleBufferSize(), 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
+	g_debugFragments.trianglesData = FUR_ALLOC(fcDebugTriangleBufferSize(), 8, FC_MEMORY_SCOPE_DEBUG, allocator);
 	g_debugFragments.numTriangles = 0;
 	
 	// text alloc
 	{
 		const u32 sizeData = sizeof(f32) * FC_DEBUG_FRAGMENTS_TEXT_LINES_CAPACITY * FC_DEBUG_TEXT_LOCATION_DATA_NUM_FLOATS;
-		g_debugFragments.textLocationData = FUR_ALLOC(sizeData, 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
+		g_debugFragments.textLocationData = FUR_ALLOC(sizeData, 8, FC_MEMORY_SCOPE_DEBUG, allocator);
 	}
 	
 	{
 		const u32 sizeData = sizeof(u32) * FC_DEBUG_FRAGMENTS_TEXT_LINES_CAPACITY * FC_DEBUG_TEXT_LOCATION_DATA_NUM_RANGE;
-		g_debugFragments.textRangeData = FUR_ALLOC(sizeData, 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
+		g_debugFragments.textRangeData = FUR_ALLOC(sizeData, 8, FC_MEMORY_SCOPE_DEBUG, allocator);
 	}
 	
 	{
 		const u32 sizeData = sizeof(char) * FC_DEBUG_FRAGMENTS_TEXT_CHARACTERS_CAPACITY;
-		g_debugFragments.textCharactersData = FUR_ALLOC(sizeData, 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
+		g_debugFragments.textCharactersData = FUR_ALLOC(sizeData, 8, FC_MEMORY_SCOPE_DEBUG, allocator);
 	}
 
 	{
 		const u32 sizeData = sizeof(f32) * FC_DEBUG_FRAGMENTS_TEXT_LINES_CAPACITY;
-		g_debugFragments.textScaleData = FUR_ALLOC(sizeData, 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
+		g_debugFragments.textScaleData = FUR_ALLOC(sizeData, 8, FC_MEMORY_SCOPE_DEBUG, allocator);
 	}
 	
 	// 2D rect alloc
 	{
 		const u32 sizeData = FC_DEBUG_RECT_SIZE * FC_DEBUG_FRAGMENTS_RECTS_CAPACITY;
-		g_debugFragments.rectData = FUR_ALLOC(sizeData, 8, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
+		g_debugFragments.rectData = FUR_ALLOC(sizeData, 8, FC_MEMORY_SCOPE_DEBUG, allocator);
 		g_debugFragments.numRects = 0;
 	}
 	
@@ -100,15 +100,15 @@ void fcDebugInit(FcAllocator* pAllocCallbacks)
 	g_debugFragments.numTextLines = 0;
 }
 
-void fcDebugRelease(FcAllocator* pAllocCallbacks)
+void fcDebugRelease(FcAllocator* allocator)
 {
-	FUR_FREE(g_debugFragments.linesData, pAllocCallbacks);
-	FUR_FREE(g_debugFragments.trianglesData, pAllocCallbacks);
-	FUR_FREE(g_debugFragments.textLocationData, pAllocCallbacks);
-	FUR_FREE(g_debugFragments.textRangeData, pAllocCallbacks);
-	FUR_FREE(g_debugFragments.textCharactersData, pAllocCallbacks);
-	FUR_FREE(g_debugFragments.textScaleData, pAllocCallbacks);
-	FUR_FREE(g_debugFragments.rectData, pAllocCallbacks);
+	FUR_FREE(g_debugFragments.linesData, allocator);
+	FUR_FREE(g_debugFragments.trianglesData, allocator);
+	FUR_FREE(g_debugFragments.textLocationData, allocator);
+	FUR_FREE(g_debugFragments.textRangeData, allocator);
+	FUR_FREE(g_debugFragments.textCharactersData, allocator);
+	FUR_FREE(g_debugFragments.textScaleData, allocator);
+	FUR_FREE(g_debugFragments.rectData, allocator);
 	
 	memset(&g_debugFragments, 0, sizeof(FcDebugFragments));
 }

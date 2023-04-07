@@ -42,11 +42,11 @@ void fcRenderStagingAdd(FcRenderStagingBufferBuilder* builder, void* pData, u32 
 void fcRenderStagingBuild(FcRenderStagingBufferBuilder* builder,
 					  VkDevice device, VkPhysicalDevice physicalDevice,
 					  VkBuffer* buffer, VkDeviceMemory* bufferMemory,
-					  struct FcAllocator* pAllocCallbacks)
+					  struct FcAllocator* allocator)
 {
 	fcRenderCreateBuffer(device, physicalDevice, builder->totalSize,
 					 FR_STAGING_BUFFER_USAGE_FLAGS, FR_STAGING_BUFFER_MEMORY_FLAGS,
-					 buffer, bufferMemory, pAllocCallbacks);
+					 buffer, bufferMemory, allocator);
 	
 	u32 currentSize = 0;
 	
@@ -242,7 +242,7 @@ void fcRenderWriteDescriptorSets(VkDevice device, FcRenderWriteDescriptorSetsCtx
 
 // --------------------
 
-VkCommandBuffer fcRenderBeginSimpleCommands(VkDevice device, VkCommandPool commandPool, struct FcAllocator* pAllocCallbacks)
+VkCommandBuffer fcRenderBeginSimpleCommands(VkDevice device, VkCommandPool commandPool, struct FcAllocator* allocator)
 {
 	VkCommandBufferAllocateInfo allocInfo = {0};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -269,7 +269,7 @@ VkCommandBuffer fcRenderBeginSimpleCommands(VkDevice device, VkCommandPool comma
 	return commandBuffer;
 }
 
-void fcRenderEndSimpleCommands(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool, struct FcAllocator* pAllocCallbacks)
+void fcRenderEndSimpleCommands(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool, struct FcAllocator* allocator)
 {
 	if(vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
 	{
@@ -288,7 +288,7 @@ void fcRenderEndSimpleCommands(VkDevice device, VkQueue graphicsQueue, VkCommand
 }
 
 // begin primary command buffer that will be disposed immediately after submission
-VkCommandBuffer fcRenderBeginPrimaryDisposableCommandBuffer(VkDevice device, VkCommandPool commandPool, struct FcAllocator* pAllocCallbacks)
+VkCommandBuffer fcRenderBeginPrimaryDisposableCommandBuffer(VkDevice device, VkCommandPool commandPool, struct FcAllocator* allocator)
 {
 	VkCommandBufferAllocateInfo allocInfo = {0};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -317,7 +317,7 @@ VkCommandBuffer fcRenderBeginPrimaryDisposableCommandBuffer(VkDevice device, VkC
 
 // end primary command buffer and submit to GPU, dispose after
 void fcRenderEndPrimaryDisposableCommandBuffer(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool,
-											  VkSemaphore imageAvailableSemaphore, VkSemaphore renderFinishedSemaphore, struct FcAllocator* pAllocCallbacks)
+											  VkSemaphore imageAvailableSemaphore, VkSemaphore renderFinishedSemaphore, struct FcAllocator* allocator)
 {
 	if(vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
 	{
@@ -362,9 +362,9 @@ bool fr_has_stencil_component(VkFormat format)
 	return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 
-void fcRenderTransitionImageLayout(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, struct FcAllocator* pAllocCallbacks)
+void fcRenderTransitionImageLayout(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, struct FcAllocator* allocator)
 {
-	VkCommandBuffer commandBuffer = fcRenderBeginSimpleCommands(device, commandPool, pAllocCallbacks);
+	VkCommandBuffer commandBuffer = fcRenderBeginSimpleCommands(device, commandPool, allocator);
 	
 	VkImageMemoryBarrier barrier = {0};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -439,13 +439,13 @@ void fcRenderTransitionImageLayout(VkDevice device, VkQueue graphicsQueue, VkCom
 						 1, &barrier
 						 );
 	
-	fcRenderEndSimpleCommands(device, graphicsQueue, commandBuffer, commandPool, pAllocCallbacks);
+	fcRenderEndSimpleCommands(device, graphicsQueue, commandBuffer, commandPool, allocator);
 }
 
 void fcRenderCopyBufferToImage(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkBuffer buffer,
-							 VkDeviceSize bufferOffset, VkImage image, u32 width, u32 height, struct FcAllocator* pAllocCallbacks)
+							 VkDeviceSize bufferOffset, VkImage image, u32 width, u32 height, struct FcAllocator* allocator)
 {
-	VkCommandBuffer commandBuffer = fcRenderBeginSimpleCommands(device, commandPool, pAllocCallbacks);
+	VkCommandBuffer commandBuffer = fcRenderBeginSimpleCommands(device, commandPool, allocator);
 	
 	VkBufferImageCopy region = {0};
 	region.bufferOffset = bufferOffset;
@@ -466,7 +466,7 @@ void fcRenderCopyBufferToImage(VkDevice device, VkQueue graphicsQueue, VkCommand
 	
 	vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 	
-	fcRenderEndSimpleCommands(device, graphicsQueue, commandBuffer, commandPool, pAllocCallbacks);
+	fcRenderEndSimpleCommands(device, graphicsQueue, commandBuffer, commandPool, allocator);
 }
 
 u32 fcRenderFindMemoryType(const VkPhysicalDevice physicalDevice, u32 typeFilter, VkMemoryPropertyFlags propertyFlags)

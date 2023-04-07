@@ -7,14 +7,14 @@
 
 #include "memory.h"
 
-bool fcBinaryBufferLoad(FcDepot* depot, FcFilePath path, FcBinaryBuffer* pBuffer, FcAllocator* pAllocCallbacks)
+bool fcBinaryBufferLoad(FcDepot* depot, FcFilePath path, FcBinaryBuffer* pBuffer, FcAllocator* allocator)
 {
 	FcFile* file = fcFileOpen(depot, path, "rb");
 	if(file && pBuffer)
 	{
 		const u64 size = fcFileSize(file);
 		
-		pBuffer->pData = FUR_ALLOC(size, 8, FC_MEMORY_SCOPE_GLOBAL, pAllocCallbacks);
+		pBuffer->pData = FUR_ALLOC(size, 8, FC_MEMORY_SCOPE_GLOBAL, allocator);
 		pBuffer->size = size;
 		
 		fcFileRead(pBuffer->pData, size, 1, file);
@@ -26,9 +26,9 @@ bool fcBinaryBufferLoad(FcDepot* depot, FcFilePath path, FcBinaryBuffer* pBuffer
 	return false;
 }
 
-void fcBinaryBufferRelease(FcBinaryBuffer* pBuffer, FcAllocator* pAllocCallbacks)
+void fcBinaryBufferRelease(FcBinaryBuffer* pBuffer, FcAllocator* allocator)
 {
-	FUR_FREE(pBuffer->pData, pAllocCallbacks);
+	FUR_FREE(pBuffer->pData, allocator);
 }
 
 void fcBinaryBufferStreamInit(const FcBinaryBuffer* buffer, FcBinaryBufferStream* outStream)
@@ -67,14 +67,14 @@ u32 fcBinaryBufferStreamPeek(FcBinaryBufferStream* stream, u32 numBytes, void* o
 	return 0;
 }
 
-bool fcTextBufferLoad(FcDepot* depot, FcFilePath path, FcTextBuffer* pBuffer, FcAllocator* pAllocCallbacks)
+bool fcTextBufferLoad(FcDepot* depot, FcFilePath path, FcTextBuffer* pBuffer, FcAllocator* allocator)
 {
 	FcFile* file = fcFileOpen(depot, path, "r");
 	if (file && pBuffer)
 	{
 		const u64 size = fcFileSize(file);
 		
-		pBuffer->pData = (char*)FUR_ALLOC(size, 8, FC_MEMORY_SCOPE_GLOBAL, pAllocCallbacks);
+		pBuffer->pData = (char*)FUR_ALLOC(size, 8, FC_MEMORY_SCOPE_GLOBAL, allocator);
 		pBuffer->size = size;
 		
 		fcFileRead(pBuffer->pData, size, 1, file);
@@ -86,7 +86,7 @@ bool fcTextBufferLoad(FcDepot* depot, FcFilePath path, FcTextBuffer* pBuffer, Fc
 	return false;
 }
 
-void fcTextBufferRelease(FcTextBuffer* pBuffer, FcAllocator* pAllocCallbacks)
+void fcTextBufferRelease(FcTextBuffer* pBuffer, FcAllocator* allocator)
 {
-	FUR_FREE(pBuffer->pData, pAllocCallbacks);
+	FUR_FREE(pBuffer->pData, allocator);
 }

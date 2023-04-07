@@ -427,7 +427,7 @@ typedef struct FcGameObjectLegacy
 } FcGameObjectLegacy;
 
 const FcAnimClip* fcResourceRegisterLoadAnim(FcResourceRegister* reg, FcDepot* depot, const char* name,
-								   const FcRig* rig, FcAllocator* pAllocCallbacks)
+								   const FcRig* rig, FcAllocator* allocator)
 {
 	FcAnimClip* animClip = NULL;
 	
@@ -451,10 +451,10 @@ const FcAnimClip* fcResourceRegisterLoadAnim(FcResourceRegister* reg, FcDepot* d
 			
 		if(!serializer.isWriting)
 		{
-			animClip = (FcAnimClip*)FUR_ALLOC_AND_ZERO(sizeof(FcAnimClip), 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+			animClip = (FcAnimClip*)FUR_ALLOC_AND_ZERO(sizeof(FcAnimClip), 0, FC_MEMORY_SCOPE_ANIMATION, allocator);
 		}
 			
-		fcAnimClipSerialize(&serializer, animClip, pAllocCallbacks);
+		fcAnimClipSerialize(&serializer, animClip, allocator);
 
 		fcFileClose(file);
 		
@@ -647,17 +647,17 @@ struct FcGameEngine
 typedef struct FcMainThreadUserData
 {
 	FcGameEngine* pEngine;
-	FcAllocator* pAllocCallbacks;
+	FcAllocator* allocator;
 } FcMainThreadUserData;
 
 // Furball Cat - Platform
-bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, FcAllocator* pAllocCallbacks)
+bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, FcAllocator* allocator)
 {
-	fcProfilerInit(pAllocCallbacks);
+	fcProfilerInit(allocator);
 	
-	FcGameEngine* pEngine = (FcGameEngine*)FUR_ALLOC_AND_ZERO(sizeof(FcGameEngine), 0, FC_MEMORY_SCOPE_CORE, pAllocCallbacks);
+	FcGameEngine* pEngine = (FcGameEngine*)FUR_ALLOC_AND_ZERO(sizeof(FcGameEngine), 0, FC_MEMORY_SCOPE_CORE, allocator);
 	
-	fcStringIdRegisterInit(pAllocCallbacks);
+	fcStringIdRegisterInit(allocator);
 
 	// mount loose file depot
 	{
@@ -670,7 +670,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		desc.path = "../../../";
 #endif
 
-		pEngine->depot = fcDepotMount(&desc, pAllocCallbacks);
+		pEngine->depot = fcDepotMount(&desc, allocator);
 	}
 
 	FcApplicationDesc appDesc;
@@ -680,11 +680,11 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 	appDesc.iconPath = fcFilePathCreate(pEngine->depot, "data/icon/furball-cat-icon-128x128.png");
 	appDesc.depot = pEngine->depot;
 
-	FcResult res = fcApplicationCreate(&appDesc, &pEngine->pApp, pAllocCallbacks);
+	FcResult res = fcApplicationCreate(&appDesc, &pEngine->pApp, allocator);
 
 	if(res == FR_RESULT_OK)
 	{
-		pEngine->pInputManager = fcInputManagerCreate(pAllocCallbacks);
+		pEngine->pInputManager = fcInputManagerCreate(allocator);
 	}
 	
 	if(res == FR_RESULT_OK)
@@ -693,17 +693,17 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		rendererDesc.pApp = pEngine->pApp;
 		rendererDesc.depot = pEngine->depot;
 		
-		res = fcRendererCreate(&rendererDesc, &pEngine->pRenderer, pAllocCallbacks);
+		res = fcRendererCreate(&rendererDesc, &pEngine->pRenderer, allocator);
 	}
 	
 	if(res == FR_RESULT_OK)
 	{
-		pEngine->pPhysics = fcPhysicsCreate(pAllocCallbacks);
+		pEngine->pPhysics = fcPhysicsCreate(allocator);
 	}
 	
 	if(res == FR_RESULT_OK)
 	{
-		fcJobSystemInit(pAllocCallbacks);
+		fcJobSystemInit(allocator);
 	}
 	
 	if(res == FR_RESULT_OK)
@@ -713,16 +713,16 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 	else
 	{
 		furSetLastError(fcGetLastError());
-		FUR_FREE(pEngine, pAllocCallbacks);
+		FUR_FREE(pEngine, allocator);
 		return false;
 	}
 	
 	// init anim system
-	pEngine->animSystem = fcAnimSystemInit(pAllocCallbacks);
+	pEngine->animSystem = fcAnimSystemInit(allocator);
 	
 	// create world
-	pEngine->pWorld = (FcWorld*)FUR_ALLOC_AND_ZERO(sizeof(FcWorld), 0, FC_MEMORY_SCOPE_GAME, pAllocCallbacks);
-	fcWorldInit(pEngine->pWorld, pAllocCallbacks);
+	pEngine->pWorld = (FcWorld*)FUR_ALLOC_AND_ZERO(sizeof(FcWorld), 0, FC_MEMORY_SCOPE_GAME, allocator);
+	fcWorldInit(pEngine->pWorld, allocator);
 	pEngine->pWorld->systems.renderer = pEngine->pRenderer;
 	pEngine->pWorld->systems.animation = pEngine->animSystem;
 	
@@ -730,12 +730,12 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 	{
 		pEngine->zeldaScriptPath = fcFilePathCreate(pEngine->depot, "scripts/zelda-state-script.bin");
 
-		fcBinaryBufferLoad(pEngine->depot, pEngine->zeldaScriptPath, &pEngine->zeldaStateScript, pAllocCallbacks);
+		fcBinaryBufferLoad(pEngine->depot, pEngine->zeldaScriptPath, &pEngine->zeldaStateScript, allocator);
 		fcResourceRegisterAddScript(&pEngine->pWorld->resources, SID("ss-zelda"), &pEngine->zeldaStateScript);
 	}
 	
 	// init camera
-	pEngine->cameraSystem = fcCameraSystemCreate(pAllocCallbacks);
+	pEngine->cameraSystem = fcCameraSystemCreate(allocator);
 	
 	// default camera
 	{
@@ -749,7 +749,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 	
 	// init scratchpad buffer
 	pEngine->scratchpadBufferSize = 256 * 1024;
-	pEngine->scratchpadBuffer = FUR_ALLOC_AND_ZERO(pEngine->scratchpadBufferSize, 16, FC_MEMORY_SCOPE_GLOBAL, pAllocCallbacks);
+	pEngine->scratchpadBuffer = FUR_ALLOC_AND_ZERO(pEngine->scratchpadBufferSize, 16, FC_MEMORY_SCOPE_GLOBAL, allocator);
 	
 	// init type factories
 	fcRegisterGameObjectFactories();
@@ -772,8 +772,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 				FcSerializer ser = {};
 				ser.file = file;
 				ser.isWriting = false;
-				pEngine->pRig = (FcRig*)FUR_ALLOC_AND_ZERO(sizeof(FcRig), 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-				fcRigSerialize(&ser, pEngine->pRig, pAllocCallbacks);
+				pEngine->pRig = (FcRig*)FUR_ALLOC_AND_ZERO(sizeof(FcRig), 0, FC_MEMORY_SCOPE_ANIMATION, allocator);
+				fcRigSerialize(&ser, pEngine->pRig, allocator);
 			}
 		}
 		
@@ -784,7 +784,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 			fi_import_rig_ctx_t ctx = {};
 			ctx.path = characterRigPath;
 			
-			fcImportRig(&depot, &ctx, &pEngine->pRig, pAllocCallbacks);
+			fcImportRig(&depot, &ctx, &pEngine->pRig, allocator);
 			
 			// apply rig properties
 			{
@@ -830,7 +830,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 				
 				// masks
 				{
-					pEngine->pRig->maskUpperBody = FUR_ALLOC_ARRAY_AND_ZERO(u8, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+					pEngine->pRig->maskUpperBody = FUR_ALLOC_ARRAY_AND_ZERO(u8, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, allocator);
 					const int16_t idxSpine = fcRigFindBoneIdx(pEngine->pRig, SID("Bip001_Spine"));
 					const FcStringId hashes[9] = {
 						SID("Bip001_Pelvis"),
@@ -904,7 +904,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 				
 				// face mask
 				{
-					pEngine->pRig->maskFace = FUR_ALLOC_ARRAY_AND_ZERO(u8, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+					pEngine->pRig->maskFace = FUR_ALLOC_ARRAY_AND_ZERO(u8, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, allocator);
 					const int16_t idxSpine = fcRigFindBoneIdx(pEngine->pRig, SID("Bip001_Spine"));
 					const FcStringId hashes[] = {
 						//SID("Bip001_Neck"),
@@ -990,7 +990,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 				
 				// hands mask
 				{
-					pEngine->pRig->maskHands = FUR_ALLOC_ARRAY_AND_ZERO(u8, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+					pEngine->pRig->maskHands = FUR_ALLOC_ARRAY_AND_ZERO(u8, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, allocator);
 					const int16_t idxSpine = fcRigFindBoneIdx(pEngine->pRig, SID("Bip001_Spine"));
 					const FcStringId hashes[] = {
 						SID("Bip001_Index1_L"),
@@ -1052,30 +1052,30 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 			FcSerializer ser = {};
 			ser.file = engineFile;
 			ser.isWriting = true;
-			fcRigSerialize(&ser, pEngine->pRig, pAllocCallbacks);
+			fcRigSerialize(&ser, pEngine->pRig, allocator);
 		}
 #endif
 
-		pEngine->pAnimClipWindProtect = fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-upper-wind-protect", pEngine->pRig, pAllocCallbacks);
-		pEngine->pAnimClipHoldSword = fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-upper-hold-sword", pEngine->pRig, pAllocCallbacks);
+		pEngine->pAnimClipWindProtect = fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-upper-wind-protect", pEngine->pRig, allocator);
+		pEngine->pAnimClipHoldSword = fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-upper-hold-sword", pEngine->pRig, allocator);
 		
-		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-idle-stand-relaxed", pEngine->pRig, pAllocCallbacks);
-		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-poses", pEngine->pRig, pAllocCallbacks);
-		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-pose-2", pEngine->pRig, pAllocCallbacks);
-		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-pose-3", pEngine->pRig, pAllocCallbacks);
-		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-pose-4", pEngine->pRig, pAllocCallbacks);
-		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-run-relaxed", pEngine->pRig, pAllocCallbacks);
-		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-run-to-idle-sharp", pEngine->pRig, pAllocCallbacks);
-		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-idle-to-run-0", pEngine->pRig, pAllocCallbacks);
-		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-jump-in-place", pEngine->pRig, pAllocCallbacks);
-		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-jump", pEngine->pRig, pAllocCallbacks);
-		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-additive", pEngine->pRig, pAllocCallbacks);
-		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-a-pose", pEngine->pRig, pAllocCallbacks);
-		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-face-idle", pEngine->pRig, pAllocCallbacks);
-		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-idle-stand-01", pEngine->pRig, pAllocCallbacks);
-		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-hands-idle", pEngine->pRig, pAllocCallbacks);
-		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-wind-01", pEngine->pRig, pAllocCallbacks);
-		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-jump-loop", pEngine->pRig, pAllocCallbacks);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-idle-stand-relaxed", pEngine->pRig, allocator);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-poses", pEngine->pRig, allocator);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-pose-2", pEngine->pRig, allocator);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-pose-3", pEngine->pRig, allocator);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-funny-pose-4", pEngine->pRig, allocator);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-run-relaxed", pEngine->pRig, allocator);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-run-to-idle-sharp", pEngine->pRig, allocator);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-idle-to-run-0", pEngine->pRig, allocator);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-jump-in-place", pEngine->pRig, allocator);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-loco-jump", pEngine->pRig, allocator);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-additive", pEngine->pRig, allocator);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-a-pose", pEngine->pRig, allocator);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-face-idle", pEngine->pRig, allocator);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-idle-stand-01", pEngine->pRig, allocator);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-hands-idle", pEngine->pRig, allocator);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-wind-01", pEngine->pRig, allocator);
+		fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-jump-loop", pEngine->pRig, allocator);
 		
 		// load meshes
 		{
@@ -1087,7 +1087,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
 			meshCtx.textureIndices = textureIndices;
 			meshCtx.numTextureIndices = FUR_ARRAY_SIZE(textureIndices);
-			pEngine->swordMesh = fcRendererLoadMesh(pEngine->pRenderer, pEngine->depot, &meshCtx, pAllocCallbacks);
+			pEngine->swordMesh = fcRendererLoadMesh(pEngine->pRenderer, pEngine->depot, &meshCtx, allocator);
 		}
 		
 		// load chest mesh
@@ -1100,7 +1100,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
 			meshCtx.textureIndices = textureIndices;
 			meshCtx.numTextureIndices = FUR_ARRAY_SIZE(textureIndices);
-			pEngine->chestMesh = fcRendererLoadMesh(pEngine->pRenderer, pEngine->depot, &meshCtx, pAllocCallbacks);
+			pEngine->chestMesh = fcRendererLoadMesh(pEngine->pRenderer, pEngine->depot, &meshCtx, allocator);
 		}
 		
 		// load block mesh
@@ -1113,7 +1113,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
 			meshCtx.textureIndices = textureIndices;
 			meshCtx.numTextureIndices = FUR_ARRAY_SIZE(textureIndices);
-			pEngine->blockMesh = fcRendererLoadMesh(pEngine->pRenderer, pEngine->depot, &meshCtx, pAllocCallbacks);
+			pEngine->blockMesh = fcRendererLoadMesh(pEngine->pRenderer, pEngine->depot, &meshCtx, allocator);
 		}
 		
 		// set block positions and create colliders
@@ -1125,7 +1125,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 			
 			for(i32 i=0; i<2; ++i)
 			{
-				fcPhysicsAddStaticBox(pEngine->pPhysics, &pEngine->blockPositions[i], &halfExtents, pAllocCallbacks);
+				fcPhysicsAddStaticBox(pEngine->pPhysics, &pEngine->blockPositions[i], &halfExtents, allocator);
 			}
 		}
 		
@@ -1146,7 +1146,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
 			meshCtx.textureIndices = textureIndices;
 			meshCtx.numTextureIndices = FUR_ARRAY_SIZE(textureIndices);
-			pEngine->rockMeshes[i] = fcRendererLoadMesh(pEngine->pRenderer, pEngine->depot, &meshCtx, pAllocCallbacks);
+			pEngine->rockMeshes[i] = fcRendererLoadMesh(pEngine->pRenderer, pEngine->depot, &meshCtx, allocator);
 		}
 		
 		// load zelda mesh
@@ -1166,7 +1166,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 			meshCtx.isSkinned = true;
 			meshCtx.boneNames = pEngine->pRig->boneNameHashes;
 			meshCtx.numBones = pEngine->pRig->numBones;
-			pEngine->zeldaMesh = fcRendererLoadMesh(pEngine->pRenderer, pEngine->depot, &meshCtx, pAllocCallbacks);
+			pEngine->zeldaMesh = fcRendererLoadMesh(pEngine->pRenderer, pEngine->depot, &meshCtx, allocator);
 		}
 	}
 	
@@ -1179,8 +1179,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 	// init game
 	{
 		pEngine->gameObjectRegister.capacity = 128;
-		pEngine->gameObjectRegister.objects = FUR_ALLOC_ARRAY_AND_ZERO(FcGameObjectLegacy*, pEngine->gameObjectRegister.capacity, 0, FC_MEMORY_SCOPE_SCRIPT, pAllocCallbacks);
-		pEngine->gameObjectRegister.ids = FUR_ALLOC_ARRAY_AND_ZERO(FcStringId, pEngine->gameObjectRegister.capacity, 0, FC_MEMORY_SCOPE_SCRIPT, pAllocCallbacks);
+		pEngine->gameObjectRegister.objects = FUR_ALLOC_ARRAY_AND_ZERO(FcGameObjectLegacy*, pEngine->gameObjectRegister.capacity, 0, FC_MEMORY_SCOPE_SCRIPT, allocator);
+		pEngine->gameObjectRegister.ids = FUR_ALLOC_ARRAY_AND_ZERO(FcStringId, pEngine->gameObjectRegister.capacity, 0, FC_MEMORY_SCOPE_SCRIPT, allocator);
 		pEngine->gameObjectRegister.numObjects = 0;
 		
 		// create Zelda
@@ -1200,7 +1200,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		animCharacterDesc.globalTime = pEngine->globalTime;
 		
 		pEngine->zeldaGameObject.name = SID_REG("zelda");
-		pEngine->zeldaGameObject.animCharacter = fcAnimCharacterCreate(&animCharacterDesc, pAllocCallbacks);
+		pEngine->zeldaGameObject.animCharacter = fcAnimCharacterCreate(&animCharacterDesc, allocator);
 		fcAnimSystemAddCharacter(pEngine->animSystem, pEngine->zeldaGameObject.animCharacter);
 		pEngine->zeldaGameObject.animCharacter->skinMatrices = pEngine->skinMatrices;
 		
@@ -1223,7 +1223,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		desc.numParticles = numParticles;
 		desc.dampingCoef = 0.96f;
 		
-		fcPBDDangleCreate(&desc, &pEngine->dangle, pAllocCallbacks);
+		fcPBDDangleCreate(&desc, &pEngine->dangle, allocator);
 		
 		fm_vec4 pos = {0.0f, 0.0f, 1.0f};
 		for(u32 i=0; i<numParticles; ++i)
@@ -1256,8 +1256,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		desc.numParticles = 3;
 		desc.dampingCoef = 0.96f;
 		
-		fcPBDDangleCreate(&desc, &pEngine->zeldaDangleHairLeft, pAllocCallbacks);
-		fcPBDDangleCreate(&desc, &pEngine->zeldaDangleHairRight, pAllocCallbacks);
+		fcPBDDangleCreate(&desc, &pEngine->zeldaDangleHairLeft, allocator);
+		fcPBDDangleCreate(&desc, &pEngine->zeldaDangleHairRight, allocator);
 		
 		const FcStringId hair_r = SID("Bip001_Hair_R");
 		const FcStringId hair_r2 = SID("Bip001_Hair1_R");
@@ -1306,9 +1306,9 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		desc.numParticles = 4;
 		desc.dampingCoef = 0.96f;
 		
-		fcPBDDangleCreate(&desc, &pEngine->zeldaCapeL, pAllocCallbacks);
-		fcPBDDangleCreate(&desc, &pEngine->zeldaCapeC, pAllocCallbacks);
-		fcPBDDangleCreate(&desc, &pEngine->zeldaCapeR, pAllocCallbacks);
+		fcPBDDangleCreate(&desc, &pEngine->zeldaCapeL, allocator);
+		fcPBDDangleCreate(&desc, &pEngine->zeldaCapeC, allocator);
+		fcPBDDangleCreate(&desc, &pEngine->zeldaCapeR, allocator);
 		
 		const FcStringId cape_names_l[4] = {
 			SID("Bip001_Cape_L"),
@@ -1414,7 +1414,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		bvhCtx.objectBoxes = boxes;
 		bvhCtx.arenaAlloc = &memArena;
 		
-		fcBoundingVolumeHierarchyCreate(&bvhCtx, &pEngine->testBVH, pAllocCallbacks);
+		fcBoundingVolumeHierarchyCreate(&bvhCtx, &pEngine->testBVH, allocator);
 	}
 		
 	return true;
@@ -1840,33 +1840,33 @@ void fcInputActionsUpdate(FcGameEngine* pEngine, f32 dt)
 	}
 }
 
-void fcDevMenuReloatScripts(FcGameEngine* pEngine, FcAllocator* pAllocCallbacks)
+void fcDevMenuReloatScripts(FcGameEngine* pEngine, FcAllocator* allocator)
 {
-	fcBinaryBufferRelease(&pEngine->zeldaStateScript, pAllocCallbacks);
-	fcBinaryBufferLoad(pEngine->depot, pEngine->zeldaScriptPath, &pEngine->zeldaStateScript, pAllocCallbacks);
+	fcBinaryBufferRelease(&pEngine->zeldaStateScript, allocator);
+	fcBinaryBufferLoad(pEngine->depot, pEngine->zeldaScriptPath, &pEngine->zeldaStateScript, allocator);
 }
 
-void fcDevMenuShowPlayerAnimState(FcGameEngine* pEngine, FcAllocator* pAllocCallbacks)
+void fcDevMenuShowPlayerAnimState(FcGameEngine* pEngine, FcAllocator* allocator)
 {
 	pEngine->zeldaGameObject.showAnimStateDebug = !pEngine->zeldaGameObject.showAnimStateDebug;
 }
 
-void fcDevMenuShowProfiler(FcGameEngine* pEngine, FcAllocator* pAllocCallbacks)
+void fcDevMenuShowProfiler(FcGameEngine* pEngine, FcAllocator* allocator)
 {
 	fcProfilerToggleDraw();
 }
 
-void fcDevMenuSlowTime(FcGameEngine* pEngine, FcAllocator* pAllocCallbacks)
+void fcDevMenuSlowTime(FcGameEngine* pEngine, FcAllocator* allocator)
 {
 	pEngine->debugIsSlowTime = !pEngine->debugIsSlowTime;
 }
 
-void fcDevMenuShowFPS(FcGameEngine* pEngine, FcAllocator* pAllocCallbacks)
+void fcDevMenuShowFPS(FcGameEngine* pEngine, FcAllocator* allocator)
 {
 	pEngine->debugShowFPS = !pEngine->debugShowFPS;
 }
 
-void fcDevMenuShowMemoryStats(FcGameEngine* pEngine, FcAllocator* pAllocCallbacks)
+void fcDevMenuShowMemoryStats(FcGameEngine* pEngine, FcAllocator* allocator)
 {
 	pEngine->debugShowMemoryStats = !pEngine->debugShowMemoryStats;
 }
@@ -1874,10 +1874,10 @@ void fcDevMenuShowMemoryStats(FcGameEngine* pEngine, FcAllocator* pAllocCallback
 typedef struct FcDevMenuOption
 {
 	const char* name;
-	void (*func)(FcGameEngine* pEngine, FcAllocator* pAllocCallbacks);
+	void (*func)(FcGameEngine* pEngine, FcAllocator* allocator);
 } FcDevMenuOption;
 
-void fcDrawDebugMenu(FcGameEngine* pEngine, FcAllocator* pAllocCallbacks)
+void fcDrawDebugMenu(FcGameEngine* pEngine, FcAllocator* allocator)
 {
 	const f32 color[4] = {0.8f, 0.8f, 0.8f, 1.0f};
 	const f32 colorCursor[4] = {0.9f, 0.9f, 0.9f, 1.0f};
@@ -1932,7 +1932,7 @@ void fcDrawDebugMenu(FcGameEngine* pEngine, FcAllocator* pAllocCallbacks)
 			{
 				if(options[i].func)
 				{
-					(*options[i].func)(pEngine, pAllocCallbacks);
+					(*options[i].func)(pEngine, allocator);
 				}
 			}
 		}
@@ -2231,7 +2231,7 @@ FUR_JOB_ENTRY_POINT(test_job_with_sub_job)
 	}
 }
 
-void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, FcAllocator* pAllocCallbacks)
+void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, FcAllocator* allocator)
 {
 	// show debug FPS
 	if(pEngine->debugShowFPS)
@@ -2326,7 +2326,7 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, FcAllocator* pAllocCa
 	}
 	
 	// debug/dev menu
-	fcDrawDebugMenu(pEngine, pAllocCallbacks);
+	fcDrawDebugMenu(pEngine, allocator);
 	
 	// game
 	FUR_PROFILE("gameplay-update")
@@ -2713,7 +2713,7 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, FcAllocator* pAllocCa
 		// draw frame
 		FcRendererDrawFrameCtx renderCtx = {};
 		renderCtx.pvs = framePVS;
-		fcRendererDrawFrame(pEngine->pRenderer, &renderCtx, pAllocCallbacks);
+		fcRendererDrawFrame(pEngine->pRenderer, &renderCtx, allocator);
 	}
 }
 
@@ -2722,7 +2722,7 @@ FUR_JOB_ENTRY_POINT(fur_engine_main_thread_loop)
 	FcMainThreadUserData* userData = FUR_JOB_USER_DATA(FcMainThreadUserData);
 	
 	FcGameEngine* pEngine = userData->pEngine;
-	FcAllocator* pAllocCallbacks = userData->pAllocCallbacks;
+	FcAllocator* allocator = userData->allocator;
 	
 	pEngine->prevTimePoint = std::chrono::system_clock::now();
 	
@@ -2738,7 +2738,7 @@ FUR_JOB_ENTRY_POINT(fur_engine_main_thread_loop)
 		
 		FUR_PROFILE("frame")
 		{
-			fcGameEngineMainUpdate(pEngine, dt, pAllocCallbacks);
+			fcGameEngineMainUpdate(pEngine, dt, allocator);
 		}
 		
 		fcProfilerEndFrame();
@@ -2749,9 +2749,9 @@ FUR_JOB_ENTRY_POINT(fur_engine_main_thread_loop)
 	fcJobSystemExitAllJobs();
 }
 
-void furMainEngineLoop(FcGameEngine* pEngine, FcAllocator* pAllocCallbacks)
+void furMainEngineLoop(FcGameEngine* pEngine, FcAllocator* allocator)
 {
-	FcMainThreadUserData data = {pEngine, pAllocCallbacks};
+	FcMainThreadUserData data = {pEngine, allocator};
 	
 	FcJobDecl mainThreadJob = {};
 	mainThreadJob.userData = &data;
@@ -2762,62 +2762,62 @@ void furMainEngineLoop(FcGameEngine* pEngine, FcAllocator* pAllocCallbacks)
 	fcJobSystemEnterWorkerThreadMode();
 }
 
-bool furMainEngineTerminate(FcGameEngine* pEngine, FcAllocator* pAllocCallbacks)
+bool furMainEngineTerminate(FcGameEngine* pEngine, FcAllocator* allocator)
 {
 	// release text BVH
-	fcBoundingVolumeHiearchyRelease(&pEngine->testBVH, pAllocCallbacks);
+	fcBoundingVolumeHiearchyRelease(&pEngine->testBVH, allocator);
 	
 	// release meshes
-	fcRendererReleaseProxy(pEngine->pRenderer, pEngine->zeldaMesh, pAllocCallbacks);
-	fcRendererReleaseProxy(pEngine->pRenderer, pEngine->swordMesh, pAllocCallbacks);
-	fcRendererReleaseProxy(pEngine->pRenderer, pEngine->chestMesh, pAllocCallbacks);
-	fcRendererReleaseProxy(pEngine->pRenderer, pEngine->blockMesh, pAllocCallbacks);
+	fcRendererReleaseProxy(pEngine->pRenderer, pEngine->zeldaMesh, allocator);
+	fcRendererReleaseProxy(pEngine->pRenderer, pEngine->swordMesh, allocator);
+	fcRendererReleaseProxy(pEngine->pRenderer, pEngine->chestMesh, allocator);
+	fcRendererReleaseProxy(pEngine->pRenderer, pEngine->blockMesh, allocator);
 	
 	// load rock meshes
 	for(u32 i=0; i<5; ++i)
 	{
-		fcRendererReleaseProxy(pEngine->pRenderer, pEngine->rockMeshes[i], pAllocCallbacks);
+		fcRendererReleaseProxy(pEngine->pRenderer, pEngine->rockMeshes[i], allocator);
 	}
 	
-	fcPBDDangleRelease(&pEngine->dangle, pAllocCallbacks);
-	fcPBDDangleRelease(&pEngine->zeldaDangleHairLeft, pAllocCallbacks);
-	fcPBDDangleRelease(&pEngine->zeldaDangleHairRight, pAllocCallbacks);
+	fcPBDDangleRelease(&pEngine->dangle, allocator);
+	fcPBDDangleRelease(&pEngine->zeldaDangleHairLeft, allocator);
+	fcPBDDangleRelease(&pEngine->zeldaDangleHairRight, allocator);
 	
-	fcPBDDangleRelease(&pEngine->zeldaCapeL, pAllocCallbacks);
-	fcPBDDangleRelease(&pEngine->zeldaCapeC, pAllocCallbacks);
-	fcPBDDangleRelease(&pEngine->zeldaCapeR, pAllocCallbacks);
+	fcPBDDangleRelease(&pEngine->zeldaCapeL, allocator);
+	fcPBDDangleRelease(&pEngine->zeldaCapeC, allocator);
+	fcPBDDangleRelease(&pEngine->zeldaCapeR, allocator);
 	
 	fcAnimSystemRemoveCharacter(pEngine->animSystem, pEngine->zeldaGameObject.animCharacter);
-	fcAnimSystemAnimCharacterRelease(pEngine->zeldaGameObject.animCharacter, pAllocCallbacks);
+	fcAnimSystemAnimCharacterRelease(pEngine->zeldaGameObject.animCharacter, allocator);
 	
-	fcWorldRelease(pEngine->pWorld, pAllocCallbacks);
-	FUR_FREE(pEngine->pWorld, pAllocCallbacks);
+	fcWorldRelease(pEngine->pWorld, allocator);
+	FUR_FREE(pEngine->pWorld, allocator);
 	
-	FUR_FREE(pEngine->gameObjectRegister.objects, pAllocCallbacks);
-	FUR_FREE(pEngine->gameObjectRegister.ids, pAllocCallbacks);
+	FUR_FREE(pEngine->gameObjectRegister.objects, allocator);
+	FUR_FREE(pEngine->gameObjectRegister.ids, allocator);
 	
-	FUR_FREE(pEngine->scratchpadBuffer, pAllocCallbacks);
+	FUR_FREE(pEngine->scratchpadBuffer, allocator);
 	
-	fcAnimSystemRelease(pEngine->animSystem, pAllocCallbacks);
+	fcAnimSystemRelease(pEngine->animSystem, allocator);
 	
-	fcCameraSystemRelease(pEngine->cameraSystem, pAllocCallbacks);
+	fcCameraSystemRelease(pEngine->cameraSystem, allocator);
 	
-	fcJobSystemRelease(pAllocCallbacks);
-	fcPhysicsRelease(pEngine->pPhysics, pAllocCallbacks);
-	fcRendererRelease(pEngine->pRenderer, pAllocCallbacks);
+	fcJobSystemRelease(allocator);
+	fcPhysicsRelease(pEngine->pPhysics, allocator);
+	fcRendererRelease(pEngine->pRenderer, allocator);
 	
-	fcInputManagerRelease(pEngine->pInputManager, pAllocCallbacks);
+	fcInputManagerRelease(pEngine->pInputManager, allocator);
 	
-	fcDepotUnmount(pEngine->depot, pAllocCallbacks);
+	fcDepotUnmount(pEngine->depot, allocator);
 
-	fcStringIdRegisterRelease(pAllocCallbacks);
+	fcStringIdRegisterRelease(allocator);
 	
-	fcProfilerRelease(pAllocCallbacks);
+	fcProfilerRelease(allocator);
 	
 	// release all memory before this call, otherwise it might be treated as memory leak
-	fcApplicationRelease(pEngine->pApp, pAllocCallbacks);
+	fcApplicationRelease(pEngine->pApp, allocator);
 	
-	FUR_FREE(pEngine, pAllocCallbacks);	// rest of the deallocations should happen through allocators
+	FUR_FREE(pEngine, allocator);	// rest of the deallocations should happen through allocators
 	
 	return true;
 }
@@ -2832,10 +2832,10 @@ int main()
 	
 	FcGameEngine* pEngine = NULL;
 	
-	FcAllocator* pAllocCallbacks = NULL;	// todo: if NULL, then uses default alloc callbacks
+	FcAllocator* allocator = NULL;	// todo: if NULL, then uses default alloc callbacks
 	
 	// initialize most basic engine components
-	bool initResult = furMainEngineInit(desc, &pEngine, pAllocCallbacks);
+	bool initResult = furMainEngineInit(desc, &pEngine, allocator);
 	if(!initResult)
 	{
 		printf("Engine initialization error. Last known error: %s.\n", FurGetLastError());
@@ -2843,10 +2843,10 @@ int main()
 	}
 	
 	// main engine loop
-	furMainEngineLoop(pEngine, pAllocCallbacks);
+	furMainEngineLoop(pEngine, allocator);
 	
 	// terminate most basic engine components
-	bool result = furMainEngineTerminate(pEngine, pAllocCallbacks);
+	bool result = furMainEngineTerminate(pEngine, allocator);
 	if(!result)
 	{
 		return 1;

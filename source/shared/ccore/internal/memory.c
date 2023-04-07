@@ -87,14 +87,14 @@ typedef struct FcMemDebugInfo
 
 FcMemDebugInfo g_rootDebugMemInfo;
 
-void* fcAlloc(struct FcAllocator* pAllocCallbacks, u64 size, u64 alignment,
+void* fcAlloc(struct FcAllocator* allocator, u64 size, u64 alignment,
 							  enum FcMemoryScope scope, const char* info)
 {
 	if(size == 0)
 		return NULL;
 	
-	if(pAllocCallbacks)
-		return pAllocCallbacks->pfnAllocate(pAllocCallbacks->pUserData, size, alignment, scope);
+	if(allocator)
+		return allocator->pfnAllocate(allocator->pUserData, size, alignment, scope);
 	
 #if FUR_MEMORY_DEBUG == 1
 	u64 originalSize = size;
@@ -138,25 +138,25 @@ void* fcAlloc(struct FcAllocator* pAllocCallbacks, u64 size, u64 alignment,
 	return alignedPtr;
 }
 
-void* fcAllocAndZero(struct FcAllocator* pAllocCallbacks, u64 size, u64 alignment,
+void* fcAllocAndZero(struct FcAllocator* allocator, u64 size, u64 alignment,
 								  enum FcMemoryScope scope, const char* info)
 {
 	if(size == 0)
 		return NULL;
 	
-	void* ptr = fcAlloc(pAllocCallbacks, size, alignment, scope, info);
+	void* ptr = fcAlloc(allocator, size, alignment, scope, info);
 	memset(ptr, 0, size);
 	return ptr;
 }
 
-void fcFree(struct FcAllocator* pAllocCallbacks, void* pMemory, const char* info)
+void fcFree(struct FcAllocator* allocator, void* pMemory, const char* info)
 {
 	if(pMemory == NULL)
 		return;
 	
-	if(pAllocCallbacks)
+	if(allocator)
 	{
-		pAllocCallbacks->pfnFree(pAllocCallbacks->pUserData, pMemory);
+		allocator->pfnFree(allocator->pUserData, pMemory);
 		return;
 	}
 	

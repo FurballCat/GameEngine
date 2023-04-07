@@ -24,22 +24,22 @@ typedef struct FcRenderBuffer
 
 // buffer creation, allocates memory
 void fcRenderBufferCreate(VkDevice device, VkPhysicalDevice physicalDevice, const FcRenderBufferDesc* pDesc,
-					  FcRenderBuffer* pBuffer, struct FcAllocator* pAllocCallbacks);
+					  FcRenderBuffer* pBuffer, struct FcAllocator* allocator);
 
 // buffer release, deallocates memory
-void fcRenderBufferRelease(VkDevice device, FcRenderBuffer* pBuffer, struct FcAllocator* pAllocCallbacks);
+void fcRenderBufferRelease(VkDevice device, FcRenderBuffer* pBuffer, struct FcAllocator* allocator);
 
 void fcRenderCreateBuffer(VkDevice device, VkPhysicalDevice physicalDevice,
 					VkDeviceSize size, VkBufferUsageFlags usage,
 					VkMemoryPropertyFlags properties,
 					VkBuffer* buffer, VkDeviceMemory* bufferMemory,
-					struct FcAllocator* pAllocCallbacks);
+					struct FcAllocator* allocator);
 
 void fcRenderCreateImage(VkDevice device, VkPhysicalDevice physicalDevice,
 					 VkDeviceSize size, VkFormat format, VkBufferUsageFlags usage,
 					 VkMemoryPropertyFlags properties, u32 width, u32 height,
 					 VkImage* textureImage, VkDeviceMemory* textureImageMemory,
-					 struct FcAllocator* pAllocCallbacks);
+					 struct FcAllocator* allocator);
 
 void fcRenderCopyDataToBuffer(VkDevice device, VkDeviceMemory dst, const void* src, u32 offset, u32 size);
 void fcRenderClearDataInBuffer(VkDevice device, VkDeviceMemory dst, u32 offset, u32 size);

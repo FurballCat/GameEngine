@@ -24,8 +24,8 @@ extern "C"
 
 typedef struct FcAllocator FcAllocator;
 
-CCORE_API void fcProfilerInit(FcAllocator* pAllocCallbacks);
-CCORE_API void fcProfilerRelease(FcAllocator* pAllocCallbacks);
+CCORE_API void fcProfilerInit(FcAllocator* allocator);
+CCORE_API void fcProfilerRelease(FcAllocator* allocator);
 
 typedef struct FcProfilerScope
 {

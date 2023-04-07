@@ -12,8 +12,8 @@ extern "C"
 	
 typedef struct FcAllocator FcAllocator;
 	
-CCORE_API void fcDebugInit(FcAllocator* pAllocCallbacks);
-CCORE_API void fcDebugRelease(FcAllocator* pAllocCallbacks);
+CCORE_API void fcDebugInit(FcAllocator* allocator);
+CCORE_API void fcDebugRelease(FcAllocator* allocator);
 	
 #define FUR_COLOR_WHITE 	{1.0f, 1.0f, 1.0f, 1.0f}
 #define FUR_COLOR_BLACK 	{0.0f, 0.0f, 0.0f, 1.0f}

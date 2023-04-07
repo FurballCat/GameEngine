@@ -42,7 +42,7 @@ typedef struct FcAnimClip
 	f32 motionDelta[8];	// single loop of motion for this anim clip (pos[4] xyzw, rot[4] ijkr)
 } FcAnimClip;
 
-CANIM_API void fcAnimClipRelease(FcAnimClip* clip, FcAllocator* pAllocCallbacks);
+CANIM_API void fcAnimClipRelease(FcAnimClip* clip, FcAllocator* allocator);
 
 CANIM_API void fcAnimCurveSample(const FcAnimCurve* curve, f32 time, bool asAdditive, fm_xform* xform);
 
@@ -51,7 +51,7 @@ typedef struct FcPose FcPose;
 CANIM_API void fcAnimClipSample(const FcAnimClip* clip, f32 time, bool asAdditive, FcPose* pose, const u8* mask /* optional */);
 CANIM_API void fcAnimClipSampleMotion(const FcAnimClip* clip, f32 timeBegin, f32 timeEnd, fm_xform* motion);
 
-CANIM_API void fcAnimClipSerialize(FcSerializer* pSerializer, FcAnimClip* clip, FcAllocator* pAllocCallbacks);
+CANIM_API void fcAnimClipSerialize(FcSerializer* pSerializer, FcAnimClip* clip, FcAllocator* allocator);
 
 #ifdef __cplusplus
 }

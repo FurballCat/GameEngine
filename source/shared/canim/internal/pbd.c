@@ -77,14 +77,14 @@ void FcPBDDangleSimulateSingleStep(FcPBDDangle* dangle, f32 dt)
 	}
 }
 
-void fcPBDDangleCreate(const FcPBDDangleDesc* desc, FcPBDDangle* dangle, FcAllocator* pAllocCallbacks)
+void fcPBDDangleCreate(const FcPBDDangleDesc* desc, FcPBDDangle* dangle, FcAllocator* allocator)
 {
 	FUR_ASSERT(!dangle->x0 && !dangle->p && !dangle->v && !dangle->d);
 	
-	dangle->x0 = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, desc->numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
-	dangle->p = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, desc->numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
-	dangle->v = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, desc->numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
-	dangle->d = FUR_ALLOC_ARRAY_AND_ZERO(f32, desc->numParticles-1, 16, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
+	dangle->x0 = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, desc->numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, allocator);
+	dangle->p = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, desc->numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, allocator);
+	dangle->v = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, desc->numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, allocator);
+	dangle->d = FUR_ALLOC_ARRAY_AND_ZERO(f32, desc->numParticles-1, 16, FC_MEMORY_SCOPE_PHYSICS, allocator);
 	
 	dangle->freq = desc->frequency;
 	dangle->numParaticles = desc->numParticles;
@@ -92,14 +92,14 @@ void fcPBDDangleCreate(const FcPBDDangleDesc* desc, FcPBDDangle* dangle, FcAlloc
 	dangle->damping = desc->dampingCoef;
 }
 
-void fcPBDDangleRelease(FcPBDDangle* dangle, FcAllocator* pAllocCallbacks)
+void fcPBDDangleRelease(FcPBDDangle* dangle, FcAllocator* allocator)
 {
 	FUR_ASSERT(dangle->x0 && dangle->p && dangle->v && dangle->d);
 	
-	FUR_FREE(dangle->x0, pAllocCallbacks);
-	FUR_FREE(dangle->p, pAllocCallbacks);
-	FUR_FREE(dangle->v, pAllocCallbacks);
-	FUR_FREE(dangle->d, pAllocCallbacks);
+	FUR_FREE(dangle->x0, allocator);
+	FUR_FREE(dangle->p, allocator);
+	FUR_FREE(dangle->v, allocator);
+	FUR_FREE(dangle->d, allocator);
 	
 	dangle->x0 = NULL;
 	dangle->p = NULL;

@@ -19,8 +19,8 @@ CCORE_API FcStringId fcMakeStringIdAndRegister(const char* name);
 CCORE_API const char* fcStringIdAsDebugCstr(FcStringId hash);
 
 typedef struct FcAllocator FcAllocator;
-CCORE_API void fcStringIdRegisterInit(FcAllocator* pAllocCallbacks);
-CCORE_API void fcStringIdRegisterRelease(FcAllocator* pAllocCallbacks);
+CCORE_API void fcStringIdRegisterInit(FcAllocator* allocator);
+CCORE_API void fcStringIdRegisterRelease(FcAllocator* allocator);
 	
 #define SID(_name) fcMakeStringId(_name)
 #define SID_REG(_name) fcMakeStringIdAndRegister(_name)

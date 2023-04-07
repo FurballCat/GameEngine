@@ -210,7 +210,7 @@ void fi_import_sort_bones(std::map<std::string, FBXBoneInfo*>& bones, std::vecto
 }
 
 FcImportResult fcImportRig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ctx,
-									  FcRig** ppRig, FcAllocator* pAllocCallbacks)
+									  FcRig** ppRig, FcAllocator* allocator)
 {
 	FBXRig rig;
 	
@@ -338,14 +338,14 @@ FcImportResult fcImportRig(const fi_depot_t* depot, const fi_import_rig_ctx_t* c
 			
 			// copy to output rig
 			{
-				FcRig* pRig = (FcRig*)FUR_ALLOC_AND_ZERO(sizeof(FcRig), 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+				FcRig* pRig = (FcRig*)FUR_ALLOC_AND_ZERO(sizeof(FcRig), 16, FC_MEMORY_SCOPE_RENDER, allocator);
 				
 				*ppRig = pRig;
 				
-				pRig->refPose = (fm_xform*)FUR_ALLOC(sizeof(fm_xform) * rig.m_referencePose.size(), 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
-				pRig->parents = (int16_t*)FUR_ALLOC(sizeof(int16_t) * rig.m_referencePose.size(), 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+				pRig->refPose = (fm_xform*)FUR_ALLOC(sizeof(fm_xform) * rig.m_referencePose.size(), 16, FC_MEMORY_SCOPE_RENDER, allocator);
+				pRig->parents = (int16_t*)FUR_ALLOC(sizeof(int16_t) * rig.m_referencePose.size(), 16, FC_MEMORY_SCOPE_RENDER, allocator);
 				pRig->numBones = (u32)rig.m_referencePose.size();
-				pRig->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(FcStringId, numBones, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+				pRig->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(FcStringId, numBones, 0, FC_MEMORY_SCOPE_RENDER, allocator);
 				
 				for(u32 i=0; i<pRig->numBones; ++i)
 				{
@@ -530,7 +530,7 @@ bool fi_is_same_key(const fi_temp_anim_curve_key_t* a, const fi_temp_anim_curve_
 	&& a->keyValues[2] == b->keyValues[2];
 }
 
-FcImportResult fcImportAnimClip(const fi_depot_t* depot, const FcImportAnimClipCtx* ctx, FcAnimClip** ppAnimClip, FcAllocator* pAllocCallbacks)
+FcImportResult fcImportAnimClip(const fi_depot_t* depot, const FcImportAnimClipCtx* ctx, FcAnimClip** ppAnimClip, FcAllocator* allocator)
 {
 	std::string absolutePath = depot->path;
 	absolutePath += ctx->path;
@@ -716,9 +716,9 @@ FcImportResult fcImportAnimClip(const fi_depot_t* depot, const FcImportAnimClipC
 				numAllKeys += tempCurve.posKeys.size();
 			}
 			
-			FcAnimClip* animClip = (FcAnimClip*)FUR_ALLOC_AND_ZERO(sizeof(FcAnimClip), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
-			animClip->curves = (FcAnimCurve*)FUR_ALLOC_AND_ZERO(sizeof(FcAnimCurve) * tempClip.curves.size(), 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
-			animClip->dataKeys = (FcAnimCurveKey*)FUR_ALLOC(sizeof(FcAnimCurveKey) * numAllKeys, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+			FcAnimClip* animClip = (FcAnimClip*)FUR_ALLOC_AND_ZERO(sizeof(FcAnimClip), 8, FC_MEMORY_SCOPE_RENDER, allocator);
+			animClip->curves = (FcAnimCurve*)FUR_ALLOC_AND_ZERO(sizeof(FcAnimCurve) * tempClip.curves.size(), 8, FC_MEMORY_SCOPE_RENDER, allocator);
+			animClip->dataKeys = (FcAnimCurveKey*)FUR_ALLOC(sizeof(FcAnimCurveKey) * numAllKeys, 16, FC_MEMORY_SCOPE_RENDER, allocator);
 			
 			animClip->numDataKeys = numAllKeys;
 			animClip->numCurves = (u16)tempClip.curves.size();
@@ -869,7 +869,7 @@ void fi_ofbx_matrix_to_fm_mat4(const ofbx::Matrix& src, fm_mat4& dst)
 	dst.w.w = src.m[15];
 }
 
-FcImportResult fcImportMeshResource(const fi_depot_t* depot, const FcImportMeshCtx* ctx, FcMeshResource** ppMesh, FcAllocator* pAllocCallbacks)
+FcImportResult fcImportMeshResource(const fi_depot_t* depot, const FcImportMeshCtx* ctx, FcMeshResource** ppMesh, FcAllocator* allocator)
 {
 	std::string absolutePath = depot->path;
 	absolutePath += ctx->path;
@@ -884,8 +884,8 @@ FcImportResult fcImportMeshResource(const fi_depot_t* depot, const FcImportMeshC
 		
 		const i32 numMeshes = scene->getMeshCount();
 		
-		FcMeshResource* mesh = (FcMeshResource*)FUR_ALLOC_AND_ZERO(sizeof(FcMeshResource), 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
-		mesh->chunks = (FcMeshResourceChunk*)FUR_ALLOC_AND_ZERO(sizeof(FcMeshResourceChunk) * numMeshes, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+		FcMeshResource* mesh = (FcMeshResource*)FUR_ALLOC_AND_ZERO(sizeof(FcMeshResource), 0, FC_MEMORY_SCOPE_RENDER, allocator);
+		mesh->chunks = (FcMeshResourceChunk*)FUR_ALLOC_AND_ZERO(sizeof(FcMeshResourceChunk) * numMeshes, 0, FC_MEMORY_SCOPE_RENDER, allocator);
 		mesh->numChunks = numMeshes;
 		
 		for(i32 i=0; i<numMeshes; ++i)
@@ -903,12 +903,12 @@ FcImportResult fcImportMeshResource(const fi_depot_t* depot, const FcImportMeshC
 			const u32 strideFloats = 3 + 3 + 2;
 			const u32 strideBytes = sizeof(f32) * strideFloats;
 			
-			chunk->dataVertices = (f32*)FUR_ALLOC_AND_ZERO(strideBytes * numVertices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+			chunk->dataVertices = (f32*)FUR_ALLOC_AND_ZERO(strideBytes * numVertices, 16, FC_MEMORY_SCOPE_RENDER, allocator);
 			chunk->numVertices = numVertices;
 			chunk->vertexStride = strideFloats;
 			
 			chunk->numIndices = numVertices;
-			chunk->dataIndices = FUR_ALLOC_ARRAY(u32, numVertices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+			chunk->dataIndices = FUR_ALLOC_ARRAY(u32, numVertices, 16, FC_MEMORY_SCOPE_RENDER, allocator);
 			
 			// create vertex stream
 			f32* itVertex = chunk->dataVertices;
@@ -958,9 +958,9 @@ FcImportResult fcImportMeshResource(const fi_depot_t* depot, const FcImportMeshC
 			if(skin)
 			{
 				chunk->numBones = skin->getClusterCount();
-				chunk->bindPose = FUR_ALLOC_ARRAY_AND_ZERO(fm_mat4, chunk->numBones, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
-				chunk->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(FcStringId, chunk->numBones, 8, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
-				chunk->dataSkinning = FUR_ALLOC_ARRAY_AND_ZERO(FcMeshResourceChunkSkin, numVertices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+				chunk->bindPose = FUR_ALLOC_ARRAY_AND_ZERO(fm_mat4, chunk->numBones, 16, FC_MEMORY_SCOPE_RENDER, allocator);
+				chunk->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(FcStringId, chunk->numBones, 8, FC_MEMORY_SCOPE_RENDER, allocator);
+				chunk->dataSkinning = FUR_ALLOC_ARRAY_AND_ZERO(FcMeshResourceChunkSkin, numVertices, 16, FC_MEMORY_SCOPE_RENDER, allocator);
 				
 				// init all skin indices to -1
 				for(u32 iv=0; iv<chunk->numVertices; ++iv)
@@ -1046,26 +1046,26 @@ FcImportResult fcImportMeshResource(const fi_depot_t* depot, const FcImportMeshC
 	return FI_RESULT_UNKNOWN_FILE_FORMAT_IMPORT_ERROR;
 }
 
-void fcMeshResourceRelease(FcMeshResource* pMesh, FcAllocator* pAllocCallbacks)
+void fcMeshResourceRelease(FcMeshResource* pMesh, FcAllocator* allocator)
 {
 	FcMeshResourceChunk* chunks = pMesh->chunks;
 	u32 numChunks = pMesh->numChunks;
 	
 	for(u32 i=0; i<numChunks; ++i)
 	{
-		FUR_FREE(chunks[i].dataIndices, pAllocCallbacks);
-		FUR_FREE(chunks[i].dataVertices, pAllocCallbacks);
+		FUR_FREE(chunks[i].dataIndices, allocator);
+		FUR_FREE(chunks[i].dataVertices, allocator);
 		
 		if(chunks[i].bindPose)
-			FUR_FREE(chunks[i].bindPose, pAllocCallbacks);
+			FUR_FREE(chunks[i].bindPose, allocator);
 		
 		if(chunks[i].dataSkinning)
-			FUR_FREE(chunks[i].dataSkinning, pAllocCallbacks);
+			FUR_FREE(chunks[i].dataSkinning, allocator);
 		
 		if(chunks[i].boneNameHashes)
-			FUR_FREE(chunks[i].boneNameHashes, pAllocCallbacks);
+			FUR_FREE(chunks[i].boneNameHashes, allocator);
 	}
 	
-	FUR_FREE(pMesh->chunks, pAllocCallbacks);
-	FUR_FREE(pMesh, pAllocCallbacks);
+	FUR_FREE(pMesh->chunks, allocator);
+	FUR_FREE(pMesh, allocator);
 }

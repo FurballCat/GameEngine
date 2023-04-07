@@ -39,8 +39,8 @@ extern "C"
 
 typedef struct FcAllocator FcAllocator;
 
-CCORE_API void fcJobSystemInit(FcAllocator* pAllocCallbacks);
-CCORE_API void fcJobSystemRelease(FcAllocator* pAllocCallbacks);
+CCORE_API void fcJobSystemInit(FcAllocator* allocator);
+CCORE_API void fcJobSystemRelease(FcAllocator* allocator);
 
 typedef void (*FcJobFunc)(void* userData);
 

@@ -91,21 +91,21 @@ const char* fcStringIdAsDebugCstr(FcStringId hash)
 	return "<unknown>";
 }
 
-void fcStringIdRegisterInit(FcAllocator* pAllocCallbacks)
+void fcStringIdRegisterInit(FcAllocator* allocator)
 {
-	g_hashRegister.buffer = FUR_ALLOC_AND_ZERO(FUR_STRING_HASH_BUFFER_CAPACITY, 0, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
+	g_hashRegister.buffer = FUR_ALLOC_AND_ZERO(FUR_STRING_HASH_BUFFER_CAPACITY, 0, FC_MEMORY_SCOPE_DEBUG, allocator);
 	g_hashRegister.bufferCapacity = FUR_STRING_HASH_BUFFER_CAPACITY;
 	g_hashRegister.bufferOffset = 0;
 	
-	g_hashRegister.hashes = FUR_ALLOC_ARRAY_AND_ZERO(FcStringId, FUR_STRING_HASH_MAX_DEBUG_HASH_NAMES, 0, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
-	g_hashRegister.names = FUR_ALLOC_ARRAY_AND_ZERO(const char*, FUR_STRING_HASH_MAX_DEBUG_HASH_NAMES, 0, FC_MEMORY_SCOPE_DEBUG, pAllocCallbacks);
+	g_hashRegister.hashes = FUR_ALLOC_ARRAY_AND_ZERO(FcStringId, FUR_STRING_HASH_MAX_DEBUG_HASH_NAMES, 0, FC_MEMORY_SCOPE_DEBUG, allocator);
+	g_hashRegister.names = FUR_ALLOC_ARRAY_AND_ZERO(const char*, FUR_STRING_HASH_MAX_DEBUG_HASH_NAMES, 0, FC_MEMORY_SCOPE_DEBUG, allocator);
 	g_hashRegister.namesCapacity = FUR_STRING_HASH_MAX_DEBUG_HASH_NAMES;
 	g_hashRegister.namesCount = 0;
 }
 
-void fcStringIdRegisterRelease(FcAllocator* pAllocCallbacks)
+void fcStringIdRegisterRelease(FcAllocator* allocator)
 {
-	FUR_FREE(g_hashRegister.buffer, pAllocCallbacks);
-	FUR_FREE(g_hashRegister.hashes, pAllocCallbacks);
-	FUR_FREE(g_hashRegister.names, pAllocCallbacks);
+	FUR_FREE(g_hashRegister.buffer, allocator);
+	FUR_FREE(g_hashRegister.hashes, allocator);
+	FUR_FREE(g_hashRegister.names, allocator);
 }

@@ -332,48 +332,48 @@ void fcAnimActionSafelyEnd(FcAnimActionBeginEndCtx* ctx, FcAnimAction* action)
 	}
 }
 
-void fcAnimCharacterInit(FcAnimCharacter* character, const FcRig* rig, FcAllocator* pAllocCallbacks)
+void fcAnimCharacterInit(FcAnimCharacter* character, const FcRig* rig, FcAllocator* allocator)
 {
 	character->rig = rig;
 	
 	const u16 numBones = rig->numBones;
 	
-	character->poseMS = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-	character->layerFullBody.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-	character->layerFullBody.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(u8, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	character->poseMS = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, allocator);
+	character->layerFullBody.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, allocator);
+	character->layerFullBody.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(u8, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, allocator);
 	character->layerFullBody.poseCache.tempPose.numXforms = numBones;
 	
-	character->layerPartial.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-	character->layerPartial.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(u8, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	character->layerPartial.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, allocator);
+	character->layerPartial.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(u8, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, allocator);
 	character->layerPartial.poseCache.tempPose.numXforms = numBones;
 	character->layerPartial.maskID = FA_MASK_UPPER_BODY;
 	
-	character->layerFace.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-	character->layerFace.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(u8, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	character->layerFace.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, allocator);
+	character->layerFace.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(u8, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, allocator);
 	character->layerFace.poseCache.tempPose.numXforms = numBones;
 	character->layerFace.maskID = FA_MASK_FACE;
 	
-	character->layerHands.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-	character->layerHands.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(u8, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	character->layerHands.poseCache.tempPose.xforms = FUR_ALLOC_ARRAY_AND_ZERO(fm_xform, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, allocator);
+	character->layerHands.poseCache.tempPose.weightsXforms = FUR_ALLOC_ARRAY_AND_ZERO(u8, numBones, 16, FC_MEMORY_SCOPE_ANIMATION, allocator);
 	character->layerHands.poseCache.tempPose.numXforms = numBones;
 	character->layerHands.maskID = FA_MASK_HANDS;
 }
 
-void fcAnimCharacterRelease(FcAnimCharacter* character, FcAllocator* pAllocCallbacks)
+void fcAnimCharacterRelease(FcAnimCharacter* character, FcAllocator* allocator)
 {
-	FUR_FREE(character->poseMS, pAllocCallbacks);
+	FUR_FREE(character->poseMS, allocator);
 	
-	FUR_FREE(character->layerFullBody.poseCache.tempPose.xforms, pAllocCallbacks);
-	FUR_FREE(character->layerFullBody.poseCache.tempPose.weightsXforms, pAllocCallbacks);
+	FUR_FREE(character->layerFullBody.poseCache.tempPose.xforms, allocator);
+	FUR_FREE(character->layerFullBody.poseCache.tempPose.weightsXforms, allocator);
 	
-	FUR_FREE(character->layerPartial.poseCache.tempPose.xforms, pAllocCallbacks);
-	FUR_FREE(character->layerPartial.poseCache.tempPose.weightsXforms, pAllocCallbacks);
+	FUR_FREE(character->layerPartial.poseCache.tempPose.xforms, allocator);
+	FUR_FREE(character->layerPartial.poseCache.tempPose.weightsXforms, allocator);
 	
-	FUR_FREE(character->layerFace.poseCache.tempPose.xforms, pAllocCallbacks);
-	FUR_FREE(character->layerFace.poseCache.tempPose.weightsXforms, pAllocCallbacks);
+	FUR_FREE(character->layerFace.poseCache.tempPose.xforms, allocator);
+	FUR_FREE(character->layerFace.poseCache.tempPose.weightsXforms, allocator);
 	
-	FUR_FREE(character->layerHands.poseCache.tempPose.xforms, pAllocCallbacks);
-	FUR_FREE(character->layerHands.poseCache.tempPose.weightsXforms, pAllocCallbacks);
+	FUR_FREE(character->layerHands.poseCache.tempPose.xforms, allocator);
+	FUR_FREE(character->layerHands.poseCache.tempPose.weightsXforms, allocator);
 }
 
 void fcAnimActionQueueResolvePreAnimate(FcAnimCharacter* character, FcAnimActionQueue* queue)

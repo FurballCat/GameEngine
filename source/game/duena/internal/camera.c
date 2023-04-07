@@ -59,16 +59,16 @@ typedef struct FcCameraSystem
 
 FcCameraSystem g_cameraSystem;
 
-FcCameraSystem* fcCameraSystemCreate(FcAllocator* pAllocCallbacks)
+FcCameraSystem* fcCameraSystemCreate(FcAllocator* allocator)
 {
-	g_cameraSystem.stackUserMemory = FUR_ALLOC_AND_ZERO(BYTES_PER_CAMERA_SLOT * NUM_MAX_CAMERAS, 16, FC_MEMORY_SCOPE_CAMERA, pAllocCallbacks);
+	g_cameraSystem.stackUserMemory = FUR_ALLOC_AND_ZERO(BYTES_PER_CAMERA_SLOT * NUM_MAX_CAMERAS, 16, FC_MEMORY_SCOPE_CAMERA, allocator);
 	
 	return &g_cameraSystem;
 }
 
-void fcCameraSystemRelease(FcCameraSystem* sys, FcAllocator* pAllocCallbacks)
+void fcCameraSystemRelease(FcCameraSystem* sys, FcAllocator* allocator)
 {
-	FUR_FREE(sys->stackUserMemory, pAllocCallbacks);
+	FUR_FREE(sys->stackUserMemory, allocator);
 }
 
 void fcCameraSystemUpdate(FcCameraSystem* sys, const FcCameraSystemUpdateCtx* ctx)

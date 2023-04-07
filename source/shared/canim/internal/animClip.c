@@ -6,11 +6,11 @@
 #include "ccore/serialize.h"
 #include "cmath/public.h"
 
-void fcAnimClipRelease(FcAnimClip* clip, FcAllocator* pAllocCallbacks)
+void fcAnimClipRelease(FcAnimClip* clip, FcAllocator* allocator)
 {
-	FUR_FREE(clip->curves, pAllocCallbacks);
-	FUR_FREE(clip->dataKeys, pAllocCallbacks);
-	FUR_FREE(clip, pAllocCallbacks);
+	FUR_FREE(clip->curves, allocator);
+	FUR_FREE(clip->dataKeys, allocator);
+	FUR_FREE(clip, allocator);
 }
 
 f32 fcAnimDecompressFloatMinusOnePlusOne(u16 value)
@@ -255,7 +255,7 @@ typedef enum fa_anim_clip_version_t
 	FA_ANIM_VER_LAST,
 } fa_anim_clip_version_t;
 
-void fcAnimClipSerialize(FcSerializer* pSerializer, FcAnimClip* clip, FcAllocator* pAllocCallbacks)
+void fcAnimClipSerialize(FcSerializer* pSerializer, FcAnimClip* clip, FcAllocator* allocator)
 {
 	FUR_SER_VERSION(FA_ANIM_VER_LAST-1);
 	
@@ -266,8 +266,8 @@ void fcAnimClipSerialize(FcSerializer* pSerializer, FcAnimClip* clip, FcAllocato
 	
 	if(!pSerializer->isWriting)
 	{
-		clip->curves = FUR_ALLOC_ARRAY_AND_ZERO(FcAnimCurve, clip->numCurves, 8, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
-		clip->dataKeys = FUR_ALLOC_ARRAY_AND_ZERO(FcAnimCurveKey, clip->numDataKeys, 8, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+		clip->curves = FUR_ALLOC_ARRAY_AND_ZERO(FcAnimCurve, clip->numCurves, 8, FC_MEMORY_SCOPE_ANIMATION, allocator);
+		clip->dataKeys = FUR_ALLOC_ARRAY_AND_ZERO(FcAnimCurveKey, clip->numDataKeys, 8, FC_MEMORY_SCOPE_ANIMATION, allocator);
 	}
 	
 	for(i32 i=0; i<clip->numCurves; ++i)

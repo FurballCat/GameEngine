@@ -7,7 +7,7 @@
 #include "cimport/public.h"
 #include "cmath/public.h"
 
-void fcCmdImportRigApplyProperties(FcRig* rig, FcAllocator* pAllocCallbacks)
+void fcCmdImportRigApplyProperties(FcRig* rig, FcAllocator* allocator)
 {
 	// apply rig properties
 	{
@@ -53,7 +53,7 @@ void fcCmdImportRigApplyProperties(FcRig* rig, FcAllocator* pAllocCallbacks)
 		
 		// masks
 		{
-			rig->maskUpperBody = FUR_ALLOC_ARRAY_AND_ZERO(u8, rig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+			rig->maskUpperBody = FUR_ALLOC_ARRAY_AND_ZERO(u8, rig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, allocator);
 			const int16_t idxSpine = fcRigFindBoneIdx(rig, SID("Bip001_Spine"));
 			const FcStringId hashes[9] = {
 				SID("Bip001_Pelvis"),
@@ -127,7 +127,7 @@ void fcCmdImportRigApplyProperties(FcRig* rig, FcAllocator* pAllocCallbacks)
 		
 		// face mask
 		{
-			rig->maskFace = FUR_ALLOC_ARRAY_AND_ZERO(u8, rig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+			rig->maskFace = FUR_ALLOC_ARRAY_AND_ZERO(u8, rig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, allocator);
 			const int16_t idxSpine = fcRigFindBoneIdx(rig, SID("Bip001_Spine"));
 			const FcStringId hashes[] = {
 				//SID("Bip001_Neck"),
@@ -213,7 +213,7 @@ void fcCmdImportRigApplyProperties(FcRig* rig, FcAllocator* pAllocCallbacks)
 		
 		// hands mask
 		{
-			rig->maskHands = FUR_ALLOC_ARRAY_AND_ZERO(u8, rig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+			rig->maskHands = FUR_ALLOC_ARRAY_AND_ZERO(u8, rig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, allocator);
 			const int16_t idxSpine = fcRigFindBoneIdx(rig, SID("Bip001_Spine"));
 			const FcStringId hashes[] = {
 				SID("Bip001_Index1_L"),
@@ -271,7 +271,7 @@ void fcCmdImportRigApplyProperties(FcRig* rig, FcAllocator* pAllocCallbacks)
 	}
 }
 
-int fcCmdImportRig(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* pAllocCallbacks)
+int fcCmdImportRig(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* allocator)
 {
 	const char* srcPath = CMD_ARG("-p");
 	if(!srcPath)
@@ -304,7 +304,7 @@ int fcCmdImportRig(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* pA
 		rigCtx.path = pathSource;
 		
 		CMD_LOG("Importing %s", pathSource);
-		fcImportRig(&depot, &rigCtx, &rig, pAllocCallbacks);
+		fcImportRig(&depot, &rigCtx, &rig, allocator);
 		
 		if(!rig)
 		{
@@ -313,7 +313,7 @@ int fcCmdImportRig(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* pA
 		}
 		
 		// apply properties
-		fcCmdImportRigApplyProperties(rig, pAllocCallbacks);
+		fcCmdImportRigApplyProperties(rig, allocator);
 	}
 	
 	// save engine file
@@ -323,17 +323,17 @@ int fcCmdImportRig(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* pA
 		serializer.isWriting = true;
 		
 		CMD_LOG("Saving %s", pathEngine);
-		fcRigSerialize(&serializer, rig, pAllocCallbacks);
+		fcRigSerialize(&serializer, rig, allocator);
 		
 		fclose(serializer.file);
 	}
 	
-	FUR_FREE(rig, pAllocCallbacks);
+	FUR_FREE(rig, allocator);
 	
 	return 0;
 }
 
-int fcCmdImportAnim(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* pAllocCallbacks)
+int fcCmdImportAnim(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* allocator)
 {
 	// requires rig name to be provided
 	const char* rigName = CMD_ARG("-r");
@@ -375,7 +375,7 @@ int fcCmdImportAnim(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* p
 		ser.file = rigFile;
 		ser.isWriting = false;
 		
-		fcRigSerialize(&ser, &rig, pAllocCallbacks);
+		fcRigSerialize(&ser, &rig, allocator);
 		
 		fclose(rigFile);
 	}
@@ -400,7 +400,7 @@ int fcCmdImportAnim(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* p
 			ctx.rig = &rig;
 			
 			CMD_LOG("Importing %s", pathSource);
-			fcImportAnimClip(&depot, &ctx, &animClip, pAllocCallbacks);
+			fcImportAnimClip(&depot, &ctx, &animClip, allocator);
 		}
 		
 		// save engine file
@@ -410,7 +410,7 @@ int fcCmdImportAnim(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* p
 			serializer.isWriting = true;
 			
 			CMD_LOG("Saving %s", pathEngine);
-			fcAnimClipSerialize(&serializer, animClip, pAllocCallbacks);
+			fcAnimClipSerialize(&serializer, animClip, allocator);
 			
 			fclose(serializer.file);
 		}
@@ -419,7 +419,7 @@ int fcCmdImportAnim(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* p
 	return 0;
 }
 
-int fcCmdImportMesh(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* pAllocCallbacks)
+int fcCmdImportMesh(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* allocator)
 {
 	const char* srcPath = CMD_ARG("-p");
 	if(!srcPath)
@@ -449,7 +449,7 @@ int fcCmdImportMesh(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* p
 		loadCtx.path = pathSource;
 		
 		CMD_LOG("Importing %s", pathSource);
-		fcImportMeshResource(&depot, &loadCtx, &meshResource, pAllocCallbacks);
+		fcImportMeshResource(&depot, &loadCtx, &meshResource, allocator);
 	}
 	
 	// load or save serialized file
@@ -462,17 +462,17 @@ int fcCmdImportMesh(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* p
 		ser.isWriting = true;
 		
 		CMD_LOG("Saving %s", pathEngine);
-		fcMeshResourceSerialize(&ser, meshResource, pAllocCallbacks);
+		fcMeshResourceSerialize(&ser, meshResource, allocator);
 		
 		fclose(ser.file);
 	}
 	
-	FUR_FREE(meshResource, pAllocCallbacks);
+	FUR_FREE(meshResource, allocator);
 	
 	return 0;
 }
 
-int fcCmdImport(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* pAllocCallbacks)
+int fcCmdImport(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* allocator)
 {
 	if(CMD_FLAG("-help"))
 	{
@@ -489,17 +489,17 @@ int fcCmdImport(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* pAllo
 	
 	if(CMD_FLAG("-rig"))
 	{
-		return fcCmdImportRig(argc, argv, ctx, pAllocCallbacks);
+		return fcCmdImportRig(argc, argv, ctx, allocator);
 	}
 	
 	if(CMD_FLAG("-anim"))
 	{
-		return fcCmdImportAnim(argc, argv, ctx, pAllocCallbacks);
+		return fcCmdImportAnim(argc, argv, ctx, allocator);
 	}
 	
 	if(CMD_FLAG("-mesh"))
 	{
-		return fcCmdImportMesh(argc, argv, ctx, pAllocCallbacks);
+		return fcCmdImportMesh(argc, argv, ctx, allocator);
 	}
 	
 	CMD_LOG_ERROR("Please provide resource flag type for import (example: -anim)");

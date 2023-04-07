@@ -100,13 +100,13 @@ typedef struct FcAllocator
 #define FUR_ALLOC_ARRAY_AND_ZERO(_type, _count, _alignment, _scope, _pAllocCallbacks)	\
 	(_type*)FUR_ALLOC_AND_ZERO(sizeof(_type) * _count, _alignment, _scope, _pAllocCallbacks)
 
-CCORE_API void* fcAlloc(struct FcAllocator* pAllocCallbacks, u64 size, u64 alignment,
+CCORE_API void* fcAlloc(struct FcAllocator* allocator, u64 size, u64 alignment,
 							 enum FcMemoryScope scope, const char* info);
 	
-CCORE_API void* fcAllocAndZero(struct FcAllocator* pAllocCallbacks, u64 size, u64 alignment,
+CCORE_API void* fcAllocAndZero(struct FcAllocator* allocator, u64 size, u64 alignment,
 							 enum FcMemoryScope scope, const char* info);
 
-CCORE_API void fcFree(struct FcAllocator* pAllocCallbacks, void* pMemory, const char* info);
+CCORE_API void fcFree(struct FcAllocator* allocator, void* pMemory, const char* info);
 	
 CCORE_API bool fcValidateMemory(void);
 

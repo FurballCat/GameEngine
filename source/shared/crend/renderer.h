@@ -43,10 +43,10 @@ typedef struct FcApplicationDesc
 	
 CREND_API enum FcResult fcApplicationCreate(const FcApplicationDesc* pDesc,
 									FcApplication** ppApp,
-									FcAllocator* pAllocCallbacks);
+									FcAllocator* allocator);
 	
 CREND_API enum FcResult fcApplicationRelease(FcApplication* pApp,
-									 FcAllocator* pAllocCallbacks);
+									 FcAllocator* allocator);
 
 // Returns 0 on exit
 CREND_API u32 fcApplicationUpdate(struct FcApplication* pApp);
@@ -63,10 +63,10 @@ typedef struct FcRendererDesc
 
 CREND_API enum FcResult fcRendererCreate(const FcRendererDesc*	pDesc,
 					   FcRenderer**						ppRenderer,
-					   FcAllocator*		pAllocCallbacks);
+					   FcAllocator*		allocator);
 
 CREND_API enum FcResult fcRendererRelease(struct FcRenderer* 			pRenderer,
-						struct FcAllocator*	pAllocCallbacks);
+						struct FcAllocator*	allocator);
 
 CREND_API void fcRendererWaitForDevice(struct FcRenderer* pRenderer);
 	
@@ -93,10 +93,10 @@ typedef struct FcRenderMeshLoadCtx
 } FcRenderMeshLoadCtx;
 
 // load mesh, the ownership is kept inside renderer, so no need to
-CREND_API FcRenderProxy* fcRendererLoadMesh(FcRenderer* pRenderer, FcDepot* depot, const FcRenderMeshLoadCtx* ctx, FcAllocator* pAllocCallbacks);
+CREND_API FcRenderProxy* fcRendererLoadMesh(FcRenderer* pRenderer, FcDepot* depot, const FcRenderMeshLoadCtx* ctx, FcAllocator* allocator);
 
 // release proxy, might also release the associated data (meshes, textures, etc.)
-CREND_API void fcRendererReleaseProxy(FcRenderer* pRenderer, FcRenderProxy* proxy, FcAllocator* pAllocCallbacks);
+CREND_API void fcRendererReleaseProxy(FcRenderer* pRenderer, FcRenderProxy* proxy, FcAllocator* allocator);
 
 // potentially visible set - defines render proxies that are visible this frame
 typedef struct FcRenderPVS FcRenderPVS;
@@ -116,7 +116,7 @@ typedef struct FcRendererDrawFrameCtx
 	FcRenderPVS* pvs;	// what's visible in this frame
 } FcRendererDrawFrameCtx;
 	
-CREND_API void fcRendererDrawFrame(struct FcRenderer* pRenderer, const FcRendererDrawFrameCtx* ctx, FcAllocator* pAllocCallbacks);
+CREND_API void fcRendererDrawFrame(struct FcRenderer* pRenderer, const FcRendererDrawFrameCtx* ctx, FcAllocator* allocator);
 
 #ifdef __cplusplus
 }

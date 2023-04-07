@@ -48,7 +48,7 @@ void fcRenderStagingAdd(FcRenderStagingBufferBuilder* builder, void* pData, u32 
 void fcRenderStagingBuild(FcRenderStagingBufferBuilder* builder,
 					  VkDevice device, VkPhysicalDevice physicalDevice,
 					  VkBuffer* buffer, VkDeviceMemory* bufferMemory,
-					  FcAllocator* pAllocCallbacks);
+					  FcAllocator* allocator);
 
 // release every entry memory
 void fcRenderStagingBufferBuilderRelease(FcRenderStagingBufferBuilder* builder);
@@ -107,23 +107,23 @@ void fcRenderWriteDescriptorSets(VkDevice device, FcRenderWriteDescriptorSetsCtx
 // COMMAND UTILS
 
 // allocate and begin one time command buffer
-VkCommandBuffer fcRenderBeginSimpleCommands(VkDevice device, VkCommandPool commandPool, struct FcAllocator* pAllocCallbacks);
+VkCommandBuffer fcRenderBeginSimpleCommands(VkDevice device, VkCommandPool commandPool, struct FcAllocator* allocator);
 
 // end, submit, and free one time command buffer
-void fcRenderEndSimpleCommands(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool, struct FcAllocator* pAllocCallbacks);
+void fcRenderEndSimpleCommands(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool, struct FcAllocator* allocator);
 
 // begin primary command buffer that will be disposed immediately after submission, does not wait for GPU
-VkCommandBuffer fcRenderBeginPrimaryDisposableCommandBuffer(VkDevice device, VkCommandPool commandPool, struct FcAllocator* pAllocCallbacks);
+VkCommandBuffer fcRenderBeginPrimaryDisposableCommandBuffer(VkDevice device, VkCommandPool commandPool, struct FcAllocator* allocator);
 
 // end primary command buffer and submit to GPU, dispose after
 void fcRenderEndPrimaryDisposableCommandBuffer(VkDevice device, VkQueue graphicsQueue, VkCommandBuffer commandBuffer, VkCommandPool commandPool,
-											  VkSemaphore imageAvailableSemaphore, VkSemaphore renderFinishedSemaphore,struct FcAllocator* pAllocCallbacks);
+											  VkSemaphore imageAvailableSemaphore, VkSemaphore renderFinishedSemaphore,struct FcAllocator* allocator);
 
 // transition image layout
-void fcRenderTransitionImageLayout(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, struct FcAllocator* pAllocCallbacks);
+void fcRenderTransitionImageLayout(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, struct FcAllocator* allocator);
 
 // copy buffer to image
-void fcRenderCopyBufferToImage(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkBuffer buffer, VkDeviceSize bufferOffset, VkImage image, u32 width, u32 height, struct FcAllocator* pAllocCallbacks);
+void fcRenderCopyBufferToImage(VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool, VkBuffer buffer, VkDeviceSize bufferOffset, VkImage image, u32 width, u32 height, struct FcAllocator* allocator);
 
 // -------------
 // MEMORY UTILS

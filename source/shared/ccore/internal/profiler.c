@@ -53,36 +53,36 @@ typedef struct FcProfiler
 
 FcProfiler g_profiler;
 
-void fcProfilerInit(FcAllocator* pAllocCallbacks)
+void fcProfilerInit(FcAllocator* allocator)
 {
 	g_profiler.zoom = FC_PROFILER_INIT_ZOOM;
 	
 	g_profiler.numThreads = fcJobSystemNumMaxThreads();
 	
-	g_profiler.threads = FUR_ALLOC_ARRAY_AND_ZERO(FcProfilerThreadInfo, g_profiler.numThreads, 0, FC_MEMORY_SCOPE_PROFILER, pAllocCallbacks);
+	g_profiler.threads = FUR_ALLOC_ARRAY_AND_ZERO(FcProfilerThreadInfo, g_profiler.numThreads, 0, FC_MEMORY_SCOPE_PROFILER, allocator);
 	
 	for(i32 t=0; t<g_profiler.numThreads; ++t)
 	{
 		for(u32 i=0; i<FC_PROFILER_MAX_FRAMES; ++i)
 		{
-			g_profiler.threads[t].scopes[i] = FUR_ALLOC_ARRAY_AND_ZERO(FcProfilerScope, FC_PROFILER_MAX_SCOPES, 0, FC_MEMORY_SCOPE_PROFILER, pAllocCallbacks);
-			g_profiler.threads[t].contentionScopes[i] = FUR_ALLOC_ARRAY_AND_ZERO(FcContentionScope, FC_PROFILER_MAX_CONTENTION_SCOPES, 0, FC_MEMORY_SCOPE_PROFILER, pAllocCallbacks);
+			g_profiler.threads[t].scopes[i] = FUR_ALLOC_ARRAY_AND_ZERO(FcProfilerScope, FC_PROFILER_MAX_SCOPES, 0, FC_MEMORY_SCOPE_PROFILER, allocator);
+			g_profiler.threads[t].contentionScopes[i] = FUR_ALLOC_ARRAY_AND_ZERO(FcContentionScope, FC_PROFILER_MAX_CONTENTION_SCOPES, 0, FC_MEMORY_SCOPE_PROFILER, allocator);
 		}
 	}
 }
 
-void fcProfilerRelease(FcAllocator* pAllocCallbacks)
+void fcProfilerRelease(FcAllocator* allocator)
 {
 	for(i32 t=0; t<g_profiler.numThreads; ++t)
 	{
 		for(u32 i=0; i<FC_PROFILER_MAX_FRAMES; ++i)
 		{
-			FUR_FREE(g_profiler.threads[t].scopes[i], pAllocCallbacks);
-			FUR_FREE(g_profiler.threads[t].contentionScopes[i], pAllocCallbacks);
+			FUR_FREE(g_profiler.threads[t].scopes[i], allocator);
+			FUR_FREE(g_profiler.threads[t].contentionScopes[i], allocator);
 		}
 	}
 	
-	FUR_FREE(g_profiler.threads, pAllocCallbacks);
+	FUR_FREE(g_profiler.threads, allocator);
 }
 
 FcProfilerScope* fcProfilerScopeBegin(const char* name)

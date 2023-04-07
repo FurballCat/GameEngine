@@ -37,11 +37,11 @@ typedef struct FcFreeList
 	i32 capcity;
 } FcFreeList;
 
-void fcFreeListAlloc(FcFreeList* list, i32 capacity, FcAllocator* pAllocCallbacks)
+void fcFreeListAlloc(FcFreeList* list, i32 capacity, FcAllocator* allocator)
 {
 	list->capcity = capacity;
 	list->tail = capacity-1;
-	list->indices = FUR_ALLOC_ARRAY(i32, capacity, 0, FC_MEMORY_SCOPE_JOBS, pAllocCallbacks);
+	list->indices = FUR_ALLOC_ARRAY(i32, capacity, 0, FC_MEMORY_SCOPE_JOBS, allocator);
 	fcLockRWInit(&list->lock);
 	
 	for(i32 i=0; i<capacity; ++i)
@@ -50,9 +50,9 @@ void fcFreeListAlloc(FcFreeList* list, i32 capacity, FcAllocator* pAllocCallback
 	}
 }
 
-void fcFreeListFree(FcFreeList* list, FcAllocator* pAllocCallbacks)
+void fcFreeListFree(FcFreeList* list, FcAllocator* allocator)
 {
-	FUR_FREE(list->indices, pAllocCallbacks);
+	FUR_FREE(list->indices, allocator);
 }
 
 i32 fcFreeListAcquire(FcFreeList* list)
@@ -341,19 +341,19 @@ i32 fcJobSystemNumMaxThreads(void)
 	return FUR_NUM_THREADS + 1;
 }
 
-void fcJobSystemInit(FcAllocator* pAllocCallbacks)
+void fcJobSystemInit(FcAllocator* allocator)
 {
 	// allocate memory for job system
-	g_jobSystem.counters = FUR_ALLOC_ARRAY_AND_ZERO(FcJobCounter, FUR_MAX_JOB_COUNTERS, 0, FC_MEMORY_SCOPE_JOBS, pAllocCallbacks);
-	g_jobSystem.pendingJobs = FUR_ALLOC_ARRAY_AND_ZERO(FcScheduledJob, FUR_MAX_JOBS, 0, FC_MEMORY_SCOPE_JOBS, pAllocCallbacks);
+	g_jobSystem.counters = FUR_ALLOC_ARRAY_AND_ZERO(FcJobCounter, FUR_MAX_JOB_COUNTERS, 0, FC_MEMORY_SCOPE_JOBS, allocator);
+	g_jobSystem.pendingJobs = FUR_ALLOC_ARRAY_AND_ZERO(FcScheduledJob, FUR_MAX_JOBS, 0, FC_MEMORY_SCOPE_JOBS, allocator);
 	
-	fcFreeListAlloc(&g_jobSystem.countersFreeList, FUR_MAX_JOB_COUNTERS, pAllocCallbacks);
-	fcFreeListAlloc(&g_jobSystem.pendingJobsFreeList, FUR_MAX_JOBS, pAllocCallbacks);
-	fcFreeListAlloc(&g_jobSystem.fibersFreeList, FUR_NUM_SMALL_FIBERS, pAllocCallbacks);
+	fcFreeListAlloc(&g_jobSystem.countersFreeList, FUR_MAX_JOB_COUNTERS, allocator);
+	fcFreeListAlloc(&g_jobSystem.pendingJobsFreeList, FUR_MAX_JOBS, allocator);
+	fcFreeListAlloc(&g_jobSystem.fibersFreeList, FUR_NUM_SMALL_FIBERS, allocator);
 	
-	g_jobSystem.pendingJobsIndices = FUR_ALLOC_ARRAY_AND_ZERO(i32, FUR_MAX_JOBS, 0, FC_MEMORY_SCOPE_JOBS, pAllocCallbacks);
+	g_jobSystem.pendingJobsIndices = FUR_ALLOC_ARRAY_AND_ZERO(i32, FUR_MAX_JOBS, 0, FC_MEMORY_SCOPE_JOBS, allocator);
 	
-	g_jobSystem.fiberStackMemory = FUR_ALLOC_AND_ZERO(FUR_NUM_SMALL_FIBERS * FUR_SMALL_FIBER_STACK_MEMORY, 16, FC_MEMORY_SCOPE_JOBS, pAllocCallbacks);
+	g_jobSystem.fiberStackMemory = FUR_ALLOC_AND_ZERO(FUR_NUM_SMALL_FIBERS * FUR_SMALL_FIBER_STACK_MEMORY, 16, FC_MEMORY_SCOPE_JOBS, allocator);
 	
 	// when this flag will become false, all worker threads will exit as soon as possible
 	g_jobSystem.isRunning = true;
@@ -381,7 +381,7 @@ void fcJobSystemInit(FcAllocator* pAllocCallbacks)
 	}
 }
 
-void fcJobSystemRelease(FcAllocator* pAllocCallbacks)
+void fcJobSystemRelease(FcAllocator* allocator)
 {
 	g_jobSystem.isRunning = false;
 	
@@ -390,16 +390,16 @@ void fcJobSystemRelease(FcAllocator* pAllocCallbacks)
 		fcThreadJoin(g_jobSystem.threadIDs[i]);
 	}
 	
-	FUR_FREE(g_jobSystem.fiberStackMemory, pAllocCallbacks);
+	FUR_FREE(g_jobSystem.fiberStackMemory, allocator);
 	
-	FUR_FREE(g_jobSystem.pendingJobsIndices, pAllocCallbacks);
+	FUR_FREE(g_jobSystem.pendingJobsIndices, allocator);
 	
-	fcFreeListFree(&g_jobSystem.countersFreeList, pAllocCallbacks);
-	fcFreeListFree(&g_jobSystem.pendingJobsFreeList, pAllocCallbacks);
-	fcFreeListFree(&g_jobSystem.fibersFreeList, pAllocCallbacks);
+	fcFreeListFree(&g_jobSystem.countersFreeList, allocator);
+	fcFreeListFree(&g_jobSystem.pendingJobsFreeList, allocator);
+	fcFreeListFree(&g_jobSystem.fibersFreeList, allocator);
 	
-	FUR_FREE(g_jobSystem.pendingJobs, pAllocCallbacks);
-	FUR_FREE(g_jobSystem.counters, pAllocCallbacks);
+	FUR_FREE(g_jobSystem.pendingJobs, allocator);
+	FUR_FREE(g_jobSystem.counters, allocator);
 }
 
 void fcRunJobsInternal(const FcJobDecl* jobs, i32 numJobs, FcJobCounter** outCounter, bool isMainThread)

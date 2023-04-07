@@ -16,18 +16,18 @@ typedef struct FcInputManager
 	FcInputHID gamepad;
 } FcInputManager;
 
-FcInputManager* fcInputManagerCreate(FcAllocator* pAllocCallbacks)
+FcInputManager* fcInputManagerCreate(FcAllocator* allocator)
 {
-	FcInputManager* pMgr = FUR_ALLOC_AND_ZERO(sizeof(FcInputManager), 0, FC_MEMORY_SCOPE_INPUT, pAllocCallbacks);
+	FcInputManager* pMgr = FUR_ALLOC_AND_ZERO(sizeof(FcInputManager), 0, FC_MEMORY_SCOPE_INPUT, allocator);
 	
 	fcInputHIDInit(&pMgr->gamepad);
 	
 	return pMgr;
 }
 
-void fcInputManagerRelease(FcInputManager* pMgr, FcAllocator* pAllocCallbacks)
+void fcInputManagerRelease(FcInputManager* pMgr, FcAllocator* allocator)
 {
-	FUR_FREE(pMgr, pAllocCallbacks);
+	FUR_FREE(pMgr, allocator);
 }
 
 void fcInputManagerUpdate(FcInputManager* pMgr, f64 currentTime)

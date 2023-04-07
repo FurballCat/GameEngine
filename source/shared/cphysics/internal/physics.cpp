@@ -39,7 +39,7 @@ static PxDefaultAllocator g_defaultAllocator;
 static PxDefaultErrorCallback g_defaultErrorCallback;
 static PxDefaultCpuDispatcher* g_defaultCPUDispatcher;
 
-void fp_physics_init_scene(FcPhysics* physics, FcAllocator* pAllocCallbacks)
+void fp_physics_init_scene(FcPhysics* physics, FcAllocator* allocator)
 {
 	PxSceneDesc desc(physics->tolerancesScale);
 	desc.gravity = {0.0f, 0.0f, -9.81f};
@@ -114,9 +114,9 @@ void fp_physics_init_scene(FcPhysics* physics, FcAllocator* pAllocCallbacks)
 	}
 }
 
-FcPhysics* fcPhysicsCreate(FcAllocator* pAllocCallbacks)
+FcPhysics* fcPhysicsCreate(FcAllocator* allocator)
 {
-	FcPhysics* physics = (FcPhysics*)FUR_ALLOC_AND_ZERO(sizeof(FcPhysics), 0, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
+	FcPhysics* physics = (FcPhysics*)FUR_ALLOC_AND_ZERO(sizeof(FcPhysics), 0, FC_MEMORY_SCOPE_PHYSICS, allocator);
 	
 	physics->tolerancesScale = PxTolerancesScale();
 	physics->foundation = PxCreateFoundation(PX_PHYSICS_VERSION, g_defaultAllocator, g_defaultErrorCallback);
@@ -124,12 +124,12 @@ FcPhysics* fcPhysicsCreate(FcAllocator* pAllocCallbacks)
 	
 	g_defaultCPUDispatcher = PxDefaultCpuDispatcherCreate(1);
 	
-	fp_physics_init_scene(physics, pAllocCallbacks);
+	fp_physics_init_scene(physics, allocator);
 	
 	return physics;
 }
 
-void fcPhysicsRelease(FcPhysics* physics, FcAllocator* pAllocCallbacks)
+void fcPhysicsRelease(FcPhysics* physics, FcAllocator* allocator)
 {
 	if(physics->controller)
 		physics->controller->release();
@@ -143,11 +143,11 @@ void fcPhysicsRelease(FcPhysics* physics, FcAllocator* pAllocCallbacks)
 	
 	g_defaultCPUDispatcher->release();
 	
-	FUR_FREE(physics, pAllocCallbacks);
+	FUR_FREE(physics, allocator);
 }
 
 void fcPhysicsAddStaticBox(FcPhysics* physics, const fm_xform* worldLocation,
-							   const fm_vec3* halfExtents, FcAllocator* pAllocCallbacks)
+							   const fm_vec3* halfExtents, FcAllocator* allocator)
 {
 	PxScene* scene = physics->scene;
 	
@@ -375,7 +375,7 @@ void fcBoundingVolumeHiearchyRecursiveBuild(FcBoundingVolumeHierarchyNode* nodes
 	fcBoundingVolumeHiearchyRecursiveBuild(nodes, maxNodes, childIdxB, nextFreeNodeIdx, allObjectBoxes, objectIndices + numObjectsA, numObjectsB);
 }
 
-void fcBoundingVolumeHierarchyCreate(const FcBoundingVolumeHierarchyDesc* ctx, FcBoundingVolumeHierarchy* bvh, FcAllocator* pAllocCallbacks)
+void fcBoundingVolumeHierarchyCreate(const FcBoundingVolumeHierarchyDesc* ctx, FcBoundingVolumeHierarchy* bvh, FcAllocator* allocator)
 {
 	// allocate array of indices on scratchpad
 	const u32 sizeMemIndices = ctx->numObjects * sizeof(u32);
@@ -402,15 +402,15 @@ void fcBoundingVolumeHierarchyCreate(const FcBoundingVolumeHierarchyDesc* ctx, F
 	
 	const u32 numFinalNodes = nextFreeIndex;
 	
-	bvh->nodes = FUR_ALLOC_ARRAY(FcBoundingVolumeHierarchyNode, numFinalNodes, 0, FC_MEMORY_SCOPE_PHYSICS, pAllocCallbacks);
+	bvh->nodes = FUR_ALLOC_ARRAY(FcBoundingVolumeHierarchyNode, numFinalNodes, 0, FC_MEMORY_SCOPE_PHYSICS, allocator);
 	bvh->numNodes = numFinalNodes;
 	
 	memcpy(bvh->nodes, tmpNodes, sizeof(FcBoundingVolumeHierarchyNode) * numFinalNodes);
 }
 
-void fcBoundingVolumeHiearchyRelease(FcBoundingVolumeHierarchy* bvh, FcAllocator* pAllocCallbacks)
+void fcBoundingVolumeHiearchyRelease(FcBoundingVolumeHierarchy* bvh, FcAllocator* allocator)
 {
-	FUR_FREE(bvh->nodes, pAllocCallbacks);
+	FUR_FREE(bvh->nodes, allocator);
 	bvh->nodes = NULL;
 	bvh->numNodes = 0;
 }

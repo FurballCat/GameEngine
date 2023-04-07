@@ -10,7 +10,7 @@
 #define FUR_ASSERT(x) assert(x)
 
 void fcImageCreate(VkDevice device, VkPhysicalDevice physicalDevice, const FcImageDesc* pDesc,
-					 FcImage* pImage, struct FcAllocator* pAllocCallbacks)
+					 FcImage* pImage, struct FcAllocator* allocator)
 {
 	VkImageCreateInfo imageInfo = {0};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -66,7 +66,7 @@ void fcImageCreate(VkDevice device, VkPhysicalDevice physicalDevice, const FcIma
 	}
 }
 
-void fcImageRelease(VkDevice device, FcImage* pImage, struct FcAllocator* pAllocCallbacks)
+void fcImageRelease(VkDevice device, FcImage* pImage, struct FcAllocator* allocator)
 {
 	vkDestroyImageView(device, pImage->view, NULL);
 	vkDestroyImage(device, pImage->image, NULL);

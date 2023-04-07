@@ -11,7 +11,7 @@ typedef enum fr_mesh_version_t
 	FR_MESH_VER_LAST,
 } fa_anim_clip_version_t;
 
-void fcMeshResourceSerialize(FcSerializer* pSerializer, FcMeshResource* mesh, FcAllocator* pAllocCallbacks)
+void fcMeshResourceSerialize(FcSerializer* pSerializer, FcMeshResource* mesh, FcAllocator* allocator)
 {
 	FUR_SER_VERSION(FR_MESH_VER_LAST-1);
 	
@@ -21,7 +21,7 @@ void fcMeshResourceSerialize(FcSerializer* pSerializer, FcMeshResource* mesh, Fc
 	if(!pSerializer->isWriting)
 	{
 		FUR_ASSERT(mesh->chunks == NULL);
-		mesh->chunks = FUR_ALLOC_ARRAY_AND_ZERO(FcMeshResourceChunk, mesh->numChunks, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+		mesh->chunks = FUR_ALLOC_ARRAY_AND_ZERO(FcMeshResourceChunk, mesh->numChunks, 0, FC_MEMORY_SCOPE_RENDER, allocator);
 	}
 	
 	for(i32 i=0; i<mesh->numChunks; ++i)
@@ -34,8 +34,8 @@ void fcMeshResourceSerialize(FcSerializer* pSerializer, FcMeshResource* mesh, Fc
 		
 		if(!pSerializer->isWriting)
 		{
-			chunk->dataVertices = (f32*)FUR_ALLOC_AND_ZERO(chunk->vertexStride * sizeof(f32) * chunk->numVertices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
-			chunk->dataIndices = FUR_ALLOC_ARRAY_AND_ZERO(u32, chunk->numIndices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+			chunk->dataVertices = (f32*)FUR_ALLOC_AND_ZERO(chunk->vertexStride * sizeof(f32) * chunk->numVertices, 16, FC_MEMORY_SCOPE_RENDER, allocator);
+			chunk->dataIndices = FUR_ALLOC_ARRAY_AND_ZERO(u32, chunk->numIndices, 16, FC_MEMORY_SCOPE_RENDER, allocator);
 		}
 		
 		// geometry data
@@ -47,9 +47,9 @@ void fcMeshResourceSerialize(FcSerializer* pSerializer, FcMeshResource* mesh, Fc
 		{
 			if(!pSerializer->isWriting)
 			{
-				chunk->bindPose = FUR_ALLOC_ARRAY_AND_ZERO(fm_mat4, chunk->numBones, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
-				chunk->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(FcStringId, chunk->numBones, 0, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
-				chunk->dataSkinning = FUR_ALLOC_ARRAY_AND_ZERO(FcMeshResourceChunkSkin, chunk->numVertices, 16, FC_MEMORY_SCOPE_RENDER, pAllocCallbacks);
+				chunk->bindPose = FUR_ALLOC_ARRAY_AND_ZERO(fm_mat4, chunk->numBones, 16, FC_MEMORY_SCOPE_RENDER, allocator);
+				chunk->boneNameHashes = FUR_ALLOC_ARRAY_AND_ZERO(FcStringId, chunk->numBones, 0, FC_MEMORY_SCOPE_RENDER, allocator);
+				chunk->dataSkinning = FUR_ALLOC_ARRAY_AND_ZERO(FcMeshResourceChunkSkin, chunk->numVertices, 16, FC_MEMORY_SCOPE_RENDER, allocator);
 			}
 			
 			FUR_SER_ADD_BUFFER(FR_MESH_VER_BASE, chunk->bindPose, sizeof(fm_mat4) * chunk->numBones);

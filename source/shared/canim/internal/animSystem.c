@@ -14,32 +14,32 @@ typedef struct FcAnimSystem
 	
 } FcAnimSystem;
 
-FcAnimSystem* fcAnimSystemInit(FcAllocator* pAllocCallbacks)
+FcAnimSystem* fcAnimSystemInit(FcAllocator* allocator)
 {
-	FcAnimSystem* sys = FUR_ALLOC_AND_ZERO(sizeof(FcAnimSystem), 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	FcAnimSystem* sys = FUR_ALLOC_AND_ZERO(sizeof(FcAnimSystem), 0, FC_MEMORY_SCOPE_ANIMATION, allocator);
 	return sys;
 }
 
-void fcAnimSystemRelease(FcAnimSystem* sys, FcAllocator* pAllocCallbacks)
+void fcAnimSystemRelease(FcAnimSystem* sys, FcAllocator* allocator)
 {
-	FUR_FREE(sys, pAllocCallbacks);
+	FUR_FREE(sys, allocator);
 }
 
-FcAnimCharacter* fcAnimCharacterCreate(const FcAnimCharacterDesc* desc, FcAllocator* pAllocCallbacks)
+FcAnimCharacter* fcAnimCharacterCreate(const FcAnimCharacterDesc* desc, FcAllocator* allocator)
 {
-	FcAnimCharacter* character = FUR_ALLOC_AND_ZERO(sizeof(FcAnimCharacter), 0, FC_MEMORY_SCOPE_ANIMATION, pAllocCallbacks);
+	FcAnimCharacter* character = FUR_ALLOC_AND_ZERO(sizeof(FcAnimCharacter), 0, FC_MEMORY_SCOPE_ANIMATION, allocator);
 	
-	fcAnimCharacterInit(character, desc->rig, pAllocCallbacks);
+	fcAnimCharacterInit(character, desc->rig, allocator);
 	character->globalTime = desc->globalTime * 1000000;
 	
 	return character;
 }
 
-void fcAnimSystemAnimCharacterRelease(FcAnimCharacter* character, FcAllocator* pAllocCallbacks)
+void fcAnimSystemAnimCharacterRelease(FcAnimCharacter* character, FcAllocator* allocator)
 {
-	fcAnimCharacterRelease(character, pAllocCallbacks);
+	fcAnimCharacterRelease(character, allocator);
 	
-	FUR_FREE(character, pAllocCallbacks);
+	FUR_FREE(character, allocator);
 }
 
 void fcAnimSystemAddCharacter(FcAnimSystem* sys, FcAnimCharacter* character)

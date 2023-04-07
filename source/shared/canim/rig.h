@@ -65,10 +65,10 @@ typedef struct FcRig
 	u8* maskHands;
 } FcRig;
 
-CANIM_API void fcRigRelease(FcRig* rig, FcAllocator* pAllocCallbacks);
+CANIM_API void fcRigRelease(FcRig* rig, FcAllocator* allocator);
 CANIM_API int16_t fcRigFindBoneIdx(const FcRig* rig, FcStringId name);
 CANIM_API const u8* fcRigGetMask(const FcRig* rig, FcAnimMask mask);
-CANIM_API void fcRigSerialize(FcSerializer* pSerializer, FcRig* rig, FcAllocator* pAllocCallbacks);
+CANIM_API void fcRigSerialize(FcSerializer* pSerializer, FcRig* rig, FcAllocator* allocator);
 
 #ifdef __cplusplus
 }

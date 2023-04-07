@@ -39,7 +39,7 @@ typedef struct fi_import_rig_ctx_t
 	const char* path;
 } fi_import_rig_ctx_t;
 	
-CIMPORT_API FcImportResult fcImportRig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ctx, FcRig** ppRig, FcAllocator* pAllocCallbacks);
+CIMPORT_API FcImportResult fcImportRig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ctx, FcRig** ppRig, FcAllocator* allocator);
 	
 typedef struct FcAnimClip FcAnimClip;
 	
@@ -51,7 +51,7 @@ typedef struct FcImportAnimClipCtx
 	const FcRig* rig;
 } FcImportAnimClipCtx;
 
-CIMPORT_API FcImportResult fcImportAnimClip(const fi_depot_t* depot, const FcImportAnimClipCtx* ctx, FcAnimClip** ppAnimClip, FcAllocator* pAllocCallbacks);
+CIMPORT_API FcImportResult fcImportAnimClip(const fi_depot_t* depot, const FcImportAnimClipCtx* ctx, FcAnimClip** ppAnimClip, FcAllocator* allocator);
 	
 // -----
 	
@@ -97,12 +97,12 @@ typedef struct FcMeshResource
 	u32 numChunks;
 } FcMeshResource;
 	
-CIMPORT_API FcImportResult fcImportMeshResource(const fi_depot_t* depot, const FcImportMeshCtx* ctx, FcMeshResource** ppMesh, FcAllocator* pAllocCallbacks);
+CIMPORT_API FcImportResult fcImportMeshResource(const fi_depot_t* depot, const FcImportMeshCtx* ctx, FcMeshResource** ppMesh, FcAllocator* allocator);
 	
-CIMPORT_API void fcMeshResourceRelease(FcMeshResource* ppMesh, FcAllocator* pAllocCallbacks);
+CIMPORT_API void fcMeshResourceRelease(FcMeshResource* ppMesh, FcAllocator* allocator);
 
 typedef struct FcSerializer FcSerializer;
-CIMPORT_API void fcMeshResourceSerialize(FcSerializer* pSerializer, FcMeshResource* mesh, FcAllocator* pAllocCallbacks);
+CIMPORT_API void fcMeshResourceSerialize(FcSerializer* pSerializer, FcMeshResource* mesh, FcAllocator* allocator);
 
 #ifdef __cplusplus
 }

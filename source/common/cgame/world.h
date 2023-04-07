@@ -214,8 +214,8 @@ typedef struct FcWorld
 	
 } FcWorld;
 
-void fcWorldInit(FcWorld* world, FcAllocator* pAllocCallbacks);
-void fcWorldRelease(FcWorld* world, FcAllocator* pAllocCallbacks);
+void fcWorldInit(FcWorld* world, FcAllocator* allocator);
+void fcWorldRelease(FcWorld* world, FcAllocator* allocator);
 
 typedef struct FcWorldUpdateCtx
 {

@@ -31,10 +31,10 @@ typedef struct FcDepotDesc
 } FcDepotDesc;
 
 // open a depot
-CCORE_API FcDepot* fcDepotMount(const FcDepotDesc* desc, FcAllocator* pAllocCallbacks);
+CCORE_API FcDepot* fcDepotMount(const FcDepotDesc* desc, FcAllocator* allocator);
 
 // close a depot
-CCORE_API void fcDepotUnmount(FcDepot* depot, FcAllocator* pAllocCallbacks);
+CCORE_API void fcDepotUnmount(FcDepot* depot, FcAllocator* allocator);
 
 // create a path hash - this shouldn't be done in packaged game
 typedef u64 FcFilePath;
