@@ -77,10 +77,11 @@ void FcPBDDangleSimulateSingleStep(FcPBDDangle* dangle, f32 dt)
 	}
 }
 
-void fcPBDDangleCreate(const FcPBDDangleDesc* desc, FcPBDDangle* dangle, FcAllocator* allocator)
+FcResult fcCreatePBDDangle(const FcPBDDangleDesc* desc, const FcAllocator* allocator, FcPBDDangle** ppDangle)
 {
-	FUR_ASSERT(!dangle->x0 && !dangle->p && !dangle->v && !dangle->d);
-	
+	FcPBDDangle* dangle = FUR_ALLOC_AND_ZERO(sizeof(FcPBDDangle), 8, FC_MEMORY_SCOPE_PHYSICS, allocator);
+	*ppDangle = dangle;
+
 	dangle->x0 = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, desc->numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, allocator);
 	dangle->p = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, desc->numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, allocator);
 	dangle->v = FUR_ALLOC_ARRAY_AND_ZERO(fm_vec4, desc->numParticles, 16, FC_MEMORY_SCOPE_PHYSICS, allocator);
@@ -90,12 +91,12 @@ void fcPBDDangleCreate(const FcPBDDangleDesc* desc, FcPBDDangle* dangle, FcAlloc
 	dangle->numParaticles = desc->numParticles;
 	dangle->tAcc = 0.0f;
 	dangle->damping = desc->dampingCoef;
+
+	return FC_SUCCESS;
 }
 
-void fcPBDDangleRelease(FcPBDDangle* dangle, FcAllocator* allocator)
-{
-	FUR_ASSERT(dangle->x0 && dangle->p && dangle->v && dangle->d);
-	
+void fcDestroyPBDDangle(FcPBDDangle* dangle, const FcAllocator* allocator)
+{	
 	FUR_FREE(dangle->x0, allocator);
 	FUR_FREE(dangle->p, allocator);
 	FUR_FREE(dangle->v, allocator);
@@ -105,6 +106,8 @@ void fcPBDDangleRelease(FcPBDDangle* dangle, FcAllocator* allocator)
 	dangle->p = NULL;
 	dangle->v = NULL;
 	dangle->d = NULL;
+
+	FUR_FREE(dangle, allocator);
 }
 
 void fcPBDDangleSimulate(const FcPBDDangleCtx* ctx, FcPBDDangle* dangle)

@@ -91,7 +91,7 @@ const char* fcStringIdAsDebugCstr(FcStringId hash)
 	return "<unknown>";
 }
 
-void fcStringIdRegisterInit(FcAllocator* allocator)
+void fcStringIdRegisterInit(const FcAllocator* allocator)
 {
 	g_hashRegister.buffer = FUR_ALLOC_AND_ZERO(FUR_STRING_HASH_BUFFER_CAPACITY, 0, FC_MEMORY_SCOPE_DEBUG, allocator);
 	g_hashRegister.bufferCapacity = FUR_STRING_HASH_BUFFER_CAPACITY;
@@ -103,7 +103,7 @@ void fcStringIdRegisterInit(FcAllocator* allocator)
 	g_hashRegister.namesCount = 0;
 }
 
-void fcStringIdRegisterRelease(FcAllocator* allocator)
+void fcStringIdRegisterRelease(const FcAllocator* allocator)
 {
 	FUR_FREE(g_hashRegister.buffer, allocator);
 	FUR_FREE(g_hashRegister.hashes, allocator);

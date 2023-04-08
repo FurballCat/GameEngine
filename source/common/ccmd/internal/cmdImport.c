@@ -7,7 +7,7 @@
 #include "cimport/public.h"
 #include "cmath/public.h"
 
-void fcCmdImportRigApplyProperties(FcRig* rig, FcAllocator* allocator)
+void fcCmdImportRigApplyProperties(FcRig* rig, const FcAllocator* allocator)
 {
 	// apply rig properties
 	{
@@ -271,7 +271,7 @@ void fcCmdImportRigApplyProperties(FcRig* rig, FcAllocator* allocator)
 	}
 }
 
-int fcCmdImportRig(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* allocator)
+int fcCmdImportRig(int argc, char* argv[], FcCmdExecuteCtx* ctx, const FcAllocator* allocator)
 {
 	const char* srcPath = CMD_ARG("-p");
 	if(!srcPath)
@@ -333,7 +333,7 @@ int fcCmdImportRig(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* al
 	return 0;
 }
 
-int fcCmdImportAnim(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* allocator)
+int fcCmdImportAnim(int argc, char* argv[], FcCmdExecuteCtx* ctx, const FcAllocator* allocator)
 {
 	// requires rig name to be provided
 	const char* rigName = CMD_ARG("-r");
@@ -419,7 +419,7 @@ int fcCmdImportAnim(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* a
 	return 0;
 }
 
-int fcCmdImportMesh(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* allocator)
+int fcCmdImportMesh(int argc, char* argv[], FcCmdExecuteCtx* ctx, const FcAllocator* allocator)
 {
 	const char* srcPath = CMD_ARG("-p");
 	if(!srcPath)
@@ -472,7 +472,7 @@ int fcCmdImportMesh(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* a
 	return 0;
 }
 
-int fcCmdImport(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* allocator)
+int fcCmdImport(int argc, char* argv[], FcCmdExecuteCtx* ctx, const FcAllocator* allocator)
 {
 	if(CMD_FLAG("-help"))
 	{

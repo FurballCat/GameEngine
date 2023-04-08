@@ -28,7 +28,7 @@ typedef struct FcImage
 
 // image creation, allocates memory
 void fcImageCreate(VkDevice device, VkPhysicalDevice physicalDevice, const FcImageDesc* pDesc,
-					  FcImage* pImage, FcAllocator* allocator);
+					  FcImage* pImage, const FcAllocator* allocator);
 
 // image release, deallocates memory
 void fcImageRelease(VkDevice device, FcImage* pImage, struct FcAllocator* allocator);

@@ -46,8 +46,8 @@ typedef struct FcPBDDangleDesc
 	f32 dampingCoef;
 } FcPBDDangleDesc;
 
-CANIM_API void fcPBDDangleCreate(const FcPBDDangleDesc* desc, FcPBDDangle* dangle, FcAllocator* allocator);
-CANIM_API void fcPBDDangleRelease(FcPBDDangle* dangle, FcAllocator* allocator);
+CANIM_API FcResult fcCreatePBDDangle(const FcPBDDangleDesc* desc, const FcAllocator* allocator, FcPBDDangle** dangle);
+CANIM_API void fcDestroyPBDDangle(FcPBDDangle* dangle, const FcAllocator* allocator);
 
 CANIM_API void fcPBDDangleSimulate(const FcPBDDangleCtx* ctx, FcPBDDangle* dangle);
 CANIM_API void fcPBDDangleToMatricesZUp(const FcPBDDangle* dangle, const fm_mat4* attachmentMatrix, fm_mat4* matrices);

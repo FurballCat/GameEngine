@@ -25,8 +25,8 @@ typedef struct FcCameraSystemUpdateCtx
 } FcCameraSystemUpdateCtx;
 
 // creation and update of camera system
-FcCameraSystem* fcCameraSystemCreate(FcAllocator* allocator);
-void fcCameraSystemRelease(FcCameraSystem* sys, FcAllocator* allocator);
+FcResult fcCreateCameraSystem(const FcAllocator* allocator, FcCameraSystem** cameraSystem);
+void fcDestroyCameraSystem(FcCameraSystem* sys, const FcAllocator* allocator);
 void fcCameraSystemUpdate(FcCameraSystem* sys, const FcCameraSystemUpdateCtx* ctx);
 
 // getting final camera params

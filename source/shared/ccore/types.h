@@ -24,6 +24,15 @@ typedef int64_t i64;
 typedef float f32;
 typedef double f64;
 
+typedef enum FcResult
+{
+	FC_SUCCESS = 0,
+	FC_ERROR_UNKNOWN,
+	FC_ERROR_SHADER_CREATION,
+	FC_ERROR_GPU,
+	FC_ERROR_PHYSICS_CREATION,
+} FcResult;
+
 #define FUR_DEFINE_ARRAY_TYPE(_arrayType, _elemType) \
 	typedef struct _arrayType \
 	{ \

@@ -11,7 +11,7 @@ typedef enum fr_mesh_version_t
 	FR_MESH_VER_LAST,
 } fa_anim_clip_version_t;
 
-void fcMeshResourceSerialize(FcSerializer* pSerializer, FcMeshResource* mesh, FcAllocator* allocator)
+void fcMeshResourceSerialize(FcSerializer* pSerializer, FcMeshResource* mesh, const FcAllocator* allocator)
 {
 	FUR_SER_VERSION(FR_MESH_VER_LAST-1);
 	

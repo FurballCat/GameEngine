@@ -100,13 +100,13 @@ typedef struct FcAllocator
 #define FUR_ALLOC_ARRAY_AND_ZERO(_type, _count, _alignment, _scope, _pAllocCallbacks)	\
 	(_type*)FUR_ALLOC_AND_ZERO(sizeof(_type) * _count, _alignment, _scope, _pAllocCallbacks)
 
-CCORE_API void* fcAlloc(struct FcAllocator* allocator, u64 size, u64 alignment,
-							 enum FcMemoryScope scope, const char* info);
+CCORE_API void* fcAlloc(const FcAllocator* allocator, u64 size, u64 alignment,
+							 FcMemoryScope scope, const char* info);
 	
-CCORE_API void* fcAllocAndZero(struct FcAllocator* allocator, u64 size, u64 alignment,
-							 enum FcMemoryScope scope, const char* info);
+CCORE_API void* fcAllocAndZero(const FcAllocator* allocator, u64 size, u64 alignment,
+							 FcMemoryScope scope, const char* info);
 
-CCORE_API void fcFree(struct FcAllocator* allocator, void* pMemory, const char* info);
+CCORE_API void fcFree(const FcAllocator* allocator, void* pMemory, const char* info);
 	
 CCORE_API bool fcValidateMemory(void);
 
@@ -118,8 +118,8 @@ typedef struct FcMemStats
 } FcMemStats;
 
 CCORE_API FcMemStats fcMemoryStats(void);
-CCORE_API const char* fcMemoryGetScopeDebugName(enum FcMemoryScope scope);
-CCORE_API FcMemStats fcMemoryStatsForScope(enum FcMemoryScope scope);
+CCORE_API const char* fcMemoryGetScopeDebugName(FcMemoryScope scope);
+CCORE_API FcMemStats fcMemoryStatsForScope(FcMemoryScope scope);
 
 // arena allocator - acts like stack allocator with limited memory, size is reset once at the end of the scope
 // it's an alloc and forget type of memory

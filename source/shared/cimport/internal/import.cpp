@@ -210,7 +210,7 @@ void fi_import_sort_bones(std::map<std::string, FBXBoneInfo*>& bones, std::vecto
 }
 
 FcImportResult fcImportRig(const fi_depot_t* depot, const fi_import_rig_ctx_t* ctx,
-									  FcRig** ppRig, FcAllocator* allocator)
+									  FcRig** ppRig, const FcAllocator* allocator)
 {
 	FBXRig rig;
 	
@@ -530,7 +530,7 @@ bool fi_is_same_key(const fi_temp_anim_curve_key_t* a, const fi_temp_anim_curve_
 	&& a->keyValues[2] == b->keyValues[2];
 }
 
-FcImportResult fcImportAnimClip(const fi_depot_t* depot, const FcImportAnimClipCtx* ctx, FcAnimClip** ppAnimClip, FcAllocator* allocator)
+FcImportResult fcImportAnimClip(const fi_depot_t* depot, const FcImportAnimClipCtx* ctx, FcAnimClip** ppAnimClip, const FcAllocator* allocator)
 {
 	std::string absolutePath = depot->path;
 	absolutePath += ctx->path;
@@ -869,7 +869,7 @@ void fi_ofbx_matrix_to_fm_mat4(const ofbx::Matrix& src, fm_mat4& dst)
 	dst.w.w = src.m[15];
 }
 
-FcImportResult fcImportMeshResource(const fi_depot_t* depot, const FcImportMeshCtx* ctx, FcMeshResource** ppMesh, FcAllocator* allocator)
+FcImportResult fcImportMeshResource(const fi_depot_t* depot, const FcImportMeshCtx* ctx, FcMeshResource** ppMesh, const FcAllocator* allocator)
 {
 	std::string absolutePath = depot->path;
 	absolutePath += ctx->path;
@@ -1046,7 +1046,7 @@ FcImportResult fcImportMeshResource(const fi_depot_t* depot, const FcImportMeshC
 	return FI_RESULT_UNKNOWN_FILE_FORMAT_IMPORT_ERROR;
 }
 
-void fcMeshResourceRelease(FcMeshResource* pMesh, FcAllocator* allocator)
+void fcMeshResourceRelease(FcMeshResource* pMesh, const FcAllocator* allocator)
 {
 	FcMeshResourceChunk* chunks = pMesh->chunks;
 	u32 numChunks = pMesh->numChunks;

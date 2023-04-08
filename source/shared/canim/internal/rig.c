@@ -9,7 +9,7 @@
 
 #define MIN(x, y) x < y ? x : y
 
-void fcRigRelease(FcRig* rig, FcAllocator* allocator)
+void fcRigRelease(FcRig* rig, const FcAllocator* allocator)
 {
 	FUR_FREE(rig->boneNameHashes, allocator);
 	FUR_FREE(rig->parents, allocator);
@@ -92,7 +92,7 @@ typedef enum FcRigVersion
 	FA_RIG_VER_LAST,
 } FcRigVersion;
 
-void fcRigIkSetupSerialize(FcSerializer* pSerializer, FcAnimIKSetup* ikSetup, FcAllocator* allocator)
+void fcRigIkSetupSerialize(FcSerializer* pSerializer, FcAnimIKSetup* ikSetup, const FcAllocator* allocator)
 {
 	FUR_SER_ADD(FA_RIG_VER_BASE, ikSetup->idxBegin);
 	FUR_SER_ADD(FA_RIG_VER_BASE, ikSetup->idxMid);
@@ -103,7 +103,7 @@ void fcRigIkSetupSerialize(FcSerializer* pSerializer, FcAnimIKSetup* ikSetup, Fc
 	FUR_SER_ADD(FA_RIG_VER_BASE, ikSetup->minAngle);
 }
 
-void fcRigSerialize(FcSerializer* pSerializer, FcRig* rig, FcAllocator* allocator)
+void fcRigSerialize(FcSerializer* pSerializer, FcRig* rig, const FcAllocator* allocator)
 {
 	FUR_SER_VERSION(FA_RIG_VER_LAST-1);
 	

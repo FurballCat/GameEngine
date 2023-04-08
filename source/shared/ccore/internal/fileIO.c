@@ -65,7 +65,7 @@ typedef struct FcDepot
 
 } FcDepot;
 
-FcDepot* fcDepotMount(const FcDepotDesc* desc, FcAllocator* allocator)
+FcDepot* fcDepotMount(const FcDepotDesc* desc, const FcAllocator* allocator)
 {
 	FcDepot* depot = FUR_ALLOC_AND_ZERO(sizeof(FcDepot), 8, FC_MEMORY_SCOPE_CORE, allocator);
 
@@ -85,12 +85,12 @@ i32 fcDepotFindFileIdx(FcDepot* depot, FcFilePath path)
 	return -1;
 }
 
-void fcDepotUnmount(FcDepot* depot, FcAllocator* allocator)
+void fcDepotUnmount(FcDepot* depot, const FcAllocator* allocator)
 {
 	FUR_FREE(depot, allocator);
 }
 
-FcFilePath fcFilePathCreate(FcDepot* depot, const char* path)
+FcFilePath fcDepotGetFilePath(FcDepot* depot, const char* path)
 {
 	const u64 length = strlen(path);
 	FUR_ASSERT(length+1 < FUR_MAX_PATH_LENGTH);

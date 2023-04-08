@@ -219,7 +219,7 @@ void fcRenderSubpassInitColorDepth(VkAttachmentReference* colorAttachmentRef, Vk
 }
 
 VkResult fcRenderPassCreateColorDepth(VkDevice device, VkFormat colorFormat, VkFormat depthFormat,
-										   VkRenderPass* renderPass, FcAllocator* allocator)
+										   VkRenderPass* renderPass, const FcAllocator* allocator)
 {
 	// create render pass
 	VkAttachmentDescription colorAttachment = {0};

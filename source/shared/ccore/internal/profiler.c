@@ -53,7 +53,7 @@ typedef struct FcProfiler
 
 FcProfiler g_profiler;
 
-void fcProfilerInit(FcAllocator* allocator)
+void fcProfilerInit(const FcAllocator* allocator)
 {
 	g_profiler.zoom = FC_PROFILER_INIT_ZOOM;
 	
@@ -71,7 +71,7 @@ void fcProfilerInit(FcAllocator* allocator)
 	}
 }
 
-void fcProfilerRelease(FcAllocator* allocator)
+void fcProfilerRelease(const FcAllocator* allocator)
 {
 	for(i32 t=0; t<g_profiler.numThreads; ++t)
 	{

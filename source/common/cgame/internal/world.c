@@ -84,10 +84,11 @@ FcStringId fcSpawnInfoGetStringId(const FcSpawnInfo* info, FcStringId name, FcSt
 	return defaultValue;
 }
 
-void fcWorldInit(FcWorld* world, FcAllocator* allocator)
+FcResult fcCreateWorld(FcWorldCreateInfo* desc, const FcAllocator* allocator, FcWorld** ppWorld)
 {
 	// init by zero
-	memset(world, 0, sizeof(FcWorld));
+	FcWorld* world = (FcWorld*)FUR_ALLOC_AND_ZERO(sizeof(FcWorld), 0, FC_MEMORY_SCOPE_GAME, allocator);
+	*ppWorld = world;
 	
 	world->levelHeap = FUR_ALLOC_AND_ZERO(sizeof(FcMemRelHeapPool), 0, FC_MEMORY_SCOPE_GAME, allocator);
 	
@@ -96,6 +97,9 @@ void fcWorldInit(FcWorld* world, FcAllocator* allocator)
 	world->levelHeap->freePtr = world->levelHeap->buffer;
 	world->levelHeap->capacity = LEVEL_HEAP_MEMORY_CAPACITY;
 	world->levelHeap->size = 0;
+
+	world->systems.animation = desc->animSystem;
+	world->systems.renderer = desc->renderer;
 	
 	// allocate update buckets
 	fcArrayAllocAndZero(&world->buckets[FG_UPDATE_BUCKET_CHARACTERS], FcGameObjectHandle, 256, 8, FC_MEMORY_SCOPE_GAME, allocator);
@@ -105,9 +109,11 @@ void fcWorldInit(FcWorld* world, FcAllocator* allocator)
 	fcMapAllocAndZero(&world->resources.animations, FcStringId, const FcAnimClip*, 1024, 0, FC_MEMORY_SCOPE_GAME, allocator);
 	fcMapAllocAndZero(&world->resources.rigs, FcStringId, const FcRig*, 128, 0, FC_MEMORY_SCOPE_GAME, allocator);
 	fcMapAllocAndZero(&world->resources.meshes, FcStringId, const FcRenderProxy*, 2048, 0, FC_MEMORY_SCOPE_GAME, allocator);
+
+	return FC_SUCCESS;
 }
 
-void fcWorldRelease(FcWorld* world, FcAllocator* allocator)
+void fcDestroyWorld(FcWorld* world, const FcAllocator* allocator)
 {
 	// release level heap
 	FUR_FREE(world->levelHeap->buffer, allocator);

@@ -214,8 +214,14 @@ typedef struct FcWorld
 	
 } FcWorld;
 
-void fcWorldInit(FcWorld* world, FcAllocator* allocator);
-void fcWorldRelease(FcWorld* world, FcAllocator* allocator);
+typedef struct FcWorldCreateInfo
+{
+	FcRenderer* renderer;
+	FcAnimSystem* animSystem;
+} FcWorldCreateInfo;
+
+FcResult fcCreateWorld(FcWorldCreateInfo* desc, const FcAllocator* allocator, FcWorld** world);
+void fcDestroyWorld(FcWorld* world, const FcAllocator* allocator);
 
 typedef struct FcWorldUpdateCtx
 {

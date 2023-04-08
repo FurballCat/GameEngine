@@ -119,9 +119,7 @@ struct FcApplication
 	GLFWwindow* pWindow;
 };
 
-enum FcResult fcApplicationCreate(const struct FcApplicationDesc* pDesc,
-									struct FcApplication** ppApp,
-									struct FcAllocator* allocator)
+enum FcResult fcCreateApplication(const struct FcApplicationCreateInfo* pDesc, struct FcAllocator* allocator, struct FcApplication** ppApp)
 {
 	struct FcApplication* pApp = FUR_ALLOC(sizeof(struct FcApplication), 8, FC_MEMORY_SCOPE_RENDER, allocator);
 	
@@ -144,7 +142,7 @@ enum FcResult fcApplicationCreate(const struct FcApplicationDesc* pDesc,
 		if (!icon.pixels)
 		{
 			fcSetLastError("Failed to load icon image.");
-			return FR_RESULT_ERROR;
+			return FC_ERROR_UNKNOWN;
 		}
 
 		glfwSetWindowIcon(pApp->pWindow, 1, &icon);
@@ -156,7 +154,7 @@ enum FcResult fcApplicationCreate(const struct FcApplicationDesc* pDesc,
 	if(pApp->pWindow == NULL)
 	{
 		fcSetLastError("Can't create window.");
-		return FR_RESULT_ERROR;
+		return FC_ERROR_UNKNOWN;
 	}
 	
 	*ppApp = pApp;
@@ -164,11 +162,10 @@ enum FcResult fcApplicationCreate(const struct FcApplicationDesc* pDesc,
 	// init debug fragments - since now you can use debug lines
 	fcDebugInit(allocator);
 	
-	return FR_RESULT_OK;
+	return FC_SUCCESS;
 }
 
-enum FcResult fcApplicationRelease(struct FcApplication* pApp,
-									 struct FcAllocator* allocator)
+FcResult fcDestroyApplication(FcApplication* pApp, const FcAllocator* allocator)
 {
 	glfwDestroyWindow(pApp->pWindow);
 	glfwTerminate();
@@ -178,7 +175,7 @@ enum FcResult fcApplicationRelease(struct FcApplication* pApp,
 	// release debug fragments - since now you cannot use debug lines
 	fcDebugRelease(allocator);
 	
-	return FR_RESULT_OK;
+	return FC_SUCCESS;
 }
 
 u32 fcApplicationUpdate(struct FcApplication* pApp)
@@ -224,7 +221,7 @@ typedef struct FcFontDesc
 	FcFilePath glyphsInfoPath;	// UV and sizes of each glyph and character mapping
 } FcFontDesc;
 
-void fcFontRelease(VkDevice device, FcFont* font, FcAllocator* allocator)
+void fcFontRelease(VkDevice device, FcFont* font, const FcAllocator* allocator)
 {
 	fcImageRelease(device, &font->atlas, allocator);
 	
@@ -238,9 +235,9 @@ void fcFontRelease(VkDevice device, FcFont* font, FcAllocator* allocator)
 	memset(font, 0, sizeof(FcFont));
 }
 
-enum FcResult fcFontCreate(VkDevice device, VkPhysicalDevice physicalDevice, const FcFontDesc* desc, FcFont* font, FcAllocator* allocator)
+enum FcResult fcFontCreate(VkDevice device, VkPhysicalDevice physicalDevice, const FcFontDesc* desc, FcFont* font, const FcAllocator* allocator)
 {
-	enum FcResult res = FR_RESULT_OK;
+	enum FcResult res = FC_SUCCESS;
 	
 	// load glyph atlas
 	{
@@ -264,12 +261,12 @@ enum FcResult fcFontCreate(VkDevice device, VkPhysicalDevice physicalDevice, con
 				char txt[256];
 				sprintf(txt, "Can't load font atlas \'%s\'", fcFilePathAsDebugCstr(desc->depot, desc->atlasPath));
 				fcSetLastError(txt);
-				res = FR_RESULT_ERROR;
+				res = FC_ERROR_UNKNOWN;
 			}
 		}
 		
 		// create texture image
-		if(res == FR_RESULT_OK)
+		if(res == FC_SUCCESS)
 		{
 			FcImageDesc desc = {0};
 			desc.size = imageSize;
@@ -284,7 +281,7 @@ enum FcResult fcFontCreate(VkDevice device, VkPhysicalDevice physicalDevice, con
 	}
 	
 	// read glyph infos
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		FcTextBuffer textBuffer = {0};
 		if(!fcTextBufferLoad(desc->depot, desc->glyphsInfoPath, &textBuffer, allocator))
@@ -292,7 +289,7 @@ enum FcResult fcFontCreate(VkDevice device, VkPhysicalDevice physicalDevice, con
 			char txt[256];
 			sprintf(txt, "Can't load file %s", fcFilePathAsDebugCstr(desc->depot, desc->glyphsInfoPath));
 			fcSetLastError(txt);
-			return FR_RESULT_ERROR;
+			return FC_ERROR_UNKNOWN;
 		}
 
 		const char* streamBegin = textBuffer.pData;
@@ -593,17 +590,17 @@ enum FcResult fcRenderCreateShaderModule(VkDevice device, FcDepot* depot, FcFile
 		if (res != VK_SUCCESS)
 		{
 			fcSetLastError("Can't create shader: %s", fcFilePathAsDebugCstr(depot, path));
-			return FR_RESULT_ERROR_SHADER_MODULE_CREATION;
+			return FC_ERROR_SHADER_CREATION;
 		}
 		
-		return FR_RESULT_OK;
+		return FC_SUCCESS;
 	}
 	else
 	{
 		char txt[256];
 		sprintf(txt, "Can't load file %s", fcFilePathAsDebugCstr(depot, path));
 		fcSetLastError(txt);
-		return FR_RESULT_ERROR;
+		return FC_ERROR_UNKNOWN;
 	}
 }
 
@@ -798,25 +795,23 @@ void fr_generic_buffer_free_func(void* pData, u64 size, void* pUserData)
 	FUR_FREE(pData, allocator);
 }
 
-enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
-					   struct FcRenderer** ppRenderer,
-					   struct FcAllocator*	allocator)
+enum FcResult fcCreateRenderer(const struct FcRendererCreateInfo* pDesc, struct FcAllocator* allocator, struct FcRenderer** ppRenderer)
 {
 	struct FcRenderer* pRenderer = FUR_ALLOC(sizeof(struct FcRenderer), 8, FC_MEMORY_SCOPE_RENDER, allocator);
 	if(!pRenderer)
 	{
 		fcSetLastError("Can't allocate renderer.");
-		return FR_RESULT_ERROR;
+		return FC_ERROR_UNKNOWN;
 	}
 	
 	memset(pRenderer, 0, sizeof(struct FcRenderer));
 	
-	enum FcResult res = FR_RESULT_OK;
+	enum FcResult res = FC_SUCCESS;
 	
 	pRenderer->depot = pDesc->depot;
 
 	// create vulkan instance
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		pRenderer->pApp = pDesc->pApp;
 		
@@ -847,12 +842,12 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if(result != VK_SUCCESS)
 		{
 			fcSetLastError(frInterpretVulkanResult(result));
-			res = FR_RESULT_ERROR;
+			res = FC_ERROR_UNKNOWN;
 		}
 	}
 	
 	// enumerate extensions
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		u32 extensionCount = 0;
 		vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, NULL);
@@ -863,7 +858,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// create physical device
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 		
@@ -897,21 +892,21 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if(!physicalDevice)
 		{
 			fcSetLastError("Cannot find suitable GPU device.");
-			res = FR_RESULT_ERROR;
+			res = FC_ERROR_UNKNOWN;
 		}
 		
 		pRenderer->physicalDevice = physicalDevice;
 	}
 	
 	// create window surface
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		VkResult result = glfwCreateWindowSurface(pRenderer->vkInstance, pRenderer->pApp->pWindow, NULL, &pRenderer->surface);
 		
 		if(result != VK_SUCCESS)
 		{
 			fcSetLastError(frInterpretVulkanResult(result));
-			res = FR_RESULT_ERROR;
+			res = FC_ERROR_UNKNOWN;
 		}
 	}
 	
@@ -920,7 +915,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	u32 idxQueuePresent = -1;
 	
 	// enumerate extensions
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		u32 numExtensions = 0;
 		vkEnumerateDeviceExtensionProperties(physicalDevice, NULL, &numExtensions, NULL);
@@ -944,12 +939,12 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if(!extensionsFound)
 		{
 			fcSetLastError("Cannot find required extensions");
-			res = FR_RESULT_ERROR;
+			res = FC_ERROR_UNKNOWN;
 		}
 	}
 	
 	// enumerate queue families
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		u32 numQueueFamilies = 0;
 		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &numQueueFamilies, NULL);
@@ -971,7 +966,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if(idxQueueGraphics == -1)
 		{
 			fcSetLastError("Cannot find graphics device with suitable queue family.");
-			res = FR_RESULT_ERROR;
+			res = FC_ERROR_UNKNOWN;
 		}
 		
 		pRenderer->idxQueueGraphics = idxQueueGraphics;
@@ -994,7 +989,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if(idxQueuePresent == -1)
 		{
 			fcSetLastError("Can't find present queue for surface");
-			res = FR_RESULT_ERROR;
+			res = FC_ERROR_UNKNOWN;
 		}
 		
 		pRenderer->idxQueuePresent = idxQueuePresent;
@@ -1042,7 +1037,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if (vkCreateDevice(physicalDevice, &createInfo, NULL, &pRenderer->device) != VK_SUCCESS)
 		{
 			fcSetLastError("Cannot create logical device");
-			res = FR_RESULT_ERROR;
+			res = FC_ERROR_UNKNOWN;
 		}
 		
 		vkGetDeviceQueue(pRenderer->device, idxQueueGraphics, 0, &pRenderer->graphicsQueue);
@@ -1050,7 +1045,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// create swap chain
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		VkSurfaceCapabilitiesKHR surfaceCapabilities;
 		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(pRenderer->physicalDevice, pRenderer->surface, &surfaceCapabilities);
@@ -1106,7 +1101,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if(vkCreateSwapchainKHR(pRenderer->device, &createInfo, NULL, &pRenderer->swapChain) != VK_SUCCESS)
 		{
 			fcSetLastError("Cannot create swap chain");
-			res = FR_RESULT_ERROR;
+			res = FC_ERROR_UNKNOWN;
 		}
 		
 		u32 numSwapChainImages = 0;
@@ -1120,7 +1115,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// create swap chain image views
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
@@ -1145,7 +1140,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 			if (vkCreateImageView(pRenderer->device, &createInfo, NULL, &pRenderer->aSwapChainImagesViews[i]) != VK_SUCCESS)
 			{
 				fcSetLastError("Cannot create swap chain image views");
-				res = FR_RESULT_ERROR;
+				res = FC_ERROR_UNKNOWN;
 			}
 		}
 	}
@@ -1153,63 +1148,63 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	// create shader libraries
 	
 	// todo: remove that, paths should be passed or something
-	const FcFilePath basicVertexShaderPath = fcFilePathCreate(pRenderer->depot, "shaders/compiled/basic_vs.spv");
-	const FcFilePath basicVertexShaderNoSkinPath = fcFilePathCreate(pRenderer->depot, "shaders/compiled/basic_vs_no_skin.spv");
-	const FcFilePath basicFragmentShaderPath = fcFilePathCreate(pRenderer->depot, "shaders/compiled/basic_fs.spv");
-	const FcFilePath debugVertexShaderPath = fcFilePathCreate(pRenderer->depot, "shaders/compiled/debug_vs.spv");
-	const FcFilePath debugFragmentShaderPath = fcFilePathCreate(pRenderer->depot, "shaders/compiled/debug_fs.spv");
-	const FcFilePath textVertexShaderPath = fcFilePathCreate(pRenderer->depot, "shaders/compiled/text_vs.spv");
-	const FcFilePath textFragmentShaderPath = fcFilePathCreate(pRenderer->depot, "shaders/compiled/text_fs.spv");
-	const FcFilePath rectVertexShaderPath = fcFilePathCreate(pRenderer->depot, "shaders/compiled/rect_vs.spv");
-	const FcFilePath rectFragmentShaderPath = fcFilePathCreate(pRenderer->depot, "shaders/compiled/rect_fs.spv");
+	const FcFilePath basicVertexShaderPath = fcDepotGetFilePath(pRenderer->depot, "shaders/compiled/basic_vs.spv");
+	const FcFilePath basicVertexShaderNoSkinPath = fcDepotGetFilePath(pRenderer->depot, "shaders/compiled/basic_vs_no_skin.spv");
+	const FcFilePath basicFragmentShaderPath = fcDepotGetFilePath(pRenderer->depot, "shaders/compiled/basic_fs.spv");
+	const FcFilePath debugVertexShaderPath = fcDepotGetFilePath(pRenderer->depot, "shaders/compiled/debug_vs.spv");
+	const FcFilePath debugFragmentShaderPath = fcDepotGetFilePath(pRenderer->depot, "shaders/compiled/debug_fs.spv");
+	const FcFilePath textVertexShaderPath = fcDepotGetFilePath(pRenderer->depot, "shaders/compiled/text_vs.spv");
+	const FcFilePath textFragmentShaderPath = fcDepotGetFilePath(pRenderer->depot, "shaders/compiled/text_fs.spv");
+	const FcFilePath rectVertexShaderPath = fcDepotGetFilePath(pRenderer->depot, "shaders/compiled/rect_vs.spv");
+	const FcFilePath rectFragmentShaderPath = fcDepotGetFilePath(pRenderer->depot, "shaders/compiled/rect_fs.spv");
 	
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		res = fcRenderCreateShaderModule(pRenderer->device, pRenderer->depot, basicVertexShaderPath, &pRenderer->vertexShaderModule, allocator);
 	}
 	
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		res = fcRenderCreateShaderModule(pRenderer->device, pRenderer->depot, basicVertexShaderNoSkinPath, &pRenderer->vertexShaderNoSkinModule, allocator);
 	}
 	
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		res = fcRenderCreateShaderModule(pRenderer->device, pRenderer->depot, basicFragmentShaderPath, &pRenderer->fragmentShaderModule, allocator);
 	}
 	
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		res = fcRenderCreateShaderModule(pRenderer->device, pRenderer->depot, debugVertexShaderPath, &pRenderer->debugVertexShaderModule, allocator);
 	}
 	
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		res = fcRenderCreateShaderModule(pRenderer->device, pRenderer->depot, debugFragmentShaderPath, &pRenderer->debugFragmentShaderModule, allocator);
 	}
 	
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		res = fcRenderCreateShaderModule(pRenderer->device, pRenderer->depot, textVertexShaderPath, &pRenderer->textVertexShaderModule, allocator);
 	}
 	
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		res = fcRenderCreateShaderModule(pRenderer->device, pRenderer->depot, textFragmentShaderPath, &pRenderer->textFragmentShaderModule, allocator);
 	}
 	
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		res = fcRenderCreateShaderModule(pRenderer->device, pRenderer->depot, rectVertexShaderPath, &pRenderer->rectVertexShaderModule, allocator);
 	}
 	
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		res = fcRenderCreateShaderModule(pRenderer->device, pRenderer->depot, rectFragmentShaderPath, &pRenderer->rectFragmentShaderModule, allocator);
 	}
 	
 	// debug draw bindings
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		pRenderer->debugLinesVertexBindingDescription.binding = 0;
 		pRenderer->debugLinesVertexBindingDescription.stride = 7 * sizeof(f32);	// todo: take it from debug draw somehow instead of hardcoding
@@ -1227,7 +1222,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// debug 2D rect draw bindings
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		pRenderer->debugRectVertexBindingDescription.binding = 0;
 		pRenderer->debugRectVertexBindingDescription.stride = fcDebugRectsNumFloatsPerVertex() * sizeof(f32);
@@ -1245,7 +1240,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// debug text draw bindings
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		pRenderer->debugTextVertexBindingDescription.binding = 0;
 		pRenderer->debugTextVertexBindingDescription.stride = FR_FONT_FLOATS_PER_GLYPH_VERTEX * sizeof(f32);
@@ -1268,7 +1263,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// test geometry
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		pRenderer->bindingDescription[0].binding = 0;
 		pRenderer->bindingDescription[0].stride = sizeof(fr_vertex_t);
@@ -1305,7 +1300,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// create descriptor set layout
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		// uniform buffer (UBO)
 		VkDescriptorSetLayoutBinding uboLayoutBinding = {0};
@@ -1342,12 +1337,12 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if (vkCreateDescriptorSetLayout(pRenderer->device, &layoutInfo, NULL, &pRenderer->descriptorSetLayout) != VK_SUCCESS)
 		{
 			fcSetLastError("Can't create uniform buffer descriptor layout");
-			res = FR_RESULT_ERROR_GPU;
+			res = FC_ERROR_GPU;
 		}
 	}
 	
 	// create descriptor set layout for 2D rect drawing
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		// uniform buffer (UBO)
 		VkDescriptorSetLayoutBinding uboLayoutBinding = {0};
@@ -1368,12 +1363,12 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if (vkCreateDescriptorSetLayout(pRenderer->device, &layoutInfo, NULL, &pRenderer->rectDescriptorSetLayout) != VK_SUCCESS)
 		{
 			fcSetLastError("Can't create descriptor layout for 2D rect drawing");
-			res = FR_RESULT_ERROR_GPU;
+			res = FC_ERROR_GPU;
 		}
 	}
 	
 	// create descriptor set layout for text drawing
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		// uniform buffer (UBO)
 		VkDescriptorSetLayoutBinding uboLayoutBinding = {0};
@@ -1402,12 +1397,12 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if (vkCreateDescriptorSetLayout(pRenderer->device, &layoutInfo, NULL, &pRenderer->textDescriptorSetLayout) != VK_SUCCESS)
 		{
 			fcSetLastError("Can't create descriptor layout for text drawing");
-			res = FR_RESULT_ERROR_GPU;
+			res = FC_ERROR_GPU;
 		}
 	}
 	
 	// create 2D rects uniform buffer
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		FcRenderBufferDesc desc;
 		desc.size = sizeof(fr_uniform_buffer_t);
@@ -1421,7 +1416,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// create text uniform buffer
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		FcRenderBufferDesc desc;
 		desc.size = sizeof(fr_uniform_buffer_t);
@@ -1437,7 +1432,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	const VkFormat depthFormat = VK_FORMAT_D24_UNORM_S8_UINT;
 	
 	// create render stages
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {0};
 		fcRenderPSOInitLayout(&pRenderer->descriptorSetLayout, &pipelineLayoutInfo);
@@ -1445,7 +1440,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if (vkCreatePipelineLayout(pRenderer->device, &pipelineLayoutInfo, NULL, &pRenderer->pipelineLayout) != VK_SUCCESS)
 		{
 			fcSetLastError("Can't create pipeline layout");
-			res = FR_RESULT_ERROR_GPU;
+			res = FC_ERROR_GPU;
 		}
 		
 		// create render pass
@@ -1453,7 +1448,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 											  depthFormat, &pRenderer->renderPass, allocator) != VK_SUCCESS)
 		{
 			fcSetLastError("Can't create render pass");
-			res = FR_RESULT_ERROR_GPU;
+			res = FC_ERROR_GPU;
 		}
 		
 		// create pipeline state object (PSO)
@@ -1544,7 +1539,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->graphicsPipeline) != VK_SUCCESS)
 		{
 			fcSetLastError("Can't create graphics pipeline");
-			res = FR_RESULT_ERROR_GPU;
+			res = FC_ERROR_GPU;
 		}
 		
 		// create no skin pipeline
@@ -1555,12 +1550,12 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->graphicsPipelineNoSkin) != VK_SUCCESS)
 		{
 			fcSetLastError("Can't create graphics pipeline 'no skin'");
-			res = FR_RESULT_ERROR_GPU;
+			res = FC_ERROR_GPU;
 		}
 	}
 	
 	// create debug draw PSO
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		// create pipeline state object (PSO)
 		VkPipelineShaderStageCreateInfo shaderStages[2] = {0};
@@ -1652,7 +1647,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->debugLinesPSO) != VK_SUCCESS)
 		{
 			fcSetLastError("Can't create debug lines PSO");
-			res = FR_RESULT_ERROR_GPU;
+			res = FC_ERROR_GPU;
 		}
 		
 		// create 3D triangles debug PSO
@@ -1661,7 +1656,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->debugTrianglesPSO) != VK_SUCCESS)
 		{
 			fcSetLastError("Can't create debug triangles PSO");
-			res = FR_RESULT_ERROR_GPU;
+			res = FC_ERROR_GPU;
 		}
 		
 		// depth and stencil state - for blending use fcRenderPSOInitColorBlendAttachmentStateBlending
@@ -1684,7 +1679,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 			if (vkCreatePipelineLayout(pRenderer->device, &pipelineLayoutInfo, NULL, &pRenderer->rectsPipelineLayout) != VK_SUCCESS)
 			{
 				fcSetLastError("Can't create rects pipeline layout");
-				res = FR_RESULT_ERROR_GPU;
+				res = FC_ERROR_GPU;
 			}
 			
 			pipelineInfo.layout = pRenderer->rectsPipelineLayout;
@@ -1708,7 +1703,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 			if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->debugRectsPSO) != VK_SUCCESS)
 			{
 				fcSetLastError("Can't create debug rects PSO");
-				res = FR_RESULT_ERROR_GPU;
+				res = FC_ERROR_GPU;
 			}
 		}
 		
@@ -1720,7 +1715,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 			if (vkCreatePipelineLayout(pRenderer->device, &pipelineLayoutInfo, NULL, &pRenderer->textPipelineLayout) != VK_SUCCESS)
 			{
 				fcSetLastError("Can't create text pipeline layout");
-				res = FR_RESULT_ERROR_GPU;
+				res = FC_ERROR_GPU;
 			}
 			
 			VkPipelineDepthStencilStateCreateInfo depthStencil = {0};
@@ -1747,24 +1742,24 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 			if (vkCreateGraphicsPipelines(pRenderer->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &pRenderer->debugTextPSO) != VK_SUCCESS)
 			{
 				fcSetLastError("Can't create debug text PSO");
-				res = FR_RESULT_ERROR_GPU;
+				res = FC_ERROR_GPU;
 			}
 		}
 	}
 	
 	// load debug font
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		FcFontDesc desc = {0};
-		desc.atlasPath = fcFilePathCreate(pRenderer->depot, "data/font/debug-font-2.png");
-		desc.glyphsInfoPath = fcFilePathCreate(pRenderer->depot, "data/font/debug-font-data-2.txt");
+		desc.atlasPath = fcDepotGetFilePath(pRenderer->depot, "data/font/debug-font-2.png");
+		desc.glyphsInfoPath = fcDepotGetFilePath(pRenderer->depot, "data/font/debug-font-data-2.txt");
 		desc.depot = pRenderer->depot;
 		
 		res = fcFontCreate(pRenderer->device, pRenderer->physicalDevice, &desc, &pRenderer->textFont, allocator);
 	}
 	
 	// create depth buffer
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		const VkDeviceSize depthImageSize = 4 * pRenderer->swapChainExtent.width * pRenderer->swapChainExtent.height;
 		
@@ -1780,7 +1775,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// create debug lines vertex buffer
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		FcRenderBufferDesc desc = {0};
 		desc.size = fcDebugLineBufferSize();
@@ -1794,7 +1789,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// create debug triangles vertex buffer
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		FcRenderBufferDesc desc = {0};
 		desc.size = fcDebugTriangleBufferSize();
@@ -1808,7 +1803,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// create debug 2D rects vertex buffer
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		FcRenderBufferDesc desc = {0};
 		desc.size = fcDebugRectsBufferSize();
@@ -1822,7 +1817,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// create debug text vertex buffer
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		FcRenderBufferDesc desc = {0};
 		desc.size = fcDebugTextCharactersCapacity() * FR_FONT_FLOATS_PER_GLYPH_VERTEX * 6 * sizeof(f32);
@@ -1836,7 +1831,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// create frame buffers
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		for (u64 i = 0; i < NUM_SWAP_CHAIN_IMAGES; i++)
 		{
@@ -1860,13 +1855,13 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 			if (vkCreateFramebuffer(pRenderer->device, &framebufferInfo, NULL, &pRenderer->aSwapChainFrameBuffers[i]) != VK_SUCCESS)
 			{
 				fcSetLastError("Can't create frame buffers");
-				res = FR_RESULT_ERROR_GPU;
+				res = FC_ERROR_GPU;
 			}
 		}
 	}
 	
 	// create descriptor pool (for uniform buffer & sampler)
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		VkDescriptorPoolSize poolSizes[2];
 		u32 numBindings = 2;
@@ -1886,7 +1881,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if (vkCreateDescriptorPool(pRenderer->device, &poolInfo, NULL, &pRenderer->descriptorPool) != VK_SUCCESS)
 		{
 			fcSetLastError("Can't create descriptor pool for uniform buffers");
-			res = FR_RESULT_ERROR_GPU;
+			res = FC_ERROR_GPU;
 		}
 	}
 	
@@ -1903,12 +1898,12 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	int texFontAtlasHeight = 0;
 	
 	// pass font atlas to staging buffer
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		if(!pRenderer->textFont.pixelsData)
 		{
 			fcSetLastError("Can't load font atlas");
-			res = FR_RESULT_ERROR_GPU;
+			res = FC_ERROR_GPU;
 		}
 		else
 		{
@@ -1926,7 +1921,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// create texture sampler
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		VkSamplerCreateInfo samplerInfo = {0};
 		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -1949,12 +1944,12 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if (vkCreateSampler(pRenderer->device, &samplerInfo, NULL, &pRenderer->textureSampler) != VK_SUCCESS)
 		{
 			fcSetLastError("Can't create texture sampler");
-			res = FR_RESULT_ERROR_GPU;
+			res = FC_ERROR_GPU;
 		}
 	}
 	
 	// create text texture sampler
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		VkSamplerCreateInfo samplerInfo = {0};
 		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -1977,12 +1972,12 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if (vkCreateSampler(pRenderer->device, &samplerInfo, NULL, &pRenderer->textTextureSampler) != VK_SUCCESS)
 		{
 			fcSetLastError("Can't create texture sampler");
-			res = FR_RESULT_ERROR_GPU;
+			res = FC_ERROR_GPU;
 		}
 	}
 	
 	// create descriptor sets for 2D rect drawing
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		VkDescriptorSetLayout layouts[NUM_SWAP_CHAIN_IMAGES] = {pRenderer->rectDescriptorSetLayout,
 			pRenderer->rectDescriptorSetLayout, pRenderer->rectDescriptorSetLayout};
@@ -1996,7 +1991,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if (vkAllocateDescriptorSets(pRenderer->device, &allocInfo, pRenderer->aRectDescriptorSets) != VK_SUCCESS)
 		{
 			fcSetLastError("Can't allocate descriptor sets for 2D rect drawing uniform buffers");
-			res = FR_RESULT_ERROR_GPU;
+			res = FC_ERROR_GPU;
 		}
 		
 		for (u64 i = 0; i < NUM_SWAP_CHAIN_IMAGES; ++i)
@@ -2024,7 +2019,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// create descriptor sets for text drawing
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		VkDescriptorSetLayout layouts[NUM_SWAP_CHAIN_IMAGES] = {pRenderer->textDescriptorSetLayout,
 			pRenderer->textDescriptorSetLayout, pRenderer->textDescriptorSetLayout};
@@ -2038,7 +2033,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if (vkAllocateDescriptorSets(pRenderer->device, &allocInfo, pRenderer->aTextDescriptorSets) != VK_SUCCESS)
 		{
 			fcSetLastError("Can't allocate descriptor sets for uniform buffers");
-			res = FR_RESULT_ERROR_GPU;
+			res = FC_ERROR_GPU;
 		}
 		
 		for (u64 i = 0; i < NUM_SWAP_CHAIN_IMAGES; ++i)
@@ -2079,7 +2074,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// create descriptor pool for PVS (Potentially Visible Set)
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		VkDescriptorPoolSize poolSizes[2] = {0};
 		u32 numBindings = 2;
@@ -2103,7 +2098,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// prepare PVS
-	if (res == FR_RESULT_OK)
+	if (res == FC_SUCCESS)
 	{
 		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
@@ -2136,7 +2131,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 			}
 			
 			// create uniform buffer for PVS
-			if(res == FR_RESULT_OK)
+			if(res == FC_SUCCESS)
 			{
 				FcRenderBufferDesc desc;
 				desc.size = sizeof(fr_uniform_buffer_t) * NUM_MAX_MESH_UNIFORM_BUFFERS;
@@ -2150,7 +2145,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 			}
 			
 			// create skinning buffer for PVS
-			if(res == FR_RESULT_OK)
+			if(res == FC_SUCCESS)
 			{
 				FcRenderBufferDesc desc;
 				desc.size = FUR_MAX_SKIN_MATRICES_IN_BUFFER * sizeof(fm_mat4);
@@ -2166,7 +2161,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// create command pool
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		VkCommandPoolCreateInfo poolInfo = {0};
 		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -2176,12 +2171,12 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		if (vkCreateCommandPool(pRenderer->device, &poolInfo, NULL, &pRenderer->commandPool) != VK_SUCCESS)
 		{
 			fcSetLastError("Can't create graphics command pool");
-			res = FR_RESULT_ERROR_GPU;
+			res = FC_ERROR_GPU;
 		}
 	}
 	
 	// do staging pass - copy vertex data from staging buffer to vertex buffer
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		// create staging buffer & release memory of source data
 		{
@@ -2225,7 +2220,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// create render semaphores
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		VkSemaphoreCreateInfo semaphoreInfo;
 		memset(&semaphoreInfo, 0, sizeof(VkSemaphoreCreateInfo));
@@ -2235,12 +2230,12 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 			vkCreateSemaphore(pRenderer->device, &semaphoreInfo, NULL, &pRenderer->renderFinishedSemaphore) != VK_SUCCESS)
 		{
 			fcSetLastError("Can't create render semaphores");
-			res = FR_RESULT_ERROR_GPU;
+			res = FC_ERROR_GPU;
 		}
 	}
 	
 	// clear debug fragments buffers with zeros
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		for(u32 i=0; i<NUM_SWAP_CHAIN_IMAGES; ++i)
 		{
@@ -2263,7 +2258,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 		}
 	}
 	
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		*ppRenderer = pRenderer;
 	}
@@ -2273,7 +2268,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	}
 	
 	// create skinning mapping
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		
 	}
@@ -2281,8 +2276,7 @@ enum FcResult fcRendererCreate(const struct FcRendererDesc* pDesc,
 	return res;
 }
 
-enum FcResult fcRendererRelease(struct FcRenderer* pRenderer,
-					   struct FcAllocator*	allocator)
+enum FcResult fcDestroyRenderer(FcRenderer* pRenderer, const FcAllocator* allocator)
 {
 	// release PVS
 	{
@@ -2398,7 +2392,7 @@ enum FcResult fcRendererRelease(struct FcRenderer* pRenderer,
 	
 	FUR_FREE(pRenderer, allocator);
 	
-	return FR_RESULT_OK;
+	return FC_SUCCESS;
 }
 
 void fcRendererWaitForDevice(struct FcRenderer* pRenderer)
@@ -2451,7 +2445,7 @@ FcRenderPVS* fcRendererAcquireFreePVS(FcRenderer* pRenderer, const fm_mat4* came
 	return pvs;
 }
 
-void fcRendererDrawFrame(struct FcRenderer* pRenderer, const FcRendererDrawFrameCtx* ctx, FcAllocator* allocator)
+void fcRendererDrawFrame(struct FcRenderer* pRenderer, const FcRendererDrawFrameCtx* ctx, const FcAllocator* allocator)
 {
 	u32 imageIndex = 0;
 	
@@ -2844,7 +2838,7 @@ void frSerialize_example(fr_serializer_t* ser, fr_example_struct_t* data)
 	FR_ADD_FIELD(FR_VER_INITIAL, fieldA);
 }
 
-FcRenderProxy* fcRendererLoadMesh(FcRenderer* pRenderer, const FcDepot* depot, const FcRenderMeshLoadCtx* ctx, FcAllocator* allocator)
+FcRenderProxy* fcRendererLoadMesh(FcRenderer* pRenderer, const FcDepot* depot, const FcRenderMeshLoadCtx* ctx, const FcAllocator* allocator)
 {
 	FcMeshResource* meshResource = NULL;
 	
@@ -3093,7 +3087,7 @@ FcRenderProxy* fcRendererLoadMesh(FcRenderer* pRenderer, const FcDepot* depot, c
 	return proxy;
 }
 
-void fcRendererReleaseProxy(FcRenderer* pRenderer, FcRenderProxy* proxy, FcAllocator* allocator)
+void fcRendererReleaseProxy(FcRenderer* pRenderer, FcRenderProxy* proxy, const FcAllocator* allocator)
 {
 	// release mesh
 	for(u32 i=0; i<proxy->mesh->numChunks; ++i)

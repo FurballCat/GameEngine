@@ -7,7 +7,7 @@
 
 #include "memory.h"
 
-bool fcBinaryBufferLoad(FcDepot* depot, FcFilePath path, FcBinaryBuffer* pBuffer, FcAllocator* allocator)
+bool fcBinaryBufferLoad(FcDepot* depot, FcFilePath path, FcBinaryBuffer* pBuffer, const FcAllocator* allocator)
 {
 	FcFile* file = fcFileOpen(depot, path, "rb");
 	if(file && pBuffer)
@@ -26,7 +26,7 @@ bool fcBinaryBufferLoad(FcDepot* depot, FcFilePath path, FcBinaryBuffer* pBuffer
 	return false;
 }
 
-void fcBinaryBufferRelease(FcBinaryBuffer* pBuffer, FcAllocator* allocator)
+void fcBinaryBufferRelease(FcBinaryBuffer* pBuffer, const FcAllocator* allocator)
 {
 	FUR_FREE(pBuffer->pData, allocator);
 }
@@ -67,7 +67,7 @@ u32 fcBinaryBufferStreamPeek(FcBinaryBufferStream* stream, u32 numBytes, void* o
 	return 0;
 }
 
-bool fcTextBufferLoad(FcDepot* depot, FcFilePath path, FcTextBuffer* pBuffer, FcAllocator* allocator)
+bool fcTextBufferLoad(FcDepot* depot, FcFilePath path, FcTextBuffer* pBuffer, const FcAllocator* allocator)
 {
 	FcFile* file = fcFileOpen(depot, path, "r");
 	if (file && pBuffer)
@@ -86,7 +86,7 @@ bool fcTextBufferLoad(FcDepot* depot, FcFilePath path, FcTextBuffer* pBuffer, Fc
 	return false;
 }
 
-void fcTextBufferRelease(FcTextBuffer* pBuffer, FcAllocator* allocator)
+void fcTextBufferRelease(FcTextBuffer* pBuffer, const FcAllocator* allocator)
 {
 	FUR_FREE(pBuffer->pData, allocator);
 }

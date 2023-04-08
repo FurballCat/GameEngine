@@ -15,23 +15,13 @@ typedef struct fm_mat4 fm_mat4;
 typedef u32 FcStringId;
 typedef struct FcDepot FcDepot;
 typedef u64 FcFilePath;
-
-// Render result code
-enum FcResult
-{
-	FR_RESULT_OK = 0,
-	FR_RESULT_ERROR,
-	FR_RESULT_ERROR_SHADER_MODULE_CREATION,
-	FR_RESULT_ERROR_GPU,
-	FR_RESULT_PHYSICS_INIT_ERROR,
-};
 	
 // If render result code is not OK then this function returns additional info
 CREND_API const char* fcGetLastError(void);
 
 typedef struct FcApplication FcApplication;
 
-typedef struct FcApplicationDesc
+typedef struct FcApplicationCreateInfo
 {
 	u32 viewportWidth;
 	u32 viewportHeight;
@@ -39,39 +29,30 @@ typedef struct FcApplicationDesc
 
 	FcDepot* depot;
 	FcFilePath iconPath;
-} FcApplicationDesc;
+} FcApplicationCreateInfo;
 	
-CREND_API enum FcResult fcApplicationCreate(const FcApplicationDesc* pDesc,
-									FcApplication** ppApp,
-									FcAllocator* allocator);
+CREND_API FcResult fcCreateApplication(const FcApplicationCreateInfo* pDesc, const FcAllocator* allocator, FcApplication** ppApp);
 	
-CREND_API enum FcResult fcApplicationRelease(FcApplication* pApp,
-									 FcAllocator* allocator);
+CREND_API FcResult fcDestroyApplication(FcApplication* pApp, const FcAllocator* allocator);
 
 // Returns 0 on exit
-CREND_API u32 fcApplicationUpdate(struct FcApplication* pApp);
+CREND_API u32 fcApplicationUpdate(FcApplication* pApp);
 	
 // Renderer structure
 typedef struct FcRenderer FcRenderer;
 
 // Renderer creation description
-typedef struct FcRendererDesc
+typedef struct FcRendererCreateInfo
 {
 	struct FcApplication* pApp;
 	FcDepot* depot;
-} FcRendererDesc;
+} FcRendererCreateInfo;
 
-CREND_API enum FcResult fcRendererCreate(const FcRendererDesc*	pDesc,
-					   FcRenderer**						ppRenderer,
-					   FcAllocator*		allocator);
+CREND_API FcResult fcCreateRenderer(const FcRendererCreateInfo* pDesc, const FcAllocator* allocator, FcRenderer** ppRenderer);
+CREND_API FcResult fcDestroyRenderer(FcRenderer* pRenderer, const FcAllocator* allocator);
 
-CREND_API enum FcResult fcRendererRelease(struct FcRenderer* 			pRenderer,
-						struct FcAllocator*	allocator);
+CREND_API void fcRendererWaitForDevice(FcRenderer* pRenderer);
 
-CREND_API void fcRendererWaitForDevice(struct FcRenderer* pRenderer);
-	
-struct fr_scene_t;
-	
 // render proxy - can be a mesh, a particle system, anything that can be rendered and has position
 typedef struct FcRenderProxy FcRenderProxy;
 
@@ -93,10 +74,10 @@ typedef struct FcRenderMeshLoadCtx
 } FcRenderMeshLoadCtx;
 
 // load mesh, the ownership is kept inside renderer, so no need to
-CREND_API FcRenderProxy* fcRendererLoadMesh(FcRenderer* pRenderer, FcDepot* depot, const FcRenderMeshLoadCtx* ctx, FcAllocator* allocator);
+CREND_API FcRenderProxy* fcRendererLoadMesh(FcRenderer* pRenderer, FcDepot* depot, const FcRenderMeshLoadCtx* ctx, const FcAllocator* allocator);
 
 // release proxy, might also release the associated data (meshes, textures, etc.)
-CREND_API void fcRendererReleaseProxy(FcRenderer* pRenderer, FcRenderProxy* proxy, FcAllocator* allocator);
+CREND_API void fcRendererReleaseProxy(FcRenderer* pRenderer, FcRenderProxy* proxy, const FcAllocator* allocator);
 
 // potentially visible set - defines render proxies that are visible this frame
 typedef struct FcRenderPVS FcRenderPVS;
@@ -116,7 +97,7 @@ typedef struct FcRendererDrawFrameCtx
 	FcRenderPVS* pvs;	// what's visible in this frame
 } FcRendererDrawFrameCtx;
 	
-CREND_API void fcRendererDrawFrame(struct FcRenderer* pRenderer, const FcRendererDrawFrameCtx* ctx, FcAllocator* allocator);
+CREND_API void fcRendererDrawFrame(struct FcRenderer* pRenderer, const FcRendererDrawFrameCtx* ctx, const FcAllocator* allocator);
 
 #ifdef __cplusplus
 }

@@ -22,7 +22,7 @@ typedef struct FcCmdExecuteCtx
 	const char* enginePath;
 } FcCmdExecuteCtx;
 
-typedef int (*FcCmdExecuteFn)(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* allocator);
+typedef int (*FcCmdExecuteFn)(int argc, char* argv[], FcCmdExecuteCtx* ctx, const FcAllocator* allocator);
 
 // command structure, include this as first property in every custom command structure (like derivative)
 typedef struct FcCmd
@@ -54,7 +54,7 @@ void fcCmdLogWarning(const char *fmt, ...);
 void fcCmdLog(const char *fmt, ...);
 
 // all available commands
-int fcCmdImport(int argc, char* argv[], FcCmdExecuteCtx* ctx, FcAllocator* allocator);
+int fcCmdImport(int argc, char* argv[], FcCmdExecuteCtx* ctx, const FcAllocator* allocator);
 
 #ifdef __cplusplus
 }

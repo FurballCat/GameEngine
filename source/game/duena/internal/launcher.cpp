@@ -368,7 +368,7 @@ struct FurMainAppDesc
 	const char* m_title;
 };
 
-struct FurGameEngineDesc
+struct FcGameEngineCreateInfo
 {
 	FurMainAppDesc m_mainApp;
 };
@@ -427,7 +427,7 @@ typedef struct FcGameObjectLegacy
 } FcGameObjectLegacy;
 
 const FcAnimClip* fcResourceRegisterLoadAnim(FcResourceRegister* reg, FcDepot* depot, const char* name,
-								   const FcRig* rig, FcAllocator* allocator)
+								   const FcRig* rig, const FcAllocator* allocator)
 {
 	FcAnimClip* animClip = NULL;
 	
@@ -441,7 +441,7 @@ const FcAnimClip* fcResourceRegisterLoadAnim(FcResourceRegister* reg, FcDepot* d
 		char pathEngine[256] = {};
 		fcPathConcat(pathEngine, "", "data/anim/", name, ".anim");
 
-		FcFilePath file_path = fcFilePathCreate(depot, pathEngine);
+		FcFilePath file_path = fcDepotGetFilePath(depot, pathEngine);
 		FcFile* file = fcFileOpen(depot, file_path, "rb");
 		
 		// try loading or saving engine file
@@ -495,7 +495,7 @@ bool fcGameObject_ZeldaInit(FcGameObject* gameObject, FcGameObjectInitCtx* ctx)
 		FcAnimCharacterDesc desc = {};
 		desc.globalTime = ctx->globalTime;
 		desc.rig = fcResourceRegisterFindRig(ctx->resources, SID("zelda-rig"));
-		zelda->animCharacter = fcAnimCharacterCreate(&desc, ctx->stackAlloc);
+		zelda->animCharacter = fcCreateAnimCharacter(&desc, ctx->stackAlloc);
 		fcAnimSystemAddCharacter(ctx->systems->animation, zelda->animCharacter);
 		
 		zelda->mesh = fcResourceRegisterFindMesh(ctx->resources, SID("zelda-mesh"));
@@ -607,12 +607,9 @@ struct FcGameEngine
 	
 	FcScriptLambda scriptLambdas[128];
 	
-	// test dangle
-	FcPBDDangle dangle;
-	
 	// hair dangles
-	FcPBDDangle zeldaDangleHairLeft;
-	FcPBDDangle zeldaDangleHairRight;
+	FcPBDDangle* zeldaDangleHairLeft;
+	FcPBDDangle* zeldaDangleHairRight;
 	u32 zeldaDangleHairLeftIdx1;
 	u32 zeldaDangleHairLeftIdx2;
 	u32 zeldaDangleHairRightIdx1;
@@ -621,13 +618,13 @@ struct FcGameEngine
 	u32 zeldaHandRightIdx;
 	
 	// cape dangles
-	FcPBDDangle zeldaCapeL;
+	FcPBDDangle* zeldaCapeL;
 	u32 zeldaCapeIdxL[4];
 	
-	FcPBDDangle zeldaCapeC;
+	FcPBDDangle* zeldaCapeC;
 	u32 zeldaCapeIdxC[4];
 	
-	FcPBDDangle zeldaCapeR;
+	FcPBDDangle* zeldaCapeR;
 	u32 zeldaCapeIdxR[4];
 	
 	u32 zeldaSpineIdx;
@@ -647,11 +644,11 @@ struct FcGameEngine
 typedef struct FcMainThreadUserData
 {
 	FcGameEngine* pEngine;
-	FcAllocator* allocator;
+	const FcAllocator* allocator;
 } FcMainThreadUserData;
 
 // Furball Cat - Platform
-bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, FcAllocator* allocator)
+bool fcCreateGameEngine(const FcGameEngineCreateInfo& desc, const FcAllocator* allocator, FcGameEngine** ppEngine)
 {
 	fcProfilerInit(allocator);
 	
@@ -673,40 +670,40 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		pEngine->depot = fcDepotMount(&desc, allocator);
 	}
 
-	FcApplicationDesc appDesc;
+	FcApplicationCreateInfo appDesc;
 	appDesc.appTitle = desc.m_mainApp.m_title;
 	appDesc.viewportWidth = desc.m_mainApp.m_width;
 	appDesc.viewportHeight = desc.m_mainApp.m_height;
-	appDesc.iconPath = fcFilePathCreate(pEngine->depot, "data/icon/furball-cat-icon-128x128.png");
+	appDesc.iconPath = fcDepotGetFilePath(pEngine->depot, "data/icon/furball-cat-icon-128x128.png");
 	appDesc.depot = pEngine->depot;
 
-	FcResult res = fcApplicationCreate(&appDesc, &pEngine->pApp, allocator);
+	FcResult res = fcCreateApplication(&appDesc, allocator, &pEngine->pApp);
 
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		pEngine->pInputManager = fcInputManagerCreate(allocator);
 	}
 	
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
-		FcRendererDesc rendererDesc;
+		FcRendererCreateInfo rendererDesc;
 		rendererDesc.pApp = pEngine->pApp;
 		rendererDesc.depot = pEngine->depot;
 		
-		res = fcRendererCreate(&rendererDesc, &pEngine->pRenderer, allocator);
+		res = fcCreateRenderer(&rendererDesc, allocator, &pEngine->pRenderer);
 	}
 	
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
-		pEngine->pPhysics = fcPhysicsCreate(allocator);
+		fcCreatePhysics(allocator, &pEngine->pPhysics);
 	}
 	
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		fcJobSystemInit(allocator);
 	}
 	
-	if(res == FR_RESULT_OK)
+	if(res == FC_SUCCESS)
 	{
 		*ppEngine = pEngine;
 	}
@@ -718,24 +715,29 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 	}
 	
 	// init anim system
-	pEngine->animSystem = fcAnimSystemInit(allocator);
+	pEngine->animSystem;
+	fcCreateAnimSystem(allocator, &pEngine->animSystem);
 	
 	// create world
-	pEngine->pWorld = (FcWorld*)FUR_ALLOC_AND_ZERO(sizeof(FcWorld), 0, FC_MEMORY_SCOPE_GAME, allocator);
-	fcWorldInit(pEngine->pWorld, allocator);
-	pEngine->pWorld->systems.renderer = pEngine->pRenderer;
-	pEngine->pWorld->systems.animation = pEngine->animSystem;
+	{
+		FcWorldCreateInfo worldDesc = {};
+		worldDesc.renderer = pEngine->pRenderer;
+		worldDesc.animSystem = pEngine->animSystem;
+
+		fcCreateWorld(&worldDesc, allocator, &pEngine->pWorld);
+	}
 	
 	// load scripts
 	{
-		pEngine->zeldaScriptPath = fcFilePathCreate(pEngine->depot, "scripts/zelda-state-script.bin");
+		pEngine->zeldaScriptPath = fcDepotGetFilePath(pEngine->depot, "scripts/zelda-state-script.bin");
 
 		fcBinaryBufferLoad(pEngine->depot, pEngine->zeldaScriptPath, &pEngine->zeldaStateScript, allocator);
 		fcResourceRegisterAddScript(&pEngine->pWorld->resources, SID("ss-zelda"), &pEngine->zeldaStateScript);
 	}
 	
 	// init camera
-	pEngine->cameraSystem = fcCameraSystemCreate(allocator);
+	pEngine->cameraSystem;
+	fcCreateCameraSystem(allocator, &pEngine->cameraSystem);
 	
 	// default camera
 	{
@@ -764,7 +766,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 
 		// load rig
 		{
-			const FcFilePath rigPath = fcFilePathCreate(pEngine->depot, "data/rig/zelda-a-pose.rig");
+			const FcFilePath rigPath = fcDepotGetFilePath(pEngine->depot, "data/rig/zelda-a-pose.rig");
 			FcFile* file = fcFileOpen(pEngine->depot, rigPath, "rb");
 			
 			if(file)
@@ -776,285 +778,6 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 				fcRigSerialize(&ser, pEngine->pRig, allocator);
 			}
 		}
-		
-		// import rig
-#if 0
-		if(!pEngine->pRig)
-		{
-			fi_import_rig_ctx_t ctx = {};
-			ctx.path = characterRigPath;
-			
-			fcImportRig(&depot, &ctx, &pEngine->pRig, allocator);
-			
-			// apply rig properties
-			{
-				// set locomotion joint to track and apply root motion
-				{
-					pEngine->pRig->idxLocoJoint = fcRigFindBoneIdx(pEngine->pRig, SID("motion"));
-				}
-				
-				// left leg IK setup
-				{
-					FcAnimIKSetup* ik = &pEngine->pRig->ikLeftLeg;
-					ik->idxBeginParent = fcRigFindBoneIdx(pEngine->pRig, SID("Bip001_Pelvis"));
-					ik->idxBegin = fcRigFindBoneIdx(pEngine->pRig, SID("Bip001_Thigh_L"));
-					ik->idxMid = fcRigFindBoneIdx(pEngine->pRig, SID("Bip001_Calf_L"));
-					ik->idxEnd = fcRigFindBoneIdx(pEngine->pRig, SID("Bip001_Foot_L"));
-					ik->hingeAxisMid = FM_AXIS_Z;
-					ik->minAngle = 0.02f;
-					ik->maxAngle = 2.8f;
-				}
-				
-				// right leg IK setup
-				{
-					FcAnimIKSetup* ik = &pEngine->pRig->ikRightLeg;
-					ik->idxBeginParent = fcRigFindBoneIdx(pEngine->pRig, SID("Bip001_Pelvis"));
-					ik->idxBegin = fcRigFindBoneIdx(pEngine->pRig, SID("Bip001_Thigh_R"));
-					ik->idxMid = fcRigFindBoneIdx(pEngine->pRig, SID("Bip001_Calf_R"));
-					ik->idxEnd = fcRigFindBoneIdx(pEngine->pRig, SID("Bip001_Foot_R"));
-					ik->hingeAxisMid = FM_AXIS_NEG_Z;
-					ik->minAngle = 0.02f;
-					ik->maxAngle = 2.8f;
-				}
-				
-				// head look-at setup
-				{
-					FcAnimLookAtSetup* lookAt = &pEngine->pRig->headLookAt;
-					lookAt->idxHead = fcRigFindBoneIdx(pEngine->pRig, SID("Bip001_Head"));
-					lookAt->idxNeck = fcRigFindBoneIdx(pEngine->pRig, SID("Bip001_Neck"));
-					lookAt->idxSpine3 = fcRigFindBoneIdx(pEngine->pRig, SID("Bip001_Spine3"));
-					lookAt->limitYaw = FM_DEG_TO_RAD(60.0f);
-					lookAt->limitPitchDown = FM_DEG_TO_RAD(25.0f);
-					lookAt->limitPitchUp = FM_DEG_TO_RAD(45.0f);
-				}
-				
-				// masks
-				{
-					pEngine->pRig->maskUpperBody = FUR_ALLOC_ARRAY_AND_ZERO(u8, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, allocator);
-					const int16_t idxSpine = fcRigFindBoneIdx(pEngine->pRig, SID("Bip001_Spine"));
-					const FcStringId hashes[9] = {
-						SID("Bip001_Pelvis"),
-						SID("Bip001_Thigh_L"),
-						SID("Bip001_Calf_L"),
-						SID("Bip001_Foot_L"),
-						SID("Bip001_Thigh_R"),
-						SID("Bip001_Calf_R"),
-						SID("Bip001_Foot_R"),
-						SID("Bip001_Spine"),
-						SID("Bip001_Spine1")
-					};
-					
-					const FcStringId hashesPartial[18] = {
-						SID("Bip001_UpperArm_L"),
-						SID("Bip001_UpperArm3_L"),
-						SID("Bip001_Hand_L"),
-						SID("Bip001_Thumb1_L"),
-						SID("Bip001_Thumb2_L"),
-						SID("Bip001_Thumb3_L"),
-						SID("Bip001_Index1_L"),
-						SID("Bip001_Index2_L"),
-						SID("Bip001_Index3_L"),
-						SID("Bip001_Middle1_L"),
-						SID("Bip001_Middle2_L"),
-						SID("Bip001_Middle3_L"),
-						SID("Bip001_Ring1_L"),
-						SID("Bip001_Ring2_L"),
-						SID("Bip001_Ring3_L"),
-						SID("Bip001_Pinky1_L"),
-						SID("Bip001_Pinky2_L"),
-						SID("Bip001_Pinky3_L")
-					};
-					
-					const FcStringId noHashes[2] = {
-						SID("rootTransform"),
-						SID("motion")
-					};
-					
-					if(idxSpine != -1)
-					{
-						for(u32 i=0; i<pEngine->pRig->numBones; ++i)
-						{
-							u8 w = 220;
-							for(u32 j=0; j<9; ++j)
-							{
-								if(pEngine->pRig->boneNameHashes[i] == hashes[j])
-								{
-									w = 0;
-									break;
-								}
-							}
-							for(u32 j=0; j<18; ++j)
-							{
-								if(pEngine->pRig->boneNameHashes[i] == hashesPartial[j])
-								{
-									w = 100;
-								}
-							}
-							for(u32 j=0; j<2; ++j)
-							{
-								if(pEngine->pRig->boneNameHashes[i] == noHashes[j])
-								{
-									w = 0;
-								}
-							}
-							pEngine->pRig->maskUpperBody[i] = w;
-						}
-					}
-				}
-				
-				// face mask
-				{
-					pEngine->pRig->maskFace = FUR_ALLOC_ARRAY_AND_ZERO(u8, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, allocator);
-					const int16_t idxSpine = fcRigFindBoneIdx(pEngine->pRig, SID("Bip001_Spine"));
-					const FcStringId hashes[] = {
-						//SID("Bip001_Neck"),
-						//SID("Bip001_Head"),
-						SID("Bip001_Jaw"),
-						SID("Bip001_Chin"),
-						SID("Bip001_LipLower_C"),
-						SID("Bip001_LipLower1_R"),
-						SID("Bip001_LipLower1_L"),
-						SID("Bip001_LipLower2_R"),
-						SID("Bip001_LipLower2_L"),
-						SID("Bip001_TeethLower"),
-						SID("Bip001_Tongue"),
-						SID("Bip001_Tongue1"),
-						SID("Bip001_Tongue2"),
-						SID("Bip001_Tongue3"),
-						SID("Bip001_LipUpper_C"),
-						SID("Bip001_LipUpper1_R"),
-						SID("Bip001_LipUpper1_L"),
-						SID("Bip001_LipUpper2_R"),
-						SID("Bip001_LipUpper2_L"),
-						SID("Bip001_LipCorner_R"),
-						SID("Bip001_LipCorner_L"),
-						SID("Bip001_Cheek_R"),
-						SID("Bip001_Cheek_L"),
-						SID("Bip001_Cheek1_R"),
-						SID("Bip001_Cheek1_L"),
-						SID("Bip001_Cheek2_R"),
-						SID("Bip001_Cheek2_L"),
-						SID("Bip001_Smile_R"),
-						SID("Bip001_Smile_L"),
-						SID("Bip001_Frown_R"),
-						SID("Bip001_Frown_L"),
-						SID("Bip001_TeethUpper"),
-						SID("Bip001_BrowInner_L"),
-						SID("Bip001_BrowInner_R"),
-						SID("Bip001_BrowMid_L"),
-						SID("Bip001_BrowMid_R"),
-						SID("Bip001_BrowOuter_L"),
-						SID("Bip001_BrowOuter_R"),
-						SID("Bip001_Nostril_L"),
-						SID("Bip001_Nostril_R"),
-						SID("Bip001_Nose"),
-						SID("Bip001_EyelidUp_L"),
-						SID("Bip001_EyelidUp_R"),
-						SID("Bip001_EyelidDown_L"),
-						SID("Bip001_EyelidDown_R"),
-						SID("Bip001_Eye_L"),
-						SID("Bip001_EyeSpec_L"),
-						SID("Bip001_EyeSpec1_L"),
-						SID("Bip001_EyeSpec2_L"),
-						SID("Bip001_EyeSpec3_L"),
-						SID("Bip001_Eye_R"),
-						SID("Bip001_EyeSpec_R"),
-						SID("Bip001_EyeSpec1_R"),
-						SID("Bip001_EyeSpec2_R"),
-						SID("Bip001_Ear_L"),
-						SID("Bip001_Ear_R"),
-						SID("Bip001_BrowFlesh_L"),
-						SID("Bip001_BrowFlesh_R"),
-						SID("Bip001_EyelidCrevace_L"),
-						SID("Bip001_EyelidCrevace_R"),
-					};
-					
-					if(idxSpine != -1)
-					{
-						for(u32 i=0; i<pEngine->pRig->numBones; ++i)
-						{
-							u8 w = 0;
-							const u32 numHashes = FUR_ARRAY_SIZE(hashes);
-							for(u32 j=0; j<numHashes; ++j)
-							{
-								if(pEngine->pRig->boneNameHashes[i] == hashes[j])
-								{
-									w = 255;
-									break;
-								}
-							}
-							pEngine->pRig->maskFace[i] = w;
-						}
-					}
-				}
-				
-				// hands mask
-				{
-					pEngine->pRig->maskHands = FUR_ALLOC_ARRAY_AND_ZERO(u8, pEngine->pRig->numBones, 0, FC_MEMORY_SCOPE_ANIMATION, allocator);
-					const int16_t idxSpine = fcRigFindBoneIdx(pEngine->pRig, SID("Bip001_Spine"));
-					const FcStringId hashes[] = {
-						SID("Bip001_Index1_L"),
-						SID("Bip001_Index2_L"),
-						SID("Bip001_Index3_L"),
-						SID("Bip001_Middle1_L"),
-						SID("Bip001_Middle2_L"),
-						SID("Bip001_Middle3_L"),
-						SID("Bip001_Ring1_L"),
-						SID("Bip001_Ring2_L"),
-						SID("Bip001_Ring3_L"),
-						SID("Bip001_Pinky1_L"),
-						SID("Bip001_Pinky2_L"),
-						SID("Bip001_Pinky3_L"),
-						SID("Bip001_Thumb_L"),
-						SID("Bip001_Thumb1_L"),
-						SID("Bip001_Thumb2_L"),
-						SID("Bip001_Thumb3_L"),
-						SID("Bip001_Index1_R"),
-						SID("Bip001_Index2_R"),
-						SID("Bip001_Index3_R"),
-						SID("Bip001_Middle1_R"),
-						SID("Bip001_Middle2_R"),
-						SID("Bip001_Middle3_R"),
-						SID("Bip001_Ring1_R"),
-						SID("Bip001_Ring2_R"),
-						SID("Bip001_Ring3_R"),
-						SID("Bip001_Pinky1_R"),
-						SID("Bip001_Pinky2_R"),
-						SID("Bip001_Pinky3_R"),
-						SID("Bip001_Thumb_R"),
-						SID("Bip001_Thumb1_R"),
-						SID("Bip001_Thumb2_R"),
-						SID("Bip001_Thumb3_R"),
-					};
-					
-					if(idxSpine != -1)
-					{
-						for(u32 i=0; i<pEngine->pRig->numBones; ++i)
-						{
-							u8 w = 0;
-							const u32 numHashes = FUR_ARRAY_SIZE(hashes);
-							for(u32 j=0; j<numHashes; ++j)
-							{
-								if(pEngine->pRig->boneNameHashes[i] == hashes[j])
-								{
-									w = 255;
-									break;
-								}
-							}
-							pEngine->pRig->maskHands[i] = w;
-						}
-					}
-				}
-			}
-			
-			FILE* engineFile = fopen(pathRigEngine, "wb");
-			
-			FcSerializer ser = {};
-			ser.file = engineFile;
-			ser.isWriting = true;
-			fcRigSerialize(&ser, pEngine->pRig, allocator);
-		}
-#endif
 
 		pEngine->pAnimClipWindProtect = fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-upper-wind-protect", pEngine->pRig, allocator);
 		pEngine->pAnimClipHoldSword = fcResourceRegisterLoadAnim(&pEngine->pWorld->resources, pEngine->depot, "zelda-upper-hold-sword", pEngine->pRig, allocator);
@@ -1080,8 +803,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		// load meshes
 		{
 			FcRenderMeshLoadCtx meshCtx = {};
-			meshCtx.path = fcFilePathCreate(pEngine->depot, "data/mesh/zelda-sword.mesh");
-			FcFilePath texturePaths[] = {fcFilePathCreate(pEngine->depot, "data/texture/melee_diff.png")};
+			meshCtx.path = fcDepotGetFilePath(pEngine->depot, "data/mesh/zelda-sword.mesh");
+			FcFilePath texturePaths[] = {fcDepotGetFilePath(pEngine->depot, "data/texture/melee_diff.png")};
 			const i32 textureIndices[] = {0};
 			meshCtx.texturePaths = texturePaths;
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
@@ -1093,8 +816,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		// load chest mesh
 		{
 			FcRenderMeshLoadCtx meshCtx = {};
-			meshCtx.path = fcFilePathCreate(pEngine->depot, "data/mesh/chest.mesh");
-			FcFilePath texturePaths[] = { fcFilePathCreate(pEngine->depot, "data/texture/chest_albedo.png")};
+			meshCtx.path = fcDepotGetFilePath(pEngine->depot, "data/mesh/chest.mesh");
+			FcFilePath texturePaths[] = { fcDepotGetFilePath(pEngine->depot, "data/texture/chest_albedo.png")};
 			const i32 textureIndices[] = {0};
 			meshCtx.texturePaths = texturePaths;
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
@@ -1106,8 +829,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		// load block mesh
 		{
 			FcRenderMeshLoadCtx meshCtx = {};
-			meshCtx.path = fcFilePathCreate(pEngine->depot, "data/mesh/skull_block_PBR_fc.mesh");
-			FcFilePath texturePaths[] = { fcFilePathCreate(pEngine->depot, "data/texture/b_stone1_Color.png")};
+			meshCtx.path = fcDepotGetFilePath(pEngine->depot, "data/mesh/skull_block_PBR_fc.mesh");
+			FcFilePath texturePaths[] = { fcDepotGetFilePath(pEngine->depot, "data/texture/b_stone1_Color.png")};
 			const i32 textureIndices[] = {0};
 			meshCtx.texturePaths = texturePaths;
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
@@ -1139,8 +862,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 			sprintf(txtTexturePath, "data/texture/rock-0%i.png", i+1);
 			
 			FcRenderMeshLoadCtx meshCtx = {};
-			meshCtx.path = fcFilePathCreate(pEngine->depot, txtPath);
-			FcFilePath texturePaths[] = { fcFilePathCreate(pEngine->depot, txtTexturePath) };
+			meshCtx.path = fcDepotGetFilePath(pEngine->depot, txtPath);
+			FcFilePath texturePaths[] = { fcDepotGetFilePath(pEngine->depot, txtTexturePath) };
 			const i32 textureIndices[] = {0};
 			meshCtx.texturePaths = texturePaths;
 			meshCtx.numTextures = FUR_ARRAY_SIZE(texturePaths);
@@ -1152,11 +875,11 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		// load zelda mesh
 		{
 			FcRenderMeshLoadCtx meshCtx = {};
-			meshCtx.path = fcFilePathCreate(pEngine->depot, "data/mesh/zelda-mesh.mesh");
+			meshCtx.path = fcDepotGetFilePath(pEngine->depot, "data/mesh/zelda-mesh.mesh");
 			FcFilePath texturePaths[] = {
-				fcFilePathCreate(pEngine->depot, "data/texture/zelda_diff.png"),
-				fcFilePathCreate(pEngine->depot, "data/texture/hair_diff.png"),
-				fcFilePathCreate(pEngine->depot, "data/texture/eyes_diff2.png")
+				fcDepotGetFilePath(pEngine->depot, "data/texture/zelda_diff.png"),
+				fcDepotGetFilePath(pEngine->depot, "data/texture/hair_diff.png"),
+				fcDepotGetFilePath(pEngine->depot, "data/texture/eyes_diff2.png")
 			};
 			const i32 textureIndices[] = {0, 0, 1, 0, 2, 0, 1};
 			meshCtx.texturePaths = texturePaths;
@@ -1200,7 +923,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		animCharacterDesc.globalTime = pEngine->globalTime;
 		
 		pEngine->zeldaGameObject.name = SID_REG("zelda");
-		pEngine->zeldaGameObject.animCharacter = fcAnimCharacterCreate(&animCharacterDesc, allocator);
+		pEngine->zeldaGameObject.animCharacter = fcCreateAnimCharacter(&animCharacterDesc, allocator);
 		fcAnimSystemAddCharacter(pEngine->animSystem, pEngine->zeldaGameObject.animCharacter);
 		pEngine->zeldaGameObject.animCharacter->skinMatrices = pEngine->skinMatrices;
 		
@@ -1212,37 +935,12 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		// reguster player game object
 		pEngine->gameObjectRegister.pPlayer = &pEngine->zeldaGameObject;
 	}
-	
-	// init dangle
-	{
-		const u32 numParticles = 4;
-		const f32 segmentLength = 0.2f;
-		
-		FcPBDDangleDesc desc;
-		desc.frequency = 60.0f;
-		desc.numParticles = numParticles;
-		desc.dampingCoef = 0.96f;
-		
-		fcPBDDangleCreate(&desc, &pEngine->dangle, allocator);
-		
-		fm_vec4 pos = {0.0f, 0.0f, 1.0f};
-		for(u32 i=0; i<numParticles; ++i)
-		{
-			pEngine->dangle.x0[i] = pos;
-			pos.x += segmentLength;
-		}
-		
-		for(u32 i=0; i<numParticles; ++i)
-		{
-			pEngine->dangle.d[i] = segmentLength;
-		}
-	}
-	
+
 	// init special bone indices
 	{
 		const FcStringId handRight = SID("Bip001_Hand_R");
 		
-		for(u32 i=0; i<pEngine->pRig->numBones; ++i)
+		for(i32 i=0; i<pEngine->pRig->numBones; ++i)
 		{
 			if(pEngine->pRig->boneNameHashes[i] == handRight)
 				pEngine->zeldaHandRightIdx = i;
@@ -1256,8 +954,8 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		desc.numParticles = 3;
 		desc.dampingCoef = 0.96f;
 		
-		fcPBDDangleCreate(&desc, &pEngine->zeldaDangleHairLeft, allocator);
-		fcPBDDangleCreate(&desc, &pEngine->zeldaDangleHairRight, allocator);
+		fcCreatePBDDangle(&desc, allocator, &pEngine->zeldaDangleHairLeft);
+		fcCreatePBDDangle(&desc, allocator, &pEngine->zeldaDangleHairRight);
 		
 		const FcStringId hair_r = SID("Bip001_Hair_R");
 		const FcStringId hair_r2 = SID("Bip001_Hair1_R");
@@ -1266,7 +964,7 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		const FcStringId head = SID("Bip001_Head");
 		const FcStringId spine = SID("Bip001_Spine");
 		
-		for(u32 i=0; i<pEngine->pRig->numBones; ++i)
+		for(i32 i=0; i<pEngine->pRig->numBones; ++i)
 		{
 			const FcStringId name = pEngine->pRig->boneNameHashes[i];
 			if(name == hair_r)
@@ -1292,11 +990,11 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		const f32 dLeft = fm_vec4_mag(&refPoseLeft2.pos);
 		const f32 dRight = fm_vec4_mag(&refPoseRight2.pos);
 		
-		pEngine->zeldaDangleHairLeft.d[0] = dLeft;
-		pEngine->zeldaDangleHairLeft.d[1] = dLeft;
+		pEngine->zeldaDangleHairLeft->d[0] = dLeft;
+		pEngine->zeldaDangleHairLeft->d[1] = dLeft;
 		
-		pEngine->zeldaDangleHairRight.d[0] = dRight;
-		pEngine->zeldaDangleHairRight.d[1] = dRight;
+		pEngine->zeldaDangleHairRight->d[0] = dRight;
+		pEngine->zeldaDangleHairRight->d[1] = dRight;
 	}
 	
 	// init cape dangles
@@ -1306,9 +1004,9 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		desc.numParticles = 4;
 		desc.dampingCoef = 0.96f;
 		
-		fcPBDDangleCreate(&desc, &pEngine->zeldaCapeL, allocator);
-		fcPBDDangleCreate(&desc, &pEngine->zeldaCapeC, allocator);
-		fcPBDDangleCreate(&desc, &pEngine->zeldaCapeR, allocator);
+		fcCreatePBDDangle(&desc, allocator, &pEngine->zeldaCapeL);
+		fcCreatePBDDangle(&desc, allocator, &pEngine->zeldaCapeC);
+		fcCreatePBDDangle(&desc, allocator, &pEngine->zeldaCapeR);
 		
 		const FcStringId cape_names_l[4] = {
 			SID("Bip001_Cape_L"),
@@ -1331,11 +1029,11 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 			SID("Bip001_Cape3_R")
 		};
 		
-		for(u32 i=0; i<pEngine->pRig->numBones; ++i)
+		for(i32 i=0; i<pEngine->pRig->numBones; ++i)
 		{
 			const FcStringId name = pEngine->pRig->boneNameHashes[i];
 			
-			for(u32 j=0; j<4; ++j)
+			for(i32 j=0; j<4; ++j)
 			{
 				if(name == cape_names_l[j])
 				{
@@ -1356,21 +1054,21 @@ bool furMainEngineInit(const FurGameEngineDesc& desc, FcGameEngine** ppEngine, F
 		{
 			fm_xform refPose = pEngine->pRig->refPose[pEngine->zeldaCapeIdxL[j]];
 			refPose.pos.w = 0.0f;
-			pEngine->zeldaCapeL.d[j] = fm_vec4_mag(&refPose.pos);
+			pEngine->zeldaCapeL->d[j] = fm_vec4_mag(&refPose.pos);
 		}
 		
 		for(u32 j=0; j<4; ++j)
 		{
 			fm_xform refPose = pEngine->pRig->refPose[pEngine->zeldaCapeIdxC[j]];
 			refPose.pos.w = 0.0f;
-			pEngine->zeldaCapeC.d[j] = fm_vec4_mag(&refPose.pos);
+			pEngine->zeldaCapeC->d[j] = fm_vec4_mag(&refPose.pos);
 		}
 		
 		for(u32 j=0; j<4; ++j)
 		{
 			fm_xform refPose = pEngine->pRig->refPose[pEngine->zeldaCapeIdxR[j]];
 			refPose.pos.w = 0.0f;
-			pEngine->zeldaCapeR.d[j] = fm_vec4_mag(&refPose.pos);
+			pEngine->zeldaCapeR->d[j] = fm_vec4_mag(&refPose.pos);
 		}
 	}
 	
@@ -1840,33 +1538,33 @@ void fcInputActionsUpdate(FcGameEngine* pEngine, f32 dt)
 	}
 }
 
-void fcDevMenuReloatScripts(FcGameEngine* pEngine, FcAllocator* allocator)
+void fcDevMenuReloatScripts(FcGameEngine* pEngine, const FcAllocator* allocator)
 {
 	fcBinaryBufferRelease(&pEngine->zeldaStateScript, allocator);
 	fcBinaryBufferLoad(pEngine->depot, pEngine->zeldaScriptPath, &pEngine->zeldaStateScript, allocator);
 }
 
-void fcDevMenuShowPlayerAnimState(FcGameEngine* pEngine, FcAllocator* allocator)
+void fcDevMenuShowPlayerAnimState(FcGameEngine* pEngine, const FcAllocator* allocator)
 {
 	pEngine->zeldaGameObject.showAnimStateDebug = !pEngine->zeldaGameObject.showAnimStateDebug;
 }
 
-void fcDevMenuShowProfiler(FcGameEngine* pEngine, FcAllocator* allocator)
+void fcDevMenuShowProfiler(FcGameEngine* pEngine, const FcAllocator* allocator)
 {
 	fcProfilerToggleDraw();
 }
 
-void fcDevMenuSlowTime(FcGameEngine* pEngine, FcAllocator* allocator)
+void fcDevMenuSlowTime(FcGameEngine* pEngine, const FcAllocator* allocator)
 {
 	pEngine->debugIsSlowTime = !pEngine->debugIsSlowTime;
 }
 
-void fcDevMenuShowFPS(FcGameEngine* pEngine, FcAllocator* allocator)
+void fcDevMenuShowFPS(FcGameEngine* pEngine, const FcAllocator* allocator)
 {
 	pEngine->debugShowFPS = !pEngine->debugShowFPS;
 }
 
-void fcDevMenuShowMemoryStats(FcGameEngine* pEngine, FcAllocator* allocator)
+void fcDevMenuShowMemoryStats(FcGameEngine* pEngine, const FcAllocator* allocator)
 {
 	pEngine->debugShowMemoryStats = !pEngine->debugShowMemoryStats;
 }
@@ -1874,10 +1572,10 @@ void fcDevMenuShowMemoryStats(FcGameEngine* pEngine, FcAllocator* allocator)
 typedef struct FcDevMenuOption
 {
 	const char* name;
-	void (*func)(FcGameEngine* pEngine, FcAllocator* allocator);
+	void (*func)(FcGameEngine* pEngine, const FcAllocator* allocator);
 } FcDevMenuOption;
 
-void fcDrawDebugMenu(FcGameEngine* pEngine, FcAllocator* allocator)
+void fcDrawDebugMenu(FcGameEngine* pEngine, const FcAllocator* allocator)
 {
 	const f32 color[4] = {0.8f, 0.8f, 0.8f, 1.0f};
 	const f32 colorCursor[4] = {0.9f, 0.9f, 0.9f, 1.0f};
@@ -2231,7 +1929,7 @@ FUR_JOB_ENTRY_POINT(test_job_with_sub_job)
 	}
 }
 
-void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, FcAllocator* allocator)
+void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* allocator)
 {
 	// show debug FPS
 	if(pEngine->debugShowFPS)
@@ -2468,38 +2166,38 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, FcAllocator* allocato
 			
 			fm_vec4 spherePos = pEngine->skinMatrices[pEngine->zeldaHeadIdx].w;
 			const f32 sphereRadius = 0.08f;
-			pEngine->zeldaDangleHairLeft.spherePos = &spherePos;
-			pEngine->zeldaDangleHairLeft.sphereRadius = sphereRadius;
-			pEngine->zeldaDangleHairRight.spherePos = &spherePos;
-			pEngine->zeldaDangleHairRight.sphereRadius = sphereRadius;
+			pEngine->zeldaDangleHairLeft->spherePos = &spherePos;
+			pEngine->zeldaDangleHairLeft->sphereRadius = sphereRadius;
+			pEngine->zeldaDangleHairRight->spherePos = &spherePos;
+			pEngine->zeldaDangleHairRight->sphereRadius = sphereRadius;
 			
-			pEngine->zeldaDangleHairLeft.x0[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1].w;
-			pEngine->zeldaDangleHairRight.x0[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1].w;
+			pEngine->zeldaDangleHairLeft->x0[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1].w;
+			pEngine->zeldaDangleHairRight->x0[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1].w;
 			
 			// add wind velocity
 			for(u32 i=0; i<3; ++i)
 			{
-				pEngine->zeldaDangleHairLeft.v[i].x += pEngine->windVelocity.x * dt;
-				pEngine->zeldaDangleHairLeft.v[i].y += pEngine->windVelocity.y * dt;
-				pEngine->zeldaDangleHairLeft.v[i].z += pEngine->windVelocity.z * dt;
+				pEngine->zeldaDangleHairLeft->v[i].x += pEngine->windVelocity.x * dt;
+				pEngine->zeldaDangleHairLeft->v[i].y += pEngine->windVelocity.y * dt;
+				pEngine->zeldaDangleHairLeft->v[i].z += pEngine->windVelocity.z * dt;
 				
-				pEngine->zeldaDangleHairRight.v[i].x += pEngine->windVelocity.x * dt;
-				pEngine->zeldaDangleHairRight.v[i].y += pEngine->windVelocity.y * dt;
-				pEngine->zeldaDangleHairRight.v[i].z += pEngine->windVelocity.z * dt;
+				pEngine->zeldaDangleHairRight->v[i].x += pEngine->windVelocity.x * dt;
+				pEngine->zeldaDangleHairRight->v[i].y += pEngine->windVelocity.y * dt;
+				pEngine->zeldaDangleHairRight->v[i].z += pEngine->windVelocity.z * dt;
 			}
 			
-			fcPBDDangleSimulate(&simCtx, &pEngine->zeldaDangleHairLeft);
-			fcPBDDangleSimulate(&simCtx, &pEngine->zeldaDangleHairRight);
+			fcPBDDangleSimulate(&simCtx, pEngine->zeldaDangleHairLeft);
+			fcPBDDangleSimulate(&simCtx, pEngine->zeldaDangleHairRight);
 			
 			fm_mat4 m[3] = {};
 			
 			m[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1];
-			fcPBDDangleToMatricesYDown(&pEngine->zeldaDangleHairLeft, &m[0], m);
+			fcPBDDangleToMatricesYDown(pEngine->zeldaDangleHairLeft, &m[0], m);
 			pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx1] = m[0];
 			pEngine->skinMatrices[pEngine->zeldaDangleHairLeftIdx2] = m[1];
 			
 			m[0] = pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1];
-			fcPBDDangleToMatricesYDown(&pEngine->zeldaDangleHairRight, &m[0], m);
+			fcPBDDangleToMatricesYDown(pEngine->zeldaDangleHairRight, &m[0], m);
 			pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx1] = m[0];
 			pEngine->skinMatrices[pEngine->zeldaDangleHairRightIdx2] = m[1];
 		}
@@ -2513,41 +2211,41 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, FcAllocator* allocato
 			spherePos.z -= 0.25f;
 			spherePos.x = 0.6f;
 			const f32 sphereRadius = 0.8f;
-			pEngine->zeldaCapeL.spherePos = &spherePos;
-			pEngine->zeldaCapeL.sphereRadius = sphereRadius;
-			pEngine->zeldaCapeC.spherePos = &spherePos;
-			pEngine->zeldaCapeC.sphereRadius = sphereRadius;
-			pEngine->zeldaCapeR.spherePos = &spherePos;
-			pEngine->zeldaCapeR.sphereRadius = sphereRadius;
+			pEngine->zeldaCapeL->spherePos = &spherePos;
+			pEngine->zeldaCapeL->sphereRadius = sphereRadius;
+			pEngine->zeldaCapeC->spherePos = &spherePos;
+			pEngine->zeldaCapeC->sphereRadius = sphereRadius;
+			pEngine->zeldaCapeR->spherePos = &spherePos;
+			pEngine->zeldaCapeR->sphereRadius = sphereRadius;
 			
-			pEngine->zeldaCapeL.x0[0] = pEngine->skinMatrices[pEngine->zeldaCapeIdxL[0]].w;
-			pEngine->zeldaCapeC.x0[0] = pEngine->skinMatrices[pEngine->zeldaCapeIdxC[0]].w;
-			pEngine->zeldaCapeR.x0[0] = pEngine->skinMatrices[pEngine->zeldaCapeIdxR[0]].w;
+			pEngine->zeldaCapeL->x0[0] = pEngine->skinMatrices[pEngine->zeldaCapeIdxL[0]].w;
+			pEngine->zeldaCapeC->x0[0] = pEngine->skinMatrices[pEngine->zeldaCapeIdxC[0]].w;
+			pEngine->zeldaCapeR->x0[0] = pEngine->skinMatrices[pEngine->zeldaCapeIdxR[0]].w;
 			
 			// add wind velocity
 			for(u32 i=0; i<4; ++i)
 			{
-				pEngine->zeldaCapeL.v[i].x += pEngine->windVelocity.x * dt;
-				pEngine->zeldaCapeL.v[i].y += pEngine->windVelocity.y * dt;
-				pEngine->zeldaCapeL.v[i].z += pEngine->windVelocity.z * dt;
+				pEngine->zeldaCapeL->v[i].x += pEngine->windVelocity.x * dt;
+				pEngine->zeldaCapeL->v[i].y += pEngine->windVelocity.y * dt;
+				pEngine->zeldaCapeL->v[i].z += pEngine->windVelocity.z * dt;
 				
-				pEngine->zeldaCapeC.v[i].x += pEngine->windVelocity.x * dt;
-				pEngine->zeldaCapeC.v[i].y += pEngine->windVelocity.y * dt;
-				pEngine->zeldaCapeC.v[i].z += pEngine->windVelocity.z * dt;
+				pEngine->zeldaCapeC->v[i].x += pEngine->windVelocity.x * dt;
+				pEngine->zeldaCapeC->v[i].y += pEngine->windVelocity.y * dt;
+				pEngine->zeldaCapeC->v[i].z += pEngine->windVelocity.z * dt;
 				
-				pEngine->zeldaCapeR.v[i].x += pEngine->windVelocity.x * dt;
-				pEngine->zeldaCapeR.v[i].y += pEngine->windVelocity.y * dt;
-				pEngine->zeldaCapeR.v[i].z += pEngine->windVelocity.z * dt;
+				pEngine->zeldaCapeR->v[i].x += pEngine->windVelocity.x * dt;
+				pEngine->zeldaCapeR->v[i].y += pEngine->windVelocity.y * dt;
+				pEngine->zeldaCapeR->v[i].z += pEngine->windVelocity.z * dt;
 			}
 			
-			fcPBDDangleSimulate(&simCtx, &pEngine->zeldaCapeL);
-			fcPBDDangleSimulate(&simCtx, &pEngine->zeldaCapeC);
-			fcPBDDangleSimulate(&simCtx, &pEngine->zeldaCapeR);
+			fcPBDDangleSimulate(&simCtx, pEngine->zeldaCapeL);
+			fcPBDDangleSimulate(&simCtx, pEngine->zeldaCapeC);
+			fcPBDDangleSimulate(&simCtx, pEngine->zeldaCapeR);
 			
 			fm_mat4 m[4] = {};
 			
 			m[0] = pEngine->skinMatrices[pEngine->zeldaCapeIdxL[0]];
-			fcPBDDangleToMatricesYDown(&pEngine->zeldaCapeL, &m[0], m);
+			fcPBDDangleToMatricesYDown(pEngine->zeldaCapeL, &m[0], m);
 			
 			for(u32 i=0; i<4; ++i)
 			{
@@ -2555,7 +2253,7 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, FcAllocator* allocato
 			}
 			
 			m[0] = pEngine->skinMatrices[pEngine->zeldaCapeIdxC[0]];
-			fcPBDDangleToMatricesYDown(&pEngine->zeldaCapeC, &m[0], m);
+			fcPBDDangleToMatricesYDown(pEngine->zeldaCapeC, &m[0], m);
 			
 			for(u32 i=0; i<4; ++i)
 			{
@@ -2563,7 +2261,7 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, FcAllocator* allocato
 			}
 			
 			m[0] = pEngine->skinMatrices[pEngine->zeldaCapeIdxR[0]];
-			fcPBDDangleToMatricesYDown(&pEngine->zeldaCapeR, &m[0], m);
+			fcPBDDangleToMatricesYDown(pEngine->zeldaCapeR, &m[0], m);
 			
 			for(u32 i=0; i<4; ++i)
 			{
@@ -2722,7 +2420,7 @@ FUR_JOB_ENTRY_POINT(fur_engine_main_thread_loop)
 	FcMainThreadUserData* userData = FUR_JOB_USER_DATA(FcMainThreadUserData);
 	
 	FcGameEngine* pEngine = userData->pEngine;
-	FcAllocator* allocator = userData->allocator;
+	const FcAllocator* allocator = userData->allocator;
 	
 	pEngine->prevTimePoint = std::chrono::system_clock::now();
 	
@@ -2749,7 +2447,7 @@ FUR_JOB_ENTRY_POINT(fur_engine_main_thread_loop)
 	fcJobSystemExitAllJobs();
 }
 
-void furMainEngineLoop(FcGameEngine* pEngine, FcAllocator* allocator)
+void furMainEngineLoop(FcGameEngine* pEngine, const FcAllocator* allocator)
 {
 	FcMainThreadUserData data = {pEngine, allocator};
 	
@@ -2762,7 +2460,7 @@ void furMainEngineLoop(FcGameEngine* pEngine, FcAllocator* allocator)
 	fcJobSystemEnterWorkerThreadMode();
 }
 
-bool furMainEngineTerminate(FcGameEngine* pEngine, FcAllocator* allocator)
+bool furMainEngineTerminate(FcGameEngine* pEngine, const FcAllocator* allocator)
 {
 	// release text BVH
 	fcBoundingVolumeHiearchyRelease(&pEngine->testBVH, allocator);
@@ -2779,18 +2477,17 @@ bool furMainEngineTerminate(FcGameEngine* pEngine, FcAllocator* allocator)
 		fcRendererReleaseProxy(pEngine->pRenderer, pEngine->rockMeshes[i], allocator);
 	}
 	
-	fcPBDDangleRelease(&pEngine->dangle, allocator);
-	fcPBDDangleRelease(&pEngine->zeldaDangleHairLeft, allocator);
-	fcPBDDangleRelease(&pEngine->zeldaDangleHairRight, allocator);
+	fcDestroyPBDDangle(pEngine->zeldaDangleHairLeft, allocator);
+	fcDestroyPBDDangle(pEngine->zeldaDangleHairRight, allocator);
 	
-	fcPBDDangleRelease(&pEngine->zeldaCapeL, allocator);
-	fcPBDDangleRelease(&pEngine->zeldaCapeC, allocator);
-	fcPBDDangleRelease(&pEngine->zeldaCapeR, allocator);
+	fcDestroyPBDDangle(pEngine->zeldaCapeL, allocator);
+	fcDestroyPBDDangle(pEngine->zeldaCapeC, allocator);
+	fcDestroyPBDDangle(pEngine->zeldaCapeR, allocator);
 	
 	fcAnimSystemRemoveCharacter(pEngine->animSystem, pEngine->zeldaGameObject.animCharacter);
-	fcAnimSystemAnimCharacterRelease(pEngine->zeldaGameObject.animCharacter, allocator);
+	fcDestroyAnimCharacter(pEngine->zeldaGameObject.animCharacter, allocator);
 	
-	fcWorldRelease(pEngine->pWorld, allocator);
+	fcDestroyWorld(pEngine->pWorld, allocator);
 	FUR_FREE(pEngine->pWorld, allocator);
 	
 	FUR_FREE(pEngine->gameObjectRegister.objects, allocator);
@@ -2798,13 +2495,13 @@ bool furMainEngineTerminate(FcGameEngine* pEngine, FcAllocator* allocator)
 	
 	FUR_FREE(pEngine->scratchpadBuffer, allocator);
 	
-	fcAnimSystemRelease(pEngine->animSystem, allocator);
+	fcDestroyAnimSystem(pEngine->animSystem, allocator);
 	
-	fcCameraSystemRelease(pEngine->cameraSystem, allocator);
+	fcDestroyCameraSystem(pEngine->cameraSystem, allocator);
 	
 	fcJobSystemRelease(allocator);
 	fcPhysicsRelease(pEngine->pPhysics, allocator);
-	fcRendererRelease(pEngine->pRenderer, allocator);
+	fcDestroyRenderer(pEngine->pRenderer, allocator);
 	
 	fcInputManagerRelease(pEngine->pInputManager, allocator);
 	
@@ -2815,7 +2512,7 @@ bool furMainEngineTerminate(FcGameEngine* pEngine, FcAllocator* allocator)
 	fcProfilerRelease(allocator);
 	
 	// release all memory before this call, otherwise it might be treated as memory leak
-	fcApplicationRelease(pEngine->pApp, allocator);
+	fcDestroyApplication(pEngine->pApp, allocator);
 	
 	FUR_FREE(pEngine, allocator);	// rest of the deallocations should happen through allocators
 	
@@ -2824,7 +2521,7 @@ bool furMainEngineTerminate(FcGameEngine* pEngine, FcAllocator* allocator)
 
 int main()
 {
-	FurGameEngineDesc desc = {};
+	FcGameEngineCreateInfo desc = {};
 	
 	desc.m_mainApp.m_width = 1600;
 	desc.m_mainApp.m_height = 900;
@@ -2835,7 +2532,7 @@ int main()
 	FcAllocator* allocator = NULL;	// todo: if NULL, then uses default alloc callbacks
 	
 	// initialize most basic engine components
-	bool initResult = furMainEngineInit(desc, &pEngine, allocator);
+	bool initResult = fcCreateGameEngine(desc, allocator, &pEngine);
 	if(!initResult)
 	{
 		printf("Engine initialization error. Last known error: %s.\n", FurGetLastError());

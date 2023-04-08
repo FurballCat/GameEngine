@@ -20,8 +20,8 @@ typedef struct FcBinaryBuffer
 	u64 size;
 } FcBinaryBuffer;
 
-CCORE_API bool fcBinaryBufferLoad(FcDepot* depot, FcFilePath path, FcBinaryBuffer* pBuffer, FcAllocator* allocator);
-CCORE_API void fcBinaryBufferRelease(FcBinaryBuffer* pBuffer, FcAllocator* allocator);
+CCORE_API bool fcBinaryBufferLoad(FcDepot* depot, FcFilePath path, FcBinaryBuffer* pBuffer, const FcAllocator* allocator);
+CCORE_API void fcBinaryBufferRelease(FcBinaryBuffer* pBuffer, const FcAllocator* allocator);
 
 typedef struct FcBinaryBufferStream
 {
@@ -40,8 +40,8 @@ typedef struct FcTextBuffer
 	u64 size;
 } FcTextBuffer;
 	
-bool fcTextBufferLoad(FcDepot* depot, FcFilePath path, FcTextBuffer* pBuffer, FcAllocator* allocator);
-void fcTextBufferRelease(FcTextBuffer* pBuffer, FcAllocator* allocator);
+bool fcTextBufferLoad(FcDepot* depot, FcFilePath path, FcTextBuffer* pBuffer, const FcAllocator* allocator);
+void fcTextBufferRelease(FcTextBuffer* pBuffer, const FcAllocator* allocator);
 	
 #ifdef __cplusplus
 }

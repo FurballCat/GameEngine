@@ -20,11 +20,11 @@ typedef struct fm_vec4 fm_vec4;
 typedef struct FcPhysics FcPhysics;
 typedef struct FcPhysicsScene FcPhysicsScene;
 
-CPHYSICS_API FcPhysics* fcPhysicsCreate(FcAllocator* allocator);
-CPHYSICS_API void fcPhysicsRelease(FcPhysics* physics, FcAllocator* allocator);
+CPHYSICS_API FcResult fcCreatePhysics(const FcAllocator* allocator, FcPhysics** physics);
+CPHYSICS_API void fcPhysicsRelease(FcPhysics* physics, const FcAllocator* allocator);
 
 CPHYSICS_API void fcPhysicsAddStaticBox(FcPhysics* physics, const fm_xform* worldLocation,
-											const fm_vec3* halfExtents, FcAllocator* allocator);
+											const fm_vec3* halfExtents, const FcAllocator* allocator);
 
 typedef struct FcPhysicsUpdateCtx
 {
@@ -70,8 +70,8 @@ typedef struct FcBoundingVolumeHierarchyDesc
 	u32 numObjects;
 } FcBoundingVolumeHierarchyDesc;
 
-CPHYSICS_API void fcBoundingVolumeHierarchyCreate(const FcBoundingVolumeHierarchyDesc* ctx, FcBoundingVolumeHierarchy* bvh, FcAllocator* allocator);
-CPHYSICS_API void fcBoundingVolumeHiearchyRelease(FcBoundingVolumeHierarchy* bvh, FcAllocator* allocator);
+CPHYSICS_API void fcBoundingVolumeHierarchyCreate(const FcBoundingVolumeHierarchyDesc* ctx, FcBoundingVolumeHierarchy* bvh, const FcAllocator* allocator);
+CPHYSICS_API void fcBoundingVolumeHiearchyRelease(FcBoundingVolumeHierarchy* bvh, const FcAllocator* allocator);
 CPHYSICS_API void fcBoundingVolumeHiearchyDebugDraw(const FcBoundingVolumeHierarchy* bvh);
 
 #ifdef __cplusplus

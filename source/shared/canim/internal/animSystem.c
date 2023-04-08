@@ -14,18 +14,19 @@ typedef struct FcAnimSystem
 	
 } FcAnimSystem;
 
-FcAnimSystem* fcAnimSystemInit(FcAllocator* allocator)
+FcResult fcCreateAnimSystem(const FcAllocator* allocator, FcAnimSystem** animSystem)
 {
 	FcAnimSystem* sys = FUR_ALLOC_AND_ZERO(sizeof(FcAnimSystem), 0, FC_MEMORY_SCOPE_ANIMATION, allocator);
-	return sys;
+	*animSystem = sys;
+	return FC_SUCCESS;
 }
 
-void fcAnimSystemRelease(FcAnimSystem* sys, FcAllocator* allocator)
+void fcDestroyAnimSystem(FcAnimSystem* sys, const FcAllocator* allocator)
 {
 	FUR_FREE(sys, allocator);
 }
 
-FcAnimCharacter* fcAnimCharacterCreate(const FcAnimCharacterDesc* desc, FcAllocator* allocator)
+FcAnimCharacter* fcCreateAnimCharacter(const FcAnimCharacterDesc* desc, const FcAllocator* allocator)
 {
 	FcAnimCharacter* character = FUR_ALLOC_AND_ZERO(sizeof(FcAnimCharacter), 0, FC_MEMORY_SCOPE_ANIMATION, allocator);
 	
@@ -35,7 +36,7 @@ FcAnimCharacter* fcAnimCharacterCreate(const FcAnimCharacterDesc* desc, FcAlloca
 	return character;
 }
 
-void fcAnimSystemAnimCharacterRelease(FcAnimCharacter* character, FcAllocator* allocator)
+void fcDestroyAnimCharacter(FcAnimCharacter* character, const FcAllocator* allocator)
 {
 	fcAnimCharacterRelease(character, allocator);
 	

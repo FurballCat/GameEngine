@@ -6,7 +6,7 @@
 #include "ccore/serialize.h"
 #include "cmath/public.h"
 
-void fcAnimClipRelease(FcAnimClip* clip, FcAllocator* allocator)
+void fcAnimClipRelease(FcAnimClip* clip, const FcAllocator* allocator)
 {
 	FUR_FREE(clip->curves, allocator);
 	FUR_FREE(clip->dataKeys, allocator);
@@ -255,7 +255,7 @@ typedef enum fa_anim_clip_version_t
 	FA_ANIM_VER_LAST,
 } fa_anim_clip_version_t;
 
-void fcAnimClipSerialize(FcSerializer* pSerializer, FcAnimClip* clip, FcAllocator* allocator)
+void fcAnimClipSerialize(FcSerializer* pSerializer, FcAnimClip* clip, const FcAllocator* allocator)
 {
 	FUR_SER_VERSION(FA_ANIM_VER_LAST-1);
 	

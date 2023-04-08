@@ -138,8 +138,8 @@ void* fcAlloc(struct FcAllocator* allocator, u64 size, u64 alignment,
 	return alignedPtr;
 }
 
-void* fcAllocAndZero(struct FcAllocator* allocator, u64 size, u64 alignment,
-								  enum FcMemoryScope scope, const char* info)
+void* fcAllocAndZero(const FcAllocator* allocator, u64 size, u64 alignment,
+								  FcMemoryScope scope, const char* info)
 {
 	if(size == 0)
 		return NULL;
@@ -149,7 +149,7 @@ void* fcAllocAndZero(struct FcAllocator* allocator, u64 size, u64 alignment,
 	return ptr;
 }
 
-void fcFree(struct FcAllocator* allocator, void* pMemory, const char* info)
+void fcFree(const FcAllocator* allocator, void* pMemory, const char* info)
 {
 	if(pMemory == NULL)
 		return;
@@ -221,7 +221,7 @@ FcMemStats fcMemoryStats(void)
 	return stats;
 }
 
-const char* fcMemoryGetScopeDebugName(enum FcMemoryScope scope)
+const char* fcMemoryGetScopeDebugName(FcMemoryScope scope)
 {
 	switch(scope)
 	{
@@ -258,7 +258,7 @@ const char* fcMemoryGetScopeDebugName(enum FcMemoryScope scope)
 	return "unknown";
 }
 
-FcMemStats fcMemoryStatsForScope(enum FcMemoryScope scope)
+FcMemStats fcMemoryStatsForScope(FcMemoryScope scope)
 {
 	FcMemStats stats = {0};
 	stats.numBytesCapacity = fcMemoryMapFind(scope).capacity;

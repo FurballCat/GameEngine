@@ -37,7 +37,7 @@ typedef struct FcFreeList
 	i32 capcity;
 } FcFreeList;
 
-void fcFreeListAlloc(FcFreeList* list, i32 capacity, FcAllocator* allocator)
+void fcFreeListAlloc(FcFreeList* list, i32 capacity, const FcAllocator* allocator)
 {
 	list->capcity = capacity;
 	list->tail = capacity-1;
@@ -50,7 +50,7 @@ void fcFreeListAlloc(FcFreeList* list, i32 capacity, FcAllocator* allocator)
 	}
 }
 
-void fcFreeListFree(FcFreeList* list, FcAllocator* allocator)
+void fcFreeListFree(FcFreeList* list, const FcAllocator* allocator)
 {
 	FUR_FREE(list->indices, allocator);
 }
@@ -341,7 +341,7 @@ i32 fcJobSystemNumMaxThreads(void)
 	return FUR_NUM_THREADS + 1;
 }
 
-void fcJobSystemInit(FcAllocator* allocator)
+void fcJobSystemInit(const FcAllocator* allocator)
 {
 	// allocate memory for job system
 	g_jobSystem.counters = FUR_ALLOC_ARRAY_AND_ZERO(FcJobCounter, FUR_MAX_JOB_COUNTERS, 0, FC_MEMORY_SCOPE_JOBS, allocator);
@@ -381,7 +381,7 @@ void fcJobSystemInit(FcAllocator* allocator)
 	}
 }
 
-void fcJobSystemRelease(FcAllocator* allocator)
+void fcJobSystemRelease(const FcAllocator* allocator)
 {
 	g_jobSystem.isRunning = false;
 	

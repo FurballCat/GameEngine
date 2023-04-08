@@ -332,7 +332,7 @@ void fcAnimActionSafelyEnd(FcAnimActionBeginEndCtx* ctx, FcAnimAction* action)
 	}
 }
 
-void fcAnimCharacterInit(FcAnimCharacter* character, const FcRig* rig, FcAllocator* allocator)
+void fcAnimCharacterInit(FcAnimCharacter* character, const FcRig* rig, const FcAllocator* allocator)
 {
 	character->rig = rig;
 	
@@ -359,7 +359,7 @@ void fcAnimCharacterInit(FcAnimCharacter* character, const FcRig* rig, FcAllocat
 	character->layerHands.maskID = FA_MASK_HANDS;
 }
 
-void fcAnimCharacterRelease(FcAnimCharacter* character, FcAllocator* allocator)
+void fcAnimCharacterRelease(FcAnimCharacter* character, const FcAllocator* allocator)
 {
 	FUR_FREE(character->poseMS, allocator);
 	
