@@ -3,6 +3,7 @@
 #pragma once
 
 #include "ccore/types.h"
+#include "cmath/mathtypes.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -12,6 +13,7 @@ extern "C"
 typedef u32 FcStringId;
 typedef struct FcAllocator FcAllocator;
 typedef struct FcMemRelHeapPool FcMemRelHeapPool;
+typedef struct FcCameraSystem FcCameraSystem;
 
 typedef union FcSpawninfoPropValue
 {
@@ -62,6 +64,7 @@ typedef enum FcUpdateBucket
 typedef struct FcResourceRegister FcResourceRegister;
 typedef struct FcSystems FcSystems;
 typedef struct FcGameObject FcGameObject;
+typedef struct FcWorld FcWorld;
 
 typedef struct FcGameObjectInitCtx
 {
@@ -86,14 +89,34 @@ typedef bool (*FcGameObjectInitFn)(FcGameObject* gameObject, FcGameObjectInitCtx
 typedef struct FcGameObjectUpdateCtx
 {
 	f32 dt;
+	FcWorld* world;
 } FcGameObjectUpdateCtx;
 
 typedef void (*FcGameObjectUpdateFn)(FcGameObject* gameObject, FcGameObjectUpdateCtx* ctx);
+
+typedef FcVariant (*FcGameObjectGetVarFn)(FcGameObject* gameObject, FcStringId varName);
+typedef void (*FcGameObjectSetVarFn)(FcGameObject* gameObject, FcStringId varName, FcVariant value);
+
+typedef struct FcAnimActionArgs FcAnimActionArgs;
+typedef struct FcAnimClip FcAnimClip;
+
+typedef struct FcGameObjectAnimateCtx
+{
+	const FcAnimActionArgs* animArgs;
+	const FcAnimClip* animClip;
+	bool useLocomotion;
+	bool forceLoop;
+} FcGameObjectAnimateCtx;
+
+typedef void (*FcGameObjectAnimateFn)(FcGameObject* gameObject, const FcGameObjectAnimateCtx* ctx);
 
 typedef struct FcGameObjectFuncs
 {
 	FcGameObjectInitFn init;
 	FcGameObjectUpdateFn update;
+	FcGameObjectGetVarFn getVar;
+	FcGameObjectSetVarFn setVar;
+	FcGameObjectAnimateFn animate;
 } FcGameObjectFuncs;
 
 // handle for the game object data
@@ -101,6 +124,8 @@ typedef struct FcGameObject
 {
 	const FcGameObjectFuncs* fn;
 	FcStringId name;
+	fm_xform transform;
+
 } FcGameObject;
 
 typedef struct FcBinaryBuffer FcBinaryBuffer;
@@ -133,11 +158,14 @@ void fcResourceRegisterAddMesh(FcResourceRegister* reg, FcStringId name, const F
 
 typedef struct FcRenderer FcRenderer;
 typedef struct FcAnimSystem FcAnimSystem;
+typedef struct FcInputActionSystem FcInputActionSystem;
 
 typedef struct FcSystems
 {
 	FcRenderer* renderer;
 	FcAnimSystem* animation;
+	FcCameraSystem* camera;
+	FcInputActionSystem* inputAction;
 } FcSystems;
 
 // used for defining how to initialise specific type of game object
@@ -189,14 +217,26 @@ typedef struct FcGameObjectStorage
 	i32 num;
 } FcGameObjectStorage;
 
+typedef struct FcSpawnDesc
+{
+	const FcSpawner* spawner;
+	fm_xform initialTransform;
+
+} FcSpawnDesc;
+
+
+typedef struct FcSpawnBatch
+{
+	FcSpawnDesc elems[MAX_GAME_OBJECTS_SPAWNED];
+	i32 num;
+
+} FcSpawnBatch;
+
 typedef struct FcWorld
 {
 	// list of all game object info (use game object index to get data)
 	FcGameObjectStorage gameObjects;
 	
-	// list of all game objects
-	FcArrayGameObjects allGameObjects;
-
 	// memory for dynamic objects (game objects), does not include resources like animation, meshes, textures
 	FcMemRelHeapPool* levelHeap;
 	
@@ -209,15 +249,14 @@ typedef struct FcWorld
 	// game objects in update buckets
 	FcArrayGameObjectHandles buckets[FG_UPDATE_BUCKET_COUNT];
 	
-	// true if something is pending to spawn
-	bool hasSpawnScheduled;
+	// pending spawn requests
+	FcSpawnBatch spawnBatch;
 	
 } FcWorld;
 
 typedef struct FcWorldCreateInfo
 {
-	FcRenderer* renderer;
-	FcAnimSystem* animSystem;
+	FcSystems systems;
 } FcWorldCreateInfo;
 
 FcResult fcCreateWorld(FcWorldCreateInfo* desc, const FcAllocator* allocator, FcWorld** world);
@@ -228,11 +267,10 @@ typedef struct FcWorldUpdateCtx
 	f32 dt;
 } FcWorldUpdateCtx;
 
+void fcUpdateSpawning(FcWorld* world);
 void fcWorldUpdate(FcWorld* world, FcWorldUpdateCtx* ctx, FcUpdateBucket bucket);
 
-// all resources should be already loaded at the time of spawn call
-FcGameObjectHandle fcSpawn(const FcSpawner* spawner, FcWorld* world);
-void fcDespawn(FcGameObjectHandle handle, FcWorld* world);
+void fcSpawn(const FcSpawnDesc* desc, FcWorld* world);
 
 #ifdef __cplusplus
 }

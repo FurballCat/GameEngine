@@ -87,8 +87,8 @@ typedef struct FcMemDebugInfo
 
 FcMemDebugInfo g_rootDebugMemInfo;
 
-void* fcAlloc(struct FcAllocator* allocator, u64 size, u64 alignment,
-							  enum FcMemoryScope scope, const char* info)
+void* fcAlloc(const FcAllocator* allocator, u64 size, u64 alignment,
+							  FcMemoryScope scope, const char* info)
 {
 	if(size == 0)
 		return NULL;
@@ -372,7 +372,7 @@ void fcRelocatePointer(void** ptr, i32 delta, void* lowerBound, void* upperBound
 	}
 }
 
-void* fcArrayAdd(FcArray* arr)
+void fcArrayAdd(FcArray* arr, void* elem)
 {
 	FUR_ASSERT(arr);
 	FUR_ASSERT(arr->data);
@@ -381,7 +381,9 @@ void* fcArrayAdd(FcArray* arr)
 	const u32 idx = arr->num;
 	arr->num++;
 
-	return ((u8*)arr->data + idx * arr->stride);
+	u8* data = ((u8*)arr->data + idx * arr->stride);
+
+	memcpy(data, elem, arr->stride);
 }
 
 static inline void* fcArrayAtUnsafe(FcArray* arr, u32 idx)

@@ -130,7 +130,7 @@ FcResult fcCreatePhysics(const FcAllocator* allocator, FcPhysics** ppPhysics)
 	return FC_SUCCESS;
 }
 
-void fcPhysicsRelease(FcPhysics* physics, const FcAllocator* allocator)
+void fcDestroyPhysics(FcPhysics* physics, const FcAllocator* allocator)
 {
 	if(physics->controller)
 		physics->controller->release();

@@ -77,6 +77,21 @@ void FcPBDDangleSimulateSingleStep(FcPBDDangle* dangle, f32 dt)
 	}
 }
 
+typedef struct FcPBDSystem
+{
+	i32 data;
+} FcPBDSystem;
+
+FcResult fcCreatePBDSystem(const FcAllocator* allocator, FcPBDSystem** system)
+{
+	return FC_ERROR_UNKNOWN;
+}
+
+void fcDestroyPBDSystem(FcPBDSystem* system, const FcAllocator* allocator)
+{
+
+}
+
 FcResult fcCreatePBDDangle(const FcPBDDangleDesc* desc, const FcAllocator* allocator, FcPBDDangle** ppDangle)
 {
 	FcPBDDangle* dangle = FUR_ALLOC_AND_ZERO(sizeof(FcPBDDangle), 8, FC_MEMORY_SCOPE_PHYSICS, allocator);

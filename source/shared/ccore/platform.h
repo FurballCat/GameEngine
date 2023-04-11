@@ -62,6 +62,7 @@ CCORE_API i32 fcLockRWWriteLock(FcLockRW* lock, const char* name);
 
 // time
 CCORE_API void fcTimevalNow(FcTimeval* tv);
+CCORE_API f32 fcTimevalDiffToDeltaSeconds(FcTimeval* prev, FcTimeval* now);
 
 // atomic
 #if PLATFORM_OSX

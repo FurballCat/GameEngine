@@ -24,6 +24,16 @@ typedef int64_t i64;
 typedef float f32;
 typedef double f64;
 
+typedef u32 FcStringId;
+
+typedef union FcVariant
+{
+	FcStringId asStringHash;
+	i32 asInt32;
+	bool asBool;
+	f32 asFloat;
+} FcVariant;
+
 typedef enum FcResult
 {
 	FC_SUCCESS = 0,
@@ -31,6 +41,7 @@ typedef enum FcResult
 	FC_ERROR_SHADER_CREATION,
 	FC_ERROR_GPU,
 	FC_ERROR_PHYSICS_CREATION,
+	FC_ERROR_ENGINE_CREATION,
 } FcResult;
 
 #define FUR_DEFINE_ARRAY_TYPE(_arrayType, _elemType) \

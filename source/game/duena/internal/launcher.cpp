@@ -18,32 +18,11 @@
 #include "ccore/fileio.h"
 #include "cinput/public.h"
 #include "cgame/world.h"
-
-#include "camera.h"
+#include "cgame/camera.h"
 
 /**************** FURBALL CAT GAME ENGINE ****************/
 
-typedef union FcVariant
-{
-	FcStringId asStringHash;
-	i32 asInt32;
-	bool asBool;
-	f32 asFloat;
-} FcVariant;
-
 // ***** scripts core ***** //
-
-typedef struct FcGameObjectLegacy FcGameObjectLegacy;
-
-typedef struct FcGameObjectLegacyRegister
-{
-	FcGameObjectLegacy** objects;
-	FcStringId* ids;
-	u32 numObjects;	// also numIds
-	u32 capacity;
-	
-	FcGameObjectLegacy* pPlayer; // for quick access
-} FcGameObjectLegacyRegister;
 
 typedef enum FcScriptSegmentId
 {
@@ -67,8 +46,7 @@ typedef struct FcScriptCtx
 	f32 waitSeconds;
 	u32 numSkipOps;
 	
-	FcGameObjectLegacy* self;
-	FcGameObjectLegacyRegister* gameObjectRegister;
+	FcGameObject* self;
 	FcWorld* world;
 	
 	// systems
@@ -81,6 +59,7 @@ FcVariant fcScriptNative_WaitAnimate(FcScriptCtx* ctx, u32 numArgs, const FcVari
 FcVariant fcScriptNative_EquipItem(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
 FcVariant fcScriptNative_WaitSeconds(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
 FcVariant fcScriptNative_GetVariable(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
+FcVariant fcScriptNative_SetVariable(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
 FcVariant fcScriptNative_Go(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
 FcVariant fcScriptNative_GoWhen(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
 FcVariant fcScriptNative_CmpGt(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
@@ -106,6 +85,7 @@ FcScriptNativeFnEntry g_nativeFuncLookUp[] = {
 	{ SID("equip-item"), fcScriptNative_EquipItem, 2 },
 	{ SID("wait-seconds"), fcScriptNative_WaitSeconds, 1 },
 	{ SID("get-variable"), fcScriptNative_GetVariable, 2 },
+	{ SID("set-variable"), fcScriptNative_SetVariable, 3 },
 	{ SID("go"), fcScriptNative_Go, 1 },
 	{ SID("go-when"), fcScriptNative_GoWhen, 2 },
 	{ SID("cmp-gt"), fcScriptNative_CmpGt, 2 },
@@ -355,9 +335,56 @@ typedef struct FcScriptLambda
 	bool isActive;
 	FcStringId lambdaName;	// or state name
 	FcStringId eventName;
-	FcGameObjectLegacy* selfGameObject;
+	FcStringId state;
+	FcGameObject* selfGameObject;
 	const FcBinaryBuffer* scriptBlob;
 } FcScriptLambda;
+
+void fcScriptUpdateLambda(FcScriptLambda* lambda, FcWorld* world, f32 dt)
+{
+	if (lambda->isActive == false)
+		return;
+
+	if (lambda->waitSeconds > 0.0f)
+	{
+		lambda->waitSeconds = FM_MAX(lambda->waitSeconds - dt, 0.0f);
+
+		if (lambda->waitSeconds > 0.0f)
+		{
+			return;
+		}
+	}
+
+	FcScriptCtx scriptCtx = {};
+	scriptCtx.world = world;
+	scriptCtx.self = lambda->selfGameObject;
+	scriptCtx.state = lambda->lambdaName;
+	scriptCtx.stateEventToCall = lambda->eventName;
+	scriptCtx.numSkipOps = lambda->numSkipOps;
+	scriptCtx.sysCamera = world->systems.camera;
+
+	fcScriptExecute(lambda->scriptBlob, &scriptCtx);
+
+	if (scriptCtx.waitSeconds > 0.0f)
+	{
+		lambda->waitSeconds = scriptCtx.waitSeconds;
+		lambda->numSkipOps = scriptCtx.numSkipOps;
+	}
+	else if (scriptCtx.nextState != 0)
+	{
+		lambda->state = scriptCtx.nextState;
+		lambda->lambdaName = scriptCtx.nextState;
+		lambda->eventName = SID("start");
+		lambda->numSkipOps = 0;
+		lambda->waitSeconds = 0.0f;
+	}
+	else if (lambda->eventName == SID("start"))
+	{
+		lambda->eventName = SID("update");
+		lambda->numSkipOps = 0;
+		lambda->waitSeconds = 0.0f;
+	}
+}
 
 // ******************* //
 
@@ -392,7 +419,7 @@ typedef struct FcAnimateActionSlots
 	FcAnimActionAnimate slot[32];
 } FcAnimateActionSlots;
 
-FcAnimActionAnimate* fcAnimateActionSlitsGetFree(FcAnimateActionSlots* slots)
+FcAnimActionAnimate* fcAnimateActionSlotsGetFree(FcAnimateActionSlots* slots)
 {
 	for(u32 i=0; i<32; ++i)
 	{
@@ -404,27 +431,6 @@ FcAnimActionAnimate* fcAnimateActionSlitsGetFree(FcAnimateActionSlots* slots)
 	
 	return NULL;
 }
-
-typedef struct FcGameObjectLegacy
-{
-	fm_xform worldTransform;
-	FcStringId name;	// access in scripts example: 'zelda
-	FcAnimateActionSlots animateActionSlots;
-	
-	FcAnimCharacter* animCharacter;
-	
-	fm_vec4 logicMove;
-	
-	FcStringId playerState;
-	bool playerWeaponEquipped;
-	bool playerWindProtecting;
-	bool equipItemNow;
-	bool showAnimStateDebug;
-	bool isJump;
-	bool isGrounded;
-	fm_vec4 velocity;
-	
-} FcGameObjectLegacy;
 
 const FcAnimClip* fcResourceRegisterLoadAnim(FcResourceRegister* reg, FcDepot* depot, const char* name,
 								   const FcRig* rig, const FcAllocator* allocator)
@@ -472,9 +478,11 @@ typedef struct FcGameObject_Zelda
 	
 	FcScriptLambda script;
 	
+	FcAnimateActionSlots animateActionSlots;
 	FcAnimCharacter* animCharacter;
 	const FcRenderProxy* mesh;
 	
+	fm_vec4 velocity;
 	fm_vec4 logicMove;
 	
 	FcStringId playerState;
@@ -482,6 +490,9 @@ typedef struct FcGameObject_Zelda
 	bool playerWindProtecting;
 	bool equipItemNow;
 	bool showAnimStateDebug;
+	bool isJump;
+	bool isGrounded;
+
 } FcGameObject_Zelda;
 
 bool fcGameObject_ZeldaInit(FcGameObject* gameObject, FcGameObjectInitCtx* ctx)
@@ -503,8 +514,12 @@ bool fcGameObject_ZeldaInit(FcGameObject* gameObject, FcGameObjectInitCtx* ctx)
 		const FcStringId scriptName = fcSpawnInfoGetStringId(ctx->info, SID("state-script"), SID("none"));
 		zelda->script.scriptBlob = fcResourceRegisterFindScript(ctx->resources, scriptName);
 		zelda->script.lambdaName = zelda->playerState;
-		zelda->script.isActive = true;
+		zelda->script.state = zelda->playerState;
 		zelda->script.eventName = SID("start");
+		zelda->script.numSkipOps = 0;
+		zelda->script.waitSeconds = 0.0f;
+		zelda->script.selfGameObject = gameObject;
+		zelda->script.isActive = true;
 	}
 	
 	return true;
@@ -514,8 +529,77 @@ void fcGameObject_ZeldaUpdate(FcGameObject* gameObject, FcGameObjectUpdateCtx* c
 {
 	FUR_PROFILE("update-zelda")
 	{
-		
+		FcGameObject_Zelda* zelda = (FcGameObject_Zelda*)gameObject;
+
+		fcScriptUpdateLambda(&zelda->script, ctx->world, ctx->dt);
+
+		zelda->playerState = zelda->script.state;
 	}
+}
+
+FcVariant fcGameObject_ZeldaGetVar(FcGameObject* gameObject, FcStringId varName)
+{
+	FcGameObject_Zelda* zelda = (FcGameObject_Zelda*)gameObject;
+
+	FcVariant result = { 0 };
+
+	if (varName == SID("wind-protecting"))
+	{
+		result.asBool = zelda->playerWindProtecting;
+	}
+	else if (varName == SID("weapon-equipped"))
+	{
+		result.asBool = zelda->playerWeaponEquipped;
+	}
+	else if (varName == SID("idle-anim-name"))
+	{
+		result.asStringHash = SID("zelda-funny-pose-4");
+	}
+	else if (varName == SID("is-running"))
+	{
+		result.asBool = fm_vec4_mag2(&zelda->logicMove) > 0.0f;
+	}
+	else if (varName == SID("is-jump"))
+	{
+		result.asBool = zelda->isJump;
+	}
+	else if (varName == SID("is-grounded"))
+	{
+		result.asBool = zelda->isGrounded;
+	}
+
+	return result;
+}
+
+void fcGameObject_ZeldaSetVar(FcGameObject* gameObject, FcStringId varName, FcVariant value)
+{
+	FcGameObject_Zelda* zelda = (FcGameObject_Zelda*)gameObject;
+
+	FcVariant result = { 0 };
+
+	if (varName == SID("wind-protecting"))
+	{
+		zelda->playerWindProtecting = value.asBool;
+	}
+	else if (varName == SID("weapon-equipped"))
+	{
+		zelda->playerWeaponEquipped = value.asBool;
+	}
+}
+
+void fcGameObject_ZeldaAnimate(FcGameObject* gameObject, const FcGameObjectAnimateCtx* ctx)
+{
+	FcGameObject_Zelda* zelda = (FcGameObject_Zelda*)gameObject;
+
+	FcAnimActionAnimate* animateSlot = fcAnimateActionSlotsGetFree(&zelda->animateActionSlots);
+	FUR_ASSERT(animateSlot);
+
+	animateSlot->animation = ctx->animClip;
+	animateSlot->forceLoop = ctx->forceLoop;
+	animateSlot->reserved = true;
+	animateSlot->useLoco = ctx->useLocomotion;
+
+	fcAnimCharacterScheduleActionAnimate(zelda->animCharacter, animateSlot, ctx->animArgs);
 }
 
 void fcRegisterGameObjectFactories()
@@ -526,6 +610,8 @@ void fcRegisterGameObjectFactories()
 		factory.updateBucket = FG_UPDATE_BUCKET_CHARACTERS;
 		factory.fn.init = fcGameObject_ZeldaInit;
 		factory.fn.update = fcGameObject_ZeldaUpdate;
+		factory.fn.getVar = fcGameObject_ZeldaGetVar;
+		factory.fn.animate = fcGameObject_ZeldaAnimate;
 		factory.memoryMaxSize = sizeof(FcGameObject_Zelda);
 		
 		fcGameObjectFactoryRegisterNew(SID("zelda"), factory);
@@ -534,6 +620,17 @@ void fcRegisterGameObjectFactories()
 
 struct FcApplication;
 struct FcRenderer;
+
+typedef struct FcInputActionSystem
+{
+	fm_vec2 rightStick;
+	fm_vec2 leftStick;
+	bool triangle;
+	bool square;
+	bool cross;
+	bool circle;
+
+} FcInputActionSystem;
 
 // the engine
 struct FcGameEngine
@@ -550,6 +647,7 @@ struct FcGameEngine
 	FcWorld* pWorld;
 	
 	FcInputManager* pInputManager;
+	FcInputActionSystem inputActionSystem;
 
 	// resource path hashes
 	FcFilePath zeldaScriptPath;
@@ -563,7 +661,6 @@ struct FcGameEngine
 	bool inActionPressed;
 	bool inputTriangleActionPressed;
 	bool inputCircleActionPressed;
-	bool inputXPressed;
 	f32 actionRotationLeftX;
 	f32 actionRotationLeftY;
 	f32 actionZoomIn;
@@ -575,6 +672,8 @@ struct FcGameEngine
 	
 	// camera
 	FcCameraSystem* cameraSystem;
+
+	FcGameObject_Zelda* zeldaGameObject;
 	
 	// gameplay animation states
 	FcAnimActionAnimate actionWeaponEquipped;
@@ -598,15 +697,9 @@ struct FcGameEngine
 	void* scratchpadBuffer;
 	u32 scratchpadBufferSize;
 	
-	// game objects
-	FcGameObjectLegacyRegister gameObjectRegister;
-	
 	// scripts temp
 	FcBinaryBuffer zeldaStateScript;
-	FcGameObjectLegacy zeldaGameObject;
-	
-	FcScriptLambda scriptLambdas[128];
-	
+
 	// hair dangles
 	FcPBDDangle* zeldaDangleHairLeft;
 	FcPBDDangle* zeldaDangleHairRight;
@@ -681,7 +774,7 @@ bool fcCreateGameEngine(const FcGameEngineCreateInfo& desc, const FcAllocator* a
 
 	if(res == FC_SUCCESS)
 	{
-		pEngine->pInputManager = fcInputManagerCreate(allocator);
+		fcCreateInputManager(allocator, &pEngine->pInputManager);
 	}
 	
 	if(res == FC_SUCCESS)
@@ -721,8 +814,9 @@ bool fcCreateGameEngine(const FcGameEngineCreateInfo& desc, const FcAllocator* a
 	// create world
 	{
 		FcWorldCreateInfo worldDesc = {};
-		worldDesc.renderer = pEngine->pRenderer;
-		worldDesc.animSystem = pEngine->animSystem;
+		worldDesc.systems.renderer = pEngine->pRenderer;
+		worldDesc.systems.animation = pEngine->animSystem;
+		worldDesc.systems.camera = pEngine->cameraSystem;
 
 		fcCreateWorld(&worldDesc, allocator, &pEngine->pWorld);
 	}
@@ -736,7 +830,6 @@ bool fcCreateGameEngine(const FcGameEngineCreateInfo& desc, const FcAllocator* a
 	}
 	
 	// init camera
-	pEngine->cameraSystem;
 	fcCreateCameraSystem(allocator, &pEngine->cameraSystem);
 	
 	// default camera
@@ -901,39 +994,12 @@ bool fcCreateGameEngine(const FcGameEngineCreateInfo& desc, const FcAllocator* a
 	
 	// init game
 	{
-		pEngine->gameObjectRegister.capacity = 128;
-		pEngine->gameObjectRegister.objects = FUR_ALLOC_ARRAY_AND_ZERO(FcGameObjectLegacy*, pEngine->gameObjectRegister.capacity, 0, FC_MEMORY_SCOPE_SCRIPT, allocator);
-		pEngine->gameObjectRegister.ids = FUR_ALLOC_ARRAY_AND_ZERO(FcStringId, pEngine->gameObjectRegister.capacity, 0, FC_MEMORY_SCOPE_SCRIPT, allocator);
-		pEngine->gameObjectRegister.numObjects = 0;
-		
-		// create Zelda
+		// create Zelda legacy code
 		pEngine->actionWeaponEquipped.animation = pEngine->pAnimClipHoldSword;
 		pEngine->actionWeaponEquipped.forceLoop = true;
 		
 		pEngine->actionWindProtect.animation = pEngine->pAnimClipWindProtect;
 		pEngine->actionWindProtect.forceLoop = true;
-		
-		FcAnimActionArgs args = {};
-		args.fadeInSec = 0.3f;
-		args.ikMode = FA_IK_MODE_LEGS;
-		//fcAnimCharacterScheduleActionAnimate(&pEngine->animCharacterZelda, &pEngine->animSimpleAction, &args);
-		
-		FcAnimCharacterDesc animCharacterDesc = {};
-		animCharacterDesc.rig = pEngine->pRig;
-		animCharacterDesc.globalTime = pEngine->globalTime;
-		
-		pEngine->zeldaGameObject.name = SID_REG("zelda");
-		pEngine->zeldaGameObject.animCharacter = fcCreateAnimCharacter(&animCharacterDesc, allocator);
-		fcAnimSystemAddCharacter(pEngine->animSystem, pEngine->zeldaGameObject.animCharacter);
-		pEngine->zeldaGameObject.animCharacter->skinMatrices = pEngine->skinMatrices;
-		
-		// register Zelda (player) game object
-		pEngine->gameObjectRegister.objects[pEngine->gameObjectRegister.numObjects] = &pEngine->zeldaGameObject;
-		pEngine->gameObjectRegister.ids[pEngine->gameObjectRegister.numObjects] = pEngine->zeldaGameObject.name;
-		pEngine->gameObjectRegister.numObjects += 1;
-		
-		// reguster player game object
-		pEngine->gameObjectRegister.pPlayer = &pEngine->zeldaGameObject;
 	}
 
 	// init special bone indices
@@ -1086,8 +1152,12 @@ bool fcCreateGameEngine(const FcGameEngineCreateInfo& desc, const FcAllocator* a
 		spawner.info.props.num = props_num;
 		spawner.info.props.names = prop_names;
 		spawner.info.props.values = prop_values;
+
+		FcSpawnDesc spawnDesc = {};
+		spawnDesc.spawner = &spawner;
+		fm_xform_identity(&spawnDesc.initialTransform);
 		
-		fcSpawn(&spawner, pEngine->pWorld);
+		fcSpawn(&spawnDesc, pEngine->pWorld);
 	}
 	
 	// test BVH
@@ -1118,23 +1188,24 @@ bool fcCreateGameEngine(const FcGameEngineCreateInfo& desc, const FcAllocator* a
 	return true;
 }
 
-FcGameObjectLegacy* fcScriptLookUpGameObject(FcScriptCtx* ctx, FcStringId name)
+FcGameObject* fcScriptLookUpGameObject(FcScriptCtx* ctx, FcStringId name)
 {
 	if(name == SID("self"))
 	{
 		return ctx->self;
 	}
-	else if(name == SID("player"))
-	{
-		return ctx->gameObjectRegister->pPlayer;
-	}
+// 	else if(name == SID("player"))
+// 	{
+// 		return ctx->gameObjectRegister->pPlayer;
+// 	}
 	else
 	{
-		for(u32 i=0; i<ctx->gameObjectRegister->numObjects; ++i)
+		FcGameObjectStorage* storage = &ctx->world->gameObjects;
+		for(u32 i=0; i<storage->num; ++i)
 		{
-			if(ctx->gameObjectRegister->ids[i] == name)
+			if(storage->ptr[i]->name == name)
 			{
-				return ctx->gameObjectRegister->objects[i];
+				return storage->ptr[i];
 			}
 		}
 	}
@@ -1160,18 +1231,17 @@ FcVariant fcScriptNative_Animate(FcScriptCtx* ctx, u32 numArgs, const FcVariant*
 	const FcStringId animName = args[1].asStringHash;
 	
 	// find game object
-	FcGameObjectLegacy* gameObj = fcScriptLookUpGameObject(ctx, objectName);
+	FcGameObject* gameObj = fcScriptLookUpGameObject(ctx, objectName);
 	FUR_ASSERT(gameObj);
-	
-	FcAnimActionAnimate* animateSlot = fcAnimateActionSlitsGetFree(&gameObj->animateActionSlots);
-	FUR_ASSERT(animateSlot);
+
+	if (!gameObj->fn->animate)
+	{
+		FcVariant result = {};
+		return result;
+	}
 	
 	const FcAnimClip* animClip = fcResourceRegisterFindAnimClip(&ctx->world->resources, animName);
 	FUR_ASSERT(animClip);
-	
-	animateSlot->animation = animClip;
-	animateSlot->forceLoop = true;
-	animateSlot->reserved = true;
 	
 	FcAnimActionArgs animArgs = {};
 	
@@ -1206,18 +1276,25 @@ FcVariant fcScriptNative_Animate(FcScriptCtx* ctx, u32 numArgs, const FcVariant*
 				break;
 		}
 	}
+
+	bool useLocomotion = false;
 	
 	if(animArgs.layerName == SID("full-body") || animArgs.layerName == 0)
 	{
-		animateSlot->useLoco = true;
+		useLocomotion = true;
 	}
-	else
+	
+	if (gameObj->fn->animate)
 	{
-		animateSlot->useLoco = false;
+		FcGameObjectAnimateCtx animCtx = {0};
+		animCtx.animArgs = &animArgs;
+		animCtx.animClip = animClip;
+		animCtx.forceLoop = true;
+		animCtx.useLocomotion = true;
+
+		gameObj->fn->animate(gameObj, &animCtx);
 	}
-	
-	fcAnimCharacterScheduleActionAnimate(gameObj->animCharacter, animateSlot, &animArgs);
-	
+
 	ctx->waitSeconds = FM_MAX(ctx->waitSeconds - animArgs.fadeOutSec, 0.0f);
 	
 	FcVariant result = {};
@@ -1244,11 +1321,13 @@ FcVariant fcScriptNative_EquipItem(FcScriptCtx* ctx, u32 numArgs, const FcVarian
 	//const FcStringId itemName = args[1].asStringHash;
 	
 	// find game object
-	FcGameObjectLegacy* gameObj = fcScriptLookUpGameObject(ctx, objectName);
+	FcGameObject* gameObj = fcScriptLookUpGameObject(ctx, objectName);
 	FUR_ASSERT(gameObj);
 	
-	gameObj->equipItemNow = true;
-	
+	FcVariant value;
+	value.asBool = true;
+	gameObj->fn->setVar(gameObj, SID("equip-item"), value);
+
 	FcVariant result = {};
 	return result;
 }
@@ -1271,36 +1350,36 @@ FcVariant fcScriptNative_GetVariable(FcScriptCtx* ctx, u32 numArgs, const FcVari
 	const FcStringId varName = args[1].asStringHash;
 	
 	// find game object
-	FcGameObjectLegacy* gameObj = fcScriptLookUpGameObject(ctx, objectName);
+	FcGameObject* gameObj = fcScriptLookUpGameObject(ctx, objectName);
 	FUR_ASSERT(gameObj);
 	
 	FcVariant result = {};
 	
-	if(varName == SID("wind-protecting"))
+	if (gameObj->fn->getVar)
 	{
-		result.asBool = gameObj->playerWindProtecting;
+		return gameObj->fn->getVar(gameObj, varName);
 	}
-	else if(varName == SID("weapon-equipped"))
+
+	return result;
+}
+
+FcVariant fcScriptNative_SetVariable(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
+{
+	FUR_ASSERT(numArgs >= 3);
+	const FcStringId objectName = args[0].asStringHash;
+	const FcStringId varName = args[1].asStringHash;
+	const FcVariant varValue = args[2];
+
+	// find game object
+	FcGameObject* gameObj = fcScriptLookUpGameObject(ctx, objectName);
+	FUR_ASSERT(gameObj);
+
+	if (gameObj->fn->setVar)
 	{
-		result.asBool = gameObj->playerWeaponEquipped;
+		gameObj->fn->setVar(gameObj, varName, varValue);
 	}
-	else if(varName == SID("idle-anim-name"))
-	{
-		result.asStringHash = SID("zelda-funny-pose-4");
-	}
-	else if(varName == SID("is-running"))
-	{
-		result.asBool = fm_vec4_mag2(&gameObj->logicMove) > 0.0f;
-	}
-	else if(varName == SID("is-jump"))
-	{
-		result.asBool = gameObj->isJump;
-	}
-	else if(varName == SID("is-grounded"))
-	{
-		result.asBool = gameObj->isGrounded;
-	}
-	
+
+	FcVariant result = {};
 	return result;
 }
 
@@ -1358,9 +1437,6 @@ FcVariant fcScriptNative_CameraEnable(FcScriptCtx* ctx, u32 numArgs, const FcVar
 	const FcStringId cameraType = args[1].asStringHash;
 	const f32 fadeInSec = args[2].asFloat;
 	
-	FcGameObjectLegacy* gameObj = fcScriptLookUpGameObject(ctx, objectName);
-	FUR_ASSERT(gameObj);
-	
 	if(cameraType == SID("follow"))
 	{
 		FcCameraParamsFollow params = {};
@@ -1384,11 +1460,6 @@ FcVariant fcScriptNative_CameraEnable(FcScriptCtx* ctx, u32 numArgs, const FcVar
 	return result;
 }
 
-void fcScriptsUpdate(FcGameEngine* pEngine, f32 dt)
-{
-	// todo
-}
-
 bool g_drawDevMenu = false;
 i32 g_devMenuOption = 0;
 bool g_devMenuOptionClick = false;
@@ -1396,23 +1467,17 @@ bool g_devMenuOptionClick = false;
 void fcInputActionsUpdate(FcGameEngine* pEngine, f32 dt)
 {
 	bool actionPressed = false;
-	static bool actionWasPressed = false;
 	
 	bool triangleActionPressed = false;
-	static bool triangleActionWasPressed = false;
 	bool circleActionPressed = false;
-	static bool circleActionWasPressed = false;
-	bool xPressed = false;
-	static bool xWasPressed = false;
-	
-	static bool wasLeftThumbPressed = false;
+	bool squareActionPressed = false;
 	bool leftThumbPressed = false;
-	static bool wasStartPressed = false;
 	bool startPressed = false;
+
+	static bool wasLeftThumbPressed = false;
+	static bool wasStartPressed = false;
 	
-	static bool wasDpadUpPressed = false;
 	bool dpadUpPressed = false;
-	static bool wasDpadDownPressed = false;
 	bool dpadDownPressed = false;
 	
 	g_devMenuOptionClick = false;
@@ -1430,38 +1495,37 @@ void fcInputActionsUpdate(FcGameEngine* pEngine, f32 dt)
 	{
 		if(inputEvents[i].eventID == Gamepad_leftThumb)
 		{
-			wasLeftThumbPressed = inputEvents[i].value > 0.5f;
-			leftThumbPressed = wasLeftThumbPressed;
+			leftThumbPressed = inputEvents[i].value > 0.5f;
+			wasLeftThumbPressed = leftThumbPressed;
 		}
 		else if(inputEvents[i].eventID == Gamepad_start)
 		{
-			wasStartPressed = inputEvents[i].value > 0.5f;
-			startPressed = wasStartPressed;
+			startPressed = inputEvents[i].value > 0.5f;
+			wasStartPressed = startPressed;
 		}
 		else if(inputEvents[i].eventID == Gamepad_dpadUp)
 		{
-			wasDpadUpPressed = inputEvents[i].value > 0.5f;
-			dpadUpPressed = wasDpadUpPressed;
+			dpadUpPressed = inputEvents[i].value > 0.5f;
 		}
 		else if(inputEvents[i].eventID == Gamepad_dpadDown)
 		{
-			wasDpadDownPressed = inputEvents[i].value > 0.5f;
-			dpadDownPressed = wasDpadDownPressed;
+			dpadDownPressed = inputEvents[i].value > 0.5f;
 		}
 		else if(inputEvents[i].eventID == Gamepad_cross)
 		{
-			actionWasPressed = inputEvents[i].value > 0.5f;
-			actionPressed = actionWasPressed;
+			actionPressed = inputEvents[i].value > 0.5f;
 		}
 		else if(inputEvents[i].eventID == Gamepad_circle)
 		{
-			circleActionWasPressed = inputEvents[i].value > 0.5f;
-			circleActionPressed = circleActionWasPressed;
+			circleActionPressed = inputEvents[i].value > 0.5f;
+		}
+		else if (inputEvents[i].eventID == Gamepad_square)
+		{
+			squareActionPressed = inputEvents[i].value > 0.5f;
 		}
 		else if(inputEvents[i].eventID == Gamepad_triangle)
 		{
-			triangleActionWasPressed = inputEvents[i].value > 0.5f;
-			triangleActionPressed = triangleActionWasPressed;
+			triangleActionPressed = inputEvents[i].value > 0.5f;
 		}
 		else if(inputEvents[i].eventID == Gamepad_rightAnalogX)
 		{
@@ -1489,7 +1553,7 @@ void fcInputActionsUpdate(FcGameEngine* pEngine, f32 dt)
 		}
 	}
 	
-	if((wasLeftThumbPressed && startPressed) || (wasStartPressed && leftThumbPressed))
+	if((startPressed && wasLeftThumbPressed) || (wasStartPressed && leftThumbPressed))
 	{
 		g_drawDevMenu = !g_drawDevMenu;
 	}
@@ -1524,6 +1588,16 @@ void fcInputActionsUpdate(FcGameEngine* pEngine, f32 dt)
 	}
 	else // block all the actions when debug menu is enabled
 	{
+		FcInputActionSystem* actionSystem = &pEngine->inputActionSystem;
+		actionSystem->rightStick.x = rightAnalogX;
+		actionSystem->rightStick.y = rightAnalogY;
+		actionSystem->leftStick.x = leftAnalogX;
+		actionSystem->leftStick.y = leftAnalogY;
+		actionSystem->triangle = triangleActionPressed;
+		actionSystem->circle = circleActionPressed;
+		actionSystem->cross = actionPressed;
+		actionSystem->square = squareActionPressed;
+
 		pEngine->actionRotationLeftX = rightAnalogX;
 		pEngine->actionRotationLeftY = rightAnalogY;
 		pEngine->actionMoveX = leftAnalogX;
@@ -1534,7 +1608,6 @@ void fcInputActionsUpdate(FcGameEngine* pEngine, f32 dt)
 		pEngine->inActionPressed = actionPressed;
 		pEngine->inputTriangleActionPressed = triangleActionPressed;
 		pEngine->inputCircleActionPressed = circleActionPressed;
-		pEngine->inputXPressed = xPressed;
 	}
 }
 
@@ -1546,7 +1619,7 @@ void fcDevMenuReloatScripts(FcGameEngine* pEngine, const FcAllocator* allocator)
 
 void fcDevMenuShowPlayerAnimState(FcGameEngine* pEngine, const FcAllocator* allocator)
 {
-	pEngine->zeldaGameObject.showAnimStateDebug = !pEngine->zeldaGameObject.showAnimStateDebug;
+	//pEngine->zeldaGameObject.showAnimStateDebug = !pEngine->zeldaGameObject.showAnimStateDebug;
 }
 
 void fcDevMenuShowProfiler(FcGameEngine* pEngine, const FcAllocator* allocator)
@@ -1640,159 +1713,78 @@ void fcDrawDebugMenu(FcGameEngine* pEngine, const FcAllocator* allocator)
 void fcGameplayUpdate(FcGameEngine* pEngine, f32 dt)
 {
 	uint64_t globalTime = (uint64_t)(pEngine->globalTime * 1000000);
-	pEngine->zeldaGameObject.animCharacter->globalTime = globalTime;
+	FcGameObject_Zelda* zelda = pEngine->zeldaGameObject;
+
+	if (!zelda)
+		return;
+
+	zelda->animCharacter->globalTime = globalTime;
 	
-	static u32 actionRandomizer = 0;
-	static u32 actionRandomizer2 = 0;
-	
-	if(pEngine->inActionPressed)
-		actionRandomizer += 1;
-	
-	if(pEngine->inputTriangleActionPressed)
-		actionRandomizer2 += 1;
-	
-	// inital player state
-	static bool isInit = true;
-	if(isInit)
-	{
-		isInit = false;
-		
-		pEngine->zeldaGameObject.playerState = SID("idle");
-		
-		// find free lambda slot
-		i32 lambdaSlot = 512;
-		for(i32 i=0; i<128; ++i)
-		{
-			if(pEngine->scriptLambdas[i].isActive == false)
-			{
-				lambdaSlot = i;
-				break;
-			}
-		}
-		
-		FcScriptLambda* lambda = &pEngine->scriptLambdas[lambdaSlot];
-		lambda->isActive = true;
-		lambda->numSkipOps = 0;
-		lambda->waitSeconds = 0.0f;
-		lambda->lambdaName = pEngine->zeldaGameObject.playerState;
-		lambda->eventName = SID("start");
-		lambda->selfGameObject = &pEngine->zeldaGameObject;
-		lambda->scriptBlob = &pEngine->zeldaStateScript;
-	}
-	
-	for(u32 i=0; i<128; ++i)
-	{
-		FcScriptLambda* lambda = &pEngine->scriptLambdas[i];
-		
-		if(lambda->isActive == false)
-			continue;
-		
-		if(lambda->waitSeconds > 0.0f)
-		{
-			lambda->waitSeconds = FM_MAX(lambda->waitSeconds - dt, 0.0f);
-			
-			if(lambda->waitSeconds > 0.0f)
-			{
-				continue;
-			}
-		}
-		
-		FcScriptCtx scriptCtx = {};
-		scriptCtx.world = pEngine->pWorld;
-		scriptCtx.gameObjectRegister = &pEngine->gameObjectRegister;
-		scriptCtx.self = lambda->selfGameObject;
-		scriptCtx.state = lambda->lambdaName;
-		scriptCtx.stateEventToCall = lambda->eventName;
-		scriptCtx.numSkipOps = lambda->numSkipOps;
-		scriptCtx.sysCamera = pEngine->cameraSystem;
-		fcScriptExecute(lambda->scriptBlob, &scriptCtx);
-		
-		if(scriptCtx.waitSeconds > 0.0f)
-		{
-			lambda->waitSeconds = scriptCtx.waitSeconds;
-			lambda->numSkipOps = scriptCtx.numSkipOps;
-		}
-		else if(scriptCtx.nextState != 0)
-		{
-			lambda->selfGameObject->playerState = scriptCtx.nextState;
-			lambda->lambdaName = scriptCtx.nextState;
-			lambda->eventName = SID("start");
-			lambda->numSkipOps = 0;
-			lambda->waitSeconds = 0.0f;
-		}
-		else if(lambda->eventName == SID("start"))
-		{
-			lambda->eventName = SID("update");
-			lambda->numSkipOps = 0;
-			lambda->waitSeconds = 0.0f;
-		}
-	}
-	
-	if(pEngine->zeldaGameObject.playerState == SID("idle"))
+	if(zelda->playerState == SID("idle"))
 	{
 		// on update - upper-body layer in this case
-		if(pEngine->inputTriangleActionPressed || pEngine->zeldaGameObject.equipItemNow)
+		if(pEngine->inputTriangleActionPressed || zelda->equipItemNow)
 		{
-			pEngine->zeldaGameObject.equipItemNow = false;
+			zelda->equipItemNow = false;
 			
-			if(pEngine->zeldaGameObject.playerWindProtecting)
+			if(zelda->playerWindProtecting)
 			{
-				pEngine->zeldaGameObject.playerWindProtecting = false;
+				zelda->playerWindProtecting = false;
 			}
 			
-			if(pEngine->zeldaGameObject.playerWeaponEquipped)
+			if(zelda->playerWeaponEquipped)
 			{
 				FcAnimActionArgs args = {};
 				args.fadeInSec = 0.5f;
 				args.layer = FA_CHAR_LAYER_PARTIAL;
-				fcAnimCharacterScheduleActionNone(pEngine->zeldaGameObject.animCharacter, &args);
+				fcAnimCharacterScheduleActionNone(zelda->animCharacter, &args);
 				
-				pEngine->zeldaGameObject.playerWeaponEquipped = false;
+				zelda->playerWeaponEquipped = false;
 			}
 			else
 			{
 				FcAnimActionArgs args = {};
 				args.fadeInSec = 0.5f;
 				args.layer = FA_CHAR_LAYER_PARTIAL;
-				fcAnimCharacterScheduleActionAnimate(pEngine->zeldaGameObject.animCharacter, &pEngine->actionWeaponEquipped, &args);
+				fcAnimCharacterScheduleActionAnimate(zelda->animCharacter, &pEngine->actionWeaponEquipped, &args);
 				
-				pEngine->zeldaGameObject.playerWeaponEquipped = true;
+				zelda->playerWeaponEquipped = true;
 			}
 		}
 	}
 	
 	if(pEngine->inputCircleActionPressed)
 	{
-		if(pEngine->zeldaGameObject.playerWeaponEquipped)
+		if(zelda->playerWeaponEquipped)
 		{
-			pEngine->zeldaGameObject.playerWeaponEquipped = false;
+			zelda->playerWeaponEquipped = false;
 		}
 		
-		if(pEngine->zeldaGameObject.playerWindProtecting)
+		if(zelda->playerWindProtecting)
 		{
 			FcAnimActionArgs args = {};
 			args.fadeInSec = 0.5f;
 			args.layer = FA_CHAR_LAYER_PARTIAL;
-			fcAnimCharacterScheduleActionNone(pEngine->zeldaGameObject.animCharacter, &args);
+			fcAnimCharacterScheduleActionNone(zelda->animCharacter, &args);
 			
-			pEngine->zeldaGameObject.playerWindProtecting = false;
+			zelda->playerWindProtecting = false;
 		}
 		else
 		{
 			FcAnimActionArgs args = {};
 			args.fadeInSec = 0.5f;
 			args.layer = FA_CHAR_LAYER_PARTIAL;
-			fcAnimCharacterScheduleActionAnimate(pEngine->zeldaGameObject.animCharacter, &pEngine->actionWindProtect, &args);
+			fcAnimCharacterScheduleActionAnimate(zelda->animCharacter, &pEngine->actionWindProtect, &args);
 			
-			pEngine->zeldaGameObject.playerWindProtecting = true;
+			zelda->playerWindProtecting = true;
 		}
 	}
 	
-	// is grounnded raycast check
+	// is grounded raycast check
 	{
 		bool isGrounded = false;
 		
-		fm_vec4 pos = pEngine->zeldaGameObject.worldTransform.pos;
+		fm_vec4 pos = zelda->info.transform.pos;
 		pos.z += 0.1f;
 		const fm_vec4 dir = {0.0f, 0.0f, -1.0f, 0.0f};
 		const f32 distance = 0.12f;
@@ -1807,17 +1799,17 @@ void fcGameplayUpdate(FcGameEngine* pEngine, f32 dt)
 			fcDebugBoxWire(&hit.pos.x, extent, color);
 		}
 		
-		pEngine->zeldaGameObject.isGrounded = isGrounded;
+		zelda->isGrounded = isGrounded;
 	}
 	
 	// jumping
-	if(pEngine->inActionPressed && pEngine->zeldaGameObject.isGrounded)
+	if(pEngine->inActionPressed && zelda->isGrounded)
 	{
-		pEngine->zeldaGameObject.isJump = true;
+		zelda->isJump = true;
 	}
 	else
 	{
-		pEngine->zeldaGameObject.isJump = false;
+		zelda->isJump = false;
 	}
 }
 
@@ -1828,10 +1820,12 @@ void fcAnimationUpdate(FcGameEngine* pEngine, f32 dt)
 	FcPhysicsPlayerInfo playerPhysics;
 	playerPhysics.locator = &playerLocator;
 	fcPhysicsGetPlayerInfo(pEngine->pPhysics, &playerPhysics);
+
+	FcGameObject_Zelda* zelda = pEngine->zeldaGameObject;
 	
-	pEngine->zeldaGameObject.animCharacter->animInfo.worldPos.x = playerLocator.pos.x;
-	pEngine->zeldaGameObject.animCharacter->animInfo.worldPos.y = playerLocator.pos.y;
-	pEngine->zeldaGameObject.animCharacter->animInfo.worldPos.z = playerLocator.pos.z;
+	zelda->animCharacter->animInfo.worldPos.x = playerLocator.pos.x;
+	zelda->animCharacter->animInfo.worldPos.y = playerLocator.pos.y;
+	zelda->animCharacter->animInfo.worldPos.z = playerLocator.pos.z;
 	
 	FcMemArenaAllocator arenaAlloc = fcMemArenaMake(pEngine->scratchpadBuffer, pEngine->scratchpadBufferSize);
 	
@@ -2026,10 +2020,25 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 	// debug/dev menu
 	fcDrawDebugMenu(pEngine, allocator);
 	
+	FUR_PROFILE("spawning")
+	{
+		fcUpdateSpawning(pEngine->pWorld);
+		if (!pEngine->zeldaGameObject)
+		{
+			for (i32 i = 0; i < pEngine->pWorld->gameObjects.num; ++i)
+			{
+				if (pEngine->pWorld->gameObjects.ptr[i]->name == SID("zelda"))
+				{
+					pEngine->zeldaGameObject = (FcGameObject_Zelda*)pEngine->pWorld->gameObjects.ptr[i];
+					break;
+				}
+			}
+		}
+	}
+
 	// game
 	FUR_PROFILE("gameplay-update")
 	{
-		fcScriptsUpdate(pEngine, dt);
 		fcGameplayUpdate(pEngine, dt);
 		
 		FcWorldUpdateCtx worldUpdateCtx = {};
@@ -2053,21 +2062,23 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 		
 		f32 color[4] = FUR_COLOR_MAGENTA;
 		fcDebugSphereWire(&lookAtPoint.x, 0.1f, color);
+
+		FcGameObject_Zelda* zelda = pEngine->zeldaGameObject;
 		
 		const f32 distanceToLookAtPoint = fm_vec4_distance(&lookAtPoint, &playerLocator.pos);
 		
-		if(pEngine->zeldaGameObject.animCharacter->animInfo.useLookAt)
+		if(zelda->animCharacter->animInfo.useLookAt)
 		{
-			pEngine->zeldaGameObject.animCharacter->animInfo.useLookAt = distanceToLookAtPoint < 10.0f;
+			zelda->animCharacter->animInfo.useLookAt = distanceToLookAtPoint < 10.0f;
 		}
 		else
 		{
-			pEngine->zeldaGameObject.animCharacter->animInfo.useLookAt = distanceToLookAtPoint < 6.0f;
+			zelda->animCharacter->animInfo.useLookAt = distanceToLookAtPoint < 6.0f;
 		}
 		
-		pEngine->zeldaGameObject.animCharacter->animInfo.lookAtPoint.x = lookAtPoint.x;
-		pEngine->zeldaGameObject.animCharacter->animInfo.lookAtPoint.y = lookAtPoint.y;
-		pEngine->zeldaGameObject.animCharacter->animInfo.lookAtPoint.z = lookAtPoint.z;
+		zelda->animCharacter->animInfo.lookAtPoint.x = lookAtPoint.x;
+		zelda->animCharacter->animInfo.lookAtPoint.y = lookAtPoint.y;
+		zelda->animCharacter->animInfo.lookAtPoint.z = lookAtPoint.z;
 	}
 	
 	// animation
@@ -2096,44 +2107,46 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 	{
 		FcPhysicsUpdateCtx physicsCtx = {};
 		physicsCtx.dt = dt;
-		
-		fm_vec4 playerDisplacement = pEngine->zeldaGameObject.velocity;
+
+		FcGameObject_Zelda* zelda = pEngine->zeldaGameObject;
+
+		fm_vec4 playerDisplacement = zelda->velocity;
 		
 		// apply root motion from anim info to physics
-		if(pEngine->zeldaGameObject.isJump)
+		if(zelda->isJump)
 		{
-			pEngine->zeldaGameObject.velocity.z = 4.0f;
+			zelda->velocity.z = 4.0f;
 		}
-		else if(pEngine->zeldaGameObject.isGrounded)
+		else if(zelda->isGrounded)
 		{
-			pEngine->zeldaGameObject.velocity.x = pEngine->zeldaGameObject.animCharacter->animInfo.rootMotionDelta.x / dt;
-			pEngine->zeldaGameObject.velocity.y = pEngine->zeldaGameObject.animCharacter->animInfo.rootMotionDelta.y / dt;
-			pEngine->zeldaGameObject.velocity.z = 0.0f;
+			zelda->velocity.x = zelda->animCharacter->animInfo.rootMotionDelta.x / dt;
+			zelda->velocity.y = zelda->animCharacter->animInfo.rootMotionDelta.y / dt;
+			zelda->velocity.z = 0.0f;
 		}
 		else
 		{
-			const f32 speed = fm_vec4_mag(&pEngine->zeldaGameObject.velocity);
+			const f32 speed = fm_vec4_mag(&zelda->velocity);
 			if(speed > 0.0f)
 			{
-				pEngine->zeldaGameObject.velocity.x += pEngine->zeldaGameObject.animCharacter->animInfo.desiredMove.x * 1.2f;
-				pEngine->zeldaGameObject.velocity.y += pEngine->zeldaGameObject.animCharacter->animInfo.desiredMove.y * 1.2f;
-				fm_vec4_norm(&pEngine->zeldaGameObject.velocity);
-				fm_vec4_mulf(&pEngine->zeldaGameObject.velocity, speed, &pEngine->zeldaGameObject.velocity);
+				zelda->velocity.x += zelda->animCharacter->animInfo.desiredMove.x * 1.2f;
+				zelda->velocity.y += zelda->animCharacter->animInfo.desiredMove.y * 1.2f;
+				fm_vec4_norm(&zelda->velocity);
+				fm_vec4_mulf(&zelda->velocity, speed, &zelda->velocity);
 			}
 		}
 		
 		// apply gravity
-		pEngine->zeldaGameObject.velocity.z += -9.81f * dt;
+		zelda->velocity.z += -9.81f * dt;
 		
-		fm_vec4_mulf(&pEngine->zeldaGameObject.velocity, dt, &playerDisplacement);
+		fm_vec4_mulf(&zelda->velocity, dt, &playerDisplacement);
 		physicsCtx.playerDisplacement = &playerDisplacement;
 		fcPhysicsUpdate(pEngine->pPhysics, &physicsCtx);
 		
 		FcPhysicsPlayerInfo playerPhysics;
-		playerPhysics.locator = &pEngine->zeldaGameObject.worldTransform;
+		playerPhysics.locator = &zelda->info.transform;
 		fcPhysicsGetPlayerInfo(pEngine->pPhysics, &playerPhysics);
 
-		if(pEngine->zeldaGameObject.playerWindProtecting)
+		if(zelda->playerWindProtecting)
 		{
 			pEngine->windVelocity.x = 1.4f;
 			pEngine->windVelocity.y = 3.7f;
@@ -2149,7 +2162,7 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 			fm_vec4 playerMove = pEngine->playerMove;
 			
 			fm_mat4 playerMat;
-			fm_mat4_rot_z(pEngine->zeldaGameObject.animCharacter->animInfo.currentYaw, &playerMat);
+			fm_mat4_rot_z(zelda->animCharacter->animInfo.currentYaw, &playerMat);
 			
 			fm_vec4 invPlayerMove;
 			fm_mat4_transform(&playerMat, &playerMove, &invPlayerMove);
@@ -2159,6 +2172,18 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 			pEngine->windVelocity.z -= invPlayerMove.z;
 		}
 		
+		FUR_PROFILE("skinning")
+		{
+			FcGameObject_Zelda* zelda = pEngine->zeldaGameObject;
+
+			const fm_xform* poseMS = zelda->animCharacter->poseMS;
+			const u32 numSkinMatrices = zelda->animCharacter->rig->numBones;
+			for (u32 i = 0; i < numSkinMatrices; ++i)
+			{
+				fm_xform_to_mat4(&poseMS[i], &pEngine->skinMatrices[i]);
+			}
+		}
+
 		// simulate hair dangles
 		{
 			FcPBDDangleCtx simCtx {};
@@ -2289,11 +2314,13 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 	// rendering
 	FUR_PROFILE("render-update")
 	{
+		FcGameObject_Zelda* zelda = pEngine->zeldaGameObject;
+
 		// get zelda position
-		fm_xform playerLocator = pEngine->zeldaGameObject.worldTransform;
+		fm_xform playerLocator = zelda->info.transform;
 		
 		fm_mat4 zeldaMat;
-		fm_mat4_rot_z(pEngine->zeldaGameObject.animCharacter->animInfo.currentYaw, &zeldaMat);
+		fm_mat4_rot_z(zelda->animCharacter->animInfo.currentYaw, &zeldaMat);
 		zeldaMat.w = playerLocator.pos;
 		
 		// get zelda right hand slot
@@ -2335,22 +2362,22 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 		fm_vec4 playerMove;
 		fm_vec4_add(&playerMoveForward, &playerMoveLeft, &playerMove);
 		
-		pEngine->zeldaGameObject.animCharacter->animInfo.animToLogicMotionRotationAlpha = 1.0f;
-		pEngine->zeldaGameObject.animCharacter->animInfo.animToLogicMotionTranslationAlpha = 0.0f;
-		pEngine->zeldaGameObject.animCharacter->animInfo.desiredMove.x = playerMove.x * dt;
-		pEngine->zeldaGameObject.animCharacter->animInfo.desiredMove.y = playerMove.y * dt;
+		zelda->animCharacter->animInfo.animToLogicMotionRotationAlpha = 1.0f;
+		zelda->animCharacter->animInfo.animToLogicMotionTranslationAlpha = 0.0f;
+		zelda->animCharacter->animInfo.desiredMove.x = playerMove.x * dt;
+		zelda->animCharacter->animInfo.desiredMove.y = playerMove.y * dt;
 		
-		pEngine->zeldaGameObject.logicMove.x = playerMove.x * dt;
-		pEngine->zeldaGameObject.logicMove.y = playerMove.y * dt;
-		pEngine->zeldaGameObject.logicMove.z = 0.0f;
-		pEngine->zeldaGameObject.logicMove.w = 0.0f;
+		zelda->logicMove.x = playerMove.x * dt;
+		zelda->logicMove.y = playerMove.y * dt;
+		zelda->logicMove.z = 0.0f;
+		zelda->logicMove.w = 0.0f;
 		
 		pEngine->playerMove = playerMove;
 		
 		fm_mat4 cameraMatrix;
 		fcCameraSystemViewMatrix(pEngine->cameraSystem, &cameraMatrix);
 		
-		if(!pEngine->zeldaGameObject.playerWeaponEquipped)
+		if(!zelda->playerWeaponEquipped)
 		{
 			fm_mat4_identity(&slotMS);
 			slotMS.w.x = 4.0f;
@@ -2484,14 +2511,8 @@ bool furMainEngineTerminate(FcGameEngine* pEngine, const FcAllocator* allocator)
 	fcDestroyPBDDangle(pEngine->zeldaCapeC, allocator);
 	fcDestroyPBDDangle(pEngine->zeldaCapeR, allocator);
 	
-	fcAnimSystemRemoveCharacter(pEngine->animSystem, pEngine->zeldaGameObject.animCharacter);
-	fcDestroyAnimCharacter(pEngine->zeldaGameObject.animCharacter, allocator);
-	
 	fcDestroyWorld(pEngine->pWorld, allocator);
 	FUR_FREE(pEngine->pWorld, allocator);
-	
-	FUR_FREE(pEngine->gameObjectRegister.objects, allocator);
-	FUR_FREE(pEngine->gameObjectRegister.ids, allocator);
 	
 	FUR_FREE(pEngine->scratchpadBuffer, allocator);
 	
@@ -2500,10 +2521,10 @@ bool furMainEngineTerminate(FcGameEngine* pEngine, const FcAllocator* allocator)
 	fcDestroyCameraSystem(pEngine->cameraSystem, allocator);
 	
 	fcJobSystemRelease(allocator);
-	fcPhysicsRelease(pEngine->pPhysics, allocator);
+	fcDestroyPhysics(pEngine->pPhysics, allocator);
 	fcDestroyRenderer(pEngine->pRenderer, allocator);
 	
-	fcInputManagerRelease(pEngine->pInputManager, allocator);
+	fcDestroyInputManager(pEngine->pInputManager, allocator);
 	
 	fcDepotUnmount(pEngine->depot, allocator);
 

@@ -165,7 +165,7 @@ typedef struct FcArray
 	u32 stride;
 } FcArray;
 
-CCORE_API void* fcArrayAdd(FcArray* arr);
+CCORE_API void fcArrayAdd(FcArray* arr, void* elem);
 CCORE_API void* fcArrayAt(FcArray* arr, u32 idx);
 CCORE_API void fcArrayRemoveSwap(FcArray* arr, u32 idx);
 

@@ -96,16 +96,5 @@ void fcAnimSystemUpdate(FcAnimSystem* sys, const FcAnimSystemUpdateCtx* ctx)
 		animateCtx.showDebug = false;
 		
 		fcAnimCharacterUpdate(character, &animateCtx);
-		
-		// skinning
-		if(character->skinMatrices)
-		{
-			const fm_xform* poseMS = character->poseMS;
-			const u32 numSkinMatrices = character->rig->numBones;
-			for(u32 i=0; i<numSkinMatrices; ++i)
-			{
-				fm_xform_to_mat4(&poseMS[i], &character->skinMatrices[i]);
-			}
-		}
 	}
 }

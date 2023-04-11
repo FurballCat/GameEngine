@@ -98,8 +98,7 @@ FcResult fcCreateWorld(FcWorldCreateInfo* desc, const FcAllocator* allocator, Fc
 	world->levelHeap->capacity = LEVEL_HEAP_MEMORY_CAPACITY;
 	world->levelHeap->size = 0;
 
-	world->systems.animation = desc->animSystem;
-	world->systems.renderer = desc->renderer;
+	world->systems = desc->systems;
 	
 	// allocate update buckets
 	fcArrayAllocAndZero(&world->buckets[FG_UPDATE_BUCKET_CHARACTERS], FcGameObjectHandle, 256, 8, FC_MEMORY_SCOPE_GAME, allocator);
@@ -145,48 +144,81 @@ void fcDestroyWorld(FcWorld* world, const FcAllocator* allocator)
 	fcMapFree(&world->resources.meshes, allocator);
 }
 
+FcGameObjectHandle fcAddGameObjectToStorage(FcGameObjectStorage* storage, FcGameObject* gameObject)
+{
+	FcGameObjectHandle handle = { 0 };
+	handle.index = -1;
+
+	// find free storage slot
+	for (i32 i = 0; i < MAX_GAME_OBJECTS_SPAWNED; ++i)
+	{
+		if (storage->ptr[i] == NULL)
+		{
+			storage->ptr[i] = gameObject;
+			handle.index = i;
+			storage->num++;
+			break;
+		}
+	}
+
+	return handle;
+}
+
+void fcUpdateSpawning(FcWorld* world)
+{
+	FcAllocator levelHeapAlloc = fcMemRelHeapGetAllocator(world->levelHeap);
+
+	const FcSpawnBatch* batch = &world->spawnBatch;
+	for (i32 i = 0; i < batch->num; ++i)
+	{
+		const FcSpawnDesc* desc = &batch->elems[i];
+
+		const FcStringId typeName = desc->spawner->typeName;
+		const FcGameObjectFactory* factory = fcGameObjectFactoryFind(typeName);
+
+		FcGameObject* gameObjectPtr = FUR_ALLOC_AND_ZERO(factory->memoryMaxSize, 8, FC_MEMORY_SCOPE_GAME, &levelHeapAlloc);
+
+		FcGameObjectInitCtx initCtx = { 0 };
+		initCtx.info = &desc->spawner->info;
+		initCtx.resources = &world->resources;
+		initCtx.systems = &world->systems;
+		initCtx.stackAlloc = &levelHeapAlloc;
+
+		gameObjectPtr->fn = &factory->fn;
+		gameObjectPtr->name = desc->spawner->name;
+		gameObjectPtr->transform = desc->initialTransform;
+
+		factory->fn.init(gameObjectPtr, &initCtx);
+
+		// shrink level heap to memory that is actually used by the game object
+		// ...
+
+		// add game object look-up storage
+		FcGameObjectHandle gameObjectHandle = fcAddGameObjectToStorage(&world->gameObjects, gameObjectPtr);
+
+		// add game object to ticks
+		FcArrayGameObjectHandles* bucket = &world->buckets[factory->updateBucket];
+		fcArrayAdd(bucket, &gameObjectHandle);
+	}
+
+	world->spawnBatch.num = 0;
+}
+
 void fcWorldUpdate(FcWorld* world, FcWorldUpdateCtx* ctx, FcUpdateBucket bucket)
 {
 	FcGameObjectStorage* info = &world->gameObjects;
-	
-	// scheduled spawn game objects
-	{
-		for(i32 i=info->numInit; i<info->num; ++i)
-		{
-			FcGameObject* gameObject = info->ptr[i];
-			if(gameObject != NULL)
-			{
-				//const FcGameObjectFactory* factory = fcGameObjectFactoryFind(info->spawner[i]->typeName);
-				
-				// game object can allocate its memory on level heap, through this stack allocator
-				FcAllocator levelHeapAlloc = fcMemRelHeapGetAllocator(world->levelHeap);
-				
-				FcGameObjectInitCtx initCtx = {0};
-				initCtx.info = &info->spawner[i]->info;
-				initCtx.resources = &world->resources;
-				initCtx.systems = &world->systems;
-				initCtx.stackAlloc = &levelHeapAlloc;
-				
-				gameObject->fn->init(gameObject, &initCtx);
-				
-				// reserve memory that is actually used by the game object
-				// ...
-			}
-		}
-		
-		info->numInit = info->num;
-	}
-	
+
 	FcGameObjectUpdateCtx updateCtx = {0};
 	updateCtx.dt = ctx->dt;
-	
+	updateCtx.world = world;
+
 	// go through all update buckets
 	for(i32 i=0; i<FG_UPDATE_BUCKET_COUNT; ++i)
 	{
 		FcArrayGameObjectHandles* bucket = &world->buckets[i];
 		
 		// go through all game objects within a bucket
-		for(i32 idxHandle=0; idxHandle<bucket->num; ++i)
+		for(i32 idxHandle=0; idxHandle<bucket->num; ++idxHandle)
 		{
 			FcGameObjectHandle handle = bucket->data[idxHandle];
 			
@@ -259,50 +291,12 @@ void fcResourceRegisterAddMesh(FcResourceRegister* reg, FcStringId name, const F
 	fcMapInsert(&reg->meshes, &name, &res);
 }
 
-FcGameObjectHandle fcGameObjectStorageFindFreeHandle(FcGameObjectStorage* storage)
+void fcSpawn(const FcSpawnDesc* desc, FcWorld* world)
 {
-	FcGameObjectHandle handle = {0};
-	handle.index = -1;
+	FUR_ASSERT(world->spawnBatch.num < MAX_GAME_OBJECTS_SPAWNED);
 	
-	// find free storage slot
-	for(i32 i=0; i<MAX_GAME_OBJECTS_SPAWNED; ++i)
-	{
-		if(storage->ptr[i] == NULL)
-		{
-			handle.index = i;
-			break;
-		}
-	}
-	
-	return handle;
+	const i32 idx = world->spawnBatch.num;
+	world->spawnBatch.num++;
+
+	world->spawnBatch.elems[idx] = *desc;
 }
-
-FcGameObjectHandle fcSpawn(const FcSpawner* spawner, FcWorld* world)
-{
-	const FcGameObjectFactory* factory = fcGameObjectFactoryFind(spawner->typeName);
-	
-	FcAllocator alloc = fcMemRelHeapGetAllocator(world->levelHeap);
-	FcGameObject* gameObject = FUR_ALLOC_AND_ZERO(factory->memoryMaxSize, 0, FC_MEMORY_SCOPE_GAME, &alloc);
-	gameObject->fn = &factory->fn;
-	gameObject->name = spawner->name;
-	
-	FcGameObjectHandle handle = fcGameObjectStorageFindFreeHandle(&world->gameObjects);
-	FUR_ASSERT(handle.index != -1);
-	
-	handle.name = spawner->name;
-	
-	FcGameObjectStorage* info = &world->gameObjects;
-	info->ptr[handle.index] = gameObject;
-	info->spawner[handle.index] = spawner;
-	
-	world->gameObjects.num++;
-	
-	return handle;
-}
-
-void fcDespawn(FcGameObjectHandle handle, FcWorld* world)
-{
-	// todo: implement
-}
-
-

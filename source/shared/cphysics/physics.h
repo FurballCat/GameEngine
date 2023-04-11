@@ -21,7 +21,7 @@ typedef struct FcPhysics FcPhysics;
 typedef struct FcPhysicsScene FcPhysicsScene;
 
 CPHYSICS_API FcResult fcCreatePhysics(const FcAllocator* allocator, FcPhysics** physics);
-CPHYSICS_API void fcPhysicsRelease(FcPhysics* physics, const FcAllocator* allocator);
+CPHYSICS_API void fcDestroyPhysics(FcPhysics* physics, const FcAllocator* allocator);
 
 CPHYSICS_API void fcPhysicsAddStaticBox(FcPhysics* physics, const fm_xform* worldLocation,
 											const fm_vec3* halfExtents, const FcAllocator* allocator);

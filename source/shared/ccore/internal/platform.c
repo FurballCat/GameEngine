@@ -222,3 +222,13 @@ void fcThreadSetAffinity(FcThread thread, i32 coreID)
 }
 
 #endif
+
+f32 fcTimevalDiffToDeltaSeconds(FcTimeval* prev, FcTimeval* now)
+{
+	const f64 usec_to_sec = 1.0 / 1000000.0;
+	const f64 startTime = prev->sec + prev->usec * usec_to_sec;
+	const f64 stopTime = now->sec + now->usec * usec_to_sec;
+	const f32 elapsedTime = stopTime - startTime;
+
+	return elapsedTime;
+}

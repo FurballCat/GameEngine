@@ -1,9 +1,9 @@
 /* Copyright (c) Furball Cat */
 
-#include "camera.h"
+#include "cgame/camera.h"
 #include "cmath/public.h"
 #include "ccore/public.h"
-#include "string.h"
+#include <string.h>
 
 #define NUM_MAX_CAMERAS 16
 #define BYTES_PER_CAMERA_SLOT 128

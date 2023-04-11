@@ -46,6 +46,11 @@ typedef struct FcPBDDangleDesc
 	f32 dampingCoef;
 } FcPBDDangleDesc;
 
+typedef struct FcPBDSystem FcPBDSystem;
+
+CANIM_API FcResult fcCreatePBDSystem(const FcAllocator* allocator, FcPBDSystem** system);
+CANIM_API void fcDestroyPBDSystem(FcPBDSystem* system, const FcAllocator* allocator);
+
 CANIM_API FcResult fcCreatePBDDangle(const FcPBDDangleDesc* desc, const FcAllocator* allocator, FcPBDDangle** dangle);
 CANIM_API void fcDestroyPBDDangle(FcPBDDangle* dangle, const FcAllocator* allocator);
 

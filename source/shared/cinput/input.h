@@ -22,8 +22,8 @@ typedef struct FcInputEvent
 
 typedef struct FcInputManager FcInputManager;
 
-FcInputManager* fcInputManagerCreate(const FcAllocator* allocator);
-void fcInputManagerRelease(FcInputManager* pMgr, const FcAllocator* allocator);
+FcResult fcCreateInputManager(const FcAllocator* allocator, FcInputManager** inputManager);
+void fcDestroyInputManager(FcInputManager* pMgr, const FcAllocator* allocator);
 	
 void fcInputManagerUpdate(FcInputManager* pMgr, f64 currentTime);
 u32 fcInputManagerGetEvents(const FcInputManager* pMgr, FcInputEvent* pEvents, u32 capacity, u32 startIndex);
