@@ -25,6 +25,7 @@ typedef float f32;
 typedef double f64;
 
 typedef u32 FcStringId;
+typedef struct FcAllocator FcAllocator;
 
 typedef union FcVariant
 {

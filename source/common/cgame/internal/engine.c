@@ -11,6 +11,7 @@
 
 #include "camera.h"
 #include "world.h"
+#include "script.h"
 
 FcResult fcCreateEngine(const FcEngineCreateInfo* info, const FcAllocator* allocator, FcEngine** ppEngine)
 {
@@ -18,6 +19,7 @@ FcResult fcCreateEngine(const FcEngineCreateInfo* info, const FcAllocator* alloc
 	fcProfilerInit(allocator);
 	fcStringIdRegisterInit(allocator);
 	fcJobSystemInit(allocator);
+	fcScriptInit(allocator);
 
 	// init engine systems
 	FcEngine* engine = FUR_ALLOC_AND_ZERO(sizeof(FcEngine), 8, FC_MEMORY_SCOPE_GAME, allocator);
@@ -90,6 +92,7 @@ void fcDestroyEngine(FcEngine* engine, const FcAllocator* allocator)
 	FUR_FREE(engine, allocator);
 
 	// release fundamentals
+	fcScriptRelease(allocator);
 	fcJobSystemRelease(allocator);
 	fcStringIdRegisterRelease(allocator);
 	fcProfilerRelease(allocator);

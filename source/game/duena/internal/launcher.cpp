@@ -19,374 +19,9 @@
 #include "cinput/public.h"
 #include "cgame/world.h"
 #include "cgame/camera.h"
+#include "cgame/script.h"
 
 /**************** FURBALL CAT GAME ENGINE ****************/
-
-// ***** scripts core ***** //
-
-typedef enum FcScriptSegmentId
-{
-	FS_SEG_ID_UNKNOWN = 0,
-	FS_SEG_ID_C_FUNC_CALL = 1,	// indicates function call, read FcScriptOpHeader next
-	FS_SEG_ID_C_FUNC_ARG = 2,	// indicates function argument, read FcVariant next
-	FS_SEG_ID_LAMBDA = 3,	// indicates whole lambda (sequence of function calls), read FcScriptSegmentHeader next
-	FS_SEG_ID_STATE = 4,
-	FS_SEG_ID_STATE_ON_EVENT = 5,
-	FS_SEG_ID_STATE_TRACK = 6,
-	FS_SEG_ID_STATE_SCRIPT = 7,
-} FcScriptSegmentId;
-
-typedef struct FcScriptCtx
-{
-	FcStringId state;
-	FcStringId stateEventToCall;
-	
-	FcStringId nextState;
-	FcVariant lastResult;
-	f32 waitSeconds;
-	u32 numSkipOps;
-	
-	FcGameObject* self;
-	FcWorld* world;
-	
-	// systems
-	FcCameraSystem* sysCamera;
-} FcScriptCtx;
-
-// todo: move it somewhere else
-FcVariant fcScriptNative_Animate(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
-FcVariant fcScriptNative_WaitAnimate(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
-FcVariant fcScriptNative_EquipItem(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
-FcVariant fcScriptNative_WaitSeconds(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
-FcVariant fcScriptNative_GetVariable(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
-FcVariant fcScriptNative_SetVariable(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
-FcVariant fcScriptNative_Go(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
-FcVariant fcScriptNative_GoWhen(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
-FcVariant fcScriptNative_CmpGt(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
-FcVariant fcScriptNative_CmpEq(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
-
-// camera script functions
-FcVariant fcScriptNative_CameraEnable(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
-
-typedef FcVariant (*FcScriptNativeFn)(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args);
-
-typedef struct FcScriptNativeFnEntry
-{
-	FcStringId name;
-	FcScriptNativeFn func;
-	u32 numArgs;
-} FcScriptNativeFnEntry;
-
-FcStringId g_scriptNullOpCode = SID("__null");
-
-FcScriptNativeFnEntry g_nativeFuncLookUp[] = {
-	{ SID("animate"), fcScriptNative_Animate, 2 },
-	{ SID("wait-animate"), fcScriptNative_WaitAnimate, 2 },
-	{ SID("equip-item"), fcScriptNative_EquipItem, 2 },
-	{ SID("wait-seconds"), fcScriptNative_WaitSeconds, 1 },
-	{ SID("get-variable"), fcScriptNative_GetVariable, 2 },
-	{ SID("set-variable"), fcScriptNative_SetVariable, 3 },
-	{ SID("go"), fcScriptNative_Go, 1 },
-	{ SID("go-when"), fcScriptNative_GoWhen, 2 },
-	{ SID("cmp-gt"), fcScriptNative_CmpGt, 2 },
-	{ SID("cmp-eq"), fcScriptNative_CmpEq, 2 },
-	{ SID("camera-enable"), fcScriptNative_CameraEnable, 3 },
-	{ g_scriptNullOpCode, NULL, 0 }
-};
-
-typedef struct FcScriptOp
-{
-	FcScriptNativeFn func;
-	FcVariant* args;	// not owning this memory, it's just a pointer
-	u32 numArgs;
-} FcScriptOp;
-
-typedef struct FcScriptData
-{
-	FcScriptOp* ops;	// sequence of operations
-	FcVariant* allArgs; // owning memory to all args for all calls
-	
-	u32 numOps;
-	u32 numAllArgs;
-} FcScriptData;
-
-typedef struct FcScriptState
-{
-	u32 idxOp;
-} FcScriptState;
-
-typedef enum FcScriptParsingStage
-{
-	SPS_NONE = 0,
-	SPS_READING,
-	SPS_END,
-} FcScriptParsingStage;
-
-/*
- 
- Header
- Arg1
- Arg2
- Header
- Arg1
- ...
- 
- **/
-
-typedef struct FcScriptOpHeader
-{
-	FcStringId opCode;
-	u32 flags;
-	u32 numArgs;
-} FcScriptOpHeader;
-
-typedef struct FcScriptSegmentHeader
-{
-	u8 segmentId;		// type of segment data (what to expect next)
-	u8 padding;
-	u16 dataSize; 		// segment size in bytes
-	FcStringId name;	// unique name in segment scope (to know what to look for)
-} FcScriptSegmentHeader;
-
-typedef struct FcScriptExecutionCtx
-{
-	FcBinaryBufferStream scriptBufferStream;
-	FcScriptCtx* scriptCtx;
-	u32 numOpsExecuted;
-	bool endOflambda;
-} FcScriptExecutionCtx;
-
-FcVariant fcScriptExecuteStep(FcScriptExecutionCtx* ctx)
-{
-	FcBinaryBufferStream* stream = &ctx->scriptBufferStream;
-	
-	// peek what's next in buffer, but do not advance the stream
-	u8 op_pre_flag = FS_SEG_ID_UNKNOWN;
-	fcBinaryBufferStreamPeek(stream, sizeof(u8), &op_pre_flag);
-	
-	FcVariant result = {};
-	
-	if(op_pre_flag == FS_SEG_ID_C_FUNC_CALL)
-	{
-		// advance the stream to skip the peeked part
-		u32 bytesRead = fcBinaryBufferStreamRead(stream, sizeof(u8), &op_pre_flag);
-		FUR_ASSERT(bytesRead);
-		
-		ctx->numOpsExecuted += 1;
-		
-		// read operation header
-		FcScriptOpHeader opHeader = {};
-		bytesRead = fcBinaryBufferStreamRead(stream, sizeof(FcScriptOpHeader), &opHeader);
-		FUR_ASSERT(bytesRead);
-		
-		// read arguments
-		FUR_ASSERT(opHeader.numArgs < 20);
-		FcVariant args[20];
-		
-		for(u32 i=0; i<opHeader.numArgs; ++i)
-		{
-			args[i] = fcScriptExecuteStep(ctx);
-		}
-		
-		// execute operation
-		if(ctx->scriptCtx->numSkipOps == 0)
-		{
-			// find operation/function pointer - todo: implement simple cache
-			const u32 numFuncs = FUR_ARRAY_SIZE(g_nativeFuncLookUp);
-			u32 idxFunc = 0;
-			for(idxFunc=0; idxFunc<numFuncs; ++idxFunc)
-			{
-				if(opHeader.opCode == g_nativeFuncLookUp[idxFunc].name)
-				{
-					break;
-				}
-			}
-			
-			FUR_ASSERT(idxFunc < numFuncs);	// op code not found
-			
-			// call function
-			result = g_nativeFuncLookUp[idxFunc].func(ctx->scriptCtx, opHeader.numArgs, args);
-		}
-		else if(ctx->scriptCtx->numSkipOps > 0)
-		{
-			ctx->scriptCtx->numSkipOps -= 1;
-		}
-	}
-	else if(op_pre_flag == FS_SEG_ID_C_FUNC_ARG)
-	{
-		// advance the stream to skip the peeked part
-		u32 bytesRead = fcBinaryBufferStreamRead(stream, sizeof(u8), &op_pre_flag);
-		FUR_ASSERT(bytesRead);
-		
-		bytesRead = fcBinaryBufferStreamRead(stream, sizeof(FcVariant), &result);
-		FUR_ASSERT(bytesRead);
-	}
-	else
-	{
-		ctx->endOflambda = true;
-	}
-	
-	return result;
-}
-
-FcScriptSegmentId fcScriptReadSegmentHeader(FcScriptExecutionCtx* ctx, FcScriptSegmentHeader* header)
-{
-	// read segment header to know what's in
-	u32 bytesRead = fcBinaryBufferStreamRead(&ctx->scriptBufferStream, sizeof(FcScriptSegmentHeader), header);
-	FUR_ASSERT(bytesRead);
-	
-	return (FcScriptSegmentId)header->segmentId;
-}
-
-FcStringId fcScriptSkipToNextSegment(FcScriptExecutionCtx* ctx, FcScriptSegmentId segmentType)
-{
-	FcScriptSegmentHeader header = {};
-	bool found = false;
-	
-	while(ctx->scriptBufferStream.pos <= ctx->scriptBufferStream.endPos)
-	{
-		// read segment header to know what's in
-		u32 bytesRead = fcBinaryBufferStreamRead(&ctx->scriptBufferStream, sizeof(FcScriptSegmentHeader), &header);
-		FUR_ASSERT(bytesRead);
-		
-		// is it the segment we are looking for?
-		FcScriptSegmentId thisSegmentType = (FcScriptSegmentId)header.segmentId;
-		if(thisSegmentType == segmentType)
-		{
-			found = true;
-			return header.name;
-		}
-		
-		// no? ok, let's skip to the next segment
-		bytesRead = fcBinaryBufferStreamRead(&ctx->scriptBufferStream, header.dataSize, NULL);
-		FUR_ASSERT(bytesRead);
-	}
-	
-	return 0;
-}
-
-bool fcScriptSkipUntilSegment(FcScriptExecutionCtx* ctx, FcScriptSegmentId segmentType, FcStringId segmentName)
-{
-	FcStringId name = 0;
-	
-	do
-	{
-		name = fcScriptSkipToNextSegment(ctx, segmentType);
-		if(name == segmentName)
-			return true;
-	}
-	while(name != 0);
-
-	return false;
-}
-
-void fcScriptExecuteLambda(FcScriptExecutionCtx* ctx)
-{
-	do
-	{
-		fcScriptExecuteStep(ctx);
-		
-		if(ctx->scriptCtx->waitSeconds > 0.0f)
-		{
-			ctx->scriptCtx->numSkipOps = ctx->numOpsExecuted;
-			break;
-		}
-		else if(ctx->scriptCtx->nextState != 0)
-		{
-			break;
-		}
-	}
-	while(!ctx->endOflambda);
-}
-
-void fcScriptExecute(const FcBinaryBuffer* scriptBuffer, FcScriptCtx* scriptCtx)
-{
-	FcScriptExecutionCtx ctx = {};
-	ctx.scriptCtx = scriptCtx;
-	fcBinaryBufferStreamInit(scriptBuffer, &ctx.scriptBufferStream);
-	
-	FcStringId segName = fcScriptSkipToNextSegment(&ctx, FS_SEG_ID_STATE_SCRIPT);
-	FUR_ASSERT(segName);
-	
-	bool found = fcScriptSkipUntilSegment(&ctx, FS_SEG_ID_STATE, scriptCtx->state);
-	FUR_ASSERT(found);
-	
-	found = fcScriptSkipUntilSegment(&ctx, FS_SEG_ID_STATE_ON_EVENT, scriptCtx->stateEventToCall);
-	FUR_ASSERT(found);
-	
-	FcScriptSegmentHeader segmentHeader = {};
-	fcScriptReadSegmentHeader(&ctx, &segmentHeader);
-	
-	if(segmentHeader.segmentId == FS_SEG_ID_STATE_TRACK)
-	{
-		// todo
-		fcScriptReadSegmentHeader(&ctx, &segmentHeader);
-		FUR_ASSERT(segmentHeader.segmentId == FS_SEG_ID_LAMBDA);
-	}
-	
-	// run lambda
-	fcScriptExecuteLambda(&ctx);
-}
-
-typedef struct FcScriptLambda
-{
-	f32 waitSeconds;
-	u32 numSkipOps;
-	bool isActive;
-	FcStringId lambdaName;	// or state name
-	FcStringId eventName;
-	FcStringId state;
-	FcGameObject* selfGameObject;
-	const FcBinaryBuffer* scriptBlob;
-} FcScriptLambda;
-
-void fcScriptUpdateLambda(FcScriptLambda* lambda, FcWorld* world, f32 dt)
-{
-	if (lambda->isActive == false)
-		return;
-
-	if (lambda->waitSeconds > 0.0f)
-	{
-		lambda->waitSeconds = FM_MAX(lambda->waitSeconds - dt, 0.0f);
-
-		if (lambda->waitSeconds > 0.0f)
-		{
-			return;
-		}
-	}
-
-	FcScriptCtx scriptCtx = {};
-	scriptCtx.world = world;
-	scriptCtx.self = lambda->selfGameObject;
-	scriptCtx.state = lambda->lambdaName;
-	scriptCtx.stateEventToCall = lambda->eventName;
-	scriptCtx.numSkipOps = lambda->numSkipOps;
-	scriptCtx.sysCamera = world->systems.camera;
-
-	fcScriptExecute(lambda->scriptBlob, &scriptCtx);
-
-	if (scriptCtx.waitSeconds > 0.0f)
-	{
-		lambda->waitSeconds = scriptCtx.waitSeconds;
-		lambda->numSkipOps = scriptCtx.numSkipOps;
-	}
-	else if (scriptCtx.nextState != 0)
-	{
-		lambda->state = scriptCtx.nextState;
-		lambda->lambdaName = scriptCtx.nextState;
-		lambda->eventName = SID("start");
-		lambda->numSkipOps = 0;
-		lambda->waitSeconds = 0.0f;
-	}
-	else if (lambda->eventName == SID("start"))
-	{
-		lambda->eventName = SID("update");
-		lambda->numSkipOps = 0;
-		lambda->waitSeconds = 0.0f;
-	}
-}
-
-// ******************* //
 
 struct FurMainAppDesc
 {
@@ -625,6 +260,8 @@ typedef struct FcInputActionSystem
 {
 	fm_vec2 rightStick;
 	fm_vec2 leftStick;
+	float rightTrigger;
+	float leftTrigger;
 	bool triangle;
 	bool square;
 	bool cross;
@@ -656,17 +293,6 @@ struct FcGameEngine
 	FcRig* pRig;
 	const FcAnimClip* pAnimClipWindProtect;
 	const FcAnimClip* pAnimClipHoldSword;
-	
-	// input actions
-	bool inActionPressed;
-	bool inputTriangleActionPressed;
-	bool inputCircleActionPressed;
-	f32 actionRotationLeftX;
-	f32 actionRotationLeftY;
-	f32 actionZoomIn;
-	f32 actionZoomOut;
-	f32 actionMoveX;
-	f32 actionMoveY;
 	
 	fm_vec4 playerMove;
 	
@@ -795,6 +421,8 @@ bool fcCreateGameEngine(const FcGameEngineCreateInfo& desc, const FcAllocator* a
 	{
 		fcJobSystemInit(allocator);
 	}
+
+	fcScriptInit(allocator);
 	
 	if(res == FC_SUCCESS)
 	{
@@ -1188,278 +816,6 @@ bool fcCreateGameEngine(const FcGameEngineCreateInfo& desc, const FcAllocator* a
 	return true;
 }
 
-FcGameObject* fcScriptLookUpGameObject(FcScriptCtx* ctx, FcStringId name)
-{
-	if(name == SID("self"))
-	{
-		return ctx->self;
-	}
-// 	else if(name == SID("player"))
-// 	{
-// 		return ctx->gameObjectRegister->pPlayer;
-// 	}
-	else
-	{
-		FcGameObjectStorage* storage = &ctx->world->gameObjects;
-		for(u32 i=0; i<storage->num; ++i)
-		{
-			if(storage->ptr[i]->name == name)
-			{
-				return storage->ptr[i];
-			}
-		}
-	}
-	
-	return NULL;
-}
-
-typedef enum FcScriptAnimateArg
-{
-	FS_ANIMATE_ARG_FADE_IN_CURVE = 0,
-	FS_ANIMATE_ARG_FADE_IN_SEC,
-	FS_ANIMATE_ARG_FADE_OUT_CURVE,
-	FS_ANIMATE_ARG_FADE_OUT_SEC,
-	FS_ANIMATE_ARG_IK_MODE,
-	FS_ANIMATE_ARG_LAYER,
-	FS_ANIMATE_ARG_LAYER_NAME,
-} FcScriptAnimateArg;
-
-FcVariant fcScriptNative_Animate(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
-{
-	FUR_ASSERT(numArgs >= 2);
-	const FcStringId objectName = args[0].asStringHash;
-	const FcStringId animName = args[1].asStringHash;
-	
-	// find game object
-	FcGameObject* gameObj = fcScriptLookUpGameObject(ctx, objectName);
-	FUR_ASSERT(gameObj);
-
-	if (!gameObj->fn->animate)
-	{
-		FcVariant result = {};
-		return result;
-	}
-	
-	const FcAnimClip* animClip = fcResourceRegisterFindAnimClip(&ctx->world->resources, animName);
-	FUR_ASSERT(animClip);
-	
-	FcAnimActionArgs animArgs = {};
-	
-	// get variadic arguments - iterate every 2 arguments, as we need (animate-arg ENUM) VALUE, this is two variadic arguments
-	for(u32 i=2; i+1<numArgs; i += 2)
-	{
-		const FcScriptAnimateArg arg_enum = (FcScriptAnimateArg)args[i].asInt32;
-		switch(arg_enum)
-		{
-			case FS_ANIMATE_ARG_FADE_IN_SEC:
-				animArgs.fadeInSec = args[i+1].asFloat;
-				break;
-			case FS_ANIMATE_ARG_FADE_IN_CURVE:
-				animArgs.fadeInCurve = (FcCurveType)args[i+1].asInt32;
-				break;
-			case FS_ANIMATE_ARG_FADE_OUT_SEC:
-				animArgs.fadeOutSec = args[i+1].asFloat;
-				break;
-			case FS_ANIMATE_ARG_FADE_OUT_CURVE:
-				animArgs.fadeOutCurve = (FcCurveType)args[i+1].asInt32;
-				break;
-			case FS_ANIMATE_ARG_IK_MODE:
-				animArgs.ikMode = (FcAnimIKMode)args[i+1].asInt32;
-				break;
-			case FS_ANIMATE_ARG_LAYER:
-				animArgs.layer = (FcAnimLayerType)args[i+1].asInt32;
-				break;
-			case FS_ANIMATE_ARG_LAYER_NAME:
-				animArgs.layerName = args[i+1].asStringHash;
-				break;
-			default:
-				break;
-		}
-	}
-
-	bool useLocomotion = false;
-	
-	if(animArgs.layerName == SID("full-body") || animArgs.layerName == 0)
-	{
-		useLocomotion = true;
-	}
-	
-	if (gameObj->fn->animate)
-	{
-		FcGameObjectAnimateCtx animCtx = {0};
-		animCtx.animArgs = &animArgs;
-		animCtx.animClip = animClip;
-		animCtx.forceLoop = true;
-		animCtx.useLocomotion = true;
-
-		gameObj->fn->animate(gameObj, &animCtx);
-	}
-
-	ctx->waitSeconds = FM_MAX(ctx->waitSeconds - animArgs.fadeOutSec, 0.0f);
-	
-	FcVariant result = {};
-	return result;
-};
-
-FcVariant fcScriptNative_WaitAnimate(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
-{
-	FUR_ASSERT(numArgs >= 2);
-	const FcStringId animName = args[1].asStringHash;
-	
-	const FcAnimClip* animClip = fcResourceRegisterFindAnimClip(&ctx->world->resources, animName);
-	FUR_ASSERT(animClip);
-	
-	ctx->waitSeconds = animClip->duration;
-	
-	return fcScriptNative_Animate(ctx, numArgs, args);
-}
-
-FcVariant fcScriptNative_EquipItem(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
-{
-	FUR_ASSERT(numArgs >= 2);
-	const FcStringId objectName = args[0].asStringHash;
-	//const FcStringId itemName = args[1].asStringHash;
-	
-	// find game object
-	FcGameObject* gameObj = fcScriptLookUpGameObject(ctx, objectName);
-	FUR_ASSERT(gameObj);
-	
-	FcVariant value;
-	value.asBool = true;
-	gameObj->fn->setVar(gameObj, SID("equip-item"), value);
-
-	FcVariant result = {};
-	return result;
-}
-
-FcVariant fcScriptNative_WaitSeconds(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
-{
-	FUR_ASSERT(numArgs == 1);
-	const f32 timeInSeconds = args[0].asFloat;
-	
-	ctx->waitSeconds = timeInSeconds;
-	
-	FcVariant result = {};
-	return result;
-}
-
-FcVariant fcScriptNative_GetVariable(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
-{
-	FUR_ASSERT(numArgs == 2);
-	const FcStringId objectName = args[0].asStringHash;
-	const FcStringId varName = args[1].asStringHash;
-	
-	// find game object
-	FcGameObject* gameObj = fcScriptLookUpGameObject(ctx, objectName);
-	FUR_ASSERT(gameObj);
-	
-	FcVariant result = {};
-	
-	if (gameObj->fn->getVar)
-	{
-		return gameObj->fn->getVar(gameObj, varName);
-	}
-
-	return result;
-}
-
-FcVariant fcScriptNative_SetVariable(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
-{
-	FUR_ASSERT(numArgs >= 3);
-	const FcStringId objectName = args[0].asStringHash;
-	const FcStringId varName = args[1].asStringHash;
-	const FcVariant varValue = args[2];
-
-	// find game object
-	FcGameObject* gameObj = fcScriptLookUpGameObject(ctx, objectName);
-	FUR_ASSERT(gameObj);
-
-	if (gameObj->fn->setVar)
-	{
-		gameObj->fn->setVar(gameObj, varName, varValue);
-	}
-
-	FcVariant result = {};
-	return result;
-}
-
-FcVariant fcScriptNative_Go(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
-{
-	FUR_ASSERT(numArgs == 1);
-	const FcStringId goToState = args[0].asStringHash;
-	
-	ctx->nextState = goToState;
-	
-	FcVariant result = {};
-	return result;
-}
-
-FcVariant fcScriptNative_GoWhen(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
-{
-	FUR_ASSERT(numArgs == 2);
-	const FcStringId goToState = args[0].asStringHash;
-	const bool condition = args[1].asBool;
-	
-	if(condition)
-	{
-		ctx->nextState = goToState;
-	}
-	
-	return args[1];
-}
-
-FcVariant fcScriptNative_CmpGt(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
-{
-	FUR_ASSERT(numArgs == 2);
-	const i32 a = args[0].asInt32;
-	const i32 b = args[1].asInt32;
-	
-	FcVariant result;
-	result.asBool = a > b;
-	return result;
-}
-
-FcVariant fcScriptNative_CmpEq(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
-{
-	FUR_ASSERT(numArgs == 2);
-	const i32 a = args[0].asInt32;
-	const i32 b = args[1].asInt32;
-	
-	FcVariant result;
-	result.asBool = (a == b);
-	return result;
-}
-
-FcVariant fcScriptNative_CameraEnable(FcScriptCtx* ctx, u32 numArgs, const FcVariant* args)
-{
-	FUR_ASSERT(numArgs == 3);
-	const FcStringId objectName = args[0].asStringHash;
-	const FcStringId cameraType = args[1].asStringHash;
-	const f32 fadeInSec = args[2].asFloat;
-	
-	if(cameraType == SID("follow"))
-	{
-		FcCameraParamsFollow params = {};
-		params.height = 1.2f;
-		params.zoom = 1.5f;
-		params.poleLength = 1.5f;
-		params.fov = 70.0f;
-		fcCameraEnableFollow(ctx->sysCamera, &params, fadeInSec);
-	}
-	else if(cameraType == SID("follow-vista"))
-	{
-		FcCameraParamsFollow params = {};
-		params.height = 1.5f;
-		params.zoom = 1.5f;
-		params.poleLength = 1.0f;
-		params.fov = 60.0f;
-		fcCameraEnableFollow(ctx->sysCamera, &params, fadeInSec);
-	}
-	
-	FcVariant result = {};
-	return result;
-}
-
 bool g_drawDevMenu = false;
 i32 g_devMenuOption = 0;
 bool g_devMenuOptionClick = false;
@@ -1597,17 +953,8 @@ void fcInputActionsUpdate(FcGameEngine* pEngine, f32 dt)
 		actionSystem->circle = circleActionPressed;
 		actionSystem->cross = actionPressed;
 		actionSystem->square = squareActionPressed;
-
-		pEngine->actionRotationLeftX = rightAnalogX;
-		pEngine->actionRotationLeftY = rightAnalogY;
-		pEngine->actionMoveX = leftAnalogX;
-		pEngine->actionMoveY = leftAnalogY;
-		pEngine->actionZoomIn = rightTrigger;
-		pEngine->actionZoomOut = leftTrigger;
-		
-		pEngine->inActionPressed = actionPressed;
-		pEngine->inputTriangleActionPressed = triangleActionPressed;
-		pEngine->inputCircleActionPressed = circleActionPressed;
+		actionSystem->rightTrigger = rightTrigger;
+		actionSystem->leftTrigger = leftTrigger;
 	}
 }
 
@@ -1723,7 +1070,7 @@ void fcGameplayUpdate(FcGameEngine* pEngine, f32 dt)
 	if(zelda->playerState == SID("idle"))
 	{
 		// on update - upper-body layer in this case
-		if(pEngine->inputTriangleActionPressed || zelda->equipItemNow)
+		if(pEngine->inputActionSystem.triangle || zelda->equipItemNow)
 		{
 			zelda->equipItemNow = false;
 			
@@ -1753,7 +1100,7 @@ void fcGameplayUpdate(FcGameEngine* pEngine, f32 dt)
 		}
 	}
 	
-	if(pEngine->inputCircleActionPressed)
+	if(pEngine->inputActionSystem.circle)
 	{
 		if(zelda->playerWeaponEquipped)
 		{
@@ -1803,7 +1150,7 @@ void fcGameplayUpdate(FcGameEngine* pEngine, f32 dt)
 	}
 	
 	// jumping
-	if(pEngine->inActionPressed && zelda->isGrounded)
+	if(pEngine->inputActionSystem.cross && zelda->isGrounded)
 	{
 		zelda->isJump = true;
 	}
@@ -2338,9 +1685,9 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 		{
 			FcCameraSystemUpdateCtx cameraCtx = {};
 			cameraCtx.dt = dt;
-			cameraCtx.rotationYaw = pEngine->actionRotationLeftX;
-			cameraCtx.rotationPitch = pEngine->actionRotationLeftY;
-			cameraCtx.zoom = pEngine->actionZoomOut - pEngine->actionZoomIn;
+			cameraCtx.rotationYaw = pEngine->inputActionSystem.rightStick.x;
+			cameraCtx.rotationPitch = pEngine->inputActionSystem.rightStick.y;
+			cameraCtx.zoom = pEngine->inputActionSystem.leftTrigger - pEngine->inputActionSystem.rightTrigger;
 			
 			// adjust camera by player position
 			fcCameraSystemAdjustByPlayerMovement(pEngine->cameraSystem, &zeldaMat);
@@ -2356,9 +1703,9 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 		fcCameraSystemGetDirections(pEngine->cameraSystem, &dirForward, &dirLeft);
 		
 		fm_vec4 playerMoveForward;
-		fm_vec4_mulf(&dirForward, maxSpeed * pEngine->actionMoveY, &playerMoveForward);
+		fm_vec4_mulf(&dirForward, maxSpeed * pEngine->inputActionSystem.leftStick.y, &playerMoveForward);
 		fm_vec4 playerMoveLeft;
-		fm_vec4_mulf(&dirLeft, maxSpeed * pEngine->actionMoveX, &playerMoveLeft);
+		fm_vec4_mulf(&dirLeft, maxSpeed * pEngine->inputActionSystem.leftStick.x, &playerMoveLeft);
 		fm_vec4 playerMove;
 		fm_vec4_add(&playerMoveForward, &playerMoveLeft, &playerMove);
 		
@@ -2520,6 +1867,8 @@ bool furMainEngineTerminate(FcGameEngine* pEngine, const FcAllocator* allocator)
 	
 	fcDestroyCameraSystem(pEngine->cameraSystem, allocator);
 	
+	fcScriptRelease(allocator);
+
 	fcJobSystemRelease(allocator);
 	fcDestroyPhysics(pEngine->pPhysics, allocator);
 	fcDestroyRenderer(pEngine->pRenderer, allocator);
