@@ -170,15 +170,57 @@ bool fcGameObject_ZeldaInit(FcGameObject* gameObject, FcGameObjectInitCtx* ctx)
 	return true;
 }
 
-void fcGameObject_ZeldaUpdate(FcGameObject* gameObject, FcGameObjectUpdateCtx* ctx)
+void fcGameObject_ZeldaUpdatePreAnim(FcGameObject* gameObject, FcGameObjectUpdateCtx* ctx)
 {
-	FUR_PROFILE("update-zelda")
+	FUR_PROFILE("update-zelda-pre-anim")
 	{
 		FcGameObject_Zelda* zelda = (FcGameObject_Zelda*)gameObject;
 
 		fcScriptUpdateLambda(&zelda->script, ctx->world, ctx->dt);
 
 		zelda->playerState = zelda->script.state;
+	}
+}
+
+void fcGameObject_ZeldaUpdatePrePhysics(FcGameObject* gameObject, FcGameObjectUpdateCtx* ctx)
+{
+	FUR_PROFILE("update-zelda-pre-physics")
+	{
+		const f32 dt = ctx->dt;
+
+		FcGameObject_Zelda* zelda = (FcGameObject_Zelda*)gameObject;
+
+		fm_vec4 playerDisplacement = zelda->velocity;
+
+		// apply root motion from anim info to physics
+		if (zelda->isJump)
+		{
+			zelda->velocity.z = 4.0f;
+		}
+		else if (zelda->isGrounded)
+		{
+			zelda->velocity.x = zelda->animCharacter->animInfo.rootMotionDelta.x / dt;
+			zelda->velocity.y = zelda->animCharacter->animInfo.rootMotionDelta.y / dt;
+			zelda->velocity.z = 0.0f;
+		}
+		else
+		{
+			const f32 speed = fm_vec4_mag(&zelda->velocity);
+			if (speed > 0.0f)
+			{
+				zelda->velocity.x += zelda->animCharacter->animInfo.desiredMove.x * 1.2f;
+				zelda->velocity.y += zelda->animCharacter->animInfo.desiredMove.y * 1.2f;
+				fm_vec4_norm(&zelda->velocity);
+				fm_vec4_mulf(&zelda->velocity, speed, &zelda->velocity);
+			}
+		}
+
+		// apply gravity
+		zelda->velocity.z += -9.81f * dt;
+
+		fm_vec4_mulf(&zelda->velocity, dt, &playerDisplacement);
+		const fm_vec3 displacement = { playerDisplacement.x, playerDisplacement.y, playerDisplacement.z };
+		fcCapsuleControllerMove(zelda->capsule, &displacement, dt);
 	}
 }
 
@@ -254,7 +296,8 @@ void fcRegisterGameObjectFactories()
 		FcGameObjectFactory factory = {};
 		factory.updateBucket = FG_UPDATE_BUCKET_CHARACTERS;
 		factory.fn.init = fcGameObject_ZeldaInit;
-		factory.fn.update = fcGameObject_ZeldaUpdate;
+		factory.fn.preAnimUpdate = fcGameObject_ZeldaUpdatePreAnim;
+		factory.fn.prePhysicsUpdate = fcGameObject_ZeldaUpdatePrePhysics;
 		factory.fn.getVar = fcGameObject_ZeldaGetVar;
 		factory.fn.animate = fcGameObject_ZeldaAnimate;
 		factory.memoryMaxSize = sizeof(FcGameObject_Zelda);
@@ -1377,6 +1420,22 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 	// debug/dev menu
 	fcDrawDebugMenu(pEngine, allocator);
 	
+	// world axes debug draw
+	{
+		const fm_vec4 zeros = { 0.0f, 0.0f, 0.0f, 0.0f };
+		const fm_vec4 axisX = { 1.0f, 0.0f, 0.0f, 0.0f };
+		const fm_vec4 axisY = { 0.0f, 1.0f, 0.0f, 0.0f };
+		const fm_vec4 axisZ = { 0.0f, 0.0f, 1.0f, 0.0f };
+
+		const f32 red[4] = FUR_COLOR_RED;
+		const f32 green[4] = FUR_COLOR_GREEN;
+		const f32 blue[4] = FUR_COLOR_BLUE;
+
+		fcDebugLine(&zeros.x, &axisX.x, red);
+		fcDebugLine(&zeros.x, &axisY.x, green);
+		fcDebugLine(&zeros.x, &axisZ.x, blue);
+	}
+
 	FUR_PROFILE("spawning")
 	{
 		fcUpdateSpawning(pEngine->pWorld);
@@ -1393,47 +1452,47 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 		}
 	}
 
-	// game
-	FUR_PROFILE("gameplay-update")
+	// world pre anim
+	FUR_PROFILE("world-pre-anim")
 	{
 		fcGameplayUpdate(pEngine, dt);
 		
 		FcWorldUpdateCtx worldUpdateCtx = {};
 		worldUpdateCtx.dt = dt;
-		fcWorldUpdate(pEngine->pWorld, &worldUpdateCtx, FG_UPDATE_BUCKET_CHARACTERS);
-	}
-	
-	// test set look-at point
-	{
-		// get zelda position
-		fm_xform playerLocator;
-		fcCapsuleControllerGetLocator(pEngine->zeldaGameObject->capsule, &playerLocator);
-		
-		static f32 time = 0.0f;
-		time += dt;
-		
-		// convert world space look-at point to model space of player
-		fm_vec4 lookAtPoint = {2.0f * sinf(time), 2.0f * cosf(time), 1.0f + 1.0f * sinf(time * 0.6f), 1.0f};	// in world space
-		
-		f32 color[4] = FUR_COLOR_MAGENTA;
-		fcDebugSphereWire(&lookAtPoint.x, 0.1f, color);
+		fcWorldUpdatePreAnim(pEngine->pWorld, &worldUpdateCtx, FG_UPDATE_BUCKET_CHARACTERS);
 
-		FcGameObject_Zelda* zelda = pEngine->zeldaGameObject;
-		
-		const f32 distanceToLookAtPoint = fm_vec4_distance(&lookAtPoint, &playerLocator.pos);
-		
-		if(zelda->animCharacter->animInfo.useLookAt)
+		// test set look-at point
 		{
-			zelda->animCharacter->animInfo.useLookAt = distanceToLookAtPoint < 10.0f;
+			// get zelda position
+			fm_xform playerLocator;
+			fcCapsuleControllerGetLocator(pEngine->zeldaGameObject->capsule, &playerLocator);
+
+			static f32 time = 0.0f;
+			time += dt;
+
+			// convert world space look-at point to model space of player
+			fm_vec4 lookAtPoint = { 2.0f * sinf(time), 2.0f * cosf(time), 1.0f + 1.0f * sinf(time * 0.6f), 1.0f };	// in world space
+
+			f32 color[4] = FUR_COLOR_MAGENTA;
+			fcDebugSphereWire(&lookAtPoint.x, 0.1f, color);
+
+			FcGameObject_Zelda* zelda = pEngine->zeldaGameObject;
+
+			const f32 distanceToLookAtPoint = fm_vec4_distance(&lookAtPoint, &playerLocator.pos);
+
+			if (zelda->animCharacter->animInfo.useLookAt)
+			{
+				zelda->animCharacter->animInfo.useLookAt = distanceToLookAtPoint < 10.0f;
+			}
+			else
+			{
+				zelda->animCharacter->animInfo.useLookAt = distanceToLookAtPoint < 6.0f;
+			}
+
+			zelda->animCharacter->animInfo.lookAtPoint.x = lookAtPoint.x;
+			zelda->animCharacter->animInfo.lookAtPoint.y = lookAtPoint.y;
+			zelda->animCharacter->animInfo.lookAtPoint.z = lookAtPoint.z;
 		}
-		else
-		{
-			zelda->animCharacter->animInfo.useLookAt = distanceToLookAtPoint < 6.0f;
-		}
-		
-		zelda->animCharacter->animInfo.lookAtPoint.x = lookAtPoint.x;
-		zelda->animCharacter->animInfo.lookAtPoint.y = lookAtPoint.y;
-		zelda->animCharacter->animInfo.lookAtPoint.z = lookAtPoint.z;
 	}
 	
 	// animation
@@ -1442,63 +1501,23 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 		fcAnimationUpdate(pEngine, dt);
 	}
 	
+	// world pre physics
+	FUR_PROFILE("world-pre-physics")
 	{
-		const fm_vec4 zeros = {0.0f, 0.0f, 0.0f, 0.0f};
-		const fm_vec4 axisX = {1.0f, 0.0f, 0.0f, 0.0f};
-		const fm_vec4 axisY = {0.0f, 1.0f, 0.0f, 0.0f};
-		const fm_vec4 axisZ = {0.0f, 0.0f, 1.0f, 0.0f};
-		
-		const f32 red[4] = FUR_COLOR_RED;
-		const f32 green[4] = FUR_COLOR_GREEN;
-		const f32 blue[4] = FUR_COLOR_BLUE;
-		
-		fcDebugLine(&zeros.x, &axisX.x, red);
-		fcDebugLine(&zeros.x, &axisY.x, green);
-		fcDebugLine(&zeros.x, &axisZ.x, blue);
+		FcWorldUpdateCtx worldUpdateCtx = {};
+		worldUpdateCtx.dt = dt;
+		fcWorldUpdatePrePhysics(pEngine->pWorld, &worldUpdateCtx, FG_UPDATE_BUCKET_CHARACTERS);
 	}
-	
+
 	// physics
 	FUR_PROFILE("physics-update")
 	{
 		FcPhysicsUpdateCtx physicsCtx = {};
 		physicsCtx.dt = dt;
 
-		FcGameObject_Zelda* zelda = pEngine->zeldaGameObject;
-
-		fm_vec4 playerDisplacement = zelda->velocity;
-		
-		// apply root motion from anim info to physics
-		if(zelda->isJump)
-		{
-			zelda->velocity.z = 4.0f;
-		}
-		else if(zelda->isGrounded)
-		{
-			zelda->velocity.x = zelda->animCharacter->animInfo.rootMotionDelta.x / dt;
-			zelda->velocity.y = zelda->animCharacter->animInfo.rootMotionDelta.y / dt;
-			zelda->velocity.z = 0.0f;
-		}
-		else
-		{
-			const f32 speed = fm_vec4_mag(&zelda->velocity);
-			if(speed > 0.0f)
-			{
-				zelda->velocity.x += zelda->animCharacter->animInfo.desiredMove.x * 1.2f;
-				zelda->velocity.y += zelda->animCharacter->animInfo.desiredMove.y * 1.2f;
-				fm_vec4_norm(&zelda->velocity);
-				fm_vec4_mulf(&zelda->velocity, speed, &zelda->velocity);
-			}
-		}
-		
-		// apply gravity
-		zelda->velocity.z += -9.81f * dt;
-		
-		fm_vec4_mulf(&zelda->velocity, dt, &playerDisplacement);
-		const fm_vec3 displacement = { playerDisplacement.x, playerDisplacement.y, playerDisplacement.z };
-		fcCapsuleControllerMove(zelda->capsule, &displacement, dt);
-
 		fcPhysicsUpdate(pEngine->pPhysics, &physicsCtx);
 		
+		FcGameObject_Zelda* zelda = pEngine->zeldaGameObject;
 		fcCapsuleControllerGetLocator(zelda->capsule, &zelda->info.transform);
 
 		if(zelda->playerWindProtecting)

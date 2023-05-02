@@ -204,7 +204,7 @@ void fcUpdateSpawning(FcWorld* world)
 	world->spawnBatch.num = 0;
 }
 
-void fcWorldUpdate(FcWorld* world, FcWorldUpdateCtx* ctx, FcUpdateBucket bucket)
+void fcWorldUpdatePreAnim(FcWorld* world, FcWorldUpdateCtx* ctx, FcUpdateBucket bucket)
 {
 	FcGameObjectStorage* info = &world->gameObjects;
 
@@ -226,7 +226,40 @@ void fcWorldUpdate(FcWorld* world, FcWorldUpdateCtx* ctx, FcUpdateBucket bucket)
 			FcGameObject* gameObject = info->ptr[handle.index];
 			
 			// update game object
-			gameObject->fn->update(gameObject, &updateCtx);
+			if (gameObject->fn->preAnimUpdate)
+			{
+				gameObject->fn->preAnimUpdate(gameObject, &updateCtx);
+			}
+		}
+	}
+}
+
+void fcWorldUpdatePrePhysics(FcWorld* world, FcWorldUpdateCtx* ctx, FcUpdateBucket bucket)
+{
+	FcGameObjectStorage* info = &world->gameObjects;
+
+	FcGameObjectUpdateCtx updateCtx = { 0 };
+	updateCtx.dt = ctx->dt;
+	updateCtx.world = world;
+
+	// go through all update buckets
+	for (i32 i = 0; i < FG_UPDATE_BUCKET_COUNT; ++i)
+	{
+		FcArrayGameObjectHandles* bucket = &world->buckets[i];
+
+		// go through all game objects within a bucket
+		for (i32 idxHandle = 0; idxHandle < bucket->num; ++idxHandle)
+		{
+			FcGameObjectHandle handle = bucket->data[idxHandle];
+
+			// get game object info
+			FcGameObject* gameObject = info->ptr[handle.index];
+
+			// update game object
+			if (gameObject->fn->prePhysicsUpdate)
+			{
+				gameObject->fn->prePhysicsUpdate(gameObject, &updateCtx);
+			}
 		}
 	}
 }

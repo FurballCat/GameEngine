@@ -113,7 +113,8 @@ typedef void (*FcGameObjectAnimateFn)(FcGameObject* gameObject, const FcGameObje
 typedef struct FcGameObjectFuncs
 {
 	FcGameObjectInitFn init;
-	FcGameObjectUpdateFn update;
+	FcGameObjectUpdateFn preAnimUpdate;
+	FcGameObjectUpdateFn prePhysicsUpdate;
 	FcGameObjectGetVarFn getVar;
 	FcGameObjectSetVarFn setVar;
 	FcGameObjectAnimateFn animate;
@@ -270,7 +271,8 @@ typedef struct FcWorldUpdateCtx
 } FcWorldUpdateCtx;
 
 void fcUpdateSpawning(FcWorld* world);
-void fcWorldUpdate(FcWorld* world, FcWorldUpdateCtx* ctx, FcUpdateBucket bucket);
+void fcWorldUpdatePreAnim(FcWorld* world, FcWorldUpdateCtx* ctx, FcUpdateBucket bucket);
+void fcWorldUpdatePrePhysics(FcWorld* world, FcWorldUpdateCtx* ctx, FcUpdateBucket bucket);
 
 void fcSpawn(const FcSpawnDesc* desc, FcWorld* world);
 
