@@ -32,7 +32,6 @@ typedef struct FcPhysics
 	PxMaterial* testMaterial;
 	
 	PxControllerManager* controllerManager;
-	PxController* controller;
 } FcPhysics;
 
 static PxDefaultAllocator g_defaultAllocator;
@@ -91,26 +90,13 @@ void fp_physics_init_scene(FcPhysics* physics, const FcAllocator* allocator)
 	}
 	*/
 	
-	// todo: refactor, probably shouldn't be created here
+	// controller manager
 	{
 		FUR_ASSERT(physics->controllerManager == NULL);
-		FUR_ASSERT(physics->controller == NULL);
 		physics->controllerManager = PxCreateControllerManager(*pScene);
 		PxControllerManager* mgr = physics->controllerManager;
 		mgr->setOverlapRecoveryModule(true);	// make sure character is not created in an initial overlap state
 		mgr->setPreciseSweeps(true);	//use precise sweep tests
-		
-		PxCapsuleControllerDesc controllerDesc;
-		controllerDesc.setToDefault();
-		controllerDesc.height = 1.3f;
-		controllerDesc.radius = 0.2f;
-		controllerDesc.stepOffset = 0.04f;	// must be smaller than height + 2 * radius
-		controllerDesc.material = physics->testMaterial;
-		controllerDesc.position = {0.0f, 0.0f, 1.0f};
-		controllerDesc.upDirection = {0.0f, 0.0f, 1.0f};
-		
-		FUR_ASSERT(controllerDesc.isValid());
-		physics->controller = mgr->createController(controllerDesc);
 	}
 }
 
@@ -132,9 +118,6 @@ FcResult fcCreatePhysics(const FcAllocator* allocator, FcPhysics** ppPhysics)
 
 void fcDestroyPhysics(FcPhysics* physics, const FcAllocator* allocator)
 {
-	if(physics->controller)
-		physics->controller->release();
-	
 	physics->controllerManager->release();
 	
 	physics->scene->release();
@@ -186,13 +169,6 @@ bool fcPhysicsRaycast(FcPhysics* physics, const fm_vec4* start, const fm_vec4* d
 
 void fcPhysicsUpdate(FcPhysics* physics, const FcPhysicsUpdateCtx* pCtx)
 {
-	// character controller update
-	{
-		PxVec3 disp = {pCtx->playerDisplacement->x, pCtx->playerDisplacement->y, pCtx->playerDisplacement->z};
-		PxControllerFilters filters;
-		physics->controller->move(disp, 0.00001f, pCtx->dt, filters);
-	}
-	
 	// scene simulation
 	{
 		PxScene* scene = physics->scene;
@@ -274,19 +250,53 @@ void fcPhysicsUpdate(FcPhysics* physics, const FcPhysicsUpdateCtx* pCtx)
 	}*/
 }
 
-void fcPhysicsGetPlayerInfo(FcPhysics* physics, FcPhysicsPlayerInfo* playerInfo)
+typedef struct FcCapsuleController
 {
-	const PxExtendedVec3 footPos = physics->controller->getFootPosition();
-	playerInfo->locator->pos.x = footPos.x;
-	playerInfo->locator->pos.y = footPos.y;
-	playerInfo->locator->pos.z = footPos.z;
-	playerInfo->locator->pos.w = 1.0f;
-	
-	//const PxTransform t = pPhysics->controller->getActor()->getGlobalPose();
-	//const PxVec3 x = t.q.getBasisVector0();
-	//const PxVec3 y = t.q.getBasisVector1();
-	//const PxVec3 z = t.q.getBasisVector2();
-	fm_quat_identity(&playerInfo->locator->rot);
+	PxController* pxController;
+} FcCapsuleController;
+
+void fcCreateCapsuleController(FcPhysics* physics, const FcCreateCapsuleControllerInfo* info, const FcAllocator* allocator, FcCapsuleController** outController)
+{
+	PxCapsuleControllerDesc controllerDesc;
+	controllerDesc.setToDefault();
+	controllerDesc.height = info->height;
+	controllerDesc.radius = info->radius;
+	controllerDesc.stepOffset = 0.04f;	// must be smaller than height + 2 * radius
+	controllerDesc.material = physics->testMaterial;
+	controllerDesc.position = { info->initPosition.x, info->initPosition.y, info->initPosition.z };
+	controllerDesc.upDirection = { 0.0f, 0.0f, 1.0f };
+
+	FcCapsuleController* controller = (FcCapsuleController*)FUR_ALLOC_AND_ZERO(sizeof(FcCapsuleController), 0, FC_MEMORY_SCOPE_PHYSICS, allocator);
+
+	FUR_ASSERT(controllerDesc.isValid());
+	controller->pxController = physics->controllerManager->createController(controllerDesc);
+
+	*outController = controller;
+}
+
+void fcDestroyCapsuleController(FcPhysics* physics, const FcAllocator* allocator, FcCapsuleController* controller)
+{
+	controller->pxController->release();
+
+	FUR_FREE(controller, allocator);
+}
+
+void fcCapsuleControllerMove(FcCapsuleController* controller, const fm_vec3* displacement, f32 dt)
+{
+	const PxVec3 pxDisplacement = { displacement->x, displacement->y, displacement->z };
+	PxControllerFilters filters;
+	controller->pxController->move(pxDisplacement, 0.00001f, dt, filters);
+}
+
+void fcCapsuleControllerGetLocator(const FcCapsuleController* controller, fm_xform* locator)
+{
+	const PxExtendedVec3 footPos = controller->pxController->getFootPosition();
+	locator->pos.x = footPos.x;
+	locator->pos.y = footPos.y;
+	locator->pos.z = footPos.z;
+	locator->pos.w = 1.0f;
+
+	fm_quat_identity(&locator->rot);
 }
 
 // ----- BOUNDING VOLUME HIERARCHY -----

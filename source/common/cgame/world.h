@@ -159,6 +159,7 @@ void fcResourceRegisterAddMesh(FcResourceRegister* reg, FcStringId name, const F
 typedef struct FcRenderer FcRenderer;
 typedef struct FcAnimSystem FcAnimSystem;
 typedef struct FcInputActionSystem FcInputActionSystem;
+typedef struct FcPhysics FcPhysics;
 
 typedef struct FcSystems
 {
@@ -166,6 +167,7 @@ typedef struct FcSystems
 	FcAnimSystem* animation;
 	FcCameraSystem* camera;
 	FcInputActionSystem* inputAction;
+	FcPhysics* physics;
 } FcSystems;
 
 // used for defining how to initialise specific type of game object

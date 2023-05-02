@@ -29,18 +29,28 @@ CPHYSICS_API void fcPhysicsAddStaticBox(FcPhysics* physics, const fm_xform* worl
 typedef struct FcPhysicsUpdateCtx
 {
 	f32 dt;
-	fm_vec4* playerDisplacement;
 } FcPhysicsUpdateCtx;
 	
 CPHYSICS_API void fcPhysicsUpdate(FcPhysics* physics, const FcPhysicsUpdateCtx* pCtx);
-	
-typedef struct FcPhysicsPlayerInfo
+
+// character controller API
+typedef struct FcCreateCapsuleControllerInfo
 {
-	fm_xform* locator;
-} FcPhysicsPlayerInfo;
+	fm_vec3 initPosition;
+	f32 height;
+	f32 radius;
+} FcCreateCapsuleControllerInfo;
 
-CPHYSICS_API void fcPhysicsGetPlayerInfo(FcPhysics* physics, FcPhysicsPlayerInfo* playerInfo);
+typedef struct FcCapsuleController FcCapsuleController;
 
+CPHYSICS_API void fcCreateCapsuleController(FcPhysics* physics, const FcCreateCapsuleControllerInfo* info,
+	const FcAllocator* allocator, FcCapsuleController** outController);
+CPHYSICS_API void fcDestroyCapsuleController(FcPhysics* physics, const FcAllocator* allocator, FcCapsuleController* controller);
+
+CPHYSICS_API void fcCapsuleControllerMove(FcCapsuleController* controller, const fm_vec3* displacement, f32 dt);
+CPHYSICS_API void fcCapsuleControllerGetLocator(const FcCapsuleController* controller, fm_xform* locator);
+
+// raycast API
 typedef struct FcRaycastHit
 {
 	fm_vec4 pos;

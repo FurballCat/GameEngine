@@ -116,6 +116,7 @@ typedef struct FcGameObject_Zelda
 	FcAnimateActionSlots animateActionSlots;
 	FcAnimCharacter* animCharacter;
 	const FcRenderProxy* mesh;
+	FcCapsuleController* capsule;
 	
 	fm_vec4 velocity;
 	fm_vec4 logicMove;
@@ -155,6 +156,15 @@ bool fcGameObject_ZeldaInit(FcGameObject* gameObject, FcGameObjectInitCtx* ctx)
 		zelda->script.waitSeconds = 0.0f;
 		zelda->script.selfGameObject = gameObject;
 		zelda->script.isActive = true;
+
+		FcCreateCapsuleControllerInfo capsuleInfo = { 0 };
+		capsuleInfo.height = 1.3f;
+		capsuleInfo.radius = 0.2f;
+		capsuleInfo.initPosition.x = 0.0f;
+		capsuleInfo.initPosition.y = 0.0f;
+		capsuleInfo.initPosition.z = 1.0f;
+		
+		fcCreateCapsuleController(ctx->systems->physics, &capsuleInfo, ctx->stackAlloc, &zelda->capsule);
 	}
 	
 	return true;
@@ -258,8 +268,8 @@ struct FcRenderer;
 
 typedef struct FcInputActionSystem
 {
-	fm_vec2 rightStick;
-	fm_vec2 leftStick;
+	fm_vec2 rightAnalog;
+	fm_vec2 leftAnalog;
 	float rightTrigger;
 	float leftTrigger;
 	bool triangle;
@@ -445,6 +455,8 @@ bool fcCreateGameEngine(const FcGameEngineCreateInfo& desc, const FcAllocator* a
 		worldDesc.systems.renderer = pEngine->pRenderer;
 		worldDesc.systems.animation = pEngine->animSystem;
 		worldDesc.systems.camera = pEngine->cameraSystem;
+		worldDesc.systems.inputAction = &pEngine->inputActionSystem;
+		worldDesc.systems.physics = pEngine->pPhysics;
 
 		fcCreateWorld(&worldDesc, allocator, &pEngine->pWorld);
 	}
@@ -945,10 +957,10 @@ void fcInputActionsUpdate(FcGameEngine* pEngine, f32 dt)
 	else // block all the actions when debug menu is enabled
 	{
 		FcInputActionSystem* actionSystem = &pEngine->inputActionSystem;
-		actionSystem->rightStick.x = rightAnalogX;
-		actionSystem->rightStick.y = rightAnalogY;
-		actionSystem->leftStick.x = leftAnalogX;
-		actionSystem->leftStick.y = leftAnalogY;
+		actionSystem->rightAnalog.x = rightAnalogX;
+		actionSystem->rightAnalog.y = rightAnalogY;
+		actionSystem->leftAnalog.x = leftAnalogX;
+		actionSystem->leftAnalog.y = leftAnalogY;
 		actionSystem->triangle = triangleActionPressed;
 		actionSystem->circle = circleActionPressed;
 		actionSystem->cross = actionPressed;
@@ -1162,14 +1174,12 @@ void fcGameplayUpdate(FcGameEngine* pEngine, f32 dt)
 
 void fcAnimationUpdate(FcGameEngine* pEngine, f32 dt)
 {
-	// set last known world position for character
-	fm_xform playerLocator;
-	FcPhysicsPlayerInfo playerPhysics;
-	playerPhysics.locator = &playerLocator;
-	fcPhysicsGetPlayerInfo(pEngine->pPhysics, &playerPhysics);
-
 	FcGameObject_Zelda* zelda = pEngine->zeldaGameObject;
-	
+
+	// set last known world position for character
+	fm_xform playerLocator = {0};
+	fcCapsuleControllerGetLocator(zelda->capsule, &playerLocator);
+
 	zelda->animCharacter->animInfo.worldPos.x = playerLocator.pos.x;
 	zelda->animCharacter->animInfo.worldPos.y = playerLocator.pos.y;
 	zelda->animCharacter->animInfo.worldPos.z = playerLocator.pos.z;
@@ -1397,9 +1407,7 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 	{
 		// get zelda position
 		fm_xform playerLocator;
-		FcPhysicsPlayerInfo playerPhysics;
-		playerPhysics.locator = &playerLocator;
-		fcPhysicsGetPlayerInfo(pEngine->pPhysics, &playerPhysics);
+		fcCapsuleControllerGetLocator(pEngine->zeldaGameObject->capsule, &playerLocator);
 		
 		static f32 time = 0.0f;
 		time += dt;
@@ -1486,12 +1494,12 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 		zelda->velocity.z += -9.81f * dt;
 		
 		fm_vec4_mulf(&zelda->velocity, dt, &playerDisplacement);
-		physicsCtx.playerDisplacement = &playerDisplacement;
+		const fm_vec3 displacement = { playerDisplacement.x, playerDisplacement.y, playerDisplacement.z };
+		fcCapsuleControllerMove(zelda->capsule, &displacement, dt);
+
 		fcPhysicsUpdate(pEngine->pPhysics, &physicsCtx);
 		
-		FcPhysicsPlayerInfo playerPhysics;
-		playerPhysics.locator = &zelda->info.transform;
-		fcPhysicsGetPlayerInfo(pEngine->pPhysics, &playerPhysics);
+		fcCapsuleControllerGetLocator(zelda->capsule, &zelda->info.transform);
 
 		if(zelda->playerWindProtecting)
 		{
@@ -1685,8 +1693,8 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 		{
 			FcCameraSystemUpdateCtx cameraCtx = {};
 			cameraCtx.dt = dt;
-			cameraCtx.rotationYaw = pEngine->inputActionSystem.rightStick.x;
-			cameraCtx.rotationPitch = pEngine->inputActionSystem.rightStick.y;
+			cameraCtx.rotationYaw = pEngine->inputActionSystem.rightAnalog.x;
+			cameraCtx.rotationPitch = pEngine->inputActionSystem.rightAnalog.y;
 			cameraCtx.zoom = pEngine->inputActionSystem.leftTrigger - pEngine->inputActionSystem.rightTrigger;
 			
 			// adjust camera by player position
@@ -1703,9 +1711,9 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 		fcCameraSystemGetDirections(pEngine->cameraSystem, &dirForward, &dirLeft);
 		
 		fm_vec4 playerMoveForward;
-		fm_vec4_mulf(&dirForward, maxSpeed * pEngine->inputActionSystem.leftStick.y, &playerMoveForward);
+		fm_vec4_mulf(&dirForward, maxSpeed * pEngine->inputActionSystem.leftAnalog.y, &playerMoveForward);
 		fm_vec4 playerMoveLeft;
-		fm_vec4_mulf(&dirLeft, maxSpeed * pEngine->inputActionSystem.leftStick.x, &playerMoveLeft);
+		fm_vec4_mulf(&dirLeft, maxSpeed * pEngine->inputActionSystem.leftAnalog.x, &playerMoveLeft);
 		fm_vec4 playerMove;
 		fm_vec4_add(&playerMoveForward, &playerMoveLeft, &playerMove);
 		
