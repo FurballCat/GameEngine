@@ -264,6 +264,36 @@ void fcWorldUpdatePrePhysics(FcWorld* world, FcWorldUpdateCtx* ctx, FcUpdateBuck
 	}
 }
 
+void fcWorldUpdatePostPhysics(FcWorld* world, FcWorldUpdateCtx* ctx, FcUpdateBucket bucket)
+{
+	FcGameObjectStorage* info = &world->gameObjects;
+
+	FcGameObjectUpdateCtx updateCtx = { 0 };
+	updateCtx.dt = ctx->dt;
+	updateCtx.world = world;
+
+	// go through all update buckets
+	for (i32 i = 0; i < FG_UPDATE_BUCKET_COUNT; ++i)
+	{
+		FcArrayGameObjectHandles* bucket = &world->buckets[i];
+
+		// go through all game objects within a bucket
+		for (i32 idxHandle = 0; idxHandle < bucket->num; ++idxHandle)
+		{
+			FcGameObjectHandle handle = bucket->data[idxHandle];
+
+			// get game object info
+			FcGameObject* gameObject = info->ptr[handle.index];
+
+			// update game object
+			if (gameObject->fn->postPhysicsUpdate)
+			{
+				gameObject->fn->postPhysicsUpdate(gameObject, &updateCtx);
+			}
+		}
+	}
+}
+
 void* fcStackAlloc(FcStackAllocPool* allocator, i32 size)
 {
 	FUR_ASSERT(allocator->size + size <= allocator->capacity);

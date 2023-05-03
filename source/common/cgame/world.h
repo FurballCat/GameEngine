@@ -112,9 +112,19 @@ typedef void (*FcGameObjectAnimateFn)(FcGameObject* gameObject, const FcGameObje
 
 typedef struct FcGameObjectFuncs
 {
+	// at the spawn
 	FcGameObjectInitFn init;
+
+	// before animation
 	FcGameObjectUpdateFn preAnimUpdate;
+
+	// after animation, but before physics
 	FcGameObjectUpdateFn prePhysicsUpdate;
+
+	// after physics
+	FcGameObjectUpdateFn postPhysicsUpdate;
+
+	// script callbacks
 	FcGameObjectGetVarFn getVar;
 	FcGameObjectSetVarFn setVar;
 	FcGameObjectAnimateFn animate;
@@ -270,9 +280,17 @@ typedef struct FcWorldUpdateCtx
 	f32 dt;
 } FcWorldUpdateCtx;
 
+// called at the beginning of frame
 void fcUpdateSpawning(FcWorld* world);
+
+// before animation
 void fcWorldUpdatePreAnim(FcWorld* world, FcWorldUpdateCtx* ctx, FcUpdateBucket bucket);
+
+// after animation, but before physics
 void fcWorldUpdatePrePhysics(FcWorld* world, FcWorldUpdateCtx* ctx, FcUpdateBucket bucket);
+
+// after physics
+void fcWorldUpdatePostPhysics(FcWorld* world, FcWorldUpdateCtx* ctx, FcUpdateBucket bucket);
 
 void fcSpawn(const FcSpawnDesc* desc, FcWorld* world);
 

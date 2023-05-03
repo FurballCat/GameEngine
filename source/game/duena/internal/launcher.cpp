@@ -224,6 +224,19 @@ void fcGameObject_ZeldaUpdatePrePhysics(FcGameObject* gameObject, FcGameObjectUp
 	}
 }
 
+void fcGameObject_ZeldaUpdatePostPhysics(FcGameObject* gameObject, FcGameObjectUpdateCtx* ctx)
+{
+	FUR_PROFILE("update-zelda-post-physics")
+	{
+		const f32 dt = ctx->dt;
+
+		FcGameObject_Zelda* zelda = (FcGameObject_Zelda*)gameObject;
+
+		// set proper game object's transform after physics
+		fcCapsuleControllerGetLocator(zelda->capsule, &zelda->info.transform);
+	}
+}
+
 FcVariant fcGameObject_ZeldaGetVar(FcGameObject* gameObject, FcStringId varName)
 {
 	FcGameObject_Zelda* zelda = (FcGameObject_Zelda*)gameObject;
@@ -298,6 +311,7 @@ void fcRegisterGameObjectFactories()
 		factory.fn.init = fcGameObject_ZeldaInit;
 		factory.fn.preAnimUpdate = fcGameObject_ZeldaUpdatePreAnim;
 		factory.fn.prePhysicsUpdate = fcGameObject_ZeldaUpdatePrePhysics;
+		factory.fn.postPhysicsUpdate = fcGameObject_ZeldaUpdatePostPhysics;
 		factory.fn.getVar = fcGameObject_ZeldaGetVar;
 		factory.fn.animate = fcGameObject_ZeldaAnimate;
 		factory.memoryMaxSize = sizeof(FcGameObject_Zelda);
@@ -1411,7 +1425,7 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 	pEngine->globalTime += dt;
 	
 	// input
-	FUR_PROFILE("actions-update")
+	FUR_PROFILE("input-update")
 	{
 		fcInputManagerUpdate(pEngine->pInputManager, pEngine->globalTime);
 		fcInputActionsUpdate(pEngine, dt);
@@ -1439,6 +1453,8 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 	FUR_PROFILE("spawning")
 	{
 		fcUpdateSpawning(pEngine->pWorld);
+
+		// todo: remove that
 		if (!pEngine->zeldaGameObject)
 		{
 			for (i32 i = 0; i < pEngine->pWorld->gameObjects.num; ++i)
@@ -1518,8 +1534,7 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 		fcPhysicsUpdate(pEngine->pPhysics, &physicsCtx);
 		
 		FcGameObject_Zelda* zelda = pEngine->zeldaGameObject;
-		fcCapsuleControllerGetLocator(zelda->capsule, &zelda->info.transform);
-
+		
 		if(zelda->playerWindProtecting)
 		{
 			pEngine->windVelocity.x = 1.4f;
@@ -1667,6 +1682,14 @@ void fcGameEngineMainUpdate(FcGameEngine* pEngine, f32 dt, const FcAllocator* al
 				pEngine->skinMatrices[pEngine->zeldaCapeIdxR[i]] = m[i];
 			}
 		}
+	}
+
+	// world post physics
+	FUR_PROFILE("world-post-physics")
+	{
+		FcWorldUpdateCtx worldUpdateCtx = {};
+		worldUpdateCtx.dt = dt;
+		fcWorldUpdatePostPhysics(pEngine->pWorld, &worldUpdateCtx, FG_UPDATE_BUCKET_CHARACTERS);
 	}
 	
 	// test jobs
